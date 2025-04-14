@@ -1,0 +1,246 @@
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
+
+class ProfileViewModel extends ChangeNotifier {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _authService = AuthService();
+  
+  UserModel? _user;
+  bool _isLoading = false;
+  String? _errorMessage;
+  bool _isEditing = false;
+
+  // Getters
+  UserModel? get user => _user;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  bool get isEditing => _isEditing;
+  bool get isPremium => _user?.isPremium ?? false;
+  bool get isAuthenticated => _auth.currentUser != null;
+
+  // Kullanıcı profilini yükleme
+  Future<void> loadUserProfile() async {
+    if (_auth.currentUser == null) return;
+    
+    _setLoading(true);
+    try {
+      final userData = await _authService.getUserData();
+      _user = userData;
+      notifyListeners();
+    } catch (e) {
+      _setError('Profil yüklenirken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Düzenleme modunu açma/kapatma
+  void toggleEditMode() {
+    _isEditing = !_isEditing;
+    notifyListeners();
+  }
+
+  // Kullanıcı adını güncelleme
+  Future<void> updateDisplayName(String displayName) async {
+    if (_auth.currentUser == null || _user == null) return;
+    
+    _setLoading(true);
+    try {
+      await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+        'displayName': displayName,
+      });
+      
+      // Yerel kullanıcı nesnesini güncelle
+      _user = _user!.copyWith(displayName: displayName);
+      
+      notifyListeners();
+    } catch (e) {
+      _setError('İsim güncellenirken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Kullanıcı tercihlerini güncelleme
+  Future<void> updatePreferences(Map<String, dynamic> preferences) async {
+    if (_auth.currentUser == null || _user == null) return;
+    
+    _setLoading(true);
+    try {
+      // Var olan tercihlerle yenilerini birleştir
+      final updatedPreferences = {
+        ..._user!.preferences,
+        ...preferences,
+      };
+      
+      await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+        'preferences': updatedPreferences,
+      });
+      
+      // Yerel kullanıcı nesnesini güncelle
+      _user = _user!.copyWith(preferences: updatedPreferences);
+      
+      notifyListeners();
+    } catch (e) {
+      _setError('Tercihler güncellenirken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Premium abonelik satın alma
+  Future<bool> purchasePremium({required String planType}) async {
+    if (_auth.currentUser == null || _user == null) return false;
+    
+    _setLoading(true);
+    try {
+      // Burada gerçek bir ödeme işlemi entegre edilecektir
+      // Şimdilik sadece kullanıcı modelini güncelliyoruz
+      
+      DateTime expiryDate;
+      switch (planType) {
+        case 'monthly':
+          expiryDate = DateTime.now().add(const Duration(days: 30));
+          break;
+        case 'yearly':
+          expiryDate = DateTime.now().add(const Duration(days: 365));
+          break;
+        default:
+          expiryDate = DateTime.now().add(const Duration(days: 30));
+      }
+      
+      await _authService.updatePremiumStatus(
+        isPremium: true, 
+        expiryDate: expiryDate,
+      );
+      
+      // Kullanıcı profilini yeniden yükle
+      await loadUserProfile();
+      
+      return true;
+    } catch (e) {
+      _setError('Premium abonelik satın alınırken hata oluştu: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Premium abonelik iptal etme
+  Future<bool> cancelPremium() async {
+    if (_auth.currentUser == null || _user == null) return false;
+    
+    _setLoading(true);
+    try {
+      // Burada gerçek bir abonelik iptal işlemi entegre edilecektir
+      // Şimdilik sadece kullanıcı modelini güncelliyoruz
+      
+      await _authService.updatePremiumStatus(
+        isPremium: false, 
+        expiryDate: null,
+      );
+      
+      // Kullanıcı profilini yeniden yükle
+      await loadUserProfile();
+      
+      return true;
+    } catch (e) {
+      _setError('Premium abonelik iptal edilirken hata oluştu: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Kullanıcı verilerini silme
+  Future<bool> deleteUserData() async {
+    if (_auth.currentUser == null) return false;
+    
+    _setLoading(true);
+    try {
+      final userId = _auth.currentUser!.uid;
+      
+      // Kullanıcıya ait tüm verileri silme
+      final batch = _firestore.batch();
+      
+      // Mesajları silme
+      final messagesSnapshot = await _firestore
+          .collection('messages')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Analiz sonuçlarını silme
+      final analysisSnapshot = await _firestore
+          .collection('analysis_results')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in analysisSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Raporları silme
+      final reportsSnapshot = await _firestore
+          .collection('relationship_reports')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in reportsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Tavsiyeleri silme
+      final adviceSnapshot = await _firestore
+          .collection('advice_cards')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in adviceSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Kullanıcı belgesini silme
+      batch.delete(_firestore.collection('users').doc(userId));
+      
+      // Batch işlemi gerçekleştir
+      await batch.commit();
+      
+      // Kullanıcıyı auth sisteminden sil
+      await _auth.currentUser!.delete();
+      
+      return true;
+    } catch (e) {
+      _setError('Kullanıcı verileri silinirken hata oluştu: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Yükleme durumunu ayarlama
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  // Hata mesajını ayarlama
+  void _setError(String error) {
+    _errorMessage = error;
+    debugPrint(error);
+    notifyListeners();
+  }
+
+  // Hata mesajını temizleme
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+} 
