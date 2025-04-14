@@ -189,6 +189,25 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  // Premium aboneliği iptal etme
+  Future<bool> cancelPremium() async {
+    _setLoading(true);
+    _clearError();
+    try {
+      // Premium durumunu güncelle
+      await updatePremiumStatus(
+        isPremium: false,
+        expiryDate: null,
+      );
+      return true;
+    } catch (e) {
+      _setError('Premium abonelik iptali hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // Yükleme durumunu güncelleme
   void _setLoading(bool loading) {
     _isLoading = loading;

@@ -285,6 +285,42 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
   
+  // Premium aboneliği iptal etme
+  Future<void> _cancelPremium() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Premium Abonelik İptali'),
+        content: const Text(
+          'Premium aboneliğinizi iptal etmek istediğinizden emin misiniz?\n\n'
+          'İptal ettiğinizde premium özellikler kullanıma kapanacaktır.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('İptal Et'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true) {
+      final success = await authViewModel.cancelPremium();
+      
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Premium abonelik başarıyla iptal edildi')),
+        );
+      }
+    }
+  }
+  
   // Hesap ayarları ekranına git
   void _navigateToAccountSettings() {
     // Şimdilik sadece bilgi verelim
@@ -510,37 +546,55 @@ class _ProfileViewState extends State<ProfileView> {
           color: Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.workspace_premium,
-                  color: Colors.amber.shade700,
-                  size: 24,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Premium Üyelik',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.workspace_premium,
+                      color: Colors.amber.shade700,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Premium Üyelik',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (isPremium && premiumExpiry != null)
+                            Text(
+                              'Aktif - ${_formatDate(premiumExpiry)} tarihinde yenileniyor',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            )
+                          else
+                            Text(
+                              'Standart Üyelik',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                        ],
                       ),
-                      if (isPremium && premiumExpiry != null)
-                        Text(
-                          'Aktif - ${_formatDate(premiumExpiry)} tarihinde yenileniyor',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        )
-                      else
-                        Text(
-                          'Standart Üyelik',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+                if (isPremium) 
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: TextButton.icon(
+                      onPressed: _cancelPremium,
+                      icon: const Icon(Icons.cancel, size: 18),
+                      label: const Text('Aboneliği İptal Et'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

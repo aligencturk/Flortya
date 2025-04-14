@@ -19,7 +19,6 @@ import '../widgets/chat_bubble.dart';
 import '../models/analysis_result_model.dart';
 import '../constants/colors.dart';
 import '../constants/text_styles.dart';
-import '../models/text_recognition_script.dart' as local;
 
 class MessageAnalysisView extends StatefulWidget {
   const MessageAnalysisView({Key? key}) : super(key: key);
@@ -43,9 +42,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   final OcrService _ocrService = OcrService();
   String? _extractedText;
   
-  // Artık dil seçimi kaldırıldı - Sadece Latin/Türkçe destekleniyor
-  local.TextRecognitionScript _selectedScript = local.TextRecognitionScript.latin;
-
   @override
   void initState() {
     super.initState();
