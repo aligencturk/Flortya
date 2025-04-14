@@ -89,6 +89,45 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
   
+  // Premium kullanıcılar için yeni tavsiye alma
+  Future<void> getDailyAdvice(String userId, {bool isPremium = false, bool force = false}) async {
+    if (!isPremium && !force) {
+      _setError('Bu özellik sadece premium kullanıcılar için kullanılabilir.');
+      return;
+    }
+    
+    _setLoading(true);
+    try {
+      // Yeni tavsiye kartı al
+      _logger.i('Premium kullanıcı için yeni tavsiye kartı alınıyor.');
+      final advice = await _aiService.getDailyAdviceCard(userId);
+      
+      if (advice.containsKey('error')) {
+        _setError(advice['error']);
+        return;
+      }
+      
+      // Kullanıcı ID'si ekle
+      advice['userId'] = userId;
+      
+      // Firestore'a kaydet
+      final docRef = await _firestore.collection('advice_cards').add(advice);
+      
+      // ID'yi ekle
+      advice['id'] = docRef.id;
+      
+      // Güncel tavsiyeyi ayarla
+      _adviceCard = advice;
+      
+      _logger.i('Yeni premium tavsiye kartı alındı.');
+      notifyListeners();
+    } catch (e) {
+      _setError('Tavsiye kartı alınırken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
   // Tavsiye geçmişini alma
   Future<List<Map<String, dynamic>>> getAdviceHistory(String userId) async {
     try {
@@ -343,7 +382,7 @@ class AdviceViewModel extends ChangeNotifier {
   // Hata mesajını ayarlama
   void _setError(String error) {
     _errorMessage = error;
-    _logger.e(error);
+    _logger.e('AdviceViewModel hatası: $error');
     notifyListeners();
   }
 

@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
 class AuthViewModel extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   
   UserModel? _user;
   bool _isLoading = false;
@@ -21,7 +22,8 @@ class AuthViewModel extends ChangeNotifier {
   User? get currentUser => _authService.currentUser;
 
   // Constructor
-  AuthViewModel() {
+  AuthViewModel({required FirebaseAuth authService, required FirebaseFirestore firestore}) 
+      : _authService = AuthService() {
     _initializeUser();
   }
 
