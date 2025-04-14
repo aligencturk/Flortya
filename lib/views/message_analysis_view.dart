@@ -327,97 +327,135 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Partnerden gelen mesaj bilgisi
-              Text(
-                'Partnerinizden gelen mesajı aşağıya girin ve analiz edin.',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Mesaj Girişi
-              TextField(
-                controller: _messageController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Mesajı buraya yazın...',
-                  prefixIcon: const Icon(Icons.message),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-                  ),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Geçmiş Analizler Bölümü - aktif analiz yoksa göster
-              if (!messageViewModel.hasCurrentMessage && !messageViewModel.isLoading) 
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: messageViewModel.hasCurrentMessage ? theme.colorScheme.primary : Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Analiz sonucu gösterimi veya giriş formu
+            if (messageViewModel.hasCurrentMessage && messageViewModel.hasAnalysisResult)
+              // Analiz Sonucu Gösterimi
+              Expanded(
+                child: Column(
                   children: [
-                    Text(
-                      'Geçmiş Analizler',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        color: Colors.white,
+                        padding: const EdgeInsets.all(16.0),
+                        child: SingleChildScrollView(
+                          child: _buildAnalysisResult(),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    
-                    // Geçmiş analizler listesi
-                    SizedBox(
-                      height: 300, // Sabit yükseklik ile liste alanını sınırla
-                      child: _buildHistoryList(),
+                    // Geçmiş Analizlere Dön Butonu
+                    InkWell(
+                      onTap: () {
+                        messageViewModel.clearCurrentMessage();
+                        setState(() {
+                          _showDetailedAnalysis = false;
+                        });
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.history, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Geçmiş Analizlere Dön',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              
-              // Aktif analiz veya yükleniyor durumu
-              if (messageViewModel.hasCurrentMessage || messageViewModel.isLoading)
-                _buildAnalysisResult(),
-              
-              const SizedBox(height: 24),
-              
-              // Analiz Butonu - sadece analiz gösterilmiyorsa göster
-              if (!messageViewModel.hasCurrentMessage)
-                CustomButton(
-                  text: 'Mesajı Analiz Et',
-                  onPressed: _isProcessingImage ? () {} : _sendMessage,
-                  icon: Icons.psychology,
-                  isLoading: messageViewModel.isLoading || _isProcessingImage,
-                  isFullWidth: true,
+              )
+            else
+              // Form ve Geçmiş Listesi
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  color: Colors.white,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Partnerden gelen mesaj bilgisi
+                      Text(
+                        'Partnerinizden gelen mesajı aşağıya girin ve analiz edin.',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Mesaj Girişi
+                      TextField(
+                        controller: _messageController,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          hintText: 'Mesajı buraya yazın...',
+                          prefixIcon: const Icon(Icons.message),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Analiz Butonu - sadece analiz gösterilmiyorsa göster
+                      CustomButton(
+                        text: 'Mesajı Analiz Et',
+                        onPressed: _isProcessingImage ? () {} : _sendMessage,
+                        icon: Icons.psychology,
+                        isLoading: messageViewModel.isLoading || _isProcessingImage,
+                        isFullWidth: true,
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Geçmiş Analizler Bölümü - aktif analiz yoksa göster
+                      if (!messageViewModel.isLoading) 
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Geçmiş Analizler',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      
+                      // Geçmiş analizler listesi
+                      Expanded(
+                        child: messageViewModel.isLoading 
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildHistoryList(),
+                      ),
+                    ],
+                  ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
-      bottomNavigationBar: messageViewModel.hasCurrentMessage ? 
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: CustomButton(
-            text: 'Geçmiş Analizlere Dön',
-            onPressed: () {
-              messageViewModel.clearCurrentMessage();
-              setState(() {
-                _showDetailedAnalysis = false;
-              });
-            },
-            icon: Icons.history,
-            isFullWidth: true,
-          ),
-        ) : null,
     );
   }
 
@@ -592,32 +630,82 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
               : Icon(Icons.circle_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onTap: () async {
-              // Burada önce önceki analizi temizleyelim
-              messageViewModel.clearCurrentMessage();
-              
-              // Boş ID kontrolü
-              if (message.id.isEmpty) {
+              try {
+                // Önce sorunu teşhis için daha detaylı loglar ekleyelim
+                print('========= MESAJ DETAYLARI ==========');
+                print('Tıklanan mesaj ID: "${message.id}"');
+                print('Mesaj içeriği: "${message.content}"');
+                print('Mesaj analiz edilmiş mi: ${message.isAnalyzed}');
+                
+                // ID sağlamlık kontrolü
+                if (message.id.isEmpty || message.id == "null" || message.id == "undefined") {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Geçersiz mesaj ID: Bu mesaj için kayıtlı bir ID bulunamadı.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                // Tıklanan mesaj için güncel durumu temizle
+                messageViewModel.clearCurrentMessage();
+                
+                // İlk olarak mesajı almaya çalış
+                await messageViewModel.getMessage(message.id);
+                
+                // Mesaj yüklenebildi mi kontrol et
+                if (messageViewModel.currentMessage == null) {
+                  print('Mesaj yüklenemedi! ID: ${message.id}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Mesaj detayları yüklenemedi.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                // Analiz durumuna göre işlem yap
+                if (message.isAnalyzed) {
+                  print('Analiz edilmiş mesaj - Sonuç alınıyor');
+                  await messageViewModel.getAnalysisResult(message.id);
+                  
+                  // Analiz sonucu alındı mı kontrol et
+                  if (!messageViewModel.hasAnalysisResult) {
+                    print('Analiz sonucu alınamadı!');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Mesaj analiz sonucu bulunamadı, yeniden analiz edilecek.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    // Analiz edilememişse yeniden analiz et
+                    await messageViewModel.analyzeMessage(message.id);
+                  }
+                  
+                  setState(() {
+                    _showDetailedAnalysis = false;
+                  });
+                } else {
+                  // Henüz analiz edilmemiş mesajı analiz et
+                  print('Analiz edilmemiş mesaj - Analiz ediliyor');
+                  await messageViewModel.analyzeMessage(message.id);
+                }
+                
+                print('İşlem tamamlandı.');
+                print('Sonuç var mı: ${messageViewModel.hasAnalysisResult}');
+                print('Mesaj var mı: ${messageViewModel.hasCurrentMessage}');
+                
+              } catch (e) {
+                // Hata yakalama ve logla
+                print('HATA: $e');
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Geçersiz mesaj ID'),
+                  SnackBar(
+                    content: Text('İşlem sırasında hata: $e'),
                     backgroundColor: Colors.red,
                   ),
                 );
-                return;
-              }
-              
-              // Mesajı yükle
-              await messageViewModel.getMessage(message.id);
-              
-              if (message.isAnalyzed) {
-                await messageViewModel.getAnalysisResult(message.id);
-                
-                setState(() {
-                  _showDetailedAnalysis = false;
-                });
-              } else {
-                // Henüz analiz edilmemiş mesajı analiz et
-                await messageViewModel.analyzeMessage(message.id);
               }
             },
           ),
