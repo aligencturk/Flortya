@@ -8,7 +8,10 @@ import 'logger_service.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+    serverClientId: '850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com', // Web client ID
+  );
   final LoggerService _logger = LoggerService();
 
   // Mevcut kullanıcıyı almak
@@ -21,12 +24,27 @@ class AuthService {
   Future<UserCredential?> signInWithGoogle() async {
     try {
       // Google oturum açma akışını başlat
+      _logger.i('Google oturum açma akışı başlatılıyor...');
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        _logger.w('Kullanıcı Google girişini iptal etti');
+        return null;
+      }
+      
+      _logger.i('Google kullanıcısı seçildi: ${googleUser.email}');
       
       // Google kimlik bilgilerini kullanarak Firebase için kimlik bilgisi edinin
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      if (googleAuth.idToken == null) {
+        _logger.e('Google kimlik doğrulama belirteci alınamadı');
+        throw FirebaseAuthException(
+          code: 'google-auth-failed',
+          message: 'Google kimlik doğrulama belirteci alınamadı'
+        );
+      }
+      
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -43,7 +61,7 @@ class AuthService {
       _logger.i('Google ile giriş başarılı: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      _logger.e('Google ile giriş hatası', e);
+      _logger.e('Google ile giriş hatası: ${e.toString()}', e);
       return null;
     }
   }
