@@ -50,11 +50,35 @@ class ProfileViewModel extends ChangeNotifier {
       
       if (doc.exists) {
         _userProfile = doc.data() as Map<String, dynamic>?;
+        debugPrint('Kullanıcı profili yüklendi: $_userProfile');
         notifyListeners();
       } else {
+        debugPrint('Kullanıcı profili bulunamadı');
         _setError('Kullanıcı profili bulunamadı');
+        
+        // Kullanıcı profili bulunamadıysa, Firebase Auth'taki kullanıcı bilgilerini alalım
+        final user = _auth.currentUser;
+        if (user != null) {
+          // Temel bir profil oluşturalım
+          final Map<String, dynamic> newProfile = {
+            'name': user.displayName ?? '',
+            'email': user.email ?? '',
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'messagesAnalyzed': 0,
+            'isPremium': false,
+          };
+          
+          // Firestore'a kaydedelim
+          await _firestore.collection('users').doc(userId).set(newProfile);
+          
+          _userProfile = newProfile;
+          notifyListeners();
+          debugPrint('Yeni kullanıcı profili oluşturuldu: $_userProfile');
+        }
       }
     } catch (e) {
+      debugPrint('Kullanıcı profili yüklenirken hata: $e');
       _setError('Kullanıcı profili yüklenirken hata oluştu: $e');
     } finally {
       _setLoading(false);

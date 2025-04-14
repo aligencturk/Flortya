@@ -146,12 +146,22 @@ class AuthViewModel extends ChangeNotifier {
     if (_authService.currentUser == null) return;
     
     _setLoading(true);
+    _clearError();
+    
     try {
+      // Önce Firebase Auth'taki kullanıcı bilgilerini yenileyelim
+      await _authService.currentUser!.reload();
+      
+      // Ardından Firestore'daki kullanıcı bilgilerini alalım
       final userData = await _authService.getUserData();
       _user = userData;
+      
+      debugPrint('Kullanıcı bilgileri yenilendi: ${_user?.displayName}, ${_user?.email}');
+      
       notifyListeners();
     } catch (e) {
       _setError('Kullanıcı bilgileri yenileme hatası: $e');
+      debugPrint('Kullanıcı bilgileri yenileme hatası: $e');
     } finally {
       _setLoading(false);
     }

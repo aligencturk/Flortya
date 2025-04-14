@@ -119,12 +119,32 @@ class AuthService {
     
     try {
       _logger.d('Kullanıcı bilgileri alınıyor: ${currentUser!.uid}');
+      
+      // Firestore'dan güncel veriyi al
       DocumentSnapshot doc = await _firestore.collection('users').doc(currentUser!.uid).get();
+      
       if (doc.exists) {
+        _logger.d('Kullanıcı verisi bulundu: ${doc.data()}');
         return UserModel.fromFirestore(doc);
       }
+      
       _logger.w('Kullanıcı verisi bulunamadı: ${currentUser!.uid}');
-      return null;
+      
+      // Kullanıcı verisi bulunamadıysa, temel bilgilerle yeni bir kullanıcı oluştur
+      final user = _auth.currentUser!;
+      UserModel newUser = UserModel(
+        id: user.uid,
+        displayName: user.displayName ?? '',
+        email: user.email ?? '',
+        photoURL: user.photoURL ?? '',
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+      );
+      
+      // Yeni kullanıcıyı Firestore'a kaydet
+      await _firestore.collection('users').doc(user.uid).set(newUser.toFirestore());
+      
+      return newUser;
     } catch (e) {
       _logger.e('Kullanıcı verilerini alma hatası', e);
       return null;
@@ -147,6 +167,34 @@ class AuthService {
       _logger.i('Premium durumu başarıyla güncellendi');
     } catch (e) {
       _logger.e('Premium durumu güncelleme hatası', e);
+    }
+  }
+
+  // Kullanıcı adını güncelle
+  Future<bool> updateDisplayName(String displayName) async {
+    if (currentUser == null) return false;
+    
+    try {
+      _logger.i('Kullanıcı adı güncelleniyor: $displayName');
+      
+      // Önce Firebase Auth'ta kullanıcı adını güncelle
+      await currentUser!.updateDisplayName(displayName);
+      
+      // Kullanıcı verisini yeniden yükle
+      await currentUser!.reload();
+      
+      // Firestore'da da kullanıcı adını güncelle
+      await _firestore.collection('users').doc(currentUser!.uid).update({
+        'displayName': displayName,
+        'name': displayName,
+        'updatedAt': Timestamp.now(),
+      });
+      
+      _logger.i('Kullanıcı adı başarıyla güncellendi');
+      return true;
+    } catch (e) {
+      _logger.e('Kullanıcı adı güncelleme hatası', e);
+      return false;
     }
   }
 } 

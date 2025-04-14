@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
@@ -23,9 +26,8 @@ class _ProfileViewState extends State<ProfileView> {
   void initState() {
     super.initState();
     
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserProfile();
-    });
+    // Sayfa yüklendiğinde kullanıcı bilgilerini yeniden yükle
+    _forceRefreshUserData();
   }
 
   @override
@@ -34,17 +36,129 @@ class _ProfileViewState extends State<ProfileView> {
     super.dispose();
   }
 
-  // Kullanıcı profilini yükleme
-  Future<void> _loadUserProfile() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+  // Tarih formatı
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
+
+  // Kullanıcı adını doğrudan değiştirme dialog'u (ViewModel kullanmadan)
+  Future<void> _showDirectNameChangeDialog(BuildContext context) async {
+    final nameController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     
-    if (authViewModel.user != null) {
-      await profileViewModel.getUserProfile(authViewModel.user!.id);
-      
-      if (profileViewModel.userProfile != null) {
-        _nameController.text = profileViewModel.userProfile!['name'] ?? '';
+    // Mevcut ismi al
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser?.displayName != null) {
+      nameController.text = currentUser!.displayName!;
+    }
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('İsim Değiştir'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: nameController,
+            decoration: const InputDecoration(
+              labelText: 'Yeni İsim',
+              hintText: 'Yeni isminizi girin',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'İsim boş olamaz';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(context).pop(true);
+              }
+            },
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && nameController.text.isNotEmpty) {
+      bool success = false;
+      try {
+        // Yükleniyor gösterelim
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İsminiz güncelleniyor...')),
+        );
+        
+        final authUser = FirebaseAuth.instance.currentUser;
+        if (authUser != null) {
+          // Firebase Auth'da ismi güncelle
+          await authUser.updateDisplayName(nameController.text);
+          
+          // Kullanıcıyı yenile
+          await authUser.reload();
+          
+          // Firestore'da da güncelle
+          await FirebaseFirestore.instance.collection('users').doc(authUser.uid).update({
+            'displayName': nameController.text,
+            'name': nameController.text,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          
+          success = true;
+          
+          // UI'ı yenile
+          setState(() {});
+        }
+      } catch (e) {
+        debugPrint('İsim güncelleme hatası: $e');
+        success = false;
       }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success 
+              ? 'İsminiz başarıyla güncellendi' 
+              : 'İsim güncellenirken hata oluştu, lütfen tekrar deneyin'
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // Kullanıcı verilerini zorla yenileme
+  Future<void> _forceRefreshUserData() async {
+    try {
+      // Firebase Auth kullanıcısını yenile
+      if (FirebaseAuth.instance.currentUser != null) {
+        await FirebaseAuth.instance.currentUser!.reload();
+        
+        // Debug için kullanıcı bilgilerini yazdır
+        final currentUser = FirebaseAuth.instance.currentUser;
+        debugPrint('FORCE REFRESH - Kullanıcı bilgileri: ${currentUser?.displayName}, ${currentUser?.email}');
+      }
+      
+      // UI'ı yenile
+      setState(() {});
+    } catch (e) {
+      debugPrint('Firebase Auth yenileme hatası: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e')),
+        );
+      }
+      // Hata olsa bile UI yenilensin
+      setState(() {});
     }
   }
 
@@ -73,6 +187,7 @@ class _ProfileViewState extends State<ProfileView> {
     final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
     
     if (authViewModel.user != null) {
+      // ProfileViewModel üzerinden kullanıcı profilini güncelle
       final success = await profileViewModel.updateUserProfile(
         authViewModel.user!.id,
         _nameController.text.trim(),
@@ -80,10 +195,18 @@ class _ProfileViewState extends State<ProfileView> {
         '', // relationshipStatus için boş değer
       );
       
+      // Ayrıca AuthViewModel üzerinden kullanıcı adını da güncelle
+      // Bu Firebase Auth üzerinden displayName'i de güncellemeyi sağlar
+      await profileViewModel.updateDisplayName(_nameController.text.trim());
+      
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profil başarıyla güncellendi')),
         );
+        
+        // Kullanıcı bilgilerini yenile
+        await authViewModel.refreshUserData();
+        
         setState(() {
           _isEditingProfile = false;
         });
@@ -161,383 +284,530 @@ class _ProfileViewState extends State<ProfileView> {
       }
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context);
-    final profileViewModel = Provider.of<ProfileViewModel>(context);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          if (!_isEditingProfile)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: _toggleEditMode,
-              tooltip: 'Profili Düzenle',
-            ),
-        ],
-      ),
-      body: profileViewModel.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Profil resmi ve kullanıcı bilgileri
-                  _buildProfileHeader(context, authViewModel, profileViewModel),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Profil düzenleme veya profil bilgileri
-                  _isEditingProfile
-                      ? _buildProfileEditForm(context)
-                      : _buildProfileInfo(context, profileViewModel),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Premium abonelik durumu
-                  _buildPremiumStatus(context, authViewModel),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Çıkış yap butonu
-                  CustomButton(
-                    text: 'Çıkış Yap',
-                    onPressed: _logout,
-                    icon: Icons.logout,
-                    isFullWidth: true,
-                    color: Colors.red,
-                  ),
-                ],
-              ),
-            ),
+  
+  // Hesap ayarları ekranına git
+  void _navigateToAccountSettings() {
+    // Şimdilik sadece bilgi verelim
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Hesap Bilgileri sayfası yapım aşamasında')),
+    );
+  }
+  
+  // Bildirim ayarları ekranına git
+  void _navigateToNotificationSettings() {
+    // Şimdilik sadece bilgi verelim
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bildirim Ayarları sayfası yapım aşamasında')),
+    );
+  }
+  
+  // Gizlilik ve güvenlik ekranına git
+  void _navigateToPrivacySettings() {
+    // Şimdilik sadece bilgi verelim
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Gizlilik ve Güvenlik sayfası yapım aşamasında')),
+    );
+  }
+  
+  // Yapılan analizler sayfasına git
+  void _navigateToAnalysisHistory() {
+    // Şimdilik sadece bilgi verelim
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Yapılan Analizler sayfası yapım aşamasında')),
     );
   }
 
-  // Profil başlık alanı
-  Widget _buildProfileHeader(
+  // Profil kartı
+  Widget _buildProfileCard(
     BuildContext context,
     AuthViewModel authViewModel,
     ProfileViewModel profileViewModel,
   ) {
-    final user = authViewModel.user;
-    final profile = profileViewModel.userProfile;
-    
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          child: Text(
-            profile != null && profile['name'] != null && profile['name'].isNotEmpty
-                ? profile['name'][0].toUpperCase()
-                : (user?.email != null ? user!.email[0].toUpperCase() : '?'),
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+    // Doğrudan Firebase'den kullanıcı bilgilerini al, cache kullanılmasını engelle
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            margin: EdgeInsets.all(16),
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
             ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                profile != null && profile['name'] != null && profile['name'].isNotEmpty
-                    ? profile['name']
-                    : 'İsimsiz Kullanıcı',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                user?.email ?? '',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                ),
-              ),
-              if (authViewModel.isPremium) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.workspace_premium,
-                      size: 16,
-                      color: Colors.amber.shade700,
+          );
+        }
+        
+        final authUser = userSnapshot.data;
+        
+        if (authUser == null) {
+          return Card(
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    child: Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(width: 4),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Giriş Yapılmadı',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Lütfen giriş yapın'),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        // Firebase User'ı kullanarak profil kartını oluştur
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(authUser.uid).get(),
+          builder: (context, snapshot) {
+            // Debug bilgileri
+            debugPrint('Auth User: ${authUser.displayName}, ${authUser.email}');
+            
+            var userName = authUser.displayName ?? 'İsimsiz Kullanıcı';
+            var userEmail = authUser.email ?? '';
+            
+            // Firestore'dan veri varsa güncelle
+            if (snapshot.connectionState == ConnectionState.done && 
+                snapshot.hasData && 
+                snapshot.data != null && 
+                snapshot.data!.exists) {
+              
+              final userData = snapshot.data!.data() as Map<String, dynamic>?;
+              
+              if (userData != null) {
+                debugPrint('Firestore User Data: $userData');
+                
+                // Firestore'dan isim bilgisini al
+                if (userData['displayName'] != null && userData['displayName'].toString().isNotEmpty) {
+                  userName = userData['displayName'];
+                } else if (userData['name'] != null && userData['name'].toString().isNotEmpty) {
+                  userName = userData['name'];
+                }
+              }
+            }
+            
+            // Kullanıcı avatarı
+            Widget avatarWidget = CircleAvatar(
+              radius: 40,
+              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              child: Icon(
+                Icons.person,
+                size: 40,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            );
+            
+            // Auth kullanıcısında fotoğraf varsa göster
+            if (authUser.photoURL != null && authUser.photoURL!.isNotEmpty) {
+              avatarWidget = CircleAvatar(
+                radius: 40,
+                backgroundImage: NetworkImage(authUser.photoURL!),
+              );
+            }
+            
+            return Card(
+              margin: const EdgeInsets.all(16),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    avatarWidget,
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            userName,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          onPressed: () => _showDirectNameChangeDialog(context),
+                          tooltip: 'İsmi Değiştir',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      'Premium Üye',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.amber.shade700,
-                        fontWeight: FontWeight.bold,
+                      userEmail,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    )
-    .animate()
-    .fadeIn(duration: 400.ms)
-    .slideX(begin: -0.1, end: 0, duration: 400.ms);
-  }
-
-  // Profil düzenleme formu
-  Widget _buildProfileEditForm(BuildContext context) {
-    final profileViewModel = Provider.of<ProfileViewModel>(context);
-    
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Profil Bilgilerinizi Düzenleyin',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // İsim alanı
-          TextFormField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'İsim',
-              hintText: 'İsminizi girin',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.person),
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Lütfen isminizi girin';
-              }
-              return null;
-            },
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Butonlar
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: 'İptal',
-                  onPressed: _toggleEditMode,
-                  isOutlined: true,
-                ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: CustomButton(
-                  text: 'Kaydet',
-                  onPressed: _updateProfile,
-                  isLoading: profileViewModel.isUpdating,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    )
-    .animate()
-    .fadeIn(duration: 300.ms)
-    .slideY(begin: 0.1, end: 0, duration: 300.ms);
-  }
-
-  // Profil bilgileri
-  Widget _buildProfileInfo(BuildContext context, ProfileViewModel profileViewModel) {
-    final profile = profileViewModel.userProfile;
-    
-    if (profile == null) {
-      return const Center(
-        child: Text('Profil bilgileri yüklenemedi.'),
-      );
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Profil Bilgileri',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Profil bilgileri listesi
-        Card(
-          elevation: 0,
-          color: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildInfoItem(
-                  context,
-                  icon: Icons.person,
-                  title: 'İsim',
-                  value: profile['name'] ?? 'Belirtilmemiş',
-                ),
-                
-                const Divider(height: 32),
-                
-                _buildInfoItem(
-                  context,
-                  icon: Icons.calendar_today,
-                  title: 'Üyelik Tarihi',
-                  value: profile['joinDate'] != null
-                      ? _formatDate(DateTime.parse(profile['joinDate']))
-                      : 'Belirtilmemiş',
-                ),
-                
-                if (profile['messagesAnalyzed'] != null) ...[
-                  const Divider(height: 32),
-                  
-                  _buildInfoItem(
-                    context,
-                    icon: Icons.message,
-                    title: 'Analiz Edilen Mesaj Sayısı',
-                    value: profile['messagesAnalyzed'].toString(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        )
-        .animate()
-        .fadeIn(duration: 400.ms)
-        .slideY(begin: 0.1, end: 0, duration: 400.ms),
-      ],
+            )
+            .animate()
+            .fadeIn(duration: 400.ms)
+            .slideY(begin: -0.1, end: 0, duration: 400.ms);
+          },
+        );
+      },
     );
   }
-
-  // Premium abonelik durumu
-  Widget _buildPremiumStatus(BuildContext context, AuthViewModel authViewModel) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: authViewModel.isPremium
-              ? [Colors.amber.shade300, Colors.amber.shade700]
-              : [Colors.blue.shade700, Colors.indigo.shade800],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(
-                authViewModel.isPremium ? Icons.workspace_premium : Icons.star,
-                color: Colors.white,
-                size: 32,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                authViewModel.isPremium ? 'Premium Üyelik' : 'Standart Üyelik',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+  
+  // Premium üyelik kartı
+  Widget _buildPremiumCard(BuildContext context, AuthViewModel authViewModel) {
+    // Doğrudan Firebase'den veri alma
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            margin: EdgeInsets.symmetric(horizontal: 16),
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        
+        // Premium durumu ve bitiş tarihi
+        bool isPremium = false;
+        DateTime? premiumExpiry;
+        
+        if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+          final userData = snapshot.data!.data() as Map<String, dynamic>?;
+          
+          if (userData != null) {
+            isPremium = userData['isPremium'] ?? false;
+            
+            if (userData['premiumExpiry'] != null) {
+              premiumExpiry = (userData['premiumExpiry'] as Timestamp?)?.toDate();
+            }
+          }
+        }
+        
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.workspace_premium,
+                  color: Colors.amber.shade700,
+                  size: 24,
                 ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          Text(
-            authViewModel.isPremium
-                ? 'Premium üyeliğiniz sayesinde sınırsız mesaj analizi ve günlük yeni tavsiyeler alabilirsiniz.'
-                : 'Premium üyelikle daha fazla analiz ve günlük yeni tavsiyeler alabilirsiniz.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withOpacity(0.9),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Premium Üyelik',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (isPremium && premiumExpiry != null)
+                        Text(
+                          'Aktif - ${_formatDate(premiumExpiry)} tarihinde yenileniyor',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        )
+                      else
+                        Text(
+                          'Standart Üyelik',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          
-          const SizedBox(height: 20),
-          
-          if (!authViewModel.isPremium)
-            CustomButton(
-              text: 'Premium\'a Yükselt',
-              onPressed: _upgradeToPremium,
-              color: Colors.indigo.shade800,
-              isFullWidth: true,
-            ),
-        ],
-      ),
-    )
-    .animate()
-    .fadeIn(duration: 500.ms)
-    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1));
+        );
+      },
+    );
   }
-
-  // Bilgi öğesi
-  Widget _buildInfoItem(
+  
+  // Yapılan analizler kartı
+  Widget _buildAnalysisCard(BuildContext context, ProfileViewModel profileViewModel) {
+    // Doğrudan Firebase'den veri alma
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            margin: EdgeInsets.all(16),
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        
+        // Analiz sayısı
+        int analysisCount = 0;
+        
+        if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+          final userData = snapshot.data!.data() as Map<String, dynamic>?;
+          
+          if (userData != null) {
+            analysisCount = userData['messagesAnalyzed'] ?? 0;
+          }
+        }
+    
+        return Card(
+          margin: const EdgeInsets.all(16),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: Colors.white,
+          child: InkWell(
+            onTap: _navigateToAnalysisHistory,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.insights,
+                    color: Theme.of(context).primaryColor,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Yapılan Analizler',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '$analysisCount analiz',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 16),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  // Ayarlar kartı
+  Widget _buildSettingsCard(
     BuildContext context, {
     required IconData icon,
     required String title,
-    required String value,
+    required VoidCallback onTap,
   }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: Theme.of(context).colorScheme.primary,
-          size: 20,
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
             children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              Icon(
+                icon,
+                color: Theme.of(context).primaryColor,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
+              const Icon(Icons.arrow_forward_ios, size: 16),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  // Tarih formatı
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  @override
+  Widget build(BuildContext context) {
+    // Doğrudan Firebase'den kullanıcı bilgilerini al
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    
+    // Debug için kullanıcı bilgilerini göster
+    debugPrint('[BUILD] Firebase User: ${firebaseUser?.displayName}, ${firebaseUser?.email}');
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profil'),
+        actions: [
+          // Yenileme butonu
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _forceRefreshUserData,
+            tooltip: 'Yenile',
+          ),
+          // Çıkış butonu
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Çıkış Yap',
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: firebaseUser == null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Oturum açık değil'),
+                    ElevatedButton(
+                      onPressed: () {
+                        // Giriş sayfasına yönlendir
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Lütfen giriş yapın')),
+                        );
+                      },
+                      child: const Text('Giriş Yap'),
+                    ),
+                  ],
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _forceRefreshUserData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Profil kartı - artık ViewModel'ler yerine direkt Firebase kullanıyor
+                      _buildProfileCard(context, Provider.of<AuthViewModel>(context), Provider.of<ProfileViewModel>(context)),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Premium üyelik kartı
+                      _buildPremiumCard(context, Provider.of<AuthViewModel>(context)),
+                      
+                      // Analizler kartı
+                      _buildAnalysisCard(context, Provider.of<ProfileViewModel>(context)),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Hesap ayarları kartları
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hesap Ayarları',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildSettingsCard(
+                              context, 
+                              icon: Icons.person, 
+                              title: 'Hesap Bilgileri',
+                              onTap: _navigateToAccountSettings,
+                            ),
+                            _buildSettingsCard(
+                              context, 
+                              icon: Icons.notifications, 
+                              title: 'Bildirim Ayarları',
+                              onTap: _navigateToNotificationSettings,
+                            ),
+                            _buildSettingsCard(
+                              context, 
+                              icon: Icons.security, 
+                              title: 'Gizlilik ve Güvenlik',
+                              onTap: _navigateToPrivacySettings,
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 3, // Profil sekmesi seçili
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.message),
+            label: 'Mesaj Analizi',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.insights),
+            label: 'İlişki Raporu',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.lightbulb),
+            label: 'Tavsiye Kartı',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+        ],
+        onTap: (index) {
+          if (index != 3) { // Profil dışındaki bir sekmeye tıklandığında
+            // Burada ilgili sayfaya yönlendirme yapılacak
+            // Örneğin: context.go('/messages') gibi
+            // Şimdilik sadece bir mesaj gösterelim
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${index == 0 ? "Mesaj Analizi" : index == 1 ? "İlişki Raporu" : "Tavsiye Kartı"} sayfasına yönlendiriliyorsunuz...')),
+            );
+          }
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Yeni bir şey eklemek için (premium ayarları, yeni analiz vb.)
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
   }
 } 
