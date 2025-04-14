@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "850956703555",
+    "project_id": "flortai",
+    "storage_bucket": "flortai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:850956703555:android:43e57d643b5d7826e2c1f6",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDckMQDz1CO7mNpwuRh-m0ziDQeIFaNcaM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
