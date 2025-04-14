@@ -1,9 +1,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- İnternet izni (temel) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Ağ bağlantısını kontrol etme izni -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Wifi bağlantısını kontrol etme izni -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <!-- Harici depolama okuma izni (Firebase Storage için) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Harici depolama yazma izni (Firebase Storage için) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Kamera izni (gerekirse) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
     <application
         android:label="my_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"> <!-- HTTP bağlantıları için -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,6 +39,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        
+        <!-- Firebase için MultiDex desteği -->
+        <meta-data
+            android:name="firebase_performance_logcat_enabled"
+            android:value="true" />
+            
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -42,5 +61,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Google Sign-In için gerekli -->
+        <package android:name="com.google.android.gms" />
     </queries>
 </manifest>
