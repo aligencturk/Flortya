@@ -38,6 +38,7 @@ void main() async {
       androidProvider: AndroidProvider.debug,
       appleProvider: AppleProvider.debug,
     );
+    logger.i('Firebase App Check aktifleştirildi');
     
     // Tarih formatları için Türkçe desteği
     await initializeDateFormatting('tr_TR');
