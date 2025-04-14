@@ -177,6 +177,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       return;
     }
 
+    // Önceki analiz sonuçlarını temizle
+    viewModel.clearCurrentMessage();
+    
     setState(() {
       _isProcessingImage = true;
     });
@@ -243,28 +246,29 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         _selectedImage = null;
         _extractedText = null;
         _isProcessingImage = false;
+        // Detaylı analiz bölümünü varsayılan olarak kapat
+        _showDetailedAnalysis = false;
       });
-
-      // Otomatik kaydırma
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      
+      // Debug amaçlı kontroller
+      debugPrint('ViewModel sonrası analiz sonucu: ${viewModel.hasAnalysisResult}');
+      debugPrint('ViewModel sonrası mesaj: ${viewModel.hasCurrentMessage}');
+      
+      // Ekstra bir yeniden çizim çağrısı ekleyelim
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
-      setState(() {
-        _isProcessingImage = false;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Mesaj gönderme hatası: $e'),
+          content: Text('Mesaj analizi sırasında hata oluştu: $e'),
           backgroundColor: Colors.red,
         ),
       );
+      
+      setState(() {
+        _isProcessingImage = false;
+      });
     }
   }
 
@@ -772,7 +776,22 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   Widget _buildAnalysisResultsSection() {
     final messageViewModel = Provider.of<MessageViewModel>(context);
 
-    if (messageViewModel.hasAnalysisResult) {
+    // Yükleme durumunu kontrol et
+    if (messageViewModel.isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Mesaj analiz ediliyor...')
+          ],
+        ),
+      );
+    }
+
+    // Analiz sonuçlarını kontrol et
+    if (messageViewModel.hasAnalysisResult && messageViewModel.currentAnalysisResult != null) {
       return SingleChildScrollView(
         child: Column(
           children: [

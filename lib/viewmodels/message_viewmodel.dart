@@ -94,16 +94,26 @@ class MessageViewModel extends ChangeNotifier {
     }
   }
 
+  // Yeni bir analiz başlatırken önceki analiz sonuçlarını temizleme
+  void _startNewAnalysis() {
+    _currentMessage = null;
+    _currentAnalysisResult = null;
+    notifyListeners();
+  }
+
   // Mesajı analiz etme
   Future<void> analyzeMessage(Message message) async {
+    // Önceki sonuçları temizle
+    _startNewAnalysis();
+    
     _setLoading(true);
-    _currentAnalysisResult = null;
     try {
       _logger.i('Mesaj analizi başlatılıyor. ID: ${message.id}');
       
       final result = await _aiService.analyzeMessage(message.content);
       
       if (result != null) {
+        // Analiz sonucunu set et
         _currentAnalysisResult = result;
         
         // Mesajı güncelle
@@ -124,15 +134,22 @@ class MessageViewModel extends ChangeNotifier {
           _messages[index] = updatedMessage;
         }
         
+        // Mevcut mesajı ayarla
         _currentMessage = updatedMessage;
         
         _logger.i('Mesaj analizi tamamlandı. ID: ${message.id}');
         
+        // UI'ı güncelle
         notifyListeners();
+        
+        // Debug amaçlı kontroller
+        _logger.d('_currentMessage: ${_currentMessage != null}');
+        _logger.d('_currentAnalysisResult: ${_currentAnalysisResult != null}');
       } else {
         _setError('Mesaj analiz edilemedi');
       }
     } catch (e) {
+      _logger.e('Mesaj analizi sırasında hata oluştu: $e');
       _setError('Mesaj analizi sırasında hata oluştu: $e');
     } finally {
       _setLoading(false);

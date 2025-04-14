@@ -217,13 +217,20 @@ class AiService {
       if (isImageMessage && hasExtractedText) {
         // Ekran görüntüsü ve OCR ile metin çıkarılmış
         prompt = '''
-        Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü içeriyor ve görselden çıkarılan metin var. 
+        Sen bir ilişki analiz uzmanı ve koçusun. Senin en önemli özelliğin ise son derece samimi, sıcak ve empatik bir arkadaş gibi cevap vermen. Bu mesaj bir ekran görüntüsü içeriyor ve görselden çıkarılan metin var. 
         
         Lütfen ekran görüntüsünden çıkarılan metne dayanarak aşağıdaki mesajın detaylı analizini yap:
         
         1. Ekran görüntüsündeki metin muhtemelen bir sohbet veya mesaj içeriyor - buna göre değerlendir.
-        2. Metinde bahsedilen konuları, duyguları ve ilişki dinamiklerini analiz et.
-        3. Metindeki kişilerin iletişim şekline, kullandıkları dile ve ilişkilerine dair ipuçlarını değerlendir.
+        2. ÖNEMLİ: Sohbette kim mesaj göndermiş, kim mesaj almış bunu anlamaya çalış. Bu kişilere "mesaj gönderen" ve "mesaj alan" veya "konuşmacı 1" ve "konuşmacı 2" olarak atıfta bulun.
+        3. Konuşmanın hangi tarafında analizi isteyen kişinin olduğunu belirlemeye çalış. Analizi isteyen kişi genelde şikayet eden, ilişki tavsiyesi almak isteyen kişi olabilir.
+        4. Sohbetteki mesaj baloncuklarının düzeni (sağ-sol) veya zaman damgalarına dikkat ederek kimlikleri ayırt etmeye çalış.
+        5. Metinde bahsedilen konuları, duyguları ve ilişki dinamiklerini analiz et.
+        6. Metindeki kişilerin iletişim şekline, kullandıkları dile ve ilişkilerine dair ipuçlarını değerlendir.
+        7. Cevabını ilişki koçu olarak değil, yakın bir arkadaş veya güvenilen bir dost gibi ver.
+        8. Samimi, sıcak ve empatik bir dil kullan, resmi dilden uzak dur.
+        9. "Sen" diye hitap et, "siz" değil.
+        10. Günlük konuşma diline uygun, samimi ifadeler kullan (örn: "bence", "ya", "aslında", "hissediyorum ki" gibi).
         
         Analizi şu formatta JSON çıktısı olarak ver:
         
@@ -232,11 +239,12 @@ class AiService {
           "niyet": "mesajın/konuşmanın arkasındaki niyet",
           "ton": "iletişim tonu (samimi, resmi, agresif, sevecen, vb.)",
           "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
-          "mesajYorumu": "metindeki ilişki dinamiğine dair detaylı bir yorum",
+          "kişiler": "konuşmada kimler var (örn: 'mesaj gönderen', 'mesaj alan' - bu kişileri net bir şekilde tanımla)",
+          "mesajYorumu": "metindeki ilişki dinamiğine dair arkadaşça ve empatik bir yorum. Kullanıcıya bir arkadaşı konuşuyormuş gibi hitap et. Konuşmada kimin ne dediğini net olarak belirt.",
           "cevapOnerileri": [
-            "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 1. öneri",
-            "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 2. öneri",
-            "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 3. öneri"
+            "Bu mesaja nasıl cevap vereceğine dair çok somut bir öneri. 'Şunu yazabilirsin: [örnek bir yanıt]' formatında olmalı. AÇIKÇA BELİRT bu öneri hangi kişiden hangi kişiye gidiyor.",
+            "Bu duruma göre nasıl davranmanın ve ne söylemenin uygun olacağına dair ikinci somut öneri. Kesin cümleler ve ifade biçimleri içermeli. Kime hitap ettiğini net belirt.",
+            "İlişki dinamiğini koruyarak nasıl yanıt vereceğin konusunda üçüncü bir taktik. İletişim stratejisi önerisi içermeli. Karşı tarafın kim olduğunu belirterek verilen bir öneri olsun."
           ]
         }
         
@@ -245,42 +253,63 @@ class AiService {
       } else if (isImageMessage) {
         // Sadece ekran görüntüsü var, OCR metni yok
         prompt = '''
-        Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
+        Sen bir ilişki analiz uzmanı ve yakın bir arkadaşsın. Senin en önemli özelliğin çok samimi, sıcak ve empatik bir şekilde cevap vermen. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
         Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğimiz için, bu durumda:
         
         1. Bu muhtemelen bir sohbet ekranından alınmış ekran görüntüsü olabilir.
         2. Kullanıcı ilişkisiyle ilgili bir mesaj içeriğini, ekran görüntüsü formatında göndermek istemiş olabilir.
         3. Aşağıdaki mesaj bir görüntü açıklaması olabilir. 
+        4. Kullanıcının analiz ettiği sohbette muhtemelen iki kişi var - biri mesajı gönderen diğeri alan.
+        5. Kullanıcının tavsiye almak istediği kişi muhtemelen kendisi, karşı taraf ise mesajlaştığı partneri.
         
-        Sana metin olarak gönderilen bilgiden yola çıkarak, bu tür bir ilişki mesajının aşağıdaki formatta analizini yap:
+        Sana metin olarak gönderilen bilgiden yola çıkarak, bu tür bir ilişki mesajının aşağıdaki formatta analizini yap. Bir arkadaş veya güvenilen bir dost gibi cevap ver. Resmi dilden kaçın, günlük konuşma dilini kullan:
         
         {
           "duygu": "ekran görüntüsü mesajı olduğu için 'Belirlenemedi' yazabilirsin ya da içerik hakkında bir tahminde bulunabilirsin",
           "niyet": "ekran görüntüsünü paylaşmaktaki muhtemel niyet",
           "ton": "saygılı - ilişki ekran görüntüsü paylaşımı",
           "ciddiyet": "7",
-          "mesajYorumu": "Ekran görüntülerini göremediğimiz için net bir analiz yapamıyorum, ancak görsel içeriği paylaşan kişiye nasıl yaklaşılması gerektiği hakkında tavsiyeler sunabilirim",
+          "kişiler": "muhtemelen kullanıcı ve mesajlaştığı kişi",
+          "mesajYorumu": "Ekran görüntülerini göremediğim için tam bir analiz yapamıyorum ama seninle dost gibi konuşmaya çalışacağım. Bana görüntüleri paylaşman içini dökmek istediğini gösteriyor ve bunu çok iyi anlıyorum.",
           "cevapOnerileri": [
-            "Ekran görüntüsündeki içeriği metin olarak açıklayabilir misiniz? Böylece daha iyi analiz yapabilirim.",
-            "İlişkinizle ilgili bu görsel hakkında biraz daha detay paylaşır mısınız?",
-            "Bu ekran görüntüsünün sizi nasıl hissettirdiğini paylaşır mısınız? Böylece daha iyi yardımcı olabilirim."
+            "Bu mesaja şöyle cevap verebilirsin: '[somut bir cevap örneği]'. Bu yaklaşım karşı tarafın (mesajı gönderen kişinin) seni daha iyi anlamasını sağlayacak.",
+            "Bence bu durumda duygularını açıkça ifade ederek '[somut öneri]' şeklinde yanıt vermen daha sağlıklı olur. Böylece karşındaki kişi (mesajı alan taraf) senin ne hissettiğini anlayabilir.",
+            "Eğer bu bir tartışma ise, mesajı '[somut iletişim stratejisi]' ile yanıtlayarak ilişkini koruyabilirsin. Karşı tarafın (mesaj yazan kişi) bakış açısını anladığını göstermiş olursun."
           ]
         }
         
         Analiz edilecek mesaj: "${messageContent}"
         ''';
       } else {
-        // Normal mesaj
+        // Normal metin mesajı
         prompt = '''
-        Sen bir ilişki analiz uzmanısın. Aşağıdaki mesajı detaylı olarak analiz et ve şu formatta JSON çıktısı ver:
+        Sen bir ilişki analiz uzmanı olmasına rağmen, yakın bir arkadaş gibi davranıyorsun. Kullanıcıya asla bir uzman gibi cevap verme, bir arkadaş olarak cevap ver. 
+        Resmi dilden ve profesyonel söylemlerden kaçın. Samimi, empatik ve sıcak bir yaklaşım sergile.
+        
+        Aşağıdaki ilişki mesajının analizini yap:
+        
+        1. Mesajdaki baskın duyguyu belirle
+        2. Mesajın arkasındaki niyeti anlamaya çalış
+        3. İletişimin tonunu belirle (samimi, resmi, agresif, sevecen, vb.)
+        4. Mesajın ciddiyetini 1-10 arası derecelendir (10 en ciddi)
+        5. Mesajda konuşan kişileri belirlemeye çalış - kim mesaj gönderiyor, kim alıyor veya mesajın içeriğinde bahsedilen kişiler kimler
+        6. Mesajla ilgili dostça ve empatik bir yorum yap
+        7. Mesaja nasıl yaklaşılması gerektiğine dair somut ve uygulanabilir öneriler sun
+        
+        Cevabını şu format içinde, ama bir arkadaş gibi konuşarak hazırla:
         
         {
-          "duygu": "pozitif, negatif, nötr veya daha spesifik bir duygu",
+          "duygu": "mesajdaki baskın duygu",
           "niyet": "mesajın arkasındaki niyet",
-          "ton": "samimi, resmi, agresif, pasif, flörtöz, vb.",
-          "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
-          "mesajYorumu": "mesajla ilgili genel bir yorum",
-          "cevapOnerileri": ["1. öneri", "2. öneri", "3. öneri"]
+          "ton": "iletişim tonu",
+          "ciddiyet": "1-10 arası rakam",
+          "kişiler": "mesajda konuşan veya bahsedilen kişiler (örn: kullanıcı ve partneri)",
+          "mesajYorumu": "mesaj hakkında arkadaşça, empatik bir yorum. Kesinlikle 'Sen' diye hitap et, 'siz' değil. Günlük konuşma diline uygun ifadeler kullan.",
+          "cevapOnerileri": [
+            "Bu mesaja şöyle cevap verebilirsin: '[somut bir cevap örneği]'. Bu yaklaşım iletişimi güçlendirecek. Hangi tarafın (mesaj gönderen/alan) ne yapması gerektiğini açıkça belirt.",
+            "Bence bu durumda '[belirli bir iletişim stratejisi]' kullanarak yanıt vermen daha etkili olur. Örneğin: '[örnek yanıt]'. Bu yanıt karşı tarafın (partnerin) seni anlamasını kolaylaştırır.",
+            "Eğer ilişkide bu konuyu ilerletmek istiyorsan, mesajı '[belirli bir teknik]' kullanarak yanıtla. Şöyle diyebilirsin: '[örnek yanıt]'. Böylece mesajı gönderen kişi senin bakış açını daha iyi anlayabilir."
+          ]
         }
         
         Analiz edilecek mesaj: "${messageContent}"
@@ -345,6 +374,7 @@ class AiService {
             intent: parsedResponse['niyet'] ?? 'belirsiz',
             tone: parsedResponse['ton'] ?? 'normal',
             severity: _parseSeverity(parsedResponse['ciddiyet']),
+            persons: parsedResponse['kişiler'] ?? '',
             aiResponse: {
               'mesajYorumu': parsedResponse['mesajYorumu'] ?? parsedResponse['mesaj_yorumu'] ?? '',
               'cevapOnerileri': _parseStringList(parsedResponse['cevapOnerileri'] ?? parsedResponse['cevap_onerileri'] ?? []),
@@ -534,6 +564,7 @@ class AiService {
         'niyet': _extractFieldFromText(aiContent, 'niyet') ?? 'belirsiz',
         'ton': _extractFieldFromText(aiContent, 'ton') ?? 'normal',
         'ciddiyet': _extractFieldFromText(aiContent, 'ciddiyet') ?? '5',
+        'kişiler': _extractFieldFromText(aiContent, 'kişiler') ?? 'belirsiz',
       };
       
       return fallbackResponse;
@@ -602,42 +633,37 @@ class AiService {
 
   // Metinden JSON çıkarma
   Map<String, dynamic> _parseJsonFromText(String text) {
+    // JSON'ı metinden çıkar
+    final RegExp jsonRegex = RegExp(r'\{[\s\S]*\}');
+    final match = jsonRegex.firstMatch(text);
+    
+    if (match == null) {
+      throw Exception('Metinde JSON bulunamadı');
+    }
+    
+    final jsonString = match.group(0);
+    if (jsonString == null) {
+      throw Exception('JSON çıkarılamadı');
+    }
+    
     try {
-      _logger.d('JSON ayrıştırma başlıyor. Metin: $text');
+      final data = jsonDecode(jsonString) as Map<String, dynamic>;
       
-      // JSON içeriğini bul
-      final jsonPattern = RegExp(r'({[\s\S]*})', multiLine: true);
-      final match = jsonPattern.firstMatch(text);
-      
-      if (match != null) {
-        final jsonStr = match.group(1);
-        if (jsonStr != null) {
-          try {
-            final Map<String, dynamic> result = jsonDecode(jsonStr);
-            _logger.d('JSON başarıyla ayrıştırıldı: $result');
-            return result;
-          } catch (e) {
-            _logger.e('JSON ayrıştırma hatası: $e. JSON metni: $jsonStr');
-            throw FormatException('JSON ayrıştırılamadı: $e');
-          }
-        }
+      // Eksik alanlar için varsayılan değerler
+      if (!data.containsKey('duygu')) data['duygu'] = 'nötr';
+      if (!data.containsKey('niyet')) data['niyet'] = 'belirsiz';
+      if (!data.containsKey('ton')) data['ton'] = 'normal';
+      if (!data.containsKey('ciddiyet')) {
+        data['ciddiyet'] = data['ciddiyet'] is String 
+            ? int.tryParse(data['ciddiyet']) ?? 5 
+            : (data['ciddiyet'] ?? 5);
       }
+      if (!data.containsKey('kişiler')) data['kişiler'] = 'belirsiz';
       
-      // Doğrudan tüm metni JSON olarak ayrıştırmayı dene
-      try {
-        final Map<String, dynamic> result = jsonDecode(text);
-        _logger.d('Tüm metin JSON olarak ayrıştırıldı: $result');
-        return result;
-      } catch (e) {
-        _logger.e('Tüm metin JSON olarak ayrıştırılamadı: $e');
-      }
-      
-      // JSON bulunamadıysa hataya düşürecek
-      _logger.e('Metinde geçerli JSON bulunamadı: $text');
-      throw FormatException('Metinde geçerli JSON bulunamadı');
+      return data;
     } catch (e) {
-      _logger.e('_parseJsonFromText genel hatası: $e');
-      throw FormatException('JSON çıkarma hatası: $e');
+      _logger.e('JSON ayrıştırma hatası: $e');
+      throw Exception('JSON ayrıştırılamadı: $e');
     }
   }
 
@@ -682,31 +708,17 @@ class AiService {
   }
 
   // Severity değerini int'e dönüştürme
-  int _parseSeverity(dynamic severityValue) {
-    if (severityValue == null) return 5;
-    
-    if (severityValue is int) {
-      return severityValue;
-    } else if (severityValue is String) {
-      try {
-        return int.parse(severityValue);
-      } catch (e) {
-        _logger.e('Severity değeri int\'e dönüştürülemedi: $severityValue', e);
-        return 5;
-      }
-    }
-    
-    return 5; // Varsayılan değer
+  int _parseSeverity(dynamic severity) {
+    if (severity is int) return severity;
+    if (severity is String) return int.tryParse(severity) ?? 5;
+    return 5;
   }
 
   // Metinden string listesi çıkarma
   List<String> _parseStringList(dynamic list) {
     if (list is List) {
-      return list.map((e) => e.toString()).toList();
-    } else if (list is String) {
-      return [list];
-    } else {
-      return [];
+      return list.map((item) => item.toString()).toList();
     }
+    return [];
   }
 } 

@@ -8,6 +8,7 @@ class AnalysisResult {
   final String intent;
   final String tone;
   final int severity;
+  final String persons;
   final Map<String, dynamic> aiResponse;
   final DateTime createdAt;
 
@@ -18,6 +19,7 @@ class AnalysisResult {
     required this.intent,
     required this.tone,
     required this.severity,
+    this.persons = '',
     required this.aiResponse,
     required this.createdAt,
   });
@@ -31,6 +33,7 @@ class AnalysisResult {
       intent: data['intent'] ?? '',
       tone: data['tone'] ?? '',
       severity: data['severity'] ?? 0,
+      persons: data['persons'] ?? '',
       aiResponse: data['aiResponse'] ?? {},
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
@@ -43,6 +46,7 @@ class AnalysisResult {
       'intent': intent,
       'tone': tone,
       'severity': severity,
+      'persons': persons,
       'aiResponse': aiResponse,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -50,7 +54,7 @@ class AnalysisResult {
 
   @override
   String toString() {
-    return 'AnalysisResult{id: $id, messageId: $messageId, emotion: $emotion, intent: $intent, tone: $tone}';
+    return 'AnalysisResult{id: $id, messageId: $messageId, emotion: $emotion, intent: $intent, tone: $tone, persons: $persons}';
   }
 }
 
