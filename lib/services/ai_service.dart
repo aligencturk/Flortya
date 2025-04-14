@@ -206,48 +206,86 @@ class AiService {
       
       // Mesaj içeriğini kontrol et ve düzenle
       String messageContent = message.content;
-      bool isImageMessage = messageContent.contains("Görsel mesaj:") || messageContent.contains("Screenshot:") || messageContent.contains("ekran görüntüsü");
+      bool isImageMessage = messageContent.contains("Görsel mesaj:") || 
+                            messageContent.contains("Screenshot:") || 
+                            messageContent.contains("ekran görüntüsü") || 
+                            messageContent.contains("Ekran görüntüsü:");
+      bool hasExtractedText = messageContent.contains("Görseldeki metin:");
       
-      String prompt = isImageMessage 
-          ? '''
-          Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
-          Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğimiz için, bu durumda:
-          
-          1. Bu muhtemelen bir sohbet ekranından alınmış ekran görüntüsü olabilir.
-          2. Kullanıcı ilişkisiyle ilgili bir mesaj içeriğini, ekran görüntüsü formatında göndermek istemiş olabilir.
-          3. Aşağıdaki mesaj bir görüntü açıklaması olabilir. 
-          
-          Sana metin olarak gönderilen bilgiden yola çıkarak, bu tür bir ilişki mesajının aşağıdaki formatta analizini yap:
-          
-          {
-            "duygu": "ekran görüntüsü mesajı olduğu için 'Belirlenemedi' yazabilirsin ya da içerik hakkında bir tahminde bulunabilirsin",
-            "niyet": "ekran görüntüsünü paylaşmaktaki muhtemel niyet",
-            "ton": "saygılı - ilişki ekran görüntüsü paylaşımı",
-            "ciddiyet": "7",
-            "mesaj_yorumu": "Ekran görüntülerini göremediğimiz için net bir analiz yapamıyorum, ancak görsel içeriği paylaşan kişiye nasıl yaklaşılması gerektiği hakkında tavsiyeler sunabilirim",
-            "cevap_onerileri": [
-              "Ekran görüntüsündeki içeriği metin olarak açıklayabilir misiniz? Böylece daha iyi analiz yapabilirim.",
-              "İlişkinizle ilgili bu görsel hakkında biraz daha detay paylaşır mısınız?",
-              "Bu ekran görüntüsünün sizi nasıl hissettirdiğini paylaşır mısınız? Böylece daha iyi yardımcı olabilirim."
-            ]
-          }
-          
-          Analiz edilecek mesaj: "${messageContent}"
-          '''
-          : '''
-          Sen bir ilişki analiz uzmanısın. Aşağıdaki mesajı detaylı olarak analiz et ve şu formatta JSON çıktısı ver:
-          
-          {
-            "duygu": "pozitif, negatif, nötr veya daha spesifik bir duygu",
-            "niyet": "mesajın arkasındaki niyet",
-            "ton": "samimi, resmi, agresif, pasif, flörtöz, vb.",
-            "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
-            "mesaj_yorumu": "mesajla ilgili genel bir yorum",
-            "cevap_onerileri": ["1. öneri", "2. öneri", "3. öneri"]
-          }
-          
-          Analiz edilecek mesaj: "${messageContent}"
-          ''';
+      String prompt;
+      
+      if (isImageMessage && hasExtractedText) {
+        // Ekran görüntüsü ve OCR metni varsa
+        prompt = '''
+        Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü içeriyor ve görselden çıkarılan metin var. 
+        
+        Lütfen ekran görüntüsünden çıkarılan metne dayanarak aşağıdaki mesajın detaylı analizini yap:
+        
+        1. Ekran görüntüsündeki metin muhtemelen bir sohbet veya mesaj içeriyor - buna göre değerlendir.
+        2. Metinde bahsedilen konuları, duyguları ve ilişki dinamiklerini analiz et.
+        3. Metindeki kişilerin iletişim şekline, kullandıkları dile ve ilişkilerine dair ipuçlarını değerlendir.
+        
+        Analizi şu formatta JSON çıktısı olarak ver:
+        
+        {
+          "duygu": "metindeki baskın duygu (pozitif, negatif, nötr, vb.)",
+          "niyet": "mesajın/konuşmanın arkasındaki niyet",
+          "ton": "iletişim tonu (samimi, resmi, agresif, sevecen, vb.)",
+          "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
+          "mesaj_yorumu": "metindeki ilişki dinamiğine dair detaylı bir yorum",
+          "cevap_onerileri": [
+            "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 1. öneri",
+            "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 2. öneri",
+            "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 3. öneri"
+          ]
+        }
+        
+        Analiz edilecek mesaj: "${messageContent}"
+        ''';
+      } else if (isImageMessage) {
+        // Sadece ekran görüntüsü var, OCR metni yok
+        prompt = '''
+        Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
+        Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğimiz için, bu durumda:
+        
+        1. Bu muhtemelen bir sohbet ekranından alınmış ekran görüntüsü olabilir.
+        2. Kullanıcı ilişkisiyle ilgili bir mesaj içeriğini, ekran görüntüsü formatında göndermek istemiş olabilir.
+        3. Aşağıdaki mesaj bir görüntü açıklaması olabilir. 
+        
+        Sana metin olarak gönderilen bilgiden yola çıkarak, bu tür bir ilişki mesajının aşağıdaki formatta analizini yap:
+        
+        {
+          "duygu": "ekran görüntüsü mesajı olduğu için 'Belirlenemedi' yazabilirsin ya da içerik hakkında bir tahminde bulunabilirsin",
+          "niyet": "ekran görüntüsünü paylaşmaktaki muhtemel niyet",
+          "ton": "saygılı - ilişki ekran görüntüsü paylaşımı",
+          "ciddiyet": "7",
+          "mesaj_yorumu": "Ekran görüntülerini göremediğimiz için net bir analiz yapamıyorum, ancak görsel içeriği paylaşan kişiye nasıl yaklaşılması gerektiği hakkında tavsiyeler sunabilirim",
+          "cevap_onerileri": [
+            "Ekran görüntüsündeki içeriği metin olarak açıklayabilir misiniz? Böylece daha iyi analiz yapabilirim.",
+            "İlişkinizle ilgili bu görsel hakkında biraz daha detay paylaşır mısınız?",
+            "Bu ekran görüntüsünün sizi nasıl hissettirdiğini paylaşır mısınız? Böylece daha iyi yardımcı olabilirim."
+          ]
+        }
+        
+        Analiz edilecek mesaj: "${messageContent}"
+        ''';
+      } else {
+        // Normal mesaj
+        prompt = '''
+        Sen bir ilişki analiz uzmanısın. Aşağıdaki mesajı detaylı olarak analiz et ve şu formatta JSON çıktısı ver:
+        
+        {
+          "duygu": "pozitif, negatif, nötr veya daha spesifik bir duygu",
+          "niyet": "mesajın arkasındaki niyet",
+          "ton": "samimi, resmi, agresif, pasif, flörtöz, vb.",
+          "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
+          "mesaj_yorumu": "mesajla ilgili genel bir yorum",
+          "cevap_onerileri": ["1. öneri", "2. öneri", "3. öneri"]
+        }
+        
+        Analiz edilecek mesaj: "${messageContent}"
+        ''';
+      }
       
       final requestBody = jsonEncode({
         'contents': [
