@@ -18,6 +18,7 @@ class AuthViewModel extends ChangeNotifier {
   bool get isLoggedIn => _user != null;
   bool get isPremium => _user?.isPremium ?? false;
   bool get isInitialized => _isInitialized;
+  User? get currentUser => _authService.currentUser;
 
   // Constructor
   AuthViewModel() {

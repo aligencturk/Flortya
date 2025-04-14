@@ -24,9 +24,13 @@ void main() async {
     await Firebase.initializeApp();
     logger.i('Firebase başlatıldı');
     
-    // .env dosyasını yükle
-    await dotenv.load(fileName: ".env");
-    logger.i('.env dosyası yüklendi');
+    // .env dosyasını yüklemeyi dene
+    try {
+      await dotenv.load(fileName: ".env");
+      logger.i('.env dosyası yüklendi');
+    } catch (e) {
+      logger.w('.env dosyası bulunamadı, varsayılan değerler kullanılacak');
+    }
     
     runApp(const MyApp());
   } catch (e) {

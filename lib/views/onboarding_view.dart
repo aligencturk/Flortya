@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lottie/lottie.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../widgets/custom_button.dart';
@@ -18,24 +18,44 @@ class OnboardingView extends StatefulWidget {
 class _OnboardingViewState extends State<OnboardingView> {
   final List<Map<String, dynamic>> _onboardingItems = [
     {
-      'title': 'İlişkinizi Analiz Edin',
-      'description': 'Mesajlarınızı AI ile analiz edin, ilişki dinamiklerinizi anlayın.',
-      'animation': 'assets/animations/message_analysis.json',
+      'title': 'İlişki Dinamiklerinizi Anlayın',
+      'description': 'Mesajlarınızı analiz ederek ilişkiniz hakkında detaylı içgörüler edinin.',
+      'image': 'assets/images/onboarding1.jpg',
     },
     {
-      'title': 'İlişki Tipinizi Öğrenin',
-      'description': '5 soruluk testle ilişki tipinizi belirleyin ve öneriler alın.',
-      'animation': 'assets/animations/relationship_test.json',
+      'title': 'İlişki Desenlerinizi Keşfedin',
+      'description': 'İletişim kalıplarınızı öğrenin ve ilişkinizi geliştirin.',
+      'image': 'assets/images/onboarding2.jpg',
     },
     {
-      'title': 'Günlük Tavsiyeler Alın',
-      'description': 'Her gün ilişkinizi güçlendirmek için farklı tavsiyeler keşfedin.',
-      'animation': 'assets/animations/daily_advice.json',
+      'title': 'İlişkinizi Geliştirin',
+      'description': 'Kişiselleştirilmiş tavsiyelerle ilişkinizi güçlendirin.',
+      'image': 'assets/images/onboarding3.jpg',
     },
   ];
 
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _hasCompletedOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+    setState(() {
+      _hasCompletedOnboarding = hasCompletedOnboarding;
+    });
+  }
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasCompletedOnboarding', true);
+  }
 
   @override
   void dispose() {
@@ -51,17 +71,30 @@ class _OnboardingViewState extends State<OnboardingView> {
       body: SafeArea(
         child: Column(
           children: [
-            // Üst Başlık
+            // Üst Başlık ve Ana Mesaj
             Padding(
               padding: const EdgeInsets.all(24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Retto',
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    'Retto',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+                    "O seni hâlâ düşünüyorsa, öğrenmenin zamanı gelmedi mi?",
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.secondary,
                     ),
                   ),
                 ],
@@ -102,24 +135,51 @@ class _OnboardingViewState extends State<OnboardingView> {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
               child: Column(
                 children: [
-                  CustomButton(
-                    text: 'Google ile Giriş Yap',
-                    onPressed: () => _signInWithGoogle(context),
-                    icon: Icons.login,
-                    isFullWidth: true,
-                    isLoading: authViewModel.isLoading,
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  CustomButton(
-                    text: 'Apple ile Giriş Yap',
-                    onPressed: () => _signInWithApple(context),
-                    icon: Icons.apple,
-                    type: ButtonType.outline,
-                    isFullWidth: true,
-                    isLoading: authViewModel.isLoading,
-                  ),
+                  if (_currentPage == _onboardingItems.length - 1) ...[
+                    CustomButton(
+                      text: 'Google ile Giriş Yap',
+                      onPressed: () => _signInWithGoogle(context),
+                      icon: Icons.login,
+                      isFullWidth: true,
+                      isLoading: authViewModel.isLoading,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    CustomButton(
+                      text: 'Apple ile Giriş Yap',
+                      onPressed: () => _signInWithApple(context),
+                      icon: Icons.apple,
+                      type: ButtonType.outline,
+                      isFullWidth: true,
+                      isLoading: authViewModel.isLoading,
+                    ),
+                  ] else ...[
+                    CustomButton(
+                      text: 'Devam Et',
+                      onPressed: () {
+                        _pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      icon: Icons.arrow_forward,
+                      isFullWidth: true,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    TextButton(
+                      onPressed: () {
+                        _pageController.animateToPage(
+                          _onboardingItems.length - 1,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Text('Atla'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -137,19 +197,30 @@ class _OnboardingViewState extends State<OnboardingView> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Animasyon (şimdilik basit Container)
+          // Görsel
           Container(
-            height: 240,
+            height: 300,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Center(
-              child: Icon(
-                Icons.favorite,
-                size: 80,
-                color: Theme.of(context).colorScheme.primary,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                item['image'],
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Center(
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -204,6 +275,7 @@ class _OnboardingViewState extends State<OnboardingView> {
   Future<void> _signInWithGoogle(BuildContext context) async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
+    await _completeOnboarding();
     final success = await authViewModel.signInWithGoogle();
     
     if (success && mounted) {
@@ -215,6 +287,7 @@ class _OnboardingViewState extends State<OnboardingView> {
   Future<void> _signInWithApple(BuildContext context) async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
+    await _completeOnboarding();
     final success = await authViewModel.signInWithApple();
     
     if (success && mounted) {
