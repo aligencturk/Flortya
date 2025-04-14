@@ -29,13 +29,13 @@ class AnalysisResultBox extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Flört Analizi',
+                'Mesaj Analizi',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              // Flört Seviyesi İndikatörü
-              _buildFlirtLevelIndicator(context, result.flirtLevel),
+              // Ciddiyet Seviyesi İndikatörü
+              _buildSeverityIndicator(context, result.severity),
             ],
           ),
           
@@ -47,20 +47,19 @@ class AnalysisResultBox extends StatelessWidget {
           _buildAnalysisRow(context, 'Niyet:', result.intent),
           const SizedBox(height: 8),
           _buildAnalysisRow(context, 'Ton:', result.tone),
-          const SizedBox(height: 8),
-          _buildAnalysisRow(context, 'Flört Türü:', result.flirtType),
           
-          // Gizli Anlam Bilgisi (varsa)
-          if (result.hasHiddenMeaning) ...[
-            const SizedBox(height: 16),
-            
+          const SizedBox(height: 16),
+          
+          // Mesaj Yorumu (her zaman gösterilir)
+          if (result.aiResponse.containsKey('mesaj_yorumu') && 
+              result.aiResponse['mesaj_yorumu'] != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.secondary.withOpacity(0.1),
+                color: theme.colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: theme.colorScheme.secondary.withOpacity(0.5),
+                  color: theme.colorScheme.primary.withOpacity(0.5),
                 ),
               ),
               child: Column(
@@ -69,23 +68,94 @@ class AnalysisResultBox extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.insights,
-                        color: theme.colorScheme.secondary,
+                        Icons.psychology,
+                        color: theme.colorScheme.primary,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Gizli Anlam',
+                        'Mesaj Yorumu',
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.secondary,
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(result.hiddenMeaning),
+                  Text(result.aiResponse['mesaj_yorumu']),
                 ],
+              ),
+            ),
+          ],
+          
+          // Cevap Önerileri (her zaman gösterilir)
+          if (result.aiResponse.containsKey('cevap_onerileri') && 
+              result.aiResponse['cevap_onerileri'] != null) ...[
+            const SizedBox(height: 16),
+            
+            Text(
+              'Cevap Önerileri:',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            ...List.generate(
+              (result.aiResponse['cevap_onerileri'] as List).length,
+              (index) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.5),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        result.aiResponse['cevap_onerileri'][index],
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      onPressed: () {
+                        // Kopyalama işlevi buraya eklenebilir
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Cevap kopyalandı'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      tooltip: 'Kopyala',
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -96,51 +166,44 @@ class AnalysisResultBox extends StatelessWidget {
             const Divider(),
             const SizedBox(height: 16),
             
-            // AI Cevabı
+            // AI'ın Ham Cevabı
             Text(
-              'Detaylı Analiz:',
+              'Ham AI Analizi:',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
             
-            Text(
-              result.aiResponse['analysis'] ?? 'Detaylı analiz mevcut değil.',
-              style: theme.textTheme.bodyMedium,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                result.aiResponse.toString(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+              ),
             ),
-            
-            // Öneri varsa göster
-            if (result.aiResponse.containsKey('suggestion') && 
-                result.aiResponse['suggestion'] != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                'Öneri:',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.aiResponse['suggestion'],
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ],
           ],
           
           // "Daha Fazla Göster" Butonu (eğer detaylar gösterilmiyorsa)
-          if (!showDetailedInfo && onTap != null)
+          if (!showDetailedInfo && onTap != null) ...[
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.center,
               child: TextButton.icon(
                 onPressed: onTap,
-                icon: const Icon(Icons.arrow_downward),
-                label: const Text('Daha Fazla Göster'),
+                icon: const Icon(Icons.code),
+                label: const Text('Teknik Detayları Göster'),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -160,45 +223,6 @@ class AnalysisResultBox extends StatelessWidget {
     .animate()
     .fadeIn(duration: 400.ms)
     .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOutQuad);
-  }
-
-  // Flört seviyesi indikatörü
-  Widget _buildFlirtLevelIndicator(BuildContext context, int flirtLevel) {
-    // Flört seviyesine göre renk belirleme
-    Color getColorForFlirtLevel(int value) {
-      if (value <= 3) return Colors.blue;
-      if (value <= 6) return Colors.purple;
-      return Colors.red;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: getColorForFlirtLevel(flirtLevel).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: getColorForFlirtLevel(flirtLevel)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            flirtLevel <= 3 
-                ? Icons.chat_bubble_outline
-                : (flirtLevel <= 6 ? Icons.favorite : Icons.local_fire_department),
-            size: 16,
-            color: getColorForFlirtLevel(flirtLevel),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Flört $flirtLevel/10',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: getColorForFlirtLevel(flirtLevel),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // Ciddiyet seviyesi indikatörü
@@ -229,7 +253,7 @@ class AnalysisResultBox extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            'Seviye $severity',
+            'Ciddiyet $severity/10',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: getColorForSeverity(severity),
               fontWeight: FontWeight.bold,
@@ -252,16 +276,14 @@ class AnalysisResultBox extends StatelessWidget {
             label,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: theme.colorScheme.secondary,
+              color: Colors.black54,
             ),
           ),
         ),
         Expanded(
           child: Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+            value.isEmpty ? 'Belirtilmemiş' : value,
+            style: theme.textTheme.bodyMedium,
           ),
         ),
       ],

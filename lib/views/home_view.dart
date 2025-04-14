@@ -154,9 +154,9 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
+                child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                  children: [
                       const Text(
                         'Mesajlarınızı Analiz Edin',
                         style: TextStyle(
@@ -174,17 +174,17 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
                                 'Yeni Analiz Başlat',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
                                   fontSize: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                               const Text(
                                 'Mesajlarınızı yükleyin ve ilişkiniz hakkında detaylı analiz alın.',
                                 style: TextStyle(
@@ -203,9 +203,9 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                               ),
                             ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
                       
                       const SizedBox(height: 24),
                       const Text(
@@ -218,10 +218,10 @@ class _HomeViewState extends State<HomeView> {
                       const SizedBox(height: 16),
                       
                       // Örnek Geçmiş Analiz Listesi
-                      Expanded(
-                        child: ListView.builder(
+                    Expanded(
+                      child: ListView.builder(
                           itemCount: 3,
-                          itemBuilder: (context, index) {
+                        itemBuilder: (context, index) {
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
                               shape: RoundedRectangleBorder(
@@ -241,11 +241,11 @@ class _HomeViewState extends State<HomeView> {
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () {},
                               ),
-                            );
-                          },
-                        ),
+                          );
+                        },
                       ),
-                    ],
+                    ),
+                  ],
                   ),
                 ),
               ),
@@ -307,22 +307,22 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
                         'İlişkinizin Detaylı Analizi',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
                           fontSize: 20,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                       
                       // İlişki Puanı Kartı
                       Card(
                         elevation: 2,
-                        shape: RoundedRectangleBorder(
+                                shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Padding(
@@ -352,14 +352,14 @@ class _HomeViewState extends State<HomeView> {
                                   ),
                                   Text(
                                     '78%',
-                                    style: TextStyle(
+                            style: TextStyle(
                                       fontSize: 36,
-                                      fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                                       color: theme.colorScheme.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                               const SizedBox(height: 24),
                               const Text(
                                 'İyi bir ilişkiniz var! Detaylı raporunuzu görmek için tıklayın.',
@@ -376,12 +376,12 @@ class _HomeViewState extends State<HomeView> {
                                 child: const Text('Detaylı Raporu Gör'),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
                       
                       const SizedBox(height: 24),
                       
@@ -391,28 +391,28 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+            ),
+          ),
+          const SizedBox(height: 16),
                       
                       // Örnek Kategori Kartları
                       Expanded(
                         child: ListView(
                           children: [
                             _buildCategoryCard(
-                              context,
+            context, 
                               title: 'İletişim Kalitesi',
                               value: 0.85,
                               color: Colors.blue,
                             ),
                             _buildCategoryCard(
-                              context,
+            context, 
                               title: 'Duygusal Bağ',
                               value: 0.72,
                               color: Colors.purple,
                             ),
                             _buildCategoryCard(
-                              context,
+            context, 
                               title: 'Çatışma Çözümü',
                               value: 0.65,
                               color: Colors.orange,
@@ -423,9 +423,9 @@ class _HomeViewState extends State<HomeView> {
                     ],
                   ),
                 ),
-              ),
             ),
-          ],
+          ),
+        ],
         ),
       ),
     )
@@ -442,7 +442,7 @@ class _HomeViewState extends State<HomeView> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -482,7 +482,7 @@ class _HomeViewState extends State<HomeView> {
       ),
     );
   }
-
+  
   // Tavsiye Kartı Tab
   Widget _buildAdviceCardTab(BuildContext context) {
     final theme = Theme.of(context);
@@ -590,20 +590,20 @@ class _HomeViewState extends State<HomeView> {
                                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 child: Padding(
                                   padding: const EdgeInsets.all(24.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                                       Icon(
                                         Icons.card_giftcard,
                                         color: Colors.white.withOpacity(0.9),
                                         size: 48,
                                       ),
                                       const SizedBox(height: 24),
-                                      Text(
+                  Text(
                                         titles[index],
-                                        style: const TextStyle(
+                    style: const TextStyle(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                                           fontSize: 24,
                                         ),
                                       ),
@@ -613,8 +613,8 @@ class _HomeViewState extends State<HomeView> {
                                           contents[index],
                                           style: TextStyle(
                                             color: Colors.white.withOpacity(0.9),
-                                            fontSize: 16,
-                                          ),
+                      fontSize: 16,
+                    ),
                                         ),
                                       ),
                                       const SizedBox(height: 24),
@@ -640,9 +640,9 @@ class _HomeViewState extends State<HomeView> {
                                       ),
                                     ],
                                   ),
-                                ),
-                              ),
-                            );
+        ),
+      ),
+    );
                           },
                         ),
                       ),
@@ -664,15 +664,15 @@ class _HomeViewState extends State<HomeView> {
                               shape: BoxShape.circle,
                             ),
                           ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+            ),
+          ),
+        ],
+      ),
       ),
     )
     .animate()
@@ -687,13 +687,13 @@ class _HomeViewState extends State<HomeView> {
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
       body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
+      child: Column(
+        children: [
+          // App Bar
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
                   Text(
                     'Profil',
                     style: theme.textTheme.titleLarge?.copyWith(
@@ -702,17 +702,17 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
+                IconButton(
                     icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
+                  onPressed: () {},
+                ),
+              ],
             ),
-            
+          ),
+          
             // Ana içerik
-            Expanded(
-              child: Container(
+          Expanded(
+            child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -772,7 +772,7 @@ class _HomeViewState extends State<HomeView> {
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
-                              children: [
+              children: [
                                 ListTile(
                                   leading: Icon(
                                     Icons.workspace_premium,
@@ -785,16 +785,16 @@ class _HomeViewState extends State<HomeView> {
                                 ListTile(
                                   leading: Icon(
                                     Icons.insights,
-                                    color: theme.colorScheme.primary,
+                    color: theme.colorScheme.primary,
                                   ),
                                   title: const Text('Yapılan Analizler'),
                                   subtitle: const Text('22 analiz'),
                                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                   onTap: () {},
-                                ),
-                              ],
-                            ),
-                          ),
+                ),
+              ],
+            ),
+          ),
                         ),
                         
                         const SizedBox(height: 24),
@@ -812,10 +812,10 @@ class _HomeViewState extends State<HomeView> {
                         Card(
                           elevation: 2,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            children: [
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
                               ListTile(
                                 leading: const Icon(Icons.person_outline),
                                 title: const Text('Hesap Bilgileri'),
@@ -851,17 +851,17 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                                 title: Text(
                                   'Çıkış Yap',
-                                  style: TextStyle(
+                  style: TextStyle(
                                     color: Colors.red.shade400,
-                                  ),
+                  ),
                                 ),
                                 onTap: () {
                                   // authViewModel.signOut();
                                 },
-                              ),
-                            ],
-                          ),
-                        ),
+                ),
+              ],
+            ),
+          ),
                         
                         const SizedBox(height: 24),
                       ],
@@ -870,8 +870,8 @@ class _HomeViewState extends State<HomeView> {
                 ),
               ),
             ),
-          ],
-        ),
+        ],
+      ),
       ),
     )
     .animate()

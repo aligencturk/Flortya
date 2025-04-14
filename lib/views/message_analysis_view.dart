@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -18,6 +20,8 @@ class MessageAnalysisView extends StatefulWidget {
 class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   final TextEditingController _messageController = TextEditingController();
   bool _showDetailedAnalysis = false;
+  File? _selectedImage;
+  bool _isImageMode = false;
 
   @override
   void initState() {
@@ -43,33 +47,82 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
 
+  // Resim seçme
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedImage = await picker.pickImage(
+      source: source,
+      imageQuality: 80,
+    );
+    
+    if (pickedImage != null) {
+      setState(() {
+        _selectedImage = File(pickedImage.path);
+        _isImageMode = true;
+      });
+    }
+  }
+
   // Mesajı gönderme ve analiz etme
   Future<void> _analyzeMessage() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
-    final message = _messageController.text.trim();
-    
-    if (message.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen bir mesaj girin')),
-      );
-      return;
+    // Metin mesajı kontrolü
+    if (!_isImageMode) {
+      final message = _messageController.text.trim();
+      
+      if (message.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lütfen bir mesaj girin')),
+        );
+        return;
+      }
+      
+      // Yeni mesaj oluştur
+      await messageViewModel.createMessage(authViewModel.user!.id, message);
+      
+      // Mesajı analiz et
+      if (messageViewModel.currentMessage != null) {
+        await messageViewModel.analyzeMessage(messageViewModel.currentMessage!);
+        _messageController.clear();
+      }
+    } 
+    // Görüntü mesajı kontrolü
+    else if (_selectedImage != null) {
+      // Not: Görüntü analizi için ek fonksiyonellik gerekecek
+      // Şimdilik mesaj gibi işleme alıyoruz
+      final message = "Görsel mesaj: ${_selectedImage!.path.split('/').last}";
+      
+      // Yeni mesaj oluştur
+      await messageViewModel.createMessage(authViewModel.user!.id, message);
+      
+      // Mesajı analiz et
+      if (messageViewModel.currentMessage != null) {
+        await messageViewModel.analyzeMessage(messageViewModel.currentMessage!);
+        setState(() {
+          _selectedImage = null;
+          _isImageMode = false;
+        });
+      }
     }
-    
-    // Yeni mesaj oluştur
-    await messageViewModel.createMessage(authViewModel.user!.id, message);
-    
-    // Mesajı analiz et
-    if (messageViewModel.currentMessage != null) {
-      await messageViewModel.analyzeMessage(messageViewModel.currentMessage!);
-      _messageController.clear();
-    }
+  }
+
+  // Mod değiştirme
+  void _toggleMode() {
+    setState(() {
+      _isImageMode = !_isImageMode;
+      // Eğer resim modu kapatılıyorsa, seçili resmi temizle
+      if (!_isImageMode) {
+        _selectedImage = null;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final messageViewModel = Provider.of<MessageViewModel>(context);
+    final theme = Theme.of(context);
     
     return Scaffold(
       appBar: AppBar(
@@ -78,6 +131,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          // Metin/Görsel modu geçiş butonu
+          IconButton(
+            icon: Icon(_isImageMode ? Icons.text_fields : Icons.image),
+            onPressed: _toggleMode,
+            tooltip: _isImageMode ? 'Metin Moduna Geç' : 'Görsel Moduna Geç',
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -86,22 +147,110 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           children: [
             // Bilgi Metni
             Text(
-              'Partnerinizden gelen mesajı aşağıya girin ve analiz edin.',
+              _isImageMode 
+                  ? 'Analiz etmek istediğiniz görseli seçin.'
+                  : 'Partnerinizden gelen mesajı aşağıya girin ve analiz edin.',
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
             
             const SizedBox(height: 24),
             
-            // Mesaj Girişi
-            TextField(
-              controller: _messageController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Mesajı buraya yazın...',
-                prefixIcon: Icon(Icons.message),
+            // Metin veya Görsel Girişi
+            if (_isImageMode) ...[
+              // Görsel Seçimi
+              if (_selectedImage == null) ...[
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.outline.withOpacity(0.3)),
+                  ),
+                  child: InkWell(
+                    onTap: () => _pickImage(ImageSource.gallery),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.photo_library_outlined,
+                          size: 48,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Görsel Seçmek İçin Tıklayın'),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => _pickImage(ImageSource.gallery),
+                              icon: const Icon(Icons.photo),
+                              label: const Text('Galeri'),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            OutlinedButton.icon(
+                              onPressed: () => _pickImage(ImageSource.camera),
+                              icon: const Icon(Icons.camera_alt),
+                              label: const Text('Kamera'),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else ...[
+                // Seçilen görseli göster
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        image: DecorationImage(
+                          image: FileImage(_selectedImage!),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: CircleAvatar(
+                        backgroundColor: Colors.white.withOpacity(0.8),
+                        child: Icon(Icons.close, color: theme.colorScheme.error),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _selectedImage = null;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ] else ...[
+              // Mesaj Girişi
+              TextField(
+                controller: _messageController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Mesajı buraya yazın...',
+                  prefixIcon: Icon(Icons.message),
+                ),
               ),
-            ),
+            ],
             
             const SizedBox(height: 16),
             
@@ -255,18 +404,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   ],
                 ),
               ),
-            ] else ...[
-              // Boş durum
-              Expanded(
-                child: Center(
-                  child: messageViewModel.isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text(
-                          'Henüz hiç mesaj analizi yapmadınız.\nYukarıdan bir mesaj girerek başlayın.',
-                          textAlign: TextAlign.center,
-                        ),
-                ),
-              ),
             ],
           ],
         ),
@@ -274,8 +411,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
 
-  // Tarih formatlama yardımcı metodu
+  // Tarih formatını düzenleme
   String _formatDate(DateTime date) {
-    return '${date.day}.${date.month}.${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 } 
