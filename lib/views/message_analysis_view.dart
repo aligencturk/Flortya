@@ -229,6 +229,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Mesaj analizi
   void _analyzeMessage(String messageContent) async {
     final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     try {
       final message = Message(

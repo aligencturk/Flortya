@@ -3,10 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'logger_service.dart';
+import '../models/text_recognition_script.dart';
 
 class OcrService {
   final LoggerService _logger = LoggerService();
-  late TextRecognizer _textRecognizer;
+  late final TextRecognizer _textRecognizer;
   bool _isClosed = false;
   TextRecognitionScript _currentScript = TextRecognitionScript.latin;
 
@@ -17,12 +18,35 @@ class OcrService {
   void _initializeRecognizer(TextRecognitionScript script) {
     if (!_isClosed) {
       try {
-        _textRecognizer?.close();
+        // TextRecognizer zaten başlatılmışsa kapat
+        // Burada late final olduğu için açıkça null kontrolü yapmıyoruz
+        if (!_isClosed) {
+          _textRecognizer.close();
+        }
       } catch (e) {
         debugPrint('Tanıyıcı kapatma hatası: $e');
       }
     }
-    _textRecognizer = TextRecognizer(script: script);
+    
+    // Script'e göre ML Kit tanıyıcısını ayarla
+    switch (script) {
+      case TextRecognitionScript.latin:
+        _textRecognizer = GoogleMlKit.vision.textRecognizer();
+        break;
+      case TextRecognitionScript.chinese:
+        _textRecognizer = GoogleMlKit.vision.textRecognizerChinese();
+        break;
+      case TextRecognitionScript.devanagari:
+        _textRecognizer = GoogleMlKit.vision.textRecognizerDevanagari();
+        break;
+      case TextRecognitionScript.japanese:
+        _textRecognizer = GoogleMlKit.vision.textRecognizerJapanese();
+        break;
+      case TextRecognitionScript.korean:
+        _textRecognizer = GoogleMlKit.vision.textRecognizerKorean();
+        break;
+    }
+    
     _currentScript = script;
     _isClosed = false;
   }
@@ -77,7 +101,6 @@ class OcrService {
       final scripts = [
         TextRecognitionScript.latin,
         TextRecognitionScript.chinese,
-        TextRecognitionScript.devanagari,
         TextRecognitionScript.japanese,
         TextRecognitionScript.korean,
       ];
@@ -128,7 +151,9 @@ class OcrService {
   
   /// OCR işlemleri için kullanılan kaynakları serbest bırakır
   Future<void> dispose() async {
-    await _textRecognizer.close();
-    _isClosed = true;
+    if (!_isClosed) {
+      await _textRecognizer.close();
+      _isClosed = true;
+    }
   }
 } 

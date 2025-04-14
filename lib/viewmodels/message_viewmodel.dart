@@ -1,12 +1,15 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/message_model.dart';
-import '../models/analysis_result_model.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import '../models/message.dart';
+import '../models/analysis_result.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 
 class MessageViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   final AiService _aiService = AiService();
   final LoggerService _logger = LoggerService();
   
@@ -32,11 +35,11 @@ class MessageViewModel extends ChangeNotifier {
       final QuerySnapshot snapshot = await _firestore
           .collection('messages')
           .where('userId', isEqualTo: userId)
-          .orderBy('timestamp', descending: true)
+          .orderBy('sentAt', descending: true)
           .get();
       
       _messages = snapshot.docs
-          .map((doc) => Message.fromFirestore(doc))
+          .map((doc) => Message.fromMap(doc.data() as Map<String, dynamic>))
           .toList();
       
       notifyListeners();
@@ -47,28 +50,14 @@ class MessageViewModel extends ChangeNotifier {
     }
   }
 
-  // Yeni mesaj oluşturma
-  Future<void> createMessage(String userId, String content) async {
+  // Yeni mesaj ekleme
+  Future<void> addMessage(Message message) async {
     _setLoading(true);
     try {
-      _logger.i('Yeni mesaj oluşturuluyor. UserID: $userId');
-      
-      // Gönderme zamanını al
-      final timestamp = DateTime.now();
-      
-      // Yeni belge referansı oluştur
-      final docRef = _firestore.collection('messages').doc();
-      
-      // Mesaj nesnesini oluştur
-      final message = Message(
-        id: docRef.id,
-        userId: userId,
-        content: content,
-        timestamp: timestamp,
-      );
+      _logger.i('Yeni mesaj ekleniyor. ID: ${message.id}');
       
       // Firestore'a kaydet
-      await docRef.set(message.toFirestore());
+      await _firestore.collection('messages').doc(message.id).set(message.toMap());
       
       // Mesajı listeye ekle
       _messages.insert(0, message);
@@ -76,11 +65,11 @@ class MessageViewModel extends ChangeNotifier {
       // Mevcut mesajı ayarla
       _currentMessage = message;
       
-      _logger.i('Mesaj başarıyla oluşturuldu. ID: ${message.id}');
+      _logger.i('Mesaj başarıyla eklendi. ID: ${message.id}');
       
       notifyListeners();
     } catch (e) {
-      _setError('Mesaj oluşturulurken hata oluştu: $e');
+      _setError('Mesaj eklenirken hata oluştu: $e');
     } finally {
       _setLoading(false);
     }
@@ -93,7 +82,7 @@ class MessageViewModel extends ChangeNotifier {
       final DocumentSnapshot doc = await _firestore.collection('messages').doc(messageId).get();
       
       if (doc.exists) {
-        _currentMessage = Message.fromFirestore(doc);
+        _currentMessage = Message.fromMap(doc.data() as Map<String, dynamic>);
         notifyListeners();
       } else {
         _setError('Mesaj bulunamadı');
@@ -112,17 +101,30 @@ class MessageViewModel extends ChangeNotifier {
     try {
       _logger.i('Mesaj analizi başlatılıyor. ID: ${message.id}');
       
-      final result = await _aiService.analyzeMessage(message);
+      final result = await _aiService.analyzeMessage(message.content);
       
       if (result != null) {
         _currentAnalysisResult = result;
-        _currentMessage = message.copyWith(isAnalyzed: true);
+        
+        // Mesajı güncelle
+        final updatedMessage = message.copyWith(
+          isAnalyzed: true,
+          analysisResult: result
+        );
+        
+        // Firestore'da güncelle
+        await _firestore.collection('messages').doc(message.id).update({
+          'isAnalyzed': true,
+          'analysisResult': result.toMap(),
+        });
         
         // Mesajları güncelle
         final index = _messages.indexWhere((m) => m.id == message.id);
         if (index != -1) {
-          _messages[index] = _currentMessage!;
+          _messages[index] = updatedMessage;
         }
+        
+        _currentMessage = updatedMessage;
         
         _logger.i('Mesaj analizi tamamlandı. ID: ${message.id}');
         
@@ -137,21 +139,60 @@ class MessageViewModel extends ChangeNotifier {
     }
   }
 
+  // Mesaj görselini yükleme
+  Future<void> uploadMessageImage(String messageId, File imageFile) async {
+    try {
+      _logger.i('Mesaj görseli yükleniyor. ID: $messageId');
+      
+      // Storage referansı oluştur
+      final storageRef = _storage.ref().child('message_images/$messageId.jpg');
+      
+      // Görseli yükle
+      final uploadTask = storageRef.putFile(imageFile);
+      final snapshot = await uploadTask.whenComplete(() => null);
+      
+      // İndirme URL'sini al
+      final imageUrl = await snapshot.ref.getDownloadURL();
+      
+      // Firestore'da mesajı güncelle
+      await _firestore.collection('messages').doc(messageId).update({
+        'imageUrl': imageUrl,
+      });
+      
+      // Yerel mesajı güncelle
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(imageUrl: imageUrl);
+        
+        if (_currentMessage?.id == messageId) {
+          _currentMessage = _currentMessage!.copyWith(imageUrl: imageUrl);
+        }
+      }
+      
+      _logger.i('Mesaj görseli başarıyla yüklendi. ID: $messageId');
+      
+      notifyListeners();
+    } catch (e) {
+      _setError('Görsel yüklenirken hata oluştu: $e');
+    }
+  }
+
   // Mesaj analiz sonucunu alma
   Future<void> getAnalysisResult(String messageId) async {
     _setLoading(true);
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection('analysis_results')
-          .where('messageId', isEqualTo: messageId)
-          .limit(1)
-          .get();
+      final DocumentSnapshot doc = await _firestore.collection('messages').doc(messageId).get();
       
-      if (snapshot.docs.isNotEmpty) {
-        _currentAnalysisResult = AnalysisResult.fromFirestore(snapshot.docs.first);
-        notifyListeners();
+      if (doc.exists) {
+        final message = Message.fromMap(doc.data() as Map<String, dynamic>);
+        if (message.analysisResult != null) {
+          _currentAnalysisResult = message.analysisResult;
+          notifyListeners();
+        } else {
+          _setError('Analiz sonucu bulunamadı');
+        }
       } else {
-        _setError('Analiz sonucu bulunamadı');
+        _setError('Mesaj bulunamadı');
       }
     } catch (e) {
       _setError('Analiz sonucu alınırken hata oluştu: $e');
@@ -167,17 +208,13 @@ class MessageViewModel extends ChangeNotifier {
       // Mesajı Firestore'dan sil
       await _firestore.collection('messages').doc(messageId).delete();
       
-      // İlişkili analiz sonuçlarını bul ve sil
-      final QuerySnapshot analysisSnapshot = await _firestore
-          .collection('analysis_results')
-          .where('messageId', isEqualTo: messageId)
-          .get();
-      
-      final batch = _firestore.batch();
-      for (var doc in analysisSnapshot.docs) {
-        batch.delete(doc.reference);
+      // Varsa resmi sil
+      try {
+        await _storage.ref().child('message_images/$messageId.jpg').delete();
+      } catch (e) {
+        // Resim olmayabilir, hatayı görmezden gel
+        _logger.w('Resim silinirken hata oluştu: $e');
       }
-      await batch.commit();
       
       // Yerel listeden kaldır
       _messages.removeWhere((message) => message.id == messageId);

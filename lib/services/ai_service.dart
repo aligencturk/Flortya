@@ -2,13 +2,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../models/analysis_result_model.dart';
-import '../models/message_model.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/analysis_result.dart';
 import 'logger_service.dart';
 
 class AiService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final LoggerService _logger = LoggerService();
   
   // Gemini API anahtarını ve ayarlarını .env dosyasından alma
@@ -173,7 +170,7 @@ class AiService {
         
         _logger.d('AI yanıt metni: $aiContent');
         
-        // Firestore'a kaydet
+        // Tavsiye verilerini oluştur
         final advice = {
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
           'question': question,
@@ -182,12 +179,7 @@ class AiService {
           'type': 'chat'
         };
         
-        await _firestore
-          .collection('relationship_advice')
-          .doc(advice['id'])
-          .set(advice);
-        
-        _logger.i('İlişki tavsiyesi başarıyla alındı ve kaydedildi.');
+        _logger.i('İlişki tavsiyesi başarıyla alındı');
         return advice;
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
@@ -200,22 +192,30 @@ class AiService {
   }
 
   // Mesajı analiz etme
-  Future<AnalysisResult?> analyzeMessage(Message message) async {
+  Future<AnalysisResult?> analyzeMessage(String messageContent) async {
     try {
-      _logger.i('Mesaj analizi başlatılıyor: ${message.id}');
+      _logger.i('Mesaj analizi başlatılıyor...');
       
-      // Mesaj içeriğini kontrol et ve düzenle
-      String messageContent = message.content;
-      bool isImageMessage = messageContent.contains("Görsel mesaj:") || 
-                            messageContent.contains("Screenshot:") || 
-                            messageContent.contains("ekran görüntüsü") || 
-                            messageContent.contains("Ekran görüntüsü:");
-      bool hasExtractedText = messageContent.contains("Görseldeki metin:");
+      // Mesaj içeriğini kontrol etme
+      if (messageContent.trim().isEmpty) {
+        _logger.w('Boş mesaj içeriği, analiz yapılamıyor');
+        return null;
+      }
       
-      String prompt;
+      // Mesaj türünü belirleme
+      final bool isImageMessage = messageContent.contains("Ekran görüntüsü:") || 
+          messageContent.contains("Görsel:") ||
+          messageContent.contains("Fotoğraf:");
+      
+      final bool hasExtractedText = messageContent.contains("Görseldeki metin:") && 
+          messageContent.split("Görseldeki metin:").length > 1 && 
+          messageContent.split("Görseldeki metin:")[1].trim().isNotEmpty;
+      
+      // Prompt hazırlama
+      String prompt = '';
       
       if (isImageMessage && hasExtractedText) {
-        // Ekran görüntüsü ve OCR metni varsa
+        // Ekran görüntüsü ve OCR ile metin çıkarılmış
         prompt = '''
         Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü içeriyor ve görselden çıkarılan metin var. 
         
@@ -232,8 +232,8 @@ class AiService {
           "niyet": "mesajın/konuşmanın arkasındaki niyet",
           "ton": "iletişim tonu (samimi, resmi, agresif, sevecen, vb.)",
           "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
-          "mesaj_yorumu": "metindeki ilişki dinamiğine dair detaylı bir yorum",
-          "cevap_onerileri": [
+          "mesajYorumu": "metindeki ilişki dinamiğine dair detaylı bir yorum",
+          "cevapOnerileri": [
             "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 1. öneri",
             "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 2. öneri",
             "Bu mesaja/konuşmaya nasıl yaklaşılması gerektiğine dair 3. öneri"
@@ -259,8 +259,8 @@ class AiService {
           "niyet": "ekran görüntüsünü paylaşmaktaki muhtemel niyet",
           "ton": "saygılı - ilişki ekran görüntüsü paylaşımı",
           "ciddiyet": "7",
-          "mesaj_yorumu": "Ekran görüntülerini göremediğimiz için net bir analiz yapamıyorum, ancak görsel içeriği paylaşan kişiye nasıl yaklaşılması gerektiği hakkında tavsiyeler sunabilirim",
-          "cevap_onerileri": [
+          "mesajYorumu": "Ekran görüntülerini göremediğimiz için net bir analiz yapamıyorum, ancak görsel içeriği paylaşan kişiye nasıl yaklaşılması gerektiği hakkında tavsiyeler sunabilirim",
+          "cevapOnerileri": [
             "Ekran görüntüsündeki içeriği metin olarak açıklayabilir misiniz? Böylece daha iyi analiz yapabilirim.",
             "İlişkinizle ilgili bu görsel hakkında biraz daha detay paylaşır mısınız?",
             "Bu ekran görüntüsünün sizi nasıl hissettirdiğini paylaşır mısınız? Böylece daha iyi yardımcı olabilirim."
@@ -279,8 +279,8 @@ class AiService {
           "niyet": "mesajın arkasındaki niyet",
           "ton": "samimi, resmi, agresif, pasif, flörtöz, vb.",
           "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
-          "mesaj_yorumu": "mesajla ilgili genel bir yorum",
-          "cevap_onerileri": ["1. öneri", "2. öneri", "3. öneri"]
+          "mesajYorumu": "mesajla ilgili genel bir yorum",
+          "cevapOnerileri": ["1. öneri", "2. öneri", "3. öneri"]
         }
         
         Analiz edilecek mesaj: "${messageContent}"
@@ -339,23 +339,15 @@ class AiService {
           
           // Analiz sonucunu oluşturma
           final analysisResult = AnalysisResult(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            messageId: message.id,
-            emotion: parsedResponse['duygu'] ?? 'nötr',
-            intent: parsedResponse['niyet'] ?? 'belirsiz',
-            tone: parsedResponse['ton'] ?? 'normal',
-            severity: _parseSeverity(parsedResponse['ciddiyet']),
-            aiResponse: parsedResponse,
-            createdAt: DateTime.now(),
+            duygu: parsedResponse['duygu'] ?? 'nötr',
+            niyet: parsedResponse['niyet'] ?? 'belirsiz',
+            ton: parsedResponse['ton'] ?? 'normal',
+            ciddiyet: _parseSeverity(parsedResponse['ciddiyet']),
+            mesajYorumu: parsedResponse['mesajYorumu'] ?? parsedResponse['mesaj_yorumu'] ?? '',
+            cevapOnerileri: _parseStringList(parsedResponse['cevapOnerileri'] ?? parsedResponse['cevap_onerileri'] ?? []),
           );
           
-          // Firestore'a kaydetme
-          await _saveAnalysisResult(analysisResult);
-          
-          // Mesajı analiz edildi olarak işaretle
-          await _updateMessageAnalyzed(message.id);
-          
-          _logger.i('Mesaj analizi tamamlandı: ${message.id}');
+          _logger.i('Mesaj analizi tamamlandı');
           return analysisResult;
         } catch (e) {
           _logger.e('Yanıt ayrıştırma hatası', e);
@@ -684,30 +676,6 @@ class AiService {
     return match?.group(1)?.trim() ?? 'Günlük İlişki Tavsiyesi';
   }
 
-  // Analiz sonucunu Firestore'a kaydetme
-  Future<void> _saveAnalysisResult(AnalysisResult result) async {
-    try {
-      await _firestore
-          .collection('analysis_results')
-          .doc(result.id)
-          .set(result.toMap());
-    } catch (e) {
-      _logger.e('Analiz sonucu kaydetme hatası', e);
-    }
-  }
-
-  // Mesajı analiz edildi olarak işaretleme
-  Future<void> _updateMessageAnalyzed(String messageId) async {
-    try {
-      await _firestore
-          .collection('messages')
-          .doc(messageId)
-          .update({'isAnalyzed': true});
-    } catch (e) {
-      _logger.e('Mesaj güncelleme hatası', e);
-    }
-  }
-
   // Severity değerini int'e dönüştürme
   int _parseSeverity(dynamic severityValue) {
     if (severityValue == null) return 5;
@@ -724,5 +692,16 @@ class AiService {
     }
     
     return 5; // Varsayılan değer
+  }
+
+  // Metinden string listesi çıkarma
+  List<String> _parseStringList(dynamic list) {
+    if (list is List) {
+      return list.map((e) => e.toString()).toList();
+    } else if (list is String) {
+      return [list];
+    } else {
+      return [];
+    }
   }
 } 
