@@ -54,26 +54,31 @@ class AppRouter {
           name: 'onboarding',
           builder: (context, state) => const OnboardingView(),
         ),
+        // Ana tabbar sayfası
         GoRoute(
           path: home,
           name: 'home',
           builder: (context, state) => const HomeView(),
         ),
+        // Mesaj Analizi sayfası - Detay sayfası
         GoRoute(
           path: messageAnalysis,
           name: 'messageAnalysis',
           builder: (context, state) => const MessageAnalysisView(),
         ),
+        // İlişki Raporu sayfası - Detay sayfası
         GoRoute(
           path: report,
           name: 'report',
           builder: (context, state) => const ReportView(),
         ),
+        // Tavsiye Kartı sayfası - Detay sayfası
         GoRoute(
           path: advice,
           name: 'advice',
           builder: (context, state) => const AdviceView(),
         ),
+        // Profil sayfası - Detay sayfası  
         GoRoute(
           path: profile,
           name: 'profile',

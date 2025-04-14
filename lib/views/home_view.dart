@@ -46,20 +46,25 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
         physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
         children: [
-          // Sohbet Tab
-          _buildChatTab(context),
+          // Mesaj Analizi Tab
+          _buildMessageAnalysisTab(context),
           
-          // Kişiler Tab
-          _buildContactsTab(context),
+          // İlişki Raporu Tab
+          _buildRelationshipReportTab(context),
           
-          // Ayarlar Tab
-          _buildSettingsTab(context),
+          // Tavsiye Kartı Tab
+          _buildAdviceCardTab(context),
+          
+          // Profil Tab
+          _buildProfileTab(context),
         ],
       ),
       bottomNavigationBar: Container(
@@ -76,7 +81,7 @@ class _HomeViewState extends State<HomeView> {
           type: BottomNavigationBarType.fixed,
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
+          selectedItemColor: theme.colorScheme.primary,
           unselectedItemColor: Colors.grey.shade600,
           backgroundColor: Colors.white,
           elevation: 0,
@@ -84,17 +89,22 @@ class _HomeViewState extends State<HomeView> {
             BottomNavigationBarItem(
               icon: Icon(Icons.chat_outlined),
               activeIcon: Icon(Icons.chat),
-              label: 'Sohbet',
+              label: 'Mesaj Analizi',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.contacts_outlined),
-              activeIcon: Icon(Icons.contacts),
-              label: 'Kişiler',
+              icon: Icon(Icons.bar_chart_outlined),
+              activeIcon: Icon(Icons.bar_chart),
+              label: 'İlişki Raporu',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Ayarlar',
+              icon: Icon(Icons.card_giftcard_outlined),
+              activeIcon: Icon(Icons.card_giftcard),
+              label: 'Tavsiye Kartı',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profil',
             ),
           ],
         ),
@@ -102,8 +112,8 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Sohbet Tab
-  Widget _buildChatTab(BuildContext context) {
+  // Mesaj Analizi Tab
+  Widget _buildMessageAnalysisTab(BuildContext context) {
     final theme = Theme.of(context);
     
     return Scaffold(
@@ -117,13 +127,17 @@ class _HomeViewState extends State<HomeView> {
               child: Row(
                 children: [
                   Text(
-                    'PWA CHATAPP',
+                    'Mesaj Analizi',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                    onPressed: () {},
+                  ),
                 ],
               ),
             ),
@@ -138,70 +152,101 @@ class _HomeViewState extends State<HomeView> {
                     topRight: Radius.circular(20),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    // Uygulama Başlığı ve Arama
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'PROGRASIVE WEB APP',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Arama Kutusu
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: 'Search',
-                                prefixIcon: const Icon(Icons.search),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                                suffixIcon: Container(
-                                  margin: const EdgeInsets.all(5),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.add,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Mesajlarınızı Analiz Edin',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Mesaj Analiz Kartı
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Yeni Analiz Başlat',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Mesajlarınızı yükleyin ve ilişkiniz hakkında detaylı analiz alın.',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  context.push(AppRouter.messageAnalysis);
+                                },
+                                icon: const Icon(Icons.upload_file),
+                                label: const Text('Mesaj Yükle'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    
-                    // Sohbet Listesi
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _dummyChats.length,
-                        itemBuilder: (context, index) {
-                          final chat = _dummyChats[index];
-                          return ChatListItem(
-                            name: chat.name,
-                            message: chat.lastMessage,
-                            avatarUrl: chat.avatarUrl,
-                            onTap: () => _openChat(context, chat.name),
-                          );
-                        },
+                      
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Son Analizler',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      
+                      // Örnek Geçmiş Analiz Listesi
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 3,
+                          itemBuilder: (context, index) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                leading: CircleAvatar(
+                                  backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                                  child: Icon(
+                                    Icons.message,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                                title: Text('Analiz #${index + 1}'),
+                                subtitle: Text('${DateTime.now().day - index}.${DateTime.now().month}.${DateTime.now().year}'),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                onTap: () {},
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -209,7 +254,9 @@ class _HomeViewState extends State<HomeView> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          context.push(AppRouter.messageAnalysis);
+        },
         backgroundColor: theme.colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -218,8 +265,8 @@ class _HomeViewState extends State<HomeView> {
     .fadeIn(duration: 300.ms);
   }
 
-  // Kişiler Tab
-  Widget _buildContactsTab(BuildContext context) {
+  // İlişki Raporu Tab
+  Widget _buildRelationshipReportTab(BuildContext context) {
     final theme = Theme.of(context);
     
     return Scaffold(
@@ -232,15 +279,17 @@ class _HomeViewState extends State<HomeView> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => _onItemTapped(0),
-                  ),
                   Text(
-                    'Add Contacts',
+                    'İlişki Raporu',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.help_outline, color: Colors.white),
+                    onPressed: () {},
                   ),
                 ],
               ),
@@ -256,102 +305,369 @@ class _HomeViewState extends State<HomeView> {
                     topRight: Radius.circular(20),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    // Yeni Kişi Ekle
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'ADD NEW CONTECT',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Telefon Numarası Girişi
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.phone, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: TextField(
-                                    decoration: const InputDecoration(
-                                      hintText: '+90 123-45-6789',
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'İlişkinizin Detaylı Analizi',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // İlişki Puanı Kartı
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'İlişki Uyum Puanınız',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 150,
+                                    height: 150,
+                                    child: CircularProgressIndicator(
+                                      value: 0.78,
+                                      strokeWidth: 12,
+                                      backgroundColor: Colors.grey.shade200,
+                                      valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                                     ),
-                                    keyboardType: TextInputType.phone,
+                                  ),
+                                  Text(
+                                    '78%',
+                                    style: TextStyle(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                'İyi bir ilişkiniz var! Detaylı raporunuzu görmek için tıklayın.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  context.push(AppRouter.report);
+                                },
+                                child: const Text('Detaylı Raporu Gör'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Kategoriler
+                      const Text(
+                        'Kategori Bazlı Analizler',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Örnek Kategori Kartları
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            _buildCategoryCard(
+                              context,
+                              title: 'İletişim Kalitesi',
+                              value: 0.85,
+                              color: Colors.blue,
+                            ),
+                            _buildCategoryCard(
+                              context,
+                              title: 'Duygusal Bağ',
+                              value: 0.72,
+                              color: Colors.purple,
+                            ),
+                            _buildCategoryCard(
+                              context,
+                              title: 'Çatışma Çözümü',
+                              value: 0.65,
+                              color: Colors.orange,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    )
+    .animate()
+    .fadeIn(duration: 300.ms);
+  }
+  
+  Widget _buildCategoryCard(
+    BuildContext context, {
+    required String title,
+    required double value,
+    required Color color,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: value,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  '${(value * 100).toInt()}%',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Tavsiye Kartı Tab
+  Widget _buildAdviceCardTab(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Scaffold(
+      backgroundColor: theme.colorScheme.primary,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // App Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(
+                    'Tavsiye Kartları',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.favorite_border, color: Colors.white),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+            
+            // Ana içerik
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Kişiselleştirilmiş Tavsiyeler',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'İlişkinizi güçlendirmek için günlük tavsiyeler',
+                        style: TextStyle(
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Tavsiye Kartları
+                      Expanded(
+                        child: PageView.builder(
+                          itemCount: 5,
+                          controller: PageController(viewportFraction: 0.9),
+                          itemBuilder: (context, index) {
+                            // Renk listesi
+                            final List<Color> cardColors = [
+                              const Color(0xFF9D59FF),
+                              const Color(0xFF4F8CF6),
+                              const Color(0xFFFF7F50),
+                              const Color(0xFF8CCF4D),
+                              const Color(0xFFE85D75),
+                            ];
+                            
+                            // Başlık listesi
+                            final List<String> titles = [
+                              'Aktif Dinleme',
+                              'Takdir Etme',
+                              'Ortak Aktiviteler',
+                              'Açık İletişim',
+                              'Destek Olma'
+                            ];
+                            
+                            // İçerik listesi
+                            final List<String> contents = [
+                              'Bugün partnerinizi daha aktif bir şekilde dinlemeyi deneyin. Göz teması kurun ve ne söylediklerini kendi cümlelerinizle tekrarlayın.',
+                              'Partnerinize bugün en az üç kez takdir ettiğiniz bir özelliğini söyleyin ve bunu neden beğendiğinizi açıklayın.',
+                              'Bu hafta sonu birlikte yapabileceğiniz yeni bir aktivite planlayın. İkinizin de daha önce denemediği bir şey seçin.',
+                              'Sizi rahatsız eden bir konuyu "Ben" dili kullanarak açıkça ifade edin. Suçlamadan ve sakin bir şekilde hislerinizi paylaşın.',
+                              'Partnerinizin zor bir durumla karşılaştığında sadece dinleyin ve çözüm önermeden önce "Nasıl yardımcı olabilirim?" diye sorun.'
+                            ];
+                          
+                            return GestureDetector(
+                              onTap: () {
+                                context.push(AppRouter.advice);
+                              },
+                              child: Card(
+                                elevation: 4,
+                                color: cardColors[index],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.card_giftcard,
+                                        color: Colors.white.withOpacity(0.9),
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 24),
+                                      Text(
+                                        titles[index],
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Expanded(
+                                        child: Text(
+                                          contents[index],
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.9),
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: () {},
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white,
+                                              foregroundColor: cardColors[index],
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(30),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                            ),
+                                            child: const Text(
+                                              'Detaylar',
+                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Ekle Butonu
-                          Center(
-                            child: ElevatedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.add, size: 20),
-                              label: const Text('Add Contacts'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                               ),
+                            );
+                          },
+                        ),
+                      ),
+                      
+                      // Sayfa indikatörü
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          5,
+                          (index) => Container(
+                            width: 10,
+                            height: 10,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: index == 0
+                                  ? theme.colorScheme.primary
+                                  : Colors.grey.shade300,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    
-                    // Ayırıcı Çizgi
-                    const Divider(height: 30),
-                    
-                    // Kişiler
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'EXISTING CONTACT IN PHONE',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Kişiler Listesi
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _dummyContacts.length,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemBuilder: (context, index) {
-                          final contact = _dummyContacts[index];
-                          return ContactListItem(
-                            name: contact.name,
-                            phoneNumber: contact.phoneNumber,
-                            avatarUrl: contact.avatarUrl,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -363,578 +679,202 @@ class _HomeViewState extends State<HomeView> {
     .fadeIn(duration: 300.ms);
   }
 
-  // Ayarlar Tab
-  Widget _buildSettingsTab(BuildContext context) {
+  // Profil Tab
+  Widget _buildProfileTab(BuildContext context) {
     final theme = Theme.of(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ayarlar'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const SizedBox(height: 16),
-          
-          // Profil Bilgileri
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-            child: Icon(
-              Icons.person,
-              size: 60,
-              color: theme.colorScheme.primary,
+      backgroundColor: theme.colorScheme.primary,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // App Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(
+                    'Profil',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              authViewModel.currentUser?.displayName ?? 'Kullanıcı',
-              style: theme.textTheme.titleLarge,
+            
+            // Ana içerik
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        // Profil Bilgileri
+                        const SizedBox(height: 24),
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.colorScheme.primary,
+                              width: 3,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                            child: Icon(
+                              Icons.person,
+                              size: 50,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Ahmet Yılmaz',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'ahmet.yilmaz@example.com',
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // Üyelik Bilgileri
+                        Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: Icon(
+                                    Icons.workspace_premium,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  title: const Text('Premium Üyelik'),
+                                  subtitle: const Text('Aktif - 12.05.2023 tarihinde yenileniyor'),
+                                ),
+                                const Divider(),
+                                ListTile(
+                                  leading: Icon(
+                                    Icons.insights,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  title: const Text('Yapılan Analizler'),
+                                  subtitle: const Text('22 analiz'),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                  onTap: () {},
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Hesap Ayarları
+                        const Text(
+                          'Hesap Ayarları',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.person_outline),
+                                title: const Text('Hesap Bilgileri'),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                onTap: () {},
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.notifications_outlined),
+                                title: const Text('Bildirim Ayarları'),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                onTap: () {},
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.security_outlined),
+                                title: const Text('Gizlilik ve Güvenlik'),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                onTap: () {},
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.support_outlined),
+                                title: const Text('Yardım ve Destek'),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                onTap: () {},
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: Icon(
+                                  Icons.logout,
+                                  color: Colors.red.shade400,
+                                ),
+                                title: Text(
+                                  'Çıkış Yap',
+                                  style: TextStyle(
+                                    color: Colors.red.shade400,
+                                  ),
+                                ),
+                                onTap: () {
+                                  // authViewModel.signOut();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          Center(
-            child: Text(
-              authViewModel.currentUser?.email ?? 'user@example.com',
-              style: theme.textTheme.bodyLarge,
-            ),
-          ),
-          const SizedBox(height: 32),
-          
-          // Ayarlar Listesi
-          _buildSettingItem(
-            context, 
-            'Tema Ayarları', 
-            Icons.palette_outlined,
-            () {},
-          ),
-          _buildSettingItem(
-            context, 
-            'Bildirim Ayarları', 
-            Icons.notifications_outlined,
-            () {},
-          ),
-          _buildSettingItem(
-            context, 
-            'Gizlilik ve Güvenlik', 
-            Icons.security_outlined,
-            () {},
-          ),
-          _buildSettingItem(
-            context, 
-            'Yardım ve Destek', 
-            Icons.help_outline,
-            () {},
-          ),
-          _buildSettingItem(
-            context, 
-            'Hakkında', 
-            Icons.info_outline,
-            () {},
-          ),
-          const SizedBox(height: 16),
-          
-          // Çıkış Yap Butonu
-          ElevatedButton.icon(
-            onPressed: () async {
-              await authViewModel.signOut();
-              if (context.mounted) {
-                context.go(AppRouter.onboarding);
-              }
-            },
-            icon: const Icon(Icons.logout),
-            label: const Text('Çıkış Yap'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     )
     .animate()
     .fadeIn(duration: 300.ms);
-  }
-  
-  // Ayarlar İçin Item Widget
-  Widget _buildSettingItem(BuildContext context, String title, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Row(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const Spacer(),
-            const Icon(Icons.arrow_forward_ios, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // Sohbet Açma
-  void _openChat(BuildContext context, String userName) {
-    // Sohbet Ekranına Git
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const ChatDetailView(),
-    );
-  }
-  
-  // Örnek veriler
-  final List<ChatModel> _dummyChats = [
-    ChatModel(
-      name: 'Metal Exchange',
-      lastMessage: 'I\'m designing a new website, please check it out',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/1.jpg',
-    ),
-    ChatModel(
-      name: 'Michael tony',
-      lastMessage: 'Thank you for the update. We will check back later',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/2.jpg',
-    ),
-    ChatModel(
-      name: 'Joseph ray',
-      lastMessage: 'I\'m designing a new interface for the mobile app',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/3.jpg',
-    ),
-    ChatModel(
-      name: 'Thomas adison',
-      lastMessage: 'I\'m reviewing your design, it looks great',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/4.jpg',
-    ),
-    ChatModel(
-      name: 'Jira',
-      lastMessage: 'I\'m working on the project management tool',
-      avatarUrl: 'https://randomuser.me/api/portraits/women/5.jpg',
-    ),
-  ];
-  
-  final List<ContactModel> _dummyContacts = [
-    ContactModel(
-      name: 'Metal Exchange',
-      phoneNumber: '+90 123-456-7890',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/1.jpg',
-    ),
-    ContactModel(
-      name: 'Michael tony',
-      phoneNumber: '+90 123-456-7891',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/2.jpg',
-    ),
-    ContactModel(
-      name: 'Joseph ray',
-      phoneNumber: '+90 123-456-7892',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/3.jpg',
-    ),
-    ContactModel(
-      name: 'Thomas adison',
-      phoneNumber: '+90 123-456-7893',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/4.jpg',
-    ),
-  ];
-}
-
-// Sohbet Listesi İtem Widget
-class ChatListItem extends StatelessWidget {
-  final String name;
-  final String message;
-  final String avatarUrl;
-  final VoidCallback onTap;
-  
-  const ChatListItem({
-    super.key,
-    required this.name,
-    required this.message,
-    required this.avatarUrl,
-    required this.onTap,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            // Avatar
-            CircleAvatar(
-              radius: 24,
-              backgroundImage: NetworkImage(avatarUrl),
-            ),
-            const SizedBox(width: 12),
-            
-            // İsim ve Mesaj
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            
-            // İşlem Butonları
-            IconButton(
-              icon: const Icon(Icons.add, size: 20),
-              onPressed: () {},
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Kişi Listesi İtem Widget
-class ContactListItem extends StatelessWidget {
-  final String name;
-  final String phoneNumber;
-  final String avatarUrl;
-  
-  const ContactListItem({
-    super.key,
-    required this.name,
-    required this.phoneNumber,
-    required this.avatarUrl,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          // Avatar
-          CircleAvatar(
-            radius: 20,
-            backgroundImage: NetworkImage(avatarUrl),
-          ),
-          const SizedBox(width: 12),
-          
-          // İsim ve Telefon
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  phoneNumber,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Ekle Butonu
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              '+ Add',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Sohbet Model
-class ChatModel {
-  final String name;
-  final String lastMessage;
-  final String avatarUrl;
-  
-  ChatModel({
-    required this.name,
-    required this.lastMessage,
-    required this.avatarUrl,
-  });
-}
-
-// Kişi Model
-class ContactModel {
-  final String name;
-  final String phoneNumber;
-  final String avatarUrl;
-  
-  ContactModel({
-    required this.name,
-    required this.phoneNumber,
-    required this.avatarUrl,
-  });
-}
-
-// Sohbet Detay Görünümü
-class ChatDetailView extends StatelessWidget {
-  const ChatDetailView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      child: Column(
-        children: [
-          // App Bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const CircleAvatar(
-                  backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/1.jpg'),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Metal Exchange',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ],
-            ),
-          ),
-          
-          // Mesaj Listesi
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView(
-                padding: const EdgeInsets.only(top: 16),
-                children: const [
-                  // Örnek mesajlar
-                  MessageBubble(
-                    message: 'Merhaba, nasılsın?',
-                    isMe: false,
-                    time: '12:30',
-                  ),
-                  MessageBubble(
-                    message: 'İyiyim, teşekkürler. Sen nasılsın?',
-                    isMe: true,
-                    time: '12:32',
-                  ),
-                  MessageBubble(
-                    message: 'Ben de iyiyim. Bugün hava çok güzel, değil mi?',
-                    isMe: false,
-                    time: '12:33',
-                  ),
-                  MessageBubble(
-                    message: 'Evet, gerçekten öyle. Belki dışarı çıkabiliriz.',
-                    isMe: true,
-                    time: '12:35',
-                  ),
-                  MessageBubble(
-                    message: 'Harika fikir! Ne zaman müsaitsin?',
-                    isMe: false,
-                    time: '12:36',
-                  ),
-                  MessageBubble(
-                    message: 'Öğleden sonra müsaitim. Sana uyar mı?',
-                    isMe: true,
-                    time: '12:38',
-                  ),
-                  MessageBubble(
-                    message: 'Ok',
-                    isMe: false,
-                    time: '12:39',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Mesaj Giriş Alanı
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Type your message here...',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Mesaj Balonu Widget
-class MessageBubble extends StatelessWidget {
-  final String message;
-  final bool isMe;
-  final String time;
-  
-  const MessageBubble({
-    super.key,
-    required this.message,
-    required this.isMe,
-    required this.time,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMe) 
-            const CircleAvatar(
-              radius: 16,
-              backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/1.jpg'),
-            ),
-          const SizedBox(width: 8),
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.6,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isMe ? theme.colorScheme.primary : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : Colors.black87,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: TextStyle(
-                    color: isMe ? Colors.white70 : Colors.black54,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (isMe) 
-            const CircleAvatar(
-              radius: 16,
-              backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/3.jpg'),
-            ),
-        ],
-      ),
-    );
   }
 } 
