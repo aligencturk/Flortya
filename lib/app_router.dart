@@ -24,6 +24,7 @@ class AppRouter {
     return GoRouter(
       initialLocation: onboarding,
       debugLogDiagnostics: true,
+      refreshListenable: authViewModel,
       redirect: (context, state) async {
         final bool isLoggedIn = authViewModel.isLoggedIn;
         final bool isInitialized = authViewModel.isInitialized;

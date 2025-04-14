@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../widgets/custom_button.dart';
 import '../app_router.dart';
+import '../widgets/auth_buttons.dart';
 
 class OnboardingView extends StatefulWidget {
   const OnboardingView({Key? key}) : super(key: key);
@@ -63,10 +64,26 @@ class _OnboardingViewState extends State<OnboardingView> {
     super.dispose();
   }
 
+  // Google ile giriş
+  Future<void> _signInWithGoogle(BuildContext context) async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    await _completeOnboarding();
+    await authViewModel.signInWithGoogle();
+  }
+
+  // Apple ile giriş
+  Future<void> _signInWithApple(BuildContext context) async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    await _completeOnboarding();
+    await authViewModel.signInWithApple();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context);
     final screenHeight = MediaQuery.of(context).size.height;
+    final authViewModel = Provider.of<AuthViewModel>(context);
     
     return Scaffold(
       body: SafeArea(
@@ -137,23 +154,20 @@ class _OnboardingViewState extends State<OnboardingView> {
               child: Column(
                 children: [
                   if (_currentPage == _onboardingItems.length - 1) ...[
-                    CustomButton(
-                      text: 'Google ile Giriş Yap',
-                      onPressed: () => _signInWithGoogle(context),
-                      icon: Icons.login,
-                      isFullWidth: true,
-                      isLoading: authViewModel.isLoading,
+                    // Özel buton yerine yeni GoogleSignInButton widget'ını kullan
+                    GoogleSignInButton(
+                      onSuccess: () async {
+                        await _completeOnboarding();
+                      },
                     ),
                     
                     const SizedBox(height: 12),
                     
-                    CustomButton(
-                      text: 'Apple ile Giriş Yap',
-                      onPressed: () => _signInWithApple(context),
-                      icon: Icons.apple,
-                      type: ButtonType.outline,
-                      isFullWidth: true,
-                      isLoading: authViewModel.isLoading,
+                    // Özel buton yerine yeni AppleSignInButton widget'ını kullan
+                    AppleSignInButton(
+                      onSuccess: () async {
+                        await _completeOnboarding();
+                      },
                     ),
                   ] else ...[
                     Row(
@@ -283,29 +297,5 @@ class _OnboardingViewState extends State<OnboardingView> {
         borderRadius: BorderRadius.circular(4),
       ),
     );
-  }
-
-  // Google ile giriş
-  Future<void> _signInWithGoogle(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    await _completeOnboarding();
-    final success = await authViewModel.signInWithGoogle();
-    
-    if (success && mounted) {
-      context.go(AppRouter.home);
-    }
-  }
-
-  // Apple ile giriş
-  Future<void> _signInWithApple(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    await _completeOnboarding();
-    final success = await authViewModel.signInWithApple();
-    
-    if (success && mounted) {
-      context.go(AppRouter.home);
-    }
   }
 } 
