@@ -31,7 +31,6 @@ flutter_native_splash:
   ios: true
   web: false
   remove_alpha_ios: true
-  android_12: true
 
 environment:
   sdk: ^3.7.2
