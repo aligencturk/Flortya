@@ -72,6 +72,35 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  // Premium üyeliğe yükseltme
+  Future<bool> upgradeToPremium() async {
+    if (_authService.currentUser == null) return false;
+    
+    _setLoading(true);
+    try {
+      // Burada gerçek ödeme sistemi entegrasyonu yapılacak
+      // Şimdilik sadece veritabanındaki premium durumunu güncelliyoruz
+      
+      // Premium bitiş tarihini 1 ay sonra olarak ayarla
+      final expiryDate = DateTime.now().add(const Duration(days: 30));
+      
+      await _authService.updatePremiumStatus(
+        isPremium: true,
+        expiryDate: expiryDate,
+      );
+      
+      // Kullanıcı verilerini yenile
+      await refreshUserData();
+      
+      return true;
+    } catch (e) {
+      _setError('Premium üyeliğe yükseltme hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // Apple ile giriş yapma
   Future<bool> signInWithApple() async {
     _setLoading(true);

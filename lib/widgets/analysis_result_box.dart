@@ -29,13 +29,13 @@ class AnalysisResultBox extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Mesaj Analizi',
+                'Flört Analizi',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              // Ciddiyet Seviyesi İndikatörü
-              _buildSeverityIndicator(context, result.severity),
+              // Flört Seviyesi İndikatörü
+              _buildFlirtLevelIndicator(context, result.flirtLevel),
             ],
           ),
           
@@ -47,6 +47,48 @@ class AnalysisResultBox extends StatelessWidget {
           _buildAnalysisRow(context, 'Niyet:', result.intent),
           const SizedBox(height: 8),
           _buildAnalysisRow(context, 'Ton:', result.tone),
+          const SizedBox(height: 8),
+          _buildAnalysisRow(context, 'Flört Türü:', result.flirtType),
+          
+          // Gizli Anlam Bilgisi (varsa)
+          if (result.hasHiddenMeaning) ...[
+            const SizedBox(height: 16),
+            
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.secondary.withOpacity(0.5),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.insights,
+                        color: theme.colorScheme.secondary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Gizli Anlam',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.secondary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(result.hiddenMeaning),
+                ],
+              ),
+            ),
+          ],
           
           // Detaylı Bilgiler (şartlı gösterim)
           if (showDetailedInfo) ...[
@@ -118,6 +160,45 @@ class AnalysisResultBox extends StatelessWidget {
     .animate()
     .fadeIn(duration: 400.ms)
     .slideY(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOutQuad);
+  }
+
+  // Flört seviyesi indikatörü
+  Widget _buildFlirtLevelIndicator(BuildContext context, int flirtLevel) {
+    // Flört seviyesine göre renk belirleme
+    Color getColorForFlirtLevel(int value) {
+      if (value <= 3) return Colors.blue;
+      if (value <= 6) return Colors.purple;
+      return Colors.red;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: getColorForFlirtLevel(flirtLevel).withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: getColorForFlirtLevel(flirtLevel)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            flirtLevel <= 3 
+                ? Icons.chat_bubble_outline
+                : (flirtLevel <= 6 ? Icons.favorite : Icons.local_fire_department),
+            size: 16,
+            color: getColorForFlirtLevel(flirtLevel),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Flört $flirtLevel/10',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: getColorForFlirtLevel(flirtLevel),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Ciddiyet seviyesi indikatörü

@@ -10,13 +10,17 @@ class ProfileViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
   
   UserModel? _user;
+  Map<String, dynamic>? _userProfile;
   bool _isLoading = false;
+  bool _isUpdating = false;
   String? _errorMessage;
   bool _isEditing = false;
 
   // Getters
   UserModel? get user => _user;
+  Map<String, dynamic>? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
+  bool get isUpdating => _isUpdating;
   String? get errorMessage => _errorMessage;
   bool get isEditing => _isEditing;
   bool get isPremium => _user?.isPremium ?? false;
@@ -35,6 +39,66 @@ class ProfileViewModel extends ChangeNotifier {
       _setError('Profil yüklenirken hata oluştu: $e');
     } finally {
       _setLoading(false);
+    }
+  }
+  
+  // Kullanıcı profilini yükleme
+  Future<void> getUserProfile(String userId) async {
+    _setLoading(true);
+    try {
+      final DocumentSnapshot doc = await _firestore.collection('users').doc(userId).get();
+      
+      if (doc.exists) {
+        _userProfile = doc.data() as Map<String, dynamic>?;
+        notifyListeners();
+      } else {
+        _setError('Kullanıcı profili bulunamadı');
+      }
+    } catch (e) {
+      _setError('Kullanıcı profili yüklenirken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Kullanıcı profilini güncelleme
+  Future<bool> updateUserProfile(
+    String userId, 
+    String name, 
+    String bio, 
+    String relationshipStatus,
+  ) async {
+    _isUpdating = true;
+    notifyListeners();
+    
+    try {
+      final Map<String, dynamic> updateData = {
+        'name': name,
+        'bio': bio,
+        'relationshipStatus': relationshipStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      await _firestore.collection('users').doc(userId).update(updateData);
+      
+      // Yerel kullanıcı profili verisini güncelle
+      if (_userProfile != null) {
+        _userProfile = {
+          ..._userProfile!,
+          ...updateData,
+        };
+      } else {
+        await getUserProfile(userId);
+      }
+      
+      _isUpdating = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Profil güncellenirken hata oluştu: $e');
+      _isUpdating = false;
+      notifyListeners();
+      return false;
     }
   }
 

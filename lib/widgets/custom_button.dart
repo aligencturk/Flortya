@@ -13,6 +13,8 @@ class CustomButton extends StatelessWidget {
   final double borderRadius;
   final EdgeInsets padding;
   final bool disabled;
+  final Color? color;
+  final bool isOutlined;
 
   const CustomButton({
     Key? key,
@@ -25,6 +27,8 @@ class CustomButton extends StatelessWidget {
     this.borderRadius = 12.0,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
     this.disabled = false,
+    this.color,
+    this.isOutlined = false,
   }) : super(key: key);
 
   @override
@@ -42,36 +46,42 @@ class CustomButton extends StatelessWidget {
     Color textColor;
     Color borderColor;
     
-    switch (type) {
-      case ButtonType.primary:
-        backgroundColor = primaryColor;
-        textColor = onPrimaryColor;
-        borderColor = Colors.transparent;
-        break;
-      case ButtonType.secondary:
-        backgroundColor = theme.colorScheme.secondary;
-        textColor = theme.colorScheme.onSecondary;
-        borderColor = Colors.transparent;
-        break;
-      case ButtonType.outline:
-        backgroundColor = Colors.transparent;
-        textColor = primaryColor;
-        borderColor = primaryColor;
-        break;
-      case ButtonType.text:
-        backgroundColor = Colors.transparent;
-        textColor = primaryColor;
-        borderColor = Colors.transparent;
-        break;
+    if (isOutlined) {
+      backgroundColor = Colors.transparent;
+      textColor = color ?? primaryColor;
+      borderColor = color ?? primaryColor;
+    } else {
+      switch (type) {
+        case ButtonType.primary:
+          backgroundColor = color ?? primaryColor;
+          textColor = onPrimaryColor;
+          borderColor = Colors.transparent;
+          break;
+        case ButtonType.secondary:
+          backgroundColor = color ?? theme.colorScheme.secondary;
+          textColor = theme.colorScheme.onSecondary;
+          borderColor = Colors.transparent;
+          break;
+        case ButtonType.outline:
+          backgroundColor = Colors.transparent;
+          textColor = color ?? primaryColor;
+          borderColor = color ?? primaryColor;
+          break;
+        case ButtonType.text:
+          backgroundColor = Colors.transparent;
+          textColor = color ?? primaryColor;
+          borderColor = Colors.transparent;
+          break;
+      }
     }
     
     // Devre dışı bırakılmış stilini uygulama
     if (disabled) {
-      backgroundColor = type == ButtonType.text || type == ButtonType.outline
+      backgroundColor = isOutlined || type == ButtonType.text || type == ButtonType.outline
           ? Colors.transparent
           : theme.disabledColor.withOpacity(0.2);
       textColor = theme.disabledColor;
-      borderColor = type == ButtonType.outline
+      borderColor = isOutlined || type == ButtonType.outline
           ? theme.disabledColor
           : Colors.transparent;
     }
