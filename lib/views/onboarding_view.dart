@@ -66,6 +66,7 @@ class _OnboardingViewState extends State<OnboardingView> {
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
+    final screenHeight = MediaQuery.of(context).size.height;
     
     return Scaffold(
       body: SafeArea(
@@ -73,7 +74,7 @@ class _OnboardingViewState extends State<OnboardingView> {
           children: [
             // Üst Başlık ve Ana Mesaj
             Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: EdgeInsets.fromLTRB(24.0, screenHeight * 0.03, 24.0, 0),
               child: Column(
                 children: [
                   Row(
@@ -88,7 +89,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Text(
                     "O seni hâlâ düşünüyorsa, öğrenmenin zamanı gelmedi mi?",
                     textAlign: TextAlign.center,
@@ -120,7 +121,7 @@ class _OnboardingViewState extends State<OnboardingView> {
             
             // Sayfa İndikatörü
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
@@ -132,7 +133,7 @@ class _OnboardingViewState extends State<OnboardingView> {
             
             // Giriş Butonları
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Column(
                 children: [
                   if (_currentPage == _onboardingItems.length - 1) ...[
@@ -144,7 +145,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                       isLoading: authViewModel.isLoading,
                     ),
                     
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     
                     CustomButton(
                       text: 'Apple ile Giriş Yap',
@@ -155,29 +156,31 @@ class _OnboardingViewState extends State<OnboardingView> {
                       isLoading: authViewModel.isLoading,
                     ),
                   ] else ...[
-                    CustomButton(
-                      text: 'Devam Et',
-                      onPressed: () {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      icon: Icons.arrow_forward,
-                      isFullWidth: true,
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    TextButton(
-                      onPressed: () {
-                        _pageController.animateToPage(
-                          _onboardingItems.length - 1,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      child: Text('Atla'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            _pageController.animateToPage(
+                              _onboardingItems.length - 1,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          child: const Text('Atla'),
+                        ),
+                        
+                        CustomButton(
+                          text: 'Devam Et',
+                          onPressed: () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          icon: Icons.arrow_forward,
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -191,61 +194,72 @@ class _OnboardingViewState extends State<OnboardingView> {
 
   // Onboarding öğesi widget'ı
   Widget _buildOnboardingItem(BuildContext context, Map<String, dynamic> item) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Görsel
-          Container(
-            height: 300,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                item['image'],
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: Center(
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.primary,
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Container(
+              height: screenHeight * 0.42,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  item['image'],
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      child: Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           
           // Başlık
-          Text(
-            item['title'],
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              item['title'],
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           )
           .animate()
           .fadeIn(duration: 600.ms)
           .slide(begin: const Offset(0, 0.2), end: Offset.zero),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           // Açıklama
-          Text(
-            item['description'],
-            style: Theme.of(context).textTheme.bodyLarge,
-            textAlign: TextAlign.center,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              item['description'],
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
           )
           .animate()
           .fadeIn(delay: 200.ms, duration: 600.ms)
