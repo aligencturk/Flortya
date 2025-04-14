@@ -66,10 +66,24 @@ class MyApp extends StatelessWidget {
 
   // Uygulama temasını oluşturma
   ThemeData _buildAppTheme() {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF6A3DE8), // Mor
-      secondary: const Color(0xFFFF6B6B), // Kırmızı-Pembe
-      tertiary: const Color(0xFF4ECDC4), // Turkuaz
+    // Resimdeki mor renk
+    const Color primaryPurple = Color(0xFF8B3FFD);
+    const Color darkPurple = Color(0xFF7E33E6);
+    const Color lightPurple = Color(0xFF9D59FF);
+
+    final ColorScheme colorScheme = ColorScheme(
+      primary: primaryPurple,
+      onPrimary: Colors.white,
+      secondary: darkPurple,
+      onSecondary: Colors.white,
+      tertiary: lightPurple,
+      onTertiary: Colors.white,
+      background: Colors.white,
+      onBackground: Colors.black87,
+      surface: Colors.white,
+      onSurface: Colors.black87,
+      error: Colors.redAccent,
+      onError: Colors.white,
       brightness: Brightness.light,
     );
 
@@ -89,9 +103,9 @@ class MyApp extends StatelessWidget {
           foregroundColor: colorScheme.onPrimary,
           backgroundColor: colorScheme.primary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         ),
       ),
       
@@ -107,7 +121,7 @@ class MyApp extends StatelessWidget {
       // Input stilleri
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
+        fillColor: Colors.grey.shade100,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -130,20 +144,36 @@ class MyApp extends StatelessWidget {
       // AppBar stilleri
       appBarTheme: AppBarTheme(
         centerTitle: true,
-        backgroundColor: colorScheme.surface,
+        backgroundColor: colorScheme.primary,
         elevation: 0,
         titleTextStyle: GoogleFonts.poppins(
-          color: colorScheme.onSurface,
+          color: Colors.white,
           fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
         iconTheme: IconThemeData(
-          color: colorScheme.primary,
+          color: Colors.white,
         ),
       ),
       
+      // FloatingActionButton stilleri
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: Colors.white,
+        shape: const CircleBorder(),
+      ),
+      
       // Scaffold arka plan rengi
-      scaffoldBackgroundColor: colorScheme.background,
+      scaffoldBackgroundColor: Colors.white,
+      
+      // BottomNavigationBar stilleri
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: colorScheme.primary,
+        unselectedItemColor: Colors.grey.shade600,
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
     );
   }
 }
