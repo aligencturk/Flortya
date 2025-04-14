@@ -27,16 +27,13 @@ class AnalysisResultBox extends StatelessWidget {
           // Başlık Satırı
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.favorite,
-                  color: Colors.pinkAccent,
+              CircleAvatar(
+                backgroundColor: theme.colorScheme.primary,
+                radius: 20,
+                child: Icon(
+                  Icons.psychology,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 12),
@@ -45,68 +42,95 @@ class AnalysisResultBox extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'İlişki Arkadaşın',
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      'İlişki Analizi Sonucum',
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      'Senin için buradayım',
+                      'Mesajlarınız analiz edildi',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.secondary,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
                 ),
               ),
-              // Ciddiyet Seviyesi İndikatörü
-              _buildSeverityIndicator(context, result.severity),
             ],
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           
-          // Mesaj Analizi Bilgileri
+          // Özet Kartı
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: theme.colorScheme.secondaryContainer.withOpacity(0.5),
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mesajda Hissettiklerim:',
+                  'Özet',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSecondaryContainer,
                   ),
                 ),
                 const SizedBox(height: 12),
                 
-                // Temel Analiz Bilgileri - daha samimi ifadelerle
-                _buildAnalysisChip(context, 'Duygu', result.emotion),
+                // Bilgi satırları
+                _buildInfoRow(
+                  context, 
+                  'Duygu',
+                  result.emotion,
+                ),
                 const SizedBox(height: 8),
-                _buildAnalysisChip(context, 'Niyet', result.intent),
+                _buildInfoRow(
+                  context, 
+                  'Niyet',
+                  result.intent, 
+                ),
                 const SizedBox(height: 8),
-                _buildAnalysisChip(context, 'Ton', result.tone),
+                _buildInfoRow(
+                  context, 
+                  'Mesaj Tonu',
+                  result.tone,
+                ),
                 const SizedBox(height: 8),
-                if (result.persons.isNotEmpty)
-                  _buildAnalysisChip(context, 'Kişiler', result.persons),
+                Row(
+                  children: [
+                    Text(
+                      'Ciddiyet:',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSeverityIndicator(context, result.severity),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Konuşmada Yer Alan Kişiler:',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  result.persons,
+                  style: theme.textTheme.bodyLarge,
+                ),
               ],
             ),
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           
-          // Mesaj Yorumu Bölümü
+          // Mesaj Yorumu
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -211,156 +235,122 @@ class AnalysisResultBox extends StatelessWidget {
   // Ciddiyet seviyesi indikatörü
   Widget _buildSeverityIndicator(BuildContext context, int severity) {
     final theme = Theme.of(context);
-    final colors = [
-      Colors.green,      // 1-3: Düşük
-      Colors.orange,     // 4-7: Orta
-      Colors.red,        // 8-10: Yüksek
-    ];
     
-    final color = severity <= 3 
-        ? colors[0] 
-        : (severity <= 7 ? colors[1] : colors[2]);
+    // Renk ve etiket hesaplama
+    Color color;
+    String label;
     
-    final label = severity <= 3 
-        ? 'Hafif' 
-        : (severity <= 7 ? 'Dikkat' : 'Önemli');
+    if (severity <= 3) {
+      color = Colors.green;
+      label = 'Düşük';
+    } else if (severity <= 6) {
+      color = Colors.orange;
+      label = 'Orta';
+    } else {
+      color = Colors.red;
+      label = 'Yüksek';
+    }
     
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(severity <= 3 
-              ? Icons.sentiment_satisfied 
-              : (severity <= 7 ? Icons.sentiment_neutral : Icons.sentiment_dissatisfied),
-            color: color,
-            size: 16,
+          Row(
+            children: [
+              Text(
+                '$severity/10 - $label',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: severity / 10,
+            backgroundColor: theme.colorScheme.surfaceVariant,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            borderRadius: BorderRadius.circular(4),
           ),
         ],
       ),
     );
   }
   
-  // Analiz bilgisi chips
-  Widget _buildAnalysisChip(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            value.isEmpty ? 'Belirsiz' : value,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ],
-      ),
-    );
-  }
-  
-  // Eski analiz bilgisi satırı
-  Widget _buildAnalysisRow(BuildContext context, String label, String value) {
+  // Bilgi satırı
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
     final theme = Theme.of(context);
     
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
+          '$label: ',
+          style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
           ),
         ),
-        const SizedBox(width: 8),
         Expanded(
           child: Text(
-            value.isEmpty ? 'Belirsiz' : value,
-            style: theme.textTheme.bodyMedium,
+            value,
+            style: theme.textTheme.bodyLarge,
           ),
         ),
       ],
     );
   }
   
-  // Öneri listesini oluşturma
+  // Öneri listesi
   List<Widget> _buildSuggestionsList(BuildContext context, AnalysisResult result) {
     final theme = Theme.of(context);
     
     // Öneri listesini al
-    final suggestions = result.aiResponse.containsKey('cevapOnerileri')
-        ? result.aiResponse['cevapOnerileri'] as List<dynamic>
-        : result.aiResponse['cevap_onerileri'] as List<dynamic>? ?? [];
+    List<String> suggestions = [];
     
-    // Widget listesi oluştur
+    if (result.aiResponse.containsKey('cevapOnerileri')) {
+      final suggestionList = result.aiResponse['cevapOnerileri'];
+      if (suggestionList is List) {
+        suggestions = suggestionList.map((item) => item.toString()).toList();
+      }
+    } else if (result.aiResponse.containsKey('cevap_onerileri')) {
+      final suggestionList = result.aiResponse['cevap_onerileri'];
+      if (suggestionList is List) {
+        suggestions = suggestionList.map((item) => item.toString()).toList();
+      }
+    }
+    
+    // Öneri kartlarını oluştur
     return suggestions.asMap().entries.map((entry) {
-      final index = entry.key;
-      final suggestion = entry.value.toString();
+      int index = entry.key;
+      String suggestion = entry.value;
       
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: theme.colorScheme.surfaceVariant.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.outline.withOpacity(0.2),
             width: 1,
           ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '${index + 1}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+            CircleAvatar(
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+              radius: 16,
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 suggestion,
@@ -371,8 +361,7 @@ class AnalysisResultBox extends StatelessWidget {
             ),
           ],
         ),
-      ).animate().fadeIn(duration: 300.ms, delay: (100 * index).ms)
-          .slideX(begin: 0.1, end: 0, duration: 300.ms, delay: (100 * index).ms);
+      );
     }).toList();
   }
 } 

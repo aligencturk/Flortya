@@ -5,9 +5,11 @@ class Message {
   final String id;
   final String content;
   final DateTime sentAt;
+  final Timestamp? timestamp;
   final bool sentByUser;
   final bool isAnalyzed;
   final String? imageUrl;
+  final String? imagePath;
   final AnalysisResult? analysisResult;
   final String userId;
   final String? errorMessage;
@@ -17,9 +19,11 @@ class Message {
     required this.id,
     required this.content,
     required this.sentAt,
+    this.timestamp,
     required this.sentByUser,
     this.isAnalyzed = false,
     this.imageUrl,
+    this.imagePath,
     this.analysisResult,
     required this.userId,
     this.errorMessage,
@@ -30,9 +34,11 @@ class Message {
     String? id,
     String? content,
     DateTime? sentAt,
+    Timestamp? timestamp,
     bool? sentByUser,
     bool? isAnalyzed,
     String? imageUrl,
+    String? imagePath,
     AnalysisResult? analysisResult,
     String? userId,
     String? errorMessage,
@@ -42,9 +48,11 @@ class Message {
       id: id ?? this.id,
       content: content ?? this.content,
       sentAt: sentAt ?? this.sentAt,
+      timestamp: timestamp ?? this.timestamp,
       sentByUser: sentByUser ?? this.sentByUser,
       isAnalyzed: isAnalyzed ?? this.isAnalyzed,
       imageUrl: imageUrl ?? this.imageUrl,
+      imagePath: imagePath ?? this.imagePath,
       analysisResult: analysisResult ?? this.analysisResult,
       userId: userId ?? this.userId,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -54,12 +62,13 @@ class Message {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'content': content,
+      'timestamp': timestamp ?? Timestamp.now(),
       'sentAt': Timestamp.fromDate(sentAt),
       'sentByUser': sentByUser,
       'isAnalyzed': isAnalyzed,
-      'imageUrl': imageUrl,
+      'imageUrl': imageUrl ?? '',
+      'imagePath': imagePath ?? '',
       'analysisResult': analysisResult?.toMap(),
       'userId': userId,
       'errorMessage': errorMessage,
@@ -79,18 +88,30 @@ class Message {
     if (messageId.isEmpty) {
       print('UYARI: Message.fromMap - Boş ID oluşturuldu. DocID: $docId, Map ID: ${map['id']}');
     }
+    
+    // Timestamp veya sentAt'ten DateTime oluştur
+    DateTime convertToDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+    
+    final timestamp = map['timestamp'] as Timestamp?;
+    final sentAtData = map['sentAt'];
+    final sentAt = sentAtData != null ? convertToDateTime(sentAtData) : 
+                   timestamp != null ? timestamp.toDate() : 
+                   DateTime.now();
 
     return Message(
       id: messageId,
       content: map['content'] ?? '',
-      sentAt: map['sentAt'] != null
-          ? (map['sentAt'] is Timestamp
-              ? (map['sentAt'] as Timestamp).toDate()
-              : DateTime.parse(map['sentAt'].toString()))
-          : DateTime.now(),
+      sentAt: sentAt,
+      timestamp: timestamp ?? (sentAtData != null ? Timestamp.fromDate(sentAt) : null),
       sentByUser: map['sentByUser'] ?? true,
       isAnalyzed: map['isAnalyzed'] ?? false,
       imageUrl: map['imageUrl'],
+      imagePath: map['imagePath'],
       analysisResult: map['analysisResult'] != null
           ? AnalysisResult.fromMap(map['analysisResult'])
           : null,
@@ -102,6 +123,6 @@ class Message {
 
   @override
   String toString() {
-    return 'Message(id: $id, content: $content, sentAt: $sentAt, sentByUser: $sentByUser, isAnalyzed: $isAnalyzed, imageUrl: $imageUrl, userId: $userId)';
+    return 'Message(id: $id, content: $content, sentAt: $sentAt, isAnalyzed: $isAnalyzed)';
   }
 } 

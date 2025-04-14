@@ -132,12 +132,16 @@ class _HomeViewState extends State<HomeView> {
     final messageViewModel = Provider.of<MessageViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     
-    // Eğer kullanıcı oturum açtıysa ve mesajlar yüklü değilse, yükleyelim
-    if (authViewModel.user != null && messageViewModel.messages.isEmpty && !messageViewModel.isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        messageViewModel.loadMessages(authViewModel.user!.id);
-      });
-    }
+    // build sırasında doğrudan state değişikliği yapmamak için postFrameCallback kullan
+    WidgetsBinding.instance.addPostFrameCallback((_) { 
+      // Callback içinde tekrar kontrol et
+      if (context.mounted && // Widget ağaçta mı?
+          authViewModel.user != null && 
+          !messageViewModel.isLoading && 
+          !messageViewModel.isFirstLoadCompleted) { 
+        messageViewModel.loadMessages(authViewModel.user!.id); 
+      } 
+    });
     
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,

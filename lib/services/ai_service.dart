@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -202,6 +203,23 @@ class AiService {
         return null;
       }
       
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
+        throw Exception('API anahtarı eksik veya geçersiz. Lütfen .env dosyasını kontrol edin ve GEMINI_API_KEY değerini ayarlayın.');
+      }
+      
+      // Mesajın uzunluğunu kontrol et
+      if (messageContent.length > 12000) {
+        _logger.w('Mesaj içeriği çok uzun (${messageContent.length} karakter). Kısaltılıyor...');
+        messageContent = messageContent.substring(0, 12000) + "...";
+      }
+      
+      // OCR metni ve Görsel Analizi işleme biçimini modernize edelim
+      final bool isImageAnalysis = messageContent.contains("Görsel Analizi:");
+      final bool hasOcrText = messageContent.contains("---- OCR Metni ----") && 
+                             messageContent.contains("---- OCR Metni Sonu ----");
+      
       // Mesaj türünü belirleme
       final bool isImageMessage = messageContent.contains("Ekran görüntüsü:") || 
           messageContent.contains("Görsel:") ||
@@ -224,7 +242,7 @@ class AiService {
         Lütfen ekran görüntüsünden çıkarılan metne dayanarak aşağıdaki mesajın detaylı analizini yap:
         
         1. Ekran görüntüsündeki metin muhtemelen bir sohbet veya mesaj içeriyor - buna göre değerlendir.
-        2. ÖNEMLİ: Sohbette sağdaki mesajlar SANA SORU SORAN KİŞİYE aittir. Soldaki mesajlar ise KARŞI TARAF'a aittir. Mesajları bu bilgiye göre analiz et.
+        2. ÖNEMLİ: Sohbette sağdaki mesajlar SANA SORU SORAN KİŞİYE aittir. Soldaki mesajlar onun konuştuğu kişiye aittir.
         3. Konuşmanın taraflarını bu bilgiye göre belirle: "Sen" diye hitap ettiğin kişi her zaman sağdaki mesajları yazan, yani yapay zekaya soru soran kişidir. Soldaki mesajlar onun konuştuğu kişiye aittir.
         4. Sohbetteki mesaj baloncuklarının düzeni (sağ-sol) veya zaman damgalarını kullanarak kimlikleri ayırt et. Tekrar hatırlatma: sağdaki = kullanıcı, soldaki = karşı taraf.
         5. Metinde bahsedilen konuları, duyguları ve ilişki dinamiklerini analiz et.
@@ -256,10 +274,10 @@ class AiService {
         // Sadece ekran görüntüsü var, OCR metni yok
         prompt = '''
         Sen bir ilişki analiz uzmanı ve yakın bir arkadaşsın. Senin en önemli özelliğin çok samimi, sıcak ve empatik bir şekilde cevap vermen. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
-        Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğimiz için, bu durumda:
+        Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğim için, bu durumda:
         
         1. Bu muhtemelen bir sohbet ekranından alınmış ekran görüntüsü olabilir.
-        2. ÖNEMLİ NOT: Bir sohbet ekran görüntüsü olması durumunda, sağdaki mesajların yapay zeka kullanıcısına (sana soru soran kişiye), soldaki mesajların ise karşısındaki kişiye ait olduğunu varsay.
+        2. ÖNEMLİ NOT: Bir sohbet ekran görüntüsü olması durumunda, sağdaki mesajların yapay zeka kullanıcısına (sana soru soran kişiye), soldaki mesajların ise karşısındaki kişiye aittir olduğunu varsay.
         3. Kullanıcı ilişkisiyle ilgili bir mesaj içeriğini, ekran görüntüsü formatında göndermek istemiş olabilir.
         4. Aşağıdaki mesaj bir görüntü açıklaması olabilir. 
         5. Kullanıcının analiz ettiği sohbette muhtemelen iki kişi var - biri mesajı gönderen (kullanıcının kendisi, sağda) diğeri alan (karşı taraf, solda).
@@ -289,7 +307,7 @@ class AiService {
         Sen bir ilişki analiz uzmanı olmasına rağmen, yakın bir arkadaş gibi davranıyorsun. Kullanıcıya asla bir uzman gibi cevap verme, bir arkadaş olarak cevap ver. 
         Resmi dilden ve profesyonel söylemlerden kaçın. Samimi, empatik ve sıcak bir yaklaşım sergile.
         
-        ÖNEMLİ NOT: Eğer mesaj bir sohbet içeriyorsa, sağ taraftaki mesajların yapay zeka kullanıcısına (sana soru soran kişiye), sol taraftaki mesajların ise karşısındaki kişiye ait olduğunu varsay.
+        ÖNEMLİ NOT: Eğer mesaj bir sohbet içeriyorsa, sağ taraftaki mesajların yapay zeka kullanıcısına (sana soru soran kişiye), sol taraftaki mesajların ise karşısındaki kişiye aittir olduğunu varsay.
         
         Aşağıdaki ilişki mesajının analizini yap:
         
@@ -348,20 +366,22 @@ class AiService {
           'Content-Type': 'application/json',
         },
         body: requestBody,
-      );
+      ).timeout(const Duration(seconds: 45), onTimeout: () {
+        throw Exception('API yanıtı 45 saniye içinde alınamadı. İnternet bağlantınızı kontrol edin veya daha kısa bir mesaj deneyin.');
+      });
       
       _logger.d('API yanıtı - status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        _logger.d('API yanıt içeriği: ${response.body}');
+        _logger.d('API yanıt içeriği: ${response.body.substring(0, min(200, response.body.length))}...');
         
         // Gemini'nin yanıtını alıyoruz
         final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent == null) {
           _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
-          return null;
+          throw Exception('AI yanıtı alınamadı veya boş bir yanıt alındı. Gemini API yanıtı beklenen formatta değil.');
         }
         
         _logger.d('AI yanıt metni: $aiContent');
@@ -391,7 +411,32 @@ class AiService {
           return analysisResult;
         } catch (e) {
           _logger.e('Yanıt ayrıştırma hatası', e);
-          return null;
+          
+          // Ayrıştırma hatası durumunda basitleştirilmiş bir sonuç döndür
+          try {
+            return AnalysisResult(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+              emotion: 'belirsiz',
+              intent: 'belirsiz',
+              tone: 'normal',
+              severity: 5,
+              persons: 'Analiz sırasında belirlenemedi',
+              aiResponse: {
+                'mesajYorumu': 'Mesaj analizi yapılırken teknik bir sorun oluştu. Lütfen daha kısa veya daha açık bir mesaj ile tekrar deneyin.',
+                'cevapOnerileri': [
+                  'Mesajınızı daha kısa tutarak tekrar deneyiniz.',
+                  'Daha net ifadeler kullanarak yeniden analiz ettiriniz.',
+                  'Biraz bekleyip tekrar deneyiniz, geçici bir bağlantı sorunu olabilir.'
+                ],
+              },
+              createdAt: DateTime.now(),
+            );
+          } catch (innerError) {
+            // Son çare olarak null döndür
+            _logger.e('Basitleştirilmiş sonuç oluşturulurken hata', innerError);
+            return null;
+          }
         }
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
@@ -559,9 +604,45 @@ class AiService {
   Map<String, dynamic> _parseAiResponse(String aiContent) {
     try {
       _logger.d('AI yanıtı ayrıştırılıyor');
+      // JSON ayrıştırmayı dene
       return _parseJsonFromText(aiContent);
-    } catch (e) {
-      _logger.e('AI yanıtı ayrıştırma hatası: $e, içerik: $aiContent');
+    } catch (jsonError) {
+      _logger.w('JSON ayrıştırma hatası: $jsonError, alternatif yöntemler deneniyor...');
+      
+      try {
+        // Bazen AI yanıtı düzgün olmayan kod bloğu içinde JSON içerebilir
+        final jsonPattern = RegExp(r'\{[\s\S]*\}');
+        final jsonMatch = jsonPattern.firstMatch(aiContent);
+        
+        if (jsonMatch != null) {
+          final jsonText = jsonMatch.group(0);
+          if (jsonText != null) {
+            try {
+              return jsonDecode(jsonText);
+            } catch (e) {
+              _logger.w('Eşleşen JSON bloğu ayrıştırılamadı: $e');
+            }
+          }
+        }
+      } catch (e) {
+        _logger.w('Kod bloğu içinde JSON arama hatası: $e');
+      }
+      
+      // Daha agresif bir ayrıştırma yöntemi dene
+      try {
+        // Temizlenmiş bir JSON içeriği çıkarmaya çalış
+        final cleanedContent = aiContent
+            .replaceAll(RegExp(r'```json'), '')
+            .replaceAll(RegExp(r'```'), '')
+            .trim();
+            
+        return jsonDecode(cleanedContent);
+      } catch (e) {
+        _logger.w('Temizlenmiş içerik ayrıştırma hatası: $e');
+      }
+      
+      // Manuel ayrıştırma
+      _logger.i('Manuel alan çıkarma yapılıyor...');
       
       // JSON ayrıştırma başarısız olursa, manuel olarak ayrıştırma dene
       final Map<String, dynamic> fallbackResponse = {
@@ -570,9 +651,60 @@ class AiService {
         'ton': _extractFieldFromText(aiContent, 'ton') ?? 'normal',
         'ciddiyet': _extractFieldFromText(aiContent, 'ciddiyet') ?? '5',
         'kişiler': _extractFieldFromText(aiContent, 'kişiler') ?? 'belirsiz',
+        'mesajYorumu': _extractFieldFromText(aiContent, 'mesajYorumu') 
+                    ?? _extractFieldFromText(aiContent, 'mesaj_yorumu') 
+                    ?? _extractFieldFromText(aiContent, 'mesaj yorumu') 
+                    ?? 'Mesaj bilgisi alınamadı.',
+        'cevapOnerileri': _extractArrayFromText(aiContent, 'cevapOnerileri') 
+                        ?? _extractArrayFromText(aiContent, 'cevap_onerileri')
+                        ?? _extractArrayFromText(aiContent, 'cevap önerileri')
+                        ?? ['Yanıtı tekrar gönder', 'Daha net bir mesaj yaz'],
       };
       
       return fallbackResponse;
+    }
+  }
+  
+  // Metinden dizi çıkarma
+  List<String>? _extractArrayFromText(String text, String fieldName) {
+    try {
+      // JSON içinde dizi formatı: "fieldName": [ "item1", "item2" ]
+      final RegExp regex = RegExp('"$fieldName"\\s*:\\s*\\[(.*?)\\]', caseSensitive: false, dotAll: true);
+      final match = regex.firstMatch(text);
+      
+      if (match != null && match.group(1) != null) {
+        final String arrayContent = match.group(1)!;
+        // Dizideki itemları ayrıştır - tırnak işaretleri içindeki metinleri bul
+        final RegExp itemRegex = RegExp('"(.*?)"', dotAll: true);
+        final matches = itemRegex.allMatches(arrayContent);
+        
+        if (matches.isNotEmpty) {
+          return matches
+              .map((m) => m.group(1))
+              .where((item) => item != null)
+              .map((item) => item!.trim())
+              .toList();
+        }
+      }
+      
+      // Regex ile bulunamazsa, basit bir yaklaşım dene
+      if (text.contains(fieldName)) {
+        final parts = text.split(fieldName);
+        if (parts.length > 1) {
+          // Alanın bulunduğu satırdan sonraki 3 satırı al (muhtemelen öneri içerir)
+          final nextLines = parts[1].split('\n').take(5).toList();
+          return nextLines
+              .where((line) => line.contains('-') || line.contains('*'))
+              .map((line) => line.replaceAll(RegExp(r'^[- *]+'), '').trim())
+              .where((line) => line.isNotEmpty)
+              .toList();
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      _logger.e('Dizi çıkarma hatası: $e');
+      return null;
     }
   }
   
