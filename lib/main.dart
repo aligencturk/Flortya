@@ -8,6 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
@@ -16,6 +17,7 @@ import 'viewmodels/advice_viewmodel.dart';
 import 'viewmodels/report_viewmodel.dart';
 import 'viewmodels/profile_viewmodel.dart';
 import 'services/logger_service.dart';
+import 'widgets/turkish_keyboard_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,27 +95,29 @@ class MyApp extends StatelessWidget {
           logger.d('Router ve tema yapılandırılıyor');
           
           // Material App temasını yapılandır
-          return MaterialApp.router(
-            title: 'FlörtAI',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF6750A4),
-                brightness: Brightness.light,
+          return TurkishKeyboardProvider(
+            child: MaterialApp.router(
+              title: 'FlörtAI',
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: const Color(0xFF6750A4),
+                  brightness: Brightness.light,
+                ),
+                useMaterial3: true,
+                fontFamily: 'Nunito',
               ),
-              useMaterial3: true,
-              fontFamily: 'Nunito',
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('tr', 'TR'),
+              ],
+              locale: const Locale('tr', 'TR'),
+              routerConfig: AppRouter.createRouter(context),
+              debugShowCheckedModeBanner: false,
             ),
-            localizationsDelegates: const [
-              // GlobalMaterialLocalizations.delegate,
-              // GlobalWidgetsLocalizations.delegate,
-              // GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [
-              Locale('tr', 'TR'),
-            ],
-            locale: const Locale('tr', 'TR'),
-            routerConfig: AppRouter.createRouter(context),
-            debugShowCheckedModeBanner: false,
           );
         },
       ),

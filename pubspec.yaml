@@ -18,6 +18,21 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 version: 1.0.0+1
 
+flutter_native_splash:
+  color: "#6750A4"
+  image: assets/images/logo.png
+  image_align: center
+  android_12:
+    color: "#6750A4"
+    image: assets/images/logo.png
+  ios_content_mode: scaleAspectFit
+  ios_color: "#6750A4"
+  android: true
+  ios: true
+  web: false
+  remove_alpha_ios: true
+  android_12: true
+
 environment:
   sdk: ^3.7.2
 
@@ -29,6 +44,8 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
@@ -64,6 +81,8 @@ dependencies:
   http: ^1.2.1
   logger: ^2.0.2+1
   image_picker: ^1.0.7
+  flutter_native_splash: ^2.4.6
+  flutter_keyboard_visibility: ^6.0.0
 
 dev_dependencies:
   flutter_test:

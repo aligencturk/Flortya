@@ -205,7 +205,7 @@ class AiService {
             emotion: parsedResponse['duygu'] ?? 'nötr',
             intent: parsedResponse['niyet'] ?? 'belirsiz',
             tone: parsedResponse['ton'] ?? 'normal',
-            severity: parsedResponse['ciddiyet'] ?? 5,
+            severity: _parseSeverity(parsedResponse['ciddiyet']),
             aiResponse: parsedResponse,
             createdAt: DateTime.now(),
           );
@@ -397,12 +397,9 @@ class AiService {
         'duygu': _extractFieldFromText(aiContent, 'duygu') ?? 'nötr',
         'niyet': _extractFieldFromText(aiContent, 'niyet') ?? 'belirsiz',
         'ton': _extractFieldFromText(aiContent, 'ton') ?? 'normal',
-        'ciddiyet': _extractNumericFieldFromText(aiContent, 'ciddiyet') ?? 5,
-        'mesaj_yorumu': _extractFieldFromText(aiContent, 'mesaj_yorumu') ?? aiContent,
-        'cevap_onerileri': _extractSuggestionsFromText(aiContent) ?? ['Daha fazla bilgi verebilir misiniz?', 'Anladım, teşekkür ederim.', 'Bu konuyu yüz yüze konuşabilir miyiz?']
+        'ciddiyet': _extractFieldFromText(aiContent, 'ciddiyet') ?? '5',
       };
       
-      _logger.d('Manuel olarak ayrıştırılmış yanıt: $fallbackResponse');
       return fallbackResponse;
     }
   }
@@ -420,10 +417,18 @@ class AiService {
   int? _extractNumericFieldFromText(String text, String fieldName) {
     final RegExp regex = RegExp('"$fieldName"\\s*:\\s*(\\d+)', caseSensitive: false);
     final match = regex.firstMatch(text);
-    final value = match?.group(1);
+    if (match == null) {
+      // Alternatif regex - tırnak içinde sayı olabilir
+      final altRegex = RegExp('"$fieldName"\\s*:\\s*"(\\d+)"', caseSensitive: false);
+      final altMatch = altRegex.firstMatch(text);
+      final altValue = altMatch?.group(1);
+      final numericValue = altValue != null ? int.tryParse(altValue) : null;
+      return numericValue ?? 5; // Varsayılan değer
+    }
+    
+    final value = match.group(1);
     final numericValue = value != null ? int.tryParse(value) : null;
-    _logger.d('$fieldName sayısal alanı çıkarıldı: $numericValue');
-    return numericValue;
+    return numericValue ?? 5; // Varsayılan değer
   }
   
   // Metinden önerileri çıkarma
@@ -562,5 +567,23 @@ class AiService {
     } catch (e) {
       _logger.e('Mesaj güncelleme hatası', e);
     }
+  }
+
+  // Severity değerini int'e dönüştürme
+  int _parseSeverity(dynamic severityValue) {
+    if (severityValue == null) return 5;
+    
+    if (severityValue is int) {
+      return severityValue;
+    } else if (severityValue is String) {
+      try {
+        return int.parse(severityValue);
+      } catch (e) {
+        _logger.e('Severity değeri int\'e dönüştürülemedi: $severityValue', e);
+        return 5;
+      }
+    }
+    
+    return 5; // Varsayılan değer
   }
 } 

@@ -1,0 +1,60 @@
+flutter_native_splash:
+  # Splash ekranı arka plan rengi
+  color: "#6750A4"
+  
+  # Alternatif olarak gradyan arka plan rengi
+  # color_dark ve image_dark kullanarak karanlık tema desteği ekleyebilirsiniz
+  #
+  # android_12 bölümünü kullanarak Android 12 için özel splash ekranı tanımlayabilirsiniz
+  
+  # Splash ekranındaki görsel
+  image: assets/images/logo.png
+  
+  # Görsel arka planını saydam yapma
+  #background_image: "assets/background.png"
+  
+  # Görsel konumlandırma
+  image_align: center
+  
+  # Görsel boyutlandırma
+  # Varsayılan değer: contain, cover ya da specific boyut belirtilebilir
+  # örneğin: "80%", "100px" veya "double.infinity"
+  #image_size: "80%"
+  
+  # Android 12 splash screen ayarları
+  android_12:
+    # Splash ekran arka plan rengi
+    color: "#6750A4"
+    
+    # Ortadaki görsel
+    image: assets/images/logo.png
+    
+    # Görsel boyutlandırma
+    # Varsayılan değer: contain, cover ya da specific boyut belirtilebilir
+    # örneğin: "80%", "100px" veya "double.infinity"
+    #image_size: "80%"
+  
+  # Web desteği
+  web: false
+  
+  # iOS durum çubuğu ayarları
+  ios_content_mode: scaleAspectFit
+  ios_color: "#6750A4"
+  
+  # Flutter SDK sürümü 3.10.0'dan düşükse "android", "ios" ve "web" mantıklı platform
+  # desteği için "remove" parametresini false yapın.
+  android: true
+  ios: true
+  
+  # Flutter 3.10.0'dan sonrası için bu bölüm kullanılır
+  # Android ve iOS'ta 12'den düşük sürüm platformlarda splash ekranı
+  # kaldırma seçenekleri.
+  # Default değerler true'dur, yani splash ekranlar normal olarak silinecek.
+  # false olarak ayarlarsanız, geliştiricinin manuel olarak splash ekranı kaldırması gerekir.
+  remove_alpha_ios: true
+  
+  # Android 12'de splash ekranı yenilikler ve kısıtlamalar vardır.
+  # Splash ekran API'si Android'in aradığı meta-data ekleyerek etkinleştirilir.
+  # https://developer.android.com/guide/topics/ui/splash-screen bakabilirsiniz
+  # aşağıdaki satırları false yapmayın
+  android_12: true 
