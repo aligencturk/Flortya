@@ -48,6 +48,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
     return Scaffold(
       body: PageView(
@@ -110,7 +111,19 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
       ),
-    );
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Önce viewModel'i temizle
+          messageViewModel.clearCurrentMessage();
+          // Sonra analiz sayfasına git
+          context.push(AppRouter.messageAnalysis);
+        },
+        backgroundColor: theme.colorScheme.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    )
+    .animate()
+    .fadeIn(duration: 300.ms);
   }
 
   // Mesaj Analizi Tab
@@ -204,6 +217,9 @@ class _HomeViewState extends State<HomeView> {
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
                                 onPressed: () {
+                                  // Önce viewModel'i temizle
+                                  messageViewModel.clearCurrentMessage();
+                                  // Sonra analiz sayfasına git
                                   context.push(AppRouter.messageAnalysis);
                                 },
                                 icon: const Icon(Icons.upload_file),
@@ -308,13 +324,29 @@ class _HomeViewState extends State<HomeView> {
                                       return;
                                     }
                                     
+                                    // İlgili mesajın ID'sini saklayalım
+                                    final String messageId = message.id;
+                                    
                                     // İlgili mesajın detay sayfasına yönlendir
                                     context.push(AppRouter.messageAnalysis);
-                                    // Mesaj detayını yükle - bunu uygulamanın yapısına göre uyarlayabilirsiniz
+                                    
+                                    // Mesaj detayını yükle - bu işlem sayfa açıldıktan sonra yapılır
                                     WidgetsBinding.instance.addPostFrameCallback((_) async {
-                                      await messageViewModel.getMessage(message.id);
-                                      if (message.isAnalyzed) {
-                                        await messageViewModel.getAnalysisResult(message.id);
+                                      try {
+                                        // Mesajı yükle
+                                        final loadedMessage = await messageViewModel.getMessage(messageId);
+                                        
+                                        // Mesaj yüklenemediyse hata ver
+                                        if (loadedMessage == null) {
+                                          throw Exception('Mesaj yüklenemedi');
+                                        }
+                                        
+                                        // Eğer mesaj analiz edilmişse sonucu da yükle
+                                        if (loadedMessage.isAnalyzed) {
+                                          await messageViewModel.getAnalysisResult(messageId);
+                                        }
+                                      } catch (e) {
+                                        print('HATA: Mesaj yüklenirken hata oluştu: $e');
                                       }
                                     });
                                   },
@@ -330,13 +362,6 @@ class _HomeViewState extends State<HomeView> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.push(AppRouter.messageAnalysis);
-        },
-        backgroundColor: theme.colorScheme.primary,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     )
     .animate()

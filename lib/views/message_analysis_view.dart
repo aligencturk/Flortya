@@ -44,7 +44,17 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Önceki mesaj ve analiz verilerini temizle
+      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      messageViewModel.clearCurrentMessage();
+      
+      // Mesajları yükle
       _loadMessages();
+      
+      // Detaylı analizi kapat
+      setState(() {
+        _showDetailedAnalysis = false;
+      });
     });
   }
 
