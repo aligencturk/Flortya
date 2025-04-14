@@ -1,0 +1,71 @@
+# Podfile for iOS platform
+platform :ios, '12.0'
+
+# Gerekirse CocoaPods'un kendi taşınabilirlik API'lerini devre dışı bırak
+# Çeşitli uyumsuzluk hatalarını çözmek için faydalı olabilir
+install! 'cocoapods', :disable_input_output_paths => true
+
+# Flutter projesi için Pods klasörünü belirt
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+# Firebase için minimum iOS versiyonunu ayarla
+def firebase_sdk_version
+  '10.15.0'
+end
+
+# Plugin'lerin hatasız yüklenmesi için
+def flutter_install_all_ios_pods(ios_application_path = nil)
+  ios_application_path ||= File.dirname(File.realpath(File.join(__FILE__, '..')))
+  flutter_root = File.expand_path(File.join('..', '.flutter-plugins-dependencies'), __FILE__)
+  
+  # Tüm Flutter plugin'lerini Flutter'ın generate ettiği .flutter-plugins dosyasından çeker
+  flutter_ios_podfile_setup
+end
+
+# Hedef için Pod'ları yükle
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+  
+  # Flutter Pod'larını yükle
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # Firebase Pod'larını manuel olarak ekleyelim
+  pod 'Firebase/Analytics'
+  pod 'Firebase/Auth'
+  pod 'Firebase/Firestore'
+  pod 'Firebase/Storage'
+  
+  # Google Sign-In
+  pod 'GoogleSignIn'
+  
+  # Gerekli olabilecek diğer Pod'lar
+  pod 'Alamofire'
+end
+
+# Flutter projesi olduğunu belirt
+post_install do |installer|
+  # Pod yüklemesi sonrası iOS ayarlarını düzelt
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    
+    # iOS 9 ile kullanımdan kaldırılan sembollerin hatalarını düzeltmek için
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+      
+      # Gerekli build ayarlarını ekle
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_PHOTOS=1',
+      ]
+      
+      # ARM64 simulatör desteği için
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    end
+  end
+end 
