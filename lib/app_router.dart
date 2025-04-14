@@ -27,7 +27,7 @@ class AppRouter {
       redirect: (context, state) async {
         final bool isLoggedIn = authViewModel.isLoggedIn;
         final bool isInitialized = authViewModel.isInitialized;
-        final bool isOnboardingRoute = state.location == onboarding;
+        final bool isOnboardingRoute = state.uri.path == onboarding;
 
         // Henüz initializing ise, bir redirect yapmadan bekle
         if (!isInitialized) {
@@ -91,7 +91,7 @@ class AppRouter {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
-              Text('Aradığınız sayfa (${state.location}) mevcut değil.'),
+              Text('Aradığınız sayfa (${state.uri.path}) mevcut değil.'),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => context.go(home), 

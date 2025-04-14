@@ -253,7 +253,7 @@ class AiService {
   // Metinden önerileri çıkarma
   List<String> _extractSuggestions(String text) {
     final suggestions = <String>[];
-    final regex = RegExp('öneriler:(.*?)(?=\\n\\n|\\$)', caseSensitive: false, dotAll: true);
+    final regex = RegExp('öneriler:(.*?)(?=\\n\\n|\\z)', caseSensitive: false, dotAll: true);
     final match = regex.firstMatch(text);
     
     if (match != null && match.group(1) != null) {
