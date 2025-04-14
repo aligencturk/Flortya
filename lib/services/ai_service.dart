@@ -17,6 +17,75 @@ class AiService {
   int get _geminiMaxTokens => int.tryParse(dotenv.env['GEMINI_MAX_TOKENS'] ?? '1024') ?? 1024;
   String get _geminiApiUrl => 'https://generativelanguage.googleapis.com/v1/models/$_geminiModel:generateContent?key=$_geminiApiKey';
 
+  // İlişki raporu yorumuna yanıt oluşturma
+  Future<Map<String, dynamic>> getCommentResponse(
+    String comment, 
+    String report, 
+    String relationshipType
+  ) async {
+    try {
+      _logger.i('Yorum yanıtı oluşturuluyor. Yorum: $comment');
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki terapistisin. Kullanıcı ilişki raporu hakkında bir yorum yaptı.
+                
+                İlişki tipi: $relationshipType
+                
+                Rapor: $report
+                
+                Kullanıcının yorumu: "$comment"
+                
+                Bu yoruma empati kurarak, yapıcı ve samimi bir şekilde yanıt ver. Yanıt Türkçe olmalı ve en fazla 150 kelime olmalı.
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('Yorum yanıtı API isteği: $_geminiApiUrl');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return {'error': 'Yanıt alınamadı'};
+        }
+        
+        _logger.d('AI yanıt metni: $aiContent');
+        return {'answer': aiContent};
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return {'error': 'Yanıt alınırken hata oluştu'};
+      }
+    } catch (e) {
+      _logger.e('Yorum yanıtı hatası', e);
+      return {'error': 'Beklenmeyen bir hata oluştu'};
+    }
+  }
+
   // İlişki danışmanı chat fonksiyonu
   Future<Map<String, dynamic>> getRelationshipAdvice(String question, List<Map<String, String>>? chatHistory) async {
     try {
@@ -135,26 +204,58 @@ class AiService {
     try {
       _logger.i('Mesaj analizi başlatılıyor: ${message.id}');
       
+      // Mesaj içeriğini kontrol et ve düzenle
+      String messageContent = message.content;
+      bool isImageMessage = messageContent.contains("Görsel mesaj:") || messageContent.contains("Screenshot:") || messageContent.contains("ekran görüntüsü");
+      
+      String prompt = isImageMessage 
+          ? '''
+          Sen bir ilişki analiz uzmanısın. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
+          Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğimiz için, bu durumda:
+          
+          1. Bu muhtemelen bir sohbet ekranından alınmış ekran görüntüsü olabilir.
+          2. Kullanıcı ilişkisiyle ilgili bir mesaj içeriğini, ekran görüntüsü formatında göndermek istemiş olabilir.
+          3. Aşağıdaki mesaj bir görüntü açıklaması olabilir. 
+          
+          Sana metin olarak gönderilen bilgiden yola çıkarak, bu tür bir ilişki mesajının aşağıdaki formatta analizini yap:
+          
+          {
+            "duygu": "ekran görüntüsü mesajı olduğu için 'Belirlenemedi' yazabilirsin ya da içerik hakkında bir tahminde bulunabilirsin",
+            "niyet": "ekran görüntüsünü paylaşmaktaki muhtemel niyet",
+            "ton": "saygılı - ilişki ekran görüntüsü paylaşımı",
+            "ciddiyet": "7",
+            "mesaj_yorumu": "Ekran görüntülerini göremediğimiz için net bir analiz yapamıyorum, ancak görsel içeriği paylaşan kişiye nasıl yaklaşılması gerektiği hakkında tavsiyeler sunabilirim",
+            "cevap_onerileri": [
+              "Ekran görüntüsündeki içeriği metin olarak açıklayabilir misiniz? Böylece daha iyi analiz yapabilirim.",
+              "İlişkinizle ilgili bu görsel hakkında biraz daha detay paylaşır mısınız?",
+              "Bu ekran görüntüsünün sizi nasıl hissettirdiğini paylaşır mısınız? Böylece daha iyi yardımcı olabilirim."
+            ]
+          }
+          
+          Analiz edilecek mesaj: "${messageContent}"
+          '''
+          : '''
+          Sen bir ilişki analiz uzmanısın. Aşağıdaki mesajı detaylı olarak analiz et ve şu formatta JSON çıktısı ver:
+          
+          {
+            "duygu": "pozitif, negatif, nötr veya daha spesifik bir duygu",
+            "niyet": "mesajın arkasındaki niyet",
+            "ton": "samimi, resmi, agresif, pasif, flörtöz, vb.",
+            "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
+            "mesaj_yorumu": "mesajla ilgili genel bir yorum",
+            "cevap_onerileri": ["1. öneri", "2. öneri", "3. öneri"]
+          }
+          
+          Analiz edilecek mesaj: "${messageContent}"
+          ''';
+      
       final requestBody = jsonEncode({
         'contents': [
           {
             'role': 'user',
             'parts': [
               {
-                'text': '''
-                Sen bir ilişki analiz uzmanısın. Aşağıdaki mesajı detaylı olarak analiz et ve şu formatta JSON çıktısı ver:
-                
-                {
-                  "duygu": "pozitif, negatif, nötr veya daha spesifik bir duygu",
-                  "niyet": "mesajın arkasındaki niyet",
-                  "ton": "samimi, resmi, agresif, pasif, flörtöz, vb.",
-                  "ciddiyet": "1-10 arasında bir rakam, 10 en ciddi",
-                  "mesaj_yorumu": "mesajla ilgili genel bir yorum",
-                  "cevap_onerileri": ["1. öneri", "2. öneri", "3. öneri"]
-                }
-                
-                Analiz edilecek mesaj: "${message.content}"
-                '''
+                'text': prompt
               }
             ]
           }

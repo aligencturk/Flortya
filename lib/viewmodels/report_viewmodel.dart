@@ -19,6 +19,7 @@ class ReportViewModel extends ChangeNotifier {
   Map<String, dynamic>? _reportResult;
   bool _isLoading = false;
   String? _errorMessage;
+  List<Map<String, dynamic>> _comments = [];
 
   // Getters
   List<String> get questions => _questions;
@@ -31,6 +32,7 @@ class ReportViewModel extends ChangeNotifier {
   bool get hasReport => _reportResult != null;
   bool get isLastQuestion => _currentQuestionIndex == _questions.length - 1;
   bool get allQuestionsAnswered => !_answers.any((answer) => answer.isEmpty);
+  List<Map<String, dynamic>> get comments => _comments;
 
   // Cevap kaydetme
   void saveAnswer(String answer) {
@@ -128,6 +130,7 @@ class ReportViewModel extends ChangeNotifier {
           'relationship_type': data['relationship_type'],
           'suggestions': data['suggestions'],
           'created_at': (data['created_at'] as Timestamp).toDate().toIso8601String(),
+          'reportId': doc.id, // Rapor ID'sini kaydet
         };
         
         // Cevapları da yükle
@@ -136,10 +139,94 @@ class ReportViewModel extends ChangeNotifier {
           _answers = savedAnswers.map((answer) => answer.toString()).toList();
         }
         
+        // Rapor yorumlarını yükle
+        await loadReportComments(doc.id);
+        
         notifyListeners();
       }
     } catch (e) {
       _setError('Raporlar yüklenirken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Rapor yorumlarını yükleme
+  Future<void> loadReportComments(String reportId) async {
+    try {
+      final QuerySnapshot snapshot = await _firestore
+          .collection('relationship_reports')
+          .doc(reportId)
+          .collection('comments')
+          .orderBy('timestamp', descending: true)
+          .get();
+      
+      _comments = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'comment': data['comment'],
+          'userId': data['userId'],
+          'timestamp': (data['timestamp'] as Timestamp).toDate(),
+          'aiResponse': data['aiResponse'],
+        };
+      }).toList();
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Yorumlar yüklenirken hata oluştu: $e');
+    }
+  }
+  
+  // Yorum gönderme
+  Future<void> sendComment(String userId, String comment) async {
+    if (_reportResult == null || !_reportResult!.containsKey('reportId')) {
+      _setError('Rapor bulunamadı');
+      return;
+    }
+    
+    final String reportId = _reportResult!['reportId'];
+    _setLoading(true);
+    
+    try {
+      // Kullanıcı yorumunu Firestore'a ekle
+      final docRef = await _firestore
+          .collection('relationship_reports')
+          .doc(reportId)
+          .collection('comments')
+          .add({
+            'comment': comment,
+            'userId': userId,
+            'timestamp': Timestamp.now(),
+            'aiResponse': '',  // AI yanıtı başlangıçta boş
+          });
+      
+      // AI'dan yanıt al
+      final Map<String, dynamic> response = await _aiService.getCommentResponse(
+        comment, 
+        _reportResult!['report'], 
+        _reportResult!['relationship_type']
+      );
+      
+      // AI yanıtını güncelle
+      if (!response.containsKey('error')) {
+        await _firestore
+            .collection('relationship_reports')
+            .doc(reportId)
+            .collection('comments')
+            .doc(docRef.id)
+            .update({
+              'aiResponse': response['answer'],
+            });
+        
+        // Yorumları tekrar yükle
+        await loadReportComments(reportId);
+      } else {
+        _setError(response['error']);
+      }
+      
+    } catch (e) {
+      _setError('Yorum gönderilirken hata oluştu: $e');
     } finally {
       _setLoading(false);
     }
@@ -150,6 +237,7 @@ class ReportViewModel extends ChangeNotifier {
     _answers = ['', '', '', '', ''];
     _currentQuestionIndex = 0;
     _reportResult = null;
+    _comments = [];
     notifyListeners();
   }
 

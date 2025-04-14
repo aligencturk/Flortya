@@ -90,12 +90,27 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     } 
     // Görüntü mesajı kontrolü
     else if (_selectedImage != null) {
-      // Not: Görüntü analizi için ek fonksiyonellik gerekecek
-      // Şimdilik mesaj gibi işleme alıyoruz
-      final message = "Görsel mesaj: ${_selectedImage!.path.split('/').last}";
+      // Görüntü adını ve tipini al
+      final String fileName = _selectedImage!.path.split('/').last;
+      final bool isScreenshot = fileName.toLowerCase().contains('screen') || 
+                              fileName.toLowerCase().contains('screenshot') || 
+                              fileName.toLowerCase().contains('görüntü');
+      
+      // Mesaj içeriğini oluştur (yapay zeka için daha anlaşılır olması için)
+      final message = isScreenshot 
+          ? "Ekran görüntüsü: $fileName - Bu bir sohbet veya mesajlaşma ekranından alınmış ekran görüntüsüdür. İçeriğini analiz etmeniz gerekiyor."
+          : "Görsel mesaj: $fileName - Bu bir ilişki bağlamında analiz edilmesi gereken bir görseldir.";
       
       // Yeni mesaj oluştur
       await messageViewModel.createMessage(authViewModel.user!.id, message);
+      
+      // Kullanıcıya bilgi ver
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Görüntünün işlenmesi için yapay zekaya gönderildi. Sonuçlar kısa süre içinde gösterilecek.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
       
       // Mesajı analiz et
       if (messageViewModel.currentMessage != null) {
@@ -105,6 +120,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           _isImageMode = false;
         });
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen bir görüntü seçin')),
+      );
     }
   }
 

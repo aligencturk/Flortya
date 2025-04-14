@@ -855,8 +855,31 @@ class _HomeViewState extends State<HomeView> {
                                     color: Colors.red.shade400,
                   ),
                                 ),
-                                onTap: () {
-                                  // authViewModel.signOut();
+                                onTap: () async {
+                                  final shouldLogout = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Çıkış Yap'),
+                                      content: const Text('Çıkış yapmak istediğinizden emin misiniz?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(false),
+                                          child: const Text('İptal'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(true),
+                                          child: const Text('Çıkış Yap'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  
+                                  if (shouldLogout == true) {
+                                    await authViewModel.signOut();
+                                    if (context.mounted) {
+                                      context.go('/onboarding');
+                                    }
+                                  }
                                 },
                 ),
               ],
