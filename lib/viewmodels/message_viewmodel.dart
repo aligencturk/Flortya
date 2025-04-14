@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/message.dart';
-import '../models/analysis_result.dart';
+import '../models/analysis_result_model.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 

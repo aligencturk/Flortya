@@ -15,9 +15,10 @@ import '../widgets/custom_button.dart';
 import '../services/ocr_service.dart';
 import '../models/message.dart';
 import '../widgets/chat_bubble.dart';
-import '../models/analysis_result.dart';
+import '../models/analysis_result_model.dart';
 import '../constants/colors.dart';
 import '../constants/text_styles.dart';
+import '../models/text_recognition_script.dart' as local;
 
 class MessageAnalysisView extends StatefulWidget {
   const MessageAnalysisView({Key? key}) : super(key: key);
@@ -35,16 +36,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   bool _isProcessingImage = false;
   final OcrService _ocrService = OcrService();
   String? _extractedText;
-  bool _isMultiLanguageMode = false;
-  TextRecognitionScript _selectedScript = TextRecognitionScript.latin;
-
-  final Map<TextRecognitionScript, String> _scriptNames = {
-    TextRecognitionScript.latin: 'Latin (Türkçe, İngilizce vb.)',
-    TextRecognitionScript.chinese: 'Çince',
-    TextRecognitionScript.devanagari: 'Devanagari (Hintçe)',
-    TextRecognitionScript.japanese: 'Japonca',
-    TextRecognitionScript.korean: 'Korece',
-  };
+  
+  // Artık dil seçimi kaldırıldı - Sadece Latin/Türkçe destekleniyor
+  local.TextRecognitionScript _selectedScript = local.TextRecognitionScript.latin;
 
   @override
   void initState() {
@@ -92,15 +86,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
         // OCR ile metin çıkarma
         try {
-          String extractedText;
-          
-          if (_isMultiLanguageMode) {
-            // Çoklu dil modunda tüm dilleri dene
-            extractedText = await _ocrService.otomatikDilTanima(imageFile);
-          } else {
-            // Tek dil modunda seçilen dili kullan
-            extractedText = await _ocrService.metniOku(imageFile, script: _selectedScript);
-          }
+          String extractedText = await _ocrService.metniOku(imageFile);
           
           setState(() {
             _extractedText = extractedText;
@@ -110,7 +96,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           if (extractedText.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Görüntüden metin çıkarılamadı. Lütfen açıklama ekleyin veya farklı bir dil seçin.'),
+                content: Text('Görüntüden metin çıkarılamadı. Lütfen açıklama ekleyin.'),
                 backgroundColor: Colors.orange,
               ),
             );
@@ -298,6 +284,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   @override
   Widget build(BuildContext context) {
     final messageViewModel = Provider.of<MessageViewModel>(context);
+    final authViewModel = Provider.of<AuthViewModel>(context);
     final theme = Theme.of(context);
     
     return Scaffold(
@@ -314,62 +301,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             onPressed: _toggleMode,
             tooltip: _isImageMode ? 'Metin Moduna Geç' : 'Görsel Moduna Geç',
           ),
-          
-          // Dil seçimi menüsü (sadece görsel modunda)
-          if (_isImageMode)
-            PopupMenuButton<dynamic>(
-              icon: const Icon(Icons.language),
-              tooltip: 'OCR Dil Seçimi',
-              itemBuilder: (context) => [
-                // Çoklu dil seçeneği
-                PopupMenuItem(
-                  value: 'multilang',
-                  child: StatefulBuilder(
-                    builder: (context, setState) => CheckboxListTile(
-                      title: const Text('Otomatik Dil Algılama'),
-                      subtitle: const Text('Tüm diller denenir'),
-                      value: _isMultiLanguageMode,
-                      onChanged: (value) {
-                        setState(() {
-                          _isMultiLanguageMode = value!;
-                        });
-                        this.setState(() {});
-                        Navigator.pop(context);
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                    ),
-                  ),
-                ),
-                
-                // Dil seçenekleri
-                const PopupMenuItem(
-                  enabled: false,
-                  child: Text(
-                    'Dil Seçimi',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
-                
-                // Desteklenen diller
-                ..._scriptNames.entries.map((entry) => PopupMenuItem(
-                  value: entry.key,
-                  enabled: !_isMultiLanguageMode,
-                  child: RadioListTile<TextRecognitionScript>(
-                    title: Text(entry.value),
-                    value: entry.key,
-                    groupValue: _selectedScript,
-                    onChanged: !_isMultiLanguageMode ? (value) {
-                      setState(() {
-                        _selectedScript = value!;
-                      });
-                      Navigator.pop(context);
-                    } : null,
-                    dense: true,
-                  ),
-                )),
-              ],
-            ),
         ],
       ),
       body: Padding(
@@ -456,43 +387,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       key: const ValueKey<String>('imageInput'),
       child: Column(
         children: [
-          // Dil Seçimi Bilgisi
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _isMultiLanguageMode
-                        ? 'Otomatik dil algılama aktif - Tüm diller denenecek'
-                        : 'Seçili dil: ${_scriptNames[_selectedScript]}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.language, size: 20),
-                  onPressed: () {
-                    // Burada dil seçim menüsünü açabilirsiniz veya AppBar'daki butonu kullanabilirsiniz
-                  },
-                  tooltip: 'Dil Seçimi',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
-          
           // Görsel Seçimi
           if (_selectedImage == null) ...[
             Container(
@@ -693,27 +587,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             ],
                           ),
                           
-                          // Kullanılan dil bilgisi
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 4),
-                            child: Row(
-                              children: [
-                                Icon(Icons.language, size: 16, color: theme.colorScheme.primary.withOpacity(0.7)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _isMultiLanguageMode
-                                      ? 'Otomatik dil algılama kullanıldı'
-                                      : 'Kullanılan dil: ${_scriptNames[_selectedScript]}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.colorScheme.primary.withOpacity(0.8),
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
                           const Divider(height: 24, thickness: 1),
                           Container(
                             constraints: const BoxConstraints(maxHeight: 200),
@@ -747,43 +620,39 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                               style: TextStyle(fontSize: 14),
                                             ),
                                             const SizedBox(height: 8),
-                                            OutlinedButton.icon(
-                                              onPressed: () {
-                                                if (!_isMultiLanguageMode) {
-                                                  setState(() {
-                                                    _isMultiLanguageMode = true;
-                                                  });
-                                                  _pickImage();
-                                                } else {
-                                                  // Farklı bir dil seçmeyi öner
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (context) => AlertDialog(
-                                                      title: const Text('Farklı Bir Dil Deneyin'),
-                                                      content: const Text('Görseldeki metin farklı bir alfabede olabilir. Dil seçimi yaparak tekrar deneyebilirsiniz.'),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () => Navigator.pop(context),
-                                                          child: const Text('Tamam'),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                OutlinedButton.icon(
+                                                  onPressed: _pickImage,
+                                                  icon: Icon(
+                                                    Icons.auto_awesome,
+                                                    size: 16,
+                                                  ),
+                                                  label: Text(
+                                                    'Tekrar Tara',
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                OutlinedButton.icon(
+                                                  onPressed: () {
+                                                    if (_extractedText != null) {
+                                                      setState(() {
+                                                        _messageController.text = _extractedText!;
+                                                      });
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text('Metin açıklama alanına kopyalandı'),
+                                                          backgroundColor: Colors.green,
                                                         ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                              icon: Icon(
-                                                _isMultiLanguageMode ? Icons.settings : Icons.auto_awesome,
-                                                size: 16,
-                                              ),
-                                              label: Text(
-                                                _isMultiLanguageMode ? 'Dil Seçimi Yap' : 'Otomatik Dil Algılamayı Dene',
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                              style: OutlinedButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                minimumSize: Size.zero,
-                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              ),
+                                                      );
+                                                    }
+                                                  },
+                                                  icon: const Icon(Icons.description, size: 18),
+                                                  label: const Text('Metni Kopyala', style: TextStyle(fontSize: 12)),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),
@@ -833,13 +702,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   const SnackBar(
                                                     content: Text('Metin panoya kopyalandı'),
-                                                    duration: Duration(seconds: 2),
+                                                    backgroundColor: Colors.green,
                                                   ),
                                                 );
                                               },
                                               icon: const Icon(Icons.copy, size: 18),
-                                              tooltip: 'Metni Kopyala',
-                                              visualDensity: VisualDensity.compact,
                                             ),
                                             IconButton(
                                               onPressed: () {
@@ -849,26 +716,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   const SnackBar(
                                                     content: Text('Metin açıklama alanına kopyalandı'),
-                                                    duration: Duration(seconds: 2),
+                                                    backgroundColor: Colors.green,
                                                   ),
                                                 );
                                               },
                                               icon: const Icon(Icons.description, size: 18),
-                                              tooltip: 'Açıklama Alanına Kopyala',
-                                              visualDensity: VisualDensity.compact,
                                             ),
-                                            if (!_isMultiLanguageMode) 
-                                              IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _isMultiLanguageMode = true;
-                                                  });
-                                                  _pickImage();
-                                                },
-                                                icon: const Icon(Icons.auto_awesome, size: 18),
-                                                tooltip: 'Otomatik Dil Algılamayı Dene',
-                                                visualDensity: VisualDensity.compact,
-                                              ),
                                           ],
                                         ),
                                       ),

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'analysis_result.dart';
+import 'analysis_result_model.dart';
 
 class Message {
   final String id;
@@ -57,11 +57,14 @@ class Message {
       id: map['id'] ?? '',
       content: map['content'] ?? '',
       sentAt: (map['sentAt'] as Timestamp).toDate(),
-      sentByUser: map['sentByUser'] ?? false,
+      sentByUser: map['sentByUser'] ?? true,
       isAnalyzed: map['isAnalyzed'] ?? false,
       imageUrl: map['imageUrl'],
       analysisResult: map['analysisResult'] != null 
-          ? AnalysisResult.fromMap(map['analysisResult']) 
+          ? AnalysisResult.fromFirestore(
+              (map['analysisResult'] is Map) 
+                  ? map['analysisResult']
+                  : map['analysisResult'].data())
           : null,
     );
   }

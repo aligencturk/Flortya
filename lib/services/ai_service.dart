@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../models/analysis_result.dart';
+import '../models/analysis_result_model.dart';
 import 'logger_service.dart';
 
 class AiService {
@@ -339,12 +339,17 @@ class AiService {
           
           // Analiz sonucunu oluşturma
           final analysisResult = AnalysisResult(
-            duygu: parsedResponse['duygu'] ?? 'nötr',
-            niyet: parsedResponse['niyet'] ?? 'belirsiz',
-            ton: parsedResponse['ton'] ?? 'normal',
-            ciddiyet: _parseSeverity(parsedResponse['ciddiyet']),
-            mesajYorumu: parsedResponse['mesajYorumu'] ?? parsedResponse['mesaj_yorumu'] ?? '',
-            cevapOnerileri: _parseStringList(parsedResponse['cevapOnerileri'] ?? parsedResponse['cevap_onerileri'] ?? []),
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+            emotion: parsedResponse['duygu'] ?? 'nötr',
+            intent: parsedResponse['niyet'] ?? 'belirsiz',
+            tone: parsedResponse['ton'] ?? 'normal',
+            severity: _parseSeverity(parsedResponse['ciddiyet']),
+            aiResponse: {
+              'mesajYorumu': parsedResponse['mesajYorumu'] ?? parsedResponse['mesaj_yorumu'] ?? '',
+              'cevapOnerileri': _parseStringList(parsedResponse['cevapOnerileri'] ?? parsedResponse['cevap_onerileri'] ?? []),
+            },
+            createdAt: DateTime.now(),
           );
           
           _logger.i('Mesaj analizi tamamlandı');
