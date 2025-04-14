@@ -3,10 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message_model.dart';
 import '../models/analysis_result_model.dart';
 import '../services/ai_service.dart';
+import '../services/logger_service.dart';
 
 class MessageViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AiService _aiService = AiService();
+  final LoggerService _logger = LoggerService();
   
   List<Message> _messages = [];
   Message? _currentMessage;
@@ -49,6 +51,8 @@ class MessageViewModel extends ChangeNotifier {
   Future<void> createMessage(String userId, String content) async {
     _setLoading(true);
     try {
+      _logger.i('Yeni mesaj oluşturuluyor. UserID: $userId');
+      
       // Gönderme zamanını al
       final timestamp = DateTime.now();
       
@@ -71,6 +75,8 @@ class MessageViewModel extends ChangeNotifier {
       
       // Mevcut mesajı ayarla
       _currentMessage = message;
+      
+      _logger.i('Mesaj başarıyla oluşturuldu. ID: ${message.id}');
       
       notifyListeners();
     } catch (e) {
@@ -104,6 +110,8 @@ class MessageViewModel extends ChangeNotifier {
     _setLoading(true);
     _currentAnalysisResult = null;
     try {
+      _logger.i('Mesaj analizi başlatılıyor. ID: ${message.id}');
+      
       final result = await _aiService.analyzeMessage(message);
       
       if (result != null) {
@@ -115,6 +123,8 @@ class MessageViewModel extends ChangeNotifier {
         if (index != -1) {
           _messages[index] = _currentMessage!;
         }
+        
+        _logger.i('Mesaj analizi tamamlandı. ID: ${message.id}');
         
         notifyListeners();
       } else {
@@ -202,7 +212,7 @@ class MessageViewModel extends ChangeNotifier {
   // Hata mesajını ayarlama
   void _setError(String error) {
     _errorMessage = error;
-    debugPrint(error);
+    _logger.e(error);
     notifyListeners();
   }
 

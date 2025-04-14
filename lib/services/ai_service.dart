@@ -5,9 +5,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
 import '../models/message_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'logger_service.dart';
 
 class AiService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final LoggerService _logger = LoggerService();
   
   // API anahtarını .env dosyasından alma
   String get _apiKey => dotenv.env['AI_API_KEY'] ?? '';
@@ -16,6 +18,8 @@ class AiService {
   // Mesajı analiz etme
   Future<AnalysisResult?> analyzeMessage(Message message) async {
     try {
+      _logger.i('Mesaj analizi başlatılıyor: ${message.id}');
+      
       // OpenAI veya Gemini API'ye istek gönderme
       final response = await http.post(
         Uri.parse(_apiUrl),
@@ -41,6 +45,8 @@ class AiService {
       );
 
       if (response.statusCode == 200) {
+        _logger.d('API yanıtı alındı - status: ${response.statusCode}');
+        
         final Map<String, dynamic> data = jsonDecode(response.body);
         final aiContent = data['choices'][0]['message']['content'];
         
@@ -65,13 +71,14 @@ class AiService {
         // Mesajı analiz edildi olarak işaretle
         await _updateMessageAnalyzed(message.id);
         
+        _logger.i('Mesaj analizi tamamlandı: ${message.id}');
         return analysisResult;
       } else {
-        debugPrint('API Hatası: ${response.statusCode} - ${response.body}');
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
-      debugPrint('Mesaj analizi hatası: $e');
+      _logger.e('Mesaj analizi hatası', e);
       return null;
     }
   }
@@ -189,6 +196,8 @@ class AiService {
   // AI yanıtını ayrıştırma
   Map<String, dynamic> _parseAiResponse(String aiContent) {
     try {
+      _logger.d('AI yanıtı ayrıştırılıyor');
+      
       // AI'ın JSON formatında yanıt verdiğini varsayarsak
       if (aiContent.contains('{') && aiContent.contains('}')) {
         // JSON başlangıç ve bitiş indekslerini bulma
@@ -209,7 +218,7 @@ class AiService {
         'analysis': aiContent,
       };
     } catch (e) {
-      debugPrint('AI yanıtı ayrıştırma hatası: $e');
+      _logger.e('AI yanıtı ayrıştırma hatası', e);
       return {
         'emotion': 'nötr',
         'intent': 'belirsiz',
@@ -297,20 +306,24 @@ class AiService {
   // Analiz sonucunu Firestore'a kaydet
   Future<void> _saveAnalysisResult(AnalysisResult result) async {
     try {
+      _logger.d('Analiz sonucu Firestore\'a kaydediliyor: ${result.id}');
       await _firestore.collection('analysis_results').doc(result.id).set(result.toFirestore());
+      _logger.d('Analiz sonucu başarıyla kaydedildi');
     } catch (e) {
-      debugPrint('Analiz sonucu kaydetme hatası: $e');
+      _logger.e('Analiz sonucu kaydetme hatası', e);
     }
   }
 
   // Mesajı analiz edildi olarak işaretle
   Future<void> _updateMessageAnalyzed(String messageId) async {
     try {
+      _logger.d('Mesaj analiz edildi olarak işaretleniyor: $messageId');
       await _firestore.collection('messages').doc(messageId).update({
         'isAnalyzed': true,
       });
+      _logger.d('Mesaj başarıyla güncellendi');
     } catch (e) {
-      debugPrint('Mesajı güncelleme hatası: $e');
+      _logger.e('Mesajı güncelleme hatası', e);
     }
   }
 } 

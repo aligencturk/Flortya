@@ -75,9 +75,9 @@ class _ProfileViewState extends State<ProfileView> {
     if (authViewModel.user != null) {
       final success = await profileViewModel.updateUserProfile(
         authViewModel.user!.id,
-        {
-          'name': _nameController.text.trim(),
-        },
+        _nameController.text.trim(),
+        '', // bio parametresi için boş değer
+        '', // relationshipStatus için boş değer
       );
       
       if (success && mounted) {
@@ -488,8 +488,7 @@ class _ProfileViewState extends State<ProfileView> {
             CustomButton(
               text: 'Premium\'a Yükselt',
               onPressed: _upgradeToPremium,
-              color: Colors.white,
-              textColor: Colors.indigo.shade800,
+              color: Colors.indigo.shade800,
               isFullWidth: true,
             ),
         ],

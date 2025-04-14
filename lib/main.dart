@@ -10,17 +10,28 @@ import 'viewmodels/message_viewmodel.dart';
 import 'viewmodels/report_viewmodel.dart';
 import 'viewmodels/advice_viewmodel.dart';
 import 'viewmodels/profile_viewmodel.dart';
+import 'services/logger_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Firebase'i başlat
-  await Firebase.initializeApp();
+  // Logger servisini başlat
+  final logger = LoggerService();
+  logger.i('Uygulama başlatılıyor...');
   
-  // .env dosyasını yükle
-  await dotenv.load(fileName: ".env");
-  
-  runApp(const MyApp());
+  try {
+    // Firebase'i başlat
+    await Firebase.initializeApp();
+    logger.i('Firebase başlatıldı');
+    
+    // .env dosyasını yükle
+    await dotenv.load(fileName: ".env");
+    logger.i('.env dosyası yüklendi');
+    
+    runApp(const MyApp());
+  } catch (e) {
+    logger.e('Uygulama başlatılırken hata oluştu', e);
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -28,6 +39,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final logger = LoggerService();
+    logger.d('MyApp inşa ediliyor');
+    
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
@@ -38,6 +52,7 @@ class MyApp extends StatelessWidget {
       ],
       child: Builder(
         builder: (context) {
+          logger.d('Router ve tema yapılandırılıyor');
           return MaterialApp.router(
             title: 'Retto - İlişki Analiz Asistanı',
             debugShowCheckedModeBanner: false,

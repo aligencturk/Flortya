@@ -3,11 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
+import 'logger_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final LoggerService _logger = LoggerService();
 
   // Mevcut kullanıcıyı almak
   User? get currentUser => _auth.currentUser;
@@ -30,15 +32,18 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
+      _logger.i('Google ile giriş yapılıyor: ${googleUser.email}');
+
       // Firebase ile giriş yap
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
       
       // Kullanıcı belgesini Firestore'a ekleyin veya güncelleyin
       await _updateUserData(userCredential.user!);
       
+      _logger.i('Google ile giriş başarılı: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      debugPrint('Google ile giriş hatası: $e');
+      _logger.e('Google ile giriş hatası', e);
       return null;
     }
   }
@@ -48,15 +53,17 @@ class AuthService {
     try {
       // Apple giriş akışı burada yapılacak
       // (Bu işlev şu anda uygulanmamıştır)
+      _logger.w('Apple ile giriş henüz uygulanmadı');
       return null;
     } catch (e) {
-      debugPrint('Apple ile giriş hatası: $e');
+      _logger.e('Apple ile giriş hatası', e);
       return null;
     }
   }
 
   // Çıkış yap
   Future<void> signOut() async {
+    _logger.i('Kullanıcı çıkış yapıyor: ${currentUser?.uid}');
     await _googleSignIn.signOut();
     return await _auth.signOut();
   }
@@ -93,13 +100,15 @@ class AuthService {
     if (currentUser == null) return null;
     
     try {
+      _logger.d('Kullanıcı bilgileri alınıyor: ${currentUser!.uid}');
       DocumentSnapshot doc = await _firestore.collection('users').doc(currentUser!.uid).get();
       if (doc.exists) {
         return UserModel.fromFirestore(doc);
       }
+      _logger.w('Kullanıcı verisi bulunamadı: ${currentUser!.uid}');
       return null;
     } catch (e) {
-      debugPrint('Kullanıcı verilerini alma hatası: $e');
+      _logger.e('Kullanıcı verilerini alma hatası', e);
       return null;
     }
   }
@@ -112,12 +121,14 @@ class AuthService {
     if (currentUser == null) return;
     
     try {
+      _logger.i('Premium durumu güncelleniyor. isPremium: $isPremium, expiryDate: $expiryDate');
       await _firestore.collection('users').doc(currentUser!.uid).update({
         'isPremium': isPremium,
         'premiumExpiry': expiryDate != null ? Timestamp.fromDate(expiryDate) : null,
       });
+      _logger.i('Premium durumu başarıyla güncellendi');
     } catch (e) {
-      debugPrint('Premium durumu güncelleme hatası: $e');
+      _logger.e('Premium durumu güncelleme hatası', e);
     }
   }
 } 
