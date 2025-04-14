@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'logger_service.dart';
 import '../models/text_recognition_script.dart' as local;
 
@@ -27,7 +27,7 @@ class OcrService {
     }
     
     // Sadece Latin/Türkçe desteği
-    _textRecognizer = GoogleMlKit.vision.textRecognizer();
+    _textRecognizer = TextRecognizer();
     _currentScript = local.TextRecognitionScript.latin;
     _isClosed = false;
   }

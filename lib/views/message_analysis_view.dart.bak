@@ -459,7 +459,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             child: Image.file(
                               _selectedImage!,
                               fit: BoxFit.contain,
-                              frameBuilder: (BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
+                              frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
                                 return Container(
                                   decoration: BoxDecoration(
                                     border: Border.all(
