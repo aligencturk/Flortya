@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
-import '../config/config_service.dart';
 import '../models/analysis_result_model.dart';
-
+import '../config/config_service.dart';
 class ApiService {
   final Logger _logger = Logger();
   final ConfigService _configService = ConfigService();
@@ -28,11 +27,11 @@ class ApiService {
       try {
         return AnalysisResult.fromMap(apiResult);
       } catch (e) {
-        _logger.e('API yanıtı AnalysisResult nesnesine dönüştürülemedi', e);
+        _logger.e('API yanıtı AnalysisResult nesnesine dönüştürülemedi: $e');
         return null;
       }
     } catch (e) {
-      _logger.e('analyzeMessage işleminde hata', e);
+      _logger.e('analyzeMessage işleminde hata: $e');
       return null;
     }
   }
@@ -80,7 +79,7 @@ class ApiService {
         return null;
       }
     } catch (e, stackTrace) {
-      _logger.e('Metin analizi sırasında hata oluştu', e, stackTrace);
+      _logger.e('Metin analizi sırasında hata oluştu: $e');
       return null;
     }
   }
