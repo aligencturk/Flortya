@@ -39,6 +39,23 @@ class AnalysisResult {
     );
   }
 
+  // Map veri türünden doğrudan oluşturma
+  factory AnalysisResult.fromMap(Map<String, dynamic> map) {
+    return AnalysisResult(
+      id: map['id'] ?? '',
+      messageId: map['messageId'] ?? '',
+      emotion: map['emotion'] ?? '',
+      intent: map['intent'] ?? '',
+      tone: map['tone'] ?? '',
+      severity: map['severity'] ?? 0,
+      persons: map['persons'] ?? '',
+      aiResponse: map['aiResponse'] ?? {},
+      createdAt: map['createdAt'] is Timestamp 
+          ? (map['createdAt'] as Timestamp).toDate()
+          : (map['createdAt'] != null ? DateTime.parse(map['createdAt'].toString()) : DateTime.now()),
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'messageId': messageId,

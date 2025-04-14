@@ -9,6 +9,7 @@ class Message {
   final bool isAnalyzed;
   final String? imageUrl;
   final AnalysisResult? analysisResult;
+  final String? userId;
 
   Message({
     required this.id,
@@ -18,6 +19,7 @@ class Message {
     this.isAnalyzed = false,
     this.imageUrl,
     this.analysisResult,
+    this.userId,
   });
 
   Message copyWith({
@@ -28,6 +30,7 @@ class Message {
     bool? isAnalyzed,
     String? imageUrl,
     AnalysisResult? analysisResult,
+    String? userId,
   }) {
     return Message(
       id: id ?? this.id,
@@ -37,6 +40,7 @@ class Message {
       isAnalyzed: isAnalyzed ?? this.isAnalyzed,
       imageUrl: imageUrl ?? this.imageUrl,
       analysisResult: analysisResult ?? this.analysisResult,
+      userId: userId ?? this.userId,
     );
   }
 
@@ -49,6 +53,7 @@ class Message {
       'isAnalyzed': isAnalyzed,
       'imageUrl': imageUrl,
       'analysisResult': analysisResult?.toMap(),
+      'userId': userId,
     };
   }
 
@@ -61,16 +66,14 @@ class Message {
       isAnalyzed: map['isAnalyzed'] ?? false,
       imageUrl: map['imageUrl'],
       analysisResult: map['analysisResult'] != null 
-          ? AnalysisResult.fromFirestore(
-              (map['analysisResult'] is Map) 
-                  ? map['analysisResult']
-                  : map['analysisResult'].data())
+          ? AnalysisResult.fromMap(map['analysisResult'] as Map<String, dynamic>)
           : null,
+      userId: map['userId'],
     );
   }
 
   @override
   String toString() {
-    return 'Message(id: $id, content: $content, sentAt: $sentAt, sentByUser: $sentByUser, isAnalyzed: $isAnalyzed, imageUrl: $imageUrl)';
+    return 'Message(id: $id, content: $content, sentAt: $sentAt, sentByUser: $sentByUser, isAnalyzed: $isAnalyzed, imageUrl: $imageUrl, userId: $userId)';
   }
 } 

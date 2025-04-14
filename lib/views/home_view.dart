@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/message_viewmodel.dart';
 import '../app_router.dart';
 
 class HomeView extends StatefulWidget {
@@ -115,6 +116,15 @@ class _HomeViewState extends State<HomeView> {
   // Mesaj Analizi Tab
   Widget _buildMessageAnalysisTab(BuildContext context) {
     final theme = Theme.of(context);
+    final messageViewModel = Provider.of<MessageViewModel>(context);
+    final authViewModel = Provider.of<AuthViewModel>(context);
+    
+    // Eğer kullanıcı oturum açtıysa ve mesajlar yüklü değilse, yükleyelim
+    if (authViewModel.user != null && messageViewModel.messages.isEmpty && !messageViewModel.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        messageViewModel.loadMessages(authViewModel.user!.id);
+      });
+    }
     
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
@@ -217,34 +227,102 @@ class _HomeViewState extends State<HomeView> {
                       ),
                       const SizedBox(height: 16),
                       
-                      // Örnek Geçmiş Analiz Listesi
-                    Expanded(
-                      child: ListView.builder(
-                          itemCount: 3,
-                        itemBuilder: (context, index) {
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                leading: CircleAvatar(
-                                  backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                                  child: Icon(
-                                    Icons.message,
-                                    color: theme.colorScheme.primary,
+                      // Analizler listesi
+                      if (messageViewModel.isLoading)
+                        const Expanded(
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (messageViewModel.messages.isEmpty)
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  size: 64,
+                                  color: Colors.grey.shade400,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Henüz analiz bulunamadı',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: Colors.grey.shade700,
                                   ),
                                 ),
-                                title: Text('Analiz #${index + 1}'),
-                                subtitle: Text('${DateTime.now().day - index}.${DateTime.now().month}.${DateTime.now().year}'),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () {},
-                              ),
-                          );
-                        },
-                      ),
-                    ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'İlk analizinizi yapmak için "Mesaj Yükle" butonuna tıklayın',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: messageViewModel.messages.length,
+                            itemBuilder: (context, index) {
+                              final message = messageViewModel.messages[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  leading: CircleAvatar(
+                                    backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                                    child: Icon(
+                                      Icons.message,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    message.content.length > 30 
+                                        ? '${message.content.substring(0, 30)}...' 
+                                        : message.content
+                                  ),
+                                  subtitle: Text(
+                                    '${message.sentAt.day}.${message.sentAt.month}.${message.sentAt.year}'
+                                  ),
+                                  trailing: message.isAnalyzed
+                                    ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 18)
+                                    : const Icon(Icons.arrow_forward_ios, size: 16),
+                                  onTap: () {
+                                    // Mesaj detayına git
+                                    messageViewModel.clearCurrentMessage();
+                                    
+                                    // Mesaj ID boş kontrolü
+                                    if (message.id.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Geçersiz mesaj ID'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    
+                                    // İlgili mesajın detay sayfasına yönlendir
+                                    context.push(AppRouter.messageAnalysis);
+                                    // Mesaj detayını yükle - bunu uygulamanın yapısına göre uyarlayabilirsiniz
+                                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                                      await messageViewModel.getMessage(message.id);
+                                      if (message.isAnalyzed) {
+                                        await messageViewModel.getAnalysisResult(message.id);
+                                      }
+                                    });
+                                  },
+                                ),
+                              ).animate().fadeIn(duration: 300.ms, delay: (50 * index).ms);
+                            },
+                          ),
+                        ),
                   ],
                   ),
                 ),
