@@ -61,8 +61,33 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
-    if (authViewModel.user != null) {
+    if (authViewModel.user == null || authViewModel.user!.id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mesajlarınızı yüklemek için lütfen giriş yapın'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    try {
       await messageViewModel.loadMessages(authViewModel.user!.id);
+      if (messageViewModel.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mesajlar yüklenirken hata: ${messageViewModel.errorMessage}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mesajlar yüklenirken beklenmeyen hata: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -234,7 +259,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
 
       // Mesajı veritabanına kaydet
-      await viewModel.addMessage(messageContent, userId);
+      await viewModel.addMessage(messageContent);
       
       // Mevcut mesajı alalım
       final message = viewModel.currentMessage;
@@ -630,73 +655,64 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
               : Icon(Icons.circle_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onTap: () async {
+              // Mesaj kimliğini kontrol et ve log al
+              print('Tıklanan mesaj ID: "${message.id}"');
+              print('Mesaj içeriği: ${message.content}');
+              print('Analiz edilmiş mi? ${message.isAnalyzed}');
+              
+              // ID'nin geçerli olup olmadığını kontrol et
+              if (message.id.isEmpty || message.id == 'null' || message.id == 'undefined') {
+                print('HATA: Geçersiz mesaj ID: "${message.id}"');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Geçersiz mesaj ID. Bu mesaj işlenemiyor.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
               try {
-                // Önce sorunu teşhis için daha detaylı loglar ekleyelim
-                print('========= MESAJ DETAYLARI ==========');
-                print('Tıklanan mesaj ID: "${message.id}"');
-                print('Mesaj içeriği: "${message.content}"');
-                print('Mesaj analiz edilmiş mi: ${message.isAnalyzed}');
-                
-                // ID sağlamlık kontrolü
-                if (message.id.isEmpty || message.id == "null" || message.id == "undefined") {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Geçersiz mesaj ID: Bu mesaj için kayıtlı bir ID bulunamadı.'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                
-                // Tıklanan mesaj için güncel durumu temizle
-                messageViewModel.clearCurrentMessage();
-                
-                // İlk olarak mesajı almaya çalış
-                await messageViewModel.getMessage(message.id);
-                
-                // Mesaj yüklenebildi mi kontrol et
-                if (messageViewModel.currentMessage == null) {
-                  print('Mesaj yüklenemedi! ID: ${message.id}');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Mesaj detayları yüklenemedi.'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                
-                // Analiz durumuna göre işlem yap
                 if (message.isAnalyzed) {
-                  print('Analiz edilmiş mesaj - Sonuç alınıyor');
-                  await messageViewModel.getAnalysisResult(message.id);
-                  
-                  // Analiz sonucu alındı mı kontrol et
-                  if (!messageViewModel.hasAnalysisResult) {
-                    print('Analiz sonucu alınamadı!');
+                  // Eğer mesaj zaten analiz edildiyse, sonucu göster
+                  final result = await messageViewModel.getAnalysisResult(message.id);
+                  if (result != null) {
+                    // Analiz sonucu görüntüleme sayfasına git
+                    setState(() {
+                      _showDetailedAnalysis = true;
+                    });
+                  } else {
+                    print('HATA: Analiz sonucu bulunamadı, ID: ${message.id}');
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Mesaj analiz sonucu bulunamadı, yeniden analiz edilecek.'),
-                        backgroundColor: Colors.orange,
+                        content: Text('Analiz sonucu yüklenirken bir hata oluştu.'),
+                        backgroundColor: Colors.red,
                       ),
                     );
-                    // Analiz edilememişse yeniden analiz et
-                    await messageViewModel.analyzeMessage(message.id);
                   }
-                  
-                  setState(() {
-                    _showDetailedAnalysis = false;
-                  });
                 } else {
-                  // Henüz analiz edilmemiş mesajı analiz et
-                  print('Analiz edilmemiş mesaj - Analiz ediliyor');
-                  await messageViewModel.analyzeMessage(message.id);
+                  // Eğer mesaj henüz analiz edilmediyse, analiz et
+                  final success = await messageViewModel.analyzeMessage(message.id);
+                  if (success) {
+                    // Analiz başarılıysa, mesajı güncelle ve sonuçları göster
+                    final updatedMessage = await messageViewModel.getMessage(message.id);
+                    if (updatedMessage != null) {
+                      setState(() {
+                        _showDetailedAnalysis = true;
+                      });
+                    } else {
+                      print('HATA: Güncellenmiş mesaj bulunamadı, ID: ${message.id}');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Mesaj yüklenirken bir hata oluştu.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } else {
+                    print('HATA: Mesaj analizi başarısız, ID: ${message.id}');
+                  }
                 }
-                
-                print('İşlem tamamlandı.');
-                print('Sonuç var mı: ${messageViewModel.hasAnalysisResult}');
-                print('Mesaj var mı: ${messageViewModel.hasCurrentMessage}');
-                
               } catch (e) {
                 // Hata yakalama ve logla
                 print('HATA: $e');
