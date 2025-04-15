@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
+import '../viewmodels/profile_viewmodel.dart';
 import '../app_router.dart';
 
 // Grafik Çizici Sınıf
@@ -231,6 +233,10 @@ class _HomeViewState extends State<HomeView> {
     final messageViewModel = Provider.of<MessageViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     
+    // Kullanıcı profilinden analiz sonucunu al
+    final profileViewModel = Provider.of<ProfileViewModel>(context, listen: true);
+    final analizSonucu = profileViewModel.user?.sonAnalizSonucu;
+    
     // build sırasında doğrudan state değişikliği yapmamak için postFrameCallback kullan
     WidgetsBinding.instance.addPostFrameCallback((_) { 
       if (context.mounted && 
@@ -318,25 +324,34 @@ class _HomeViewState extends State<HomeView> {
                               width: 120,
                               height: 120,
                               child: CircularProgressIndicator(
-                                value: 0.78,
+                                value: analizSonucu != null ? analizSonucu.iliskiPuani / 100 : 0,
                                 strokeWidth: 12,
                                 backgroundColor: Colors.white.withOpacity(0.2),
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF4FD8)),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  analizSonucu != null 
+                                    ? _getScoreColor(analizSonucu.iliskiPuani)
+                                    : Colors.grey
+                                ),
                               ),
                             ),
-                          const Text(
-                              '78%',
+                          Text(
+                              analizSonucu != null 
+                                ? '${analizSonucu.iliskiPuani}%' 
+                                : 'Analiz\nYapılmamış',
                             style: TextStyle(
-                                fontSize: 32,
+                                fontSize: analizSonucu != null ? 32 : 18,
                               fontWeight: FontWeight.bold,
                                 color: Colors.white,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                              const Text(
-                          'Son analiz: 15 Nisan 2025',
+                              Text(
+                          analizSonucu != null 
+                            ? 'Son analiz: ${_formatDate(analizSonucu.tarih)}' 
+                            : 'Henüz analiz yapılmamış',
                                 style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -364,344 +379,187 @@ class _HomeViewState extends State<HomeView> {
                             ),
                   
                   // Kategori Analizleri Başlık
-                  const Text(
-                    'Kategori Analizleri',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Kategori Analizleri',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (analizSonucu == null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Analiz Yapılmamış',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   
                   // Kategori Kartları
                   SizedBox(
                     height: 190,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        _buildCategoryCard(
-                          context, 
-                          title: 'İletişim',
-                          description: 'Mesajlaşma sıklığınız ve kalitesi oldukça iyi durumda.',
-                          value: 0.82,
-                          color: const Color(0xFF6C5DD3),
-                          width: 240,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildCategoryCard(
-                          context, 
-                          title: 'Duygusal',
-                          description: 'Duygusal paylaşımlarınız biraz daha artabilir.',
-                          value: 0.65,
-                          color: const Color(0xFFFF4FD8),
-                          width: 180,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildCategoryCard(
-                          context, 
-                          title: 'Çatışma Çözümü',
-                          description: 'Anlaşmazlıkları çözme konusunda iyi bir performans gösteriyorsunuz.',
-                          value: 0.75,
-                          color: const Color(0xFF4F8CF6),
-                          width: 220,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildCategoryCard(
-                          context, 
-                          title: 'Destek',
-                          description: 'Partnerinize destek olma konusunda çok başarılısınız.',
-                          value: 0.90,
-                          color: const Color(0xFF8CCF4D),
-                          width: 200,
-                        ),
-                      ],
-                    ),
+                    child: analizSonucu != null 
+                      ? ListView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          children: analizSonucu.kategoriPuanlari.entries.map((entry) {
+                            final String kategoriAdi = _formatCategoryName(entry.key);
+                            final int puan = entry.value;
+                            final String aciklama = _getCategoryDescription(entry.key, puan);
+                            final Color renk = _getCategoryColor(entry.key);
+                            
+                            return Row(
+                              children: [
+                                _buildCategoryCard(
+                                  context, 
+                                  title: kategoriAdi,
+                                  description: aciklama,
+                                  value: puan / 100,
+                                  color: renk,
+                                  width: 220,
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                            );
+                          }).toList(),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.analytics_outlined,
+                                color: Colors.white.withOpacity(0.5),
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Henüz analiz yapılmamış',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                  ),
                       
                       const SizedBox(height: 24),
                   
-                  // Son Analizler Başlık
+                  // Kişiselleştirilmiş Tavsiyeler Başlık
+                  Row(
+                    children: [
                       const Text(
-                        'Son Analizler',
+                        'Kişiselleştirilmiş Tavsiyeler',
                         style: TextStyle(
-                      color: Colors.white,
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                         ),
                       ),
-                  
-                      const SizedBox(height: 16),
-                      
-                  // Son Analizler
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF352269),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                            child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                              const Text(
-                                '8 Nisan 2025',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                '3,254 mesaj analiz edildi',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                      const Spacer(),
+                      if (analizSonucu == null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Analiz Yapılmamış',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        Row(
-                          children: [
-                                const Text(
-                              '74%',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // 2. Analiz
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF352269),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '1 Nisan 2025',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                '2,845 mesaj analiz edildi',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            const Text(
-                              '72%',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // 3. Analiz
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF352269),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '25 Mart 2025',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                '3,102 mesaj analiz edildi',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            const Text(
-                              '70%',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Kişiselleştirilmiş Tavsiyeler
-                  const Text(
-                    'Kişiselleştirilmiş Tavsiyeler',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                    ],
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  // Aktif Dinleme Tavsiye Kartı
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6C5DD3),
-                      borderRadius: BorderRadius.circular(12),
+                  // Kişiselleştirilmiş Tavsiye Kartları
+                  if (analizSonucu != null && analizSonucu.kisiselestirilmisTavsiyeler.isNotEmpty)
+                    ...analizSonucu.kisiselestirilmisTavsiyeler.map((tavsiye) => 
+                      Column(
+                        children: [
+                          _buildAdviceCard(context, tavsiye),
+                          const SizedBox(height: 12),
+                        ],
+                      )
+                    ).toList()
+                  else if (analizSonucu == null)
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF352269),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline,
+                            color: Colors.white.withOpacity(0.5),
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Henüz analiz yapılmamış',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Kişiselleştirilmiş tavsiyeler için analiz yapmanız gerekiyor',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF352269),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Bu analiz için kişiselleştirilmiş tavsiye bulunmuyor',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.headset_mic,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Aktif Dinleme',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Partneriniz konuşurken, anladığınızı göstermek için sorular sorun ve geri bildirim verin.',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // Duygusal Paylaşım Tavsiye Kartı
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF4FD8),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.favorite,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Duygusal Paylaşım',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Günlük duygularınızı ve düşüncelerinizi daha sık paylaşın, bu duygusal bağınızı güçlendirecektir.',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                          ),
-                        ),
-                  ],
-                  ),
-                ),
-                      ],
-              ),
-            ),
                   
                   const SizedBox(height: 100), // Boşluk ekleyerek alt navigationbar'ın üzerindeki içeriği görelim
-          ],
-        ),
+                ],
+              ),
             ),
           ),
         ],
@@ -711,9 +569,307 @@ class _HomeViewState extends State<HomeView> {
     .fadeIn(duration: 300.ms);
   }
 
+  // Kategori kartı widget'ı
+  Widget _buildCategoryCard(BuildContext context, {
+    required String title,
+    required String description,
+    required double value,
+    required Color color,
+    required double width,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${(value * 100).toInt()}/100',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Progress bar
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: (width - 32) * value,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          // Description
+          Text(
+            description,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tavsiye kartı widget'ı
+  Widget _buildAdviceCard(BuildContext context, String adviceText) {
+    final Color randomColor = _getRandomAdviceColor();
+    final IconData randomIcon = _getRandomAdviceIcon();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: randomColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              randomIcon,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _getTitleFromAdvice(adviceText),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  adviceText,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tarih formatlama
+  String _formatDate(DateTime date) {
+    return '${date.day} ${_getMonthName(date.month)} ${date.year}';
+  }
+
+  // Ay numarasından ay adını alma
   String _getMonthName(int month) {
     const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
     return monthNames[month - 1];
+  }
+
+  // Kategori adını formatlama
+  String _formatCategoryName(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return 'İletişim';
+      case 'guven':
+        return 'Güven';
+      case 'uyum':
+        return 'Uyum';
+      case 'saygi':
+      case 'saygı':
+        return 'Saygı';
+      case 'destek':
+        return 'Destek';
+      default:
+        return category;
+    }
+  }
+  
+  // Kategori açıklaması alma
+  String _getCategoryDescription(String category, int score) {
+    if (score >= 80) {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'Mesajlaşma sıklığınız ve kalitesi oldukça iyi durumda.';
+        case 'guven':
+          return 'Partnerinizin size olan güveni çok yüksek seviyede.';
+        case 'uyum':
+          return 'İlişkinizde uyum seviyesi oldukça yüksek.';
+        case 'saygi':
+        case 'saygı':
+          return 'Birbirinize karşı saygınız takdire değer seviyede.';
+        case 'destek':
+          return 'Partnerinize destek olma konusunda çok başarılısınız.';
+        default:
+          return 'Bu alanda oldukça başarılısınız.';
+      }
+    } else if (score >= 60) {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'İletişiminiz iyi, ancak daha da geliştirilebilir.';
+        case 'guven':
+          return 'Güven seviyeniz iyi durumda, küçük gelişmeler yapabilirsiniz.';
+        case 'uyum':
+          return 'Uyumunuz iyi seviyede ama geliştirme alanları var.';
+        case 'saygi':
+        case 'saygı':
+          return 'Karşılıklı saygı seviyeniz iyi, küçük iyileştirmeler yapabilirsiniz.';
+        case 'destek':
+          return 'Destek konusunda iyi durumdasınız, biraz daha geliştirebilirsiniz.';
+        default:
+          return 'Bu alanda iyi durumdasınız, ancak gelişme fırsatları var.';
+      }
+    } else if (score >= 40) {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'İletişim alanında gelişime açık yönleriniz var.';
+        case 'guven':
+          return 'Güven konusunda gelişim göstermeniz gerekiyor.';
+        case 'uyum':
+          return 'Uyum seviyenizi artırmak için çalışmalar yapmanız faydalı olabilir.';
+        case 'saygi':
+        case 'saygı':
+          return 'Saygı konusunda dikkate değer iyileştirmelere ihtiyacınız var.';
+        case 'destek':
+          return 'Destek alanında gelişim göstermeniz ilişkinize olumlu katkı sağlayacaktır.';
+        default:
+          return 'Bu alanda gelişime açık yönleriniz var.';
+      }
+    } else {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'İletişim konusunda ciddi gelişime ihtiyacınız var.';
+        case 'guven':
+          return 'Güven seviyenizi artırmak için acilen çalışmalar yapmanız gerekiyor.';
+        case 'uyum':
+          return 'Uyum konusunda önemli sorunlar yaşıyorsunuz, profesyonel destek faydalı olabilir.';
+        case 'saygi':
+        case 'saygı':
+          return 'Saygı alanında ciddi gelişime ihtiyacınız var.';
+        case 'destek':
+          return 'Destek konusunda önemli eksiklikler görülüyor, bu alan üzerinde çalışın.';
+        default:
+          return 'Bu alanda ciddi gelişime ihtiyacınız var.';
+      }
+    }
+  }
+  
+  // Kategori rengi alma
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return const Color(0xFF6C5DD3);
+      case 'guven':
+        return const Color(0xFF4F8CF6);
+      case 'uyum':
+        return const Color(0xFFFF4FD8);
+      case 'saygi':
+      case 'saygı':
+        return const Color(0xFFF79E1B);
+      case 'destek':
+        return const Color(0xFF8CCF4D);
+      default:
+        return const Color(0xFF9D3FFF);
+    }
+  }
+  
+  // Puan rengi alma
+  Color _getScoreColor(int score) {
+    if (score >= 80) return const Color(0xFF8CCF4D); // Yeşil
+    if (score >= 60) return const Color(0xFF4F8CF6); // Mavi
+    if (score >= 40) return const Color(0xFFF79E1B); // Turuncu
+    if (score >= 20) return const Color(0xFFFF7D05); // Koyu turuncu
+    return const Color(0xFFFF3030); // Kırmızı
+  }
+  
+  // Puan metni alma
+  String _getScoreText(int score) {
+    if (score >= 80) return 'Harika';
+    if (score >= 60) return 'İyi';
+    if (score >= 40) return 'Orta';
+    if (score >= 20) return 'Zayıf';
+    return 'Kritik';
+  }
+  
+  // Rastgele tavsiye rengi alma
+  Color _getRandomAdviceColor() {
+    final colors = [
+      const Color(0xFF6C5DD3),
+      const Color(0xFFFF4FD8),
+      const Color(0xFF4F8CF6),
+      const Color(0xFFF79E1B),
+    ];
+    return colors[Random().nextInt(colors.length)];
+  }
+  
+  // Rastgele tavsiye ikonu alma
+  IconData _getRandomAdviceIcon() {
+    final icons = [
+      Icons.lightbulb_outline,
+      Icons.favorite,
+      Icons.headset_mic,
+      Icons.psychology,
+      Icons.support,
+      Icons.health_and_safety,
+    ];
+    return icons[Random().nextInt(icons.length)];
+  }
+  
+  // Tavsiye metninden başlık oluşturma
+  String _getTitleFromAdvice(String advice) {
+    if (advice.length > 30) {
+      final firstPart = advice.substring(0, 30).split(' ');
+      return firstPart.take(firstPart.length - 1).join(' ');
+    }
+    return advice.split('.').first;
   }
 
   // İlişki Raporu Tab
@@ -1415,70 +1571,6 @@ class _HomeViewState extends State<HomeView> {
         size: 16,
       ),
       onTap: () {},
-    );
-  }
-
-  Widget _buildCategoryCard(
-    BuildContext context, {
-    required String title,
-    required String description,
-    required double value,
-    required Color color,
-    required double width,
-  }) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: value,
-            backgroundColor: Colors.white.withOpacity(0.2),
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  description,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ),
-              Text(
-                '${(value * 100).toInt()}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
