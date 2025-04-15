@@ -32,6 +32,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _messageFocusNode = FocusNode(); // FocusNode ekledim
   bool _showDetailedAnalysis = false;
   File? _selectedImage;
   bool _isImageMode = false;
@@ -51,6 +52,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         _showDetailedAnalysis = false;
       });
       
+      // Türkçe karakter girişini aktifleştir
+      _messageFocusNode.addListener(_onFocusChange);
+      
       // Eğer daha önce mesajlar yüklenmediyse yükle
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
       if (!_messagesLoaded && authViewModel.user != null) {
@@ -63,10 +67,20 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     });
   }
 
+  // FocusNode değişimini dinleyen metod ekledim
+  void _onFocusChange() {
+    if (_messageFocusNode.hasFocus) {
+      // TextField odaklandığında Türkçe klavye desteğini aktifleştir
+      InputService.activateSystemKeyboard(context);
+    }
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _messageFocusNode.removeListener(_onFocusChange);
+    _messageFocusNode.dispose();
     super.dispose();
   }
 
@@ -571,8 +585,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.white24),
                             ),
-                            child: TextField(
+                            child: TextFormField(
                               controller: _messageController,
+                              focusNode: _messageFocusNode,
                               maxLines: null,
                               expands: true,
                               style: const TextStyle(color: Colors.white),
@@ -580,6 +595,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               keyboardType: TextInputType.multiline,
                               textCapitalization: TextCapitalization.sentences,
                               textInputAction: TextInputAction.newline,
+                              enableInteractiveSelection: true,
+                              autofillHints: null,
+                              onTap: () {
+                                // TextField'a tıklandığında Türkçe klavye desteğini aktifleştir
+                                InputService.activateSystemKeyboard(context);
+                              },
                               decoration: const InputDecoration(
                                 hintText: 'Analiz etmek istediğiniz mesajı girin...',
                                 hintStyle: TextStyle(color: Colors.white60),
