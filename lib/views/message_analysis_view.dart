@@ -70,7 +70,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // FocusNode değişimini dinleyen metod ekledim
   void _onFocusChange() {
     if (_messageFocusNode.hasFocus) {
-      // TextField odaklandığında Türkçe klavye desteğini aktifleştir
+      // Sadece autofill işlemini tamamla, fazla müdahale etme
       InputService.activateSystemKeyboard(context);
     }
   }
@@ -591,15 +591,20 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               maxLines: null,
                               expands: true,
                               style: const TextStyle(color: Colors.white),
-                              inputFormatters: InputService.getTurkishTextFormatters(),
+                              // Türkçe karakter formatters kullanma, sistem varsayılanlarını kullan
                               keyboardType: TextInputType.multiline,
                               textCapitalization: TextCapitalization.sentences,
                               textInputAction: TextInputAction.newline,
                               enableInteractiveSelection: true,
-                              autofillHints: null,
-                              onTap: () {
-                                // TextField'a tıklandığında Türkçe klavye desteğini aktifleştir
-                                InputService.activateSystemKeyboard(context);
+                              // Ekstra özellikler
+                              // Hata ayıklama
+                              onChanged: (value) {
+                                // Bu satırı değiştirmeyin - sadece Dart'ın 
+                                // Türkçe karakterleri kabul ettiğinden emin oluyoruz
+                                final containsTurkish = value.contains(RegExp(r'[ğüşöçıĞÜŞÖÇİI]'));
+                                if (containsTurkish) {
+                                  debugPrint('Türkçe karakter algılandı: $value');
+                                }
                               },
                               decoration: const InputDecoration(
                                 hintText: 'Analiz etmek istediğiniz mesajı girin...',

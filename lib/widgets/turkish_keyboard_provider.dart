@@ -45,8 +45,8 @@ class _TurkishKeyboardHandlerState extends State<TurkishKeyboardHandler> {
     // Klavye gösterildiğinde Türkçe karakter desteğini etkinleştir
     _keyboardVisibilityController.onChange.listen((bool visible) {
       if (visible) {
-        // Türkçe klavye gerekirse burada özel ayarlar yapılabilir
-        SystemChannels.textInput.invokeMethod('TextInput.show');
+        // Fazla müdahale etme, varsayılan davranışa güven
+        // Sistem klavyesinin doğal davranışını koru
       }
     });
   }
@@ -68,5 +68,11 @@ class _TurkishKeyboardHandlerState extends State<TurkishKeyboardHandler> {
         child: widget.child,
       ),
     );
+  }
+  
+  /// Türkçe karakter kullanımını etkinleştir
+  static void enableTurkishKeyboard() {
+    // Sistem düzeyinde bir değişiklik yapma
+    // Flutter'ın kendi mekanizmasına güven
   }
 } 
