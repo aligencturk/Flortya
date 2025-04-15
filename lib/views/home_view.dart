@@ -888,13 +888,19 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Merhaba, Zeynep',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    ),
-                  ),
+                FutureBuilder<User?>(
+                  future: Future.value(FirebaseAuth.instance.currentUser),
+                  builder: (context, snapshot) {
+                    final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
+                    return Text(
+                      'Merhaba, $displayName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    );
+                  },
+                ),
                   const Spacer(),
                   IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
@@ -1116,13 +1122,19 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Merhaba, Zeynep',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    ),
-                  ),
+                FutureBuilder<User?>(
+                  future: Future.value(FirebaseAuth.instance.currentUser),
+                  builder: (context, snapshot) {
+                    final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
+                    return Text(
+                      'Merhaba, $displayName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    );
+                  },
+                ),
                   const Spacer(),
                   IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
@@ -1377,13 +1389,19 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Merhaba, Zeynep',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    ),
-                  ),
+                FutureBuilder<User?>(
+                  future: Future.value(FirebaseAuth.instance.currentUser),
+                  builder: (context, snapshot) {
+                    final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
+                    return Text(
+                      'Merhaba, $displayName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    );
+                  },
+                ),
                   const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
