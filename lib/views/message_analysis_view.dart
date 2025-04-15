@@ -1123,33 +1123,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: analizSonucu == null
-                      ? Row(
-                          children: [
-                            Icon(
-                              Icons.analytics_outlined,
-                              color: Colors.white.withOpacity(0.5),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Henüz analiz yapılmamış',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          duygu,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                          ),
-                        ),
+                    child: Text(
+                      duygu,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1191,34 +1171,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: analizSonucu == null
-                      ? Row(
-                          children: [
-                            Icon(
-                              Icons.analytics_outlined,
-                              color: Colors.white.withOpacity(0.5),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Henüz analiz yapılmamış',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          mesajYorumu,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            height: 1.5,
-                          ),
-                        ),
+                    child: Text(
+                      mesajYorumu,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        height: 1.5,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1253,38 +1213,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   ),
                   const SizedBox(height: 12),
                   // İçerik
-                  analizSonucu == null
-                    ? Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.analytics_outlined,
-                              color: Colors.white.withOpacity(0.5),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Henüz analiz yapılmamış',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Column(
-                        children: [...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList()],
-                      ),
+                  Column(
+                    children: [...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList()],
+                  ),
                 ],
               ),
             ),
