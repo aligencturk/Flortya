@@ -2,13 +2,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'logger_service.dart';
-import '../models/text_recognition_script.dart' as local;
 
 class OcrService {
   final LoggerService _logger = LoggerService();
   late final TextRecognizer _textRecognizer;
   bool _isClosed = false;
-  local.TextRecognitionScript _currentScript = local.TextRecognitionScript.latin;
 
   OcrService() {
     _initializeRecognizer();
@@ -28,21 +26,13 @@ class OcrService {
     
     // Sadece Latin/Türkçe desteği
     _textRecognizer = TextRecognizer();
-    _currentScript = local.TextRecognitionScript.latin;
     _isClosed = false;
-  }
-
-  /// Kullanılacak dil yazı tipini ayarlar (Sadece Latin/Türkçe desteklenir)
-  void dilAyarla(local.TextRecognitionScript script) {
-    if (script != local.TextRecognitionScript.latin) {
-      debugPrint('Sadece Latin/Türkçe dil desteği aktif. Diğer diller kaldırıldı.');
-    }
   }
 
   /// Verilen resim dosyasından metin çıkarır
   Future<String> metniOku(File imageFile) async {
     try {
-      debugPrint('OCR işlemi başlıyor: ${imageFile.path}, Script: ${_currentScript.name}');
+      debugPrint('OCR işlemi başlıyor: ${imageFile.path}');
       
       final inputImage = InputImage.fromFile(imageFile);
       final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
@@ -66,12 +56,6 @@ class OcrService {
       debugPrint('OCR hatası: $e');
       throw Exception('Metni çıkarma hatası: $e');
     }
-  }
-  
-  /// Otomatik dil tanıma - Sadece Latin/Türkçe desteklendiği için normal OCR işlevini çağırır
-  Future<String> otomatikDilTanima(File imageFile) async {
-    debugPrint('Sadece Latin/Türkçe dil desteği aktif. Diğer diller kaldırıldı.');
-    return await metniOku(imageFile);
   }
   
   /// Verilen resim dosyasından metin bloklarını döndürür
