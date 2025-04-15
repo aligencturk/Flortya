@@ -3,7 +3,23 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import '../models/analysis_result_model.dart';
-import '../config/config_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+// Firebase kullanımına göre düzenlenmiş ConfigService
+class ConfigService {
+  String? getApiUrl() {
+    return 'https://firebaseapi.com';  // Firebase için gerekiyorsa
+  }
+  
+  String? getApiKey() {
+    return '';  // Firebase için API key gerekmeyebilir
+  }
+  
+  String? getFirebaseProjectId() {
+    return 'your-firebase-project-id';
+  }
+}
+
 class ApiService {
   final Logger _logger = Logger();
   final ConfigService _configService = ConfigService();
@@ -47,7 +63,7 @@ class ApiService {
       }
       
       // API URL'yi yapılandırmadan al
-      final apiUrl = _configService.getApiUrl();
+      final apiUrl = ConfigService().getApiUrl();
       if (apiUrl == null || apiUrl.isEmpty) {
         _logger.e('API URL yapılandırması bulunamadı');
         return null;
