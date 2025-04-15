@@ -11,6 +11,8 @@ import '../services/logger_service.dart';
 import '../services/notification_service.dart';
 import '../services/auth_service.dart';
 import '../viewmodels/profile_viewmodel.dart';
+import '../controllers/home_controller.dart';
+import 'package:provider/provider.dart';
 
 // Extension to add firstWhereOrNull functionality
 extension ListExtension<T> on List<T> {
@@ -562,6 +564,19 @@ class MessageViewModel extends ChangeNotifier {
       });
       
       _logger.i('Kullanıcı profili başarıyla güncellendi. İlişki puanı: ${analizSonucu.iliskiPuani}');
+      
+      // Ana sayfayı güncelle - HomeController ile
+      try {
+        // HomeController'ı bul ve güncelle
+        final BuildContext? context = _profileViewModel.context;
+        if (context != null) {
+          final homeController = Provider.of<HomeController>(context, listen: false);
+          await homeController.analizSonucuIleGuncelle(analizSonucu);
+          _logger.i('Ana sayfa başarıyla güncellendi');
+        }
+      } catch (e) {
+        _logger.e('Ana sayfa güncellenirken hata oluştu', e);
+      }
     } catch (e) {
       _logger.e('Kullanıcı profili güncellenirken hata oluştu', e);
     }

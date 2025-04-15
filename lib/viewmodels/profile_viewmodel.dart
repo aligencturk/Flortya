@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
@@ -6,10 +7,10 @@ import '../services/auth_service.dart';
 import '../services/ai_service.dart';
 
 class ProfileViewModel extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
   final AuthService _authService = AuthService();
-  final AiService _aiService = AiService();
+  final AiService _aiService;
   
   UserModel? _user;
   Map<String, dynamic>? _userProfile;
@@ -17,6 +18,9 @@ class ProfileViewModel extends ChangeNotifier {
   bool _isUpdating = false;
   String? _errorMessage;
   bool _isEditing = false;
+  
+  // BuildContext referansı
+  BuildContext? _context;
 
   // Getters
   UserModel? get user => _user;
@@ -27,6 +31,21 @@ class ProfileViewModel extends ChangeNotifier {
   bool get isEditing => _isEditing;
   bool get isPremium => _user?.isPremium ?? false;
   bool get isAuthenticated => _auth.currentUser != null;
+  BuildContext? get context => _context;
+
+  // Constructor
+  ProfileViewModel({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+    AiService? aiService,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance,
+      _aiService = aiService ?? AiService();
+      
+  // Context ayarlama
+  void setContext(BuildContext context) {
+    _context = context;
+  }
 
   // Kullanıcı profilini yükleme
   Future<void> loadUserProfile() async {

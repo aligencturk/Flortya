@@ -4,22 +4,23 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
+import '../controllers/home_controller.dart';
 import '../app_router.dart';
 
 // Grafik Çizici Sınıf
 class ChartPainter extends CustomPainter {
+  final List<Map<String, dynamic>> dataPoints;
+  
+  ChartPainter({required this.dataPoints});
+  
   @override
   void paint(Canvas canvas, Size size) {
-    const pointData = [
-      {'x': 0, 'y': 70},
-      {'x': 1, 'y': 75},
-      {'x': 2, 'y': 78},
-      {'x': 3, 'y': 82},
-    ];
+    if (dataPoints.isEmpty) return;
     
     // Nokta boyutu ve renkleri
     const pointRadius = 4.0;
@@ -55,8 +56,9 @@ class ChartPainter extends CustomPainter {
     }
     
     // Dikey ızgara çizgileri
-    for (var i = 0; i <= 3; i++) {
-      final x = i * size.width / 3;
+    final totalPoints = dataPoints.length;
+    for (var i = 0; i <= totalPoints - 1; i++) {
+      final x = i * size.width / (totalPoints - 1);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
     
@@ -64,12 +66,12 @@ class ChartPainter extends CustomPainter {
     final path = Path();
     
     // İlk noktayı ayarla
-    var startPoint = _getPointLocation(pointData[0]['x']!, pointData[0]['y']!, size);
+    var startPoint = _getPointLocation(0, dataPoints[0]['y'], size, totalPoints);
     path.moveTo(startPoint.dx, startPoint.dy);
     
     // Diğer noktalara bağla
-    for (var i = 1; i < pointData.length; i++) {
-      final point = _getPointLocation(pointData[i]['x']!, pointData[i]['y']!, size);
+    for (var i = 1; i < dataPoints.length; i++) {
+      final point = _getPointLocation(i, dataPoints[i]['y'], size, totalPoints);
       path.lineTo(point.dx, point.dy);
     }
     
@@ -77,8 +79,8 @@ class ChartPainter extends CustomPainter {
     canvas.drawPath(path, linePaint);
     
     // Noktaları çizme
-    for (var data in pointData) {
-      final point = _getPointLocation(data['x']!, data['y']!, size);
+    for (var i = 0; i < dataPoints.length; i++) {
+      final point = _getPointLocation(i, dataPoints[i]['y'], size, totalPoints);
       
       // Dolgu
       canvas.drawCircle(point, pointRadius, pointFillPaint);
@@ -88,14 +90,14 @@ class ChartPainter extends CustomPainter {
   }
   
   // X, Y koordinatlarını ekrandaki konuma dönüştürme
-  Offset _getPointLocation(int x, int y, Size size) {
-    final xPos = (x * size.width / 3);
+  Offset _getPointLocation(int x, int y, Size size, int totalPoints) {
+    final xPos = (x * size.width / (totalPoints - 1));
     final yPos = size.height - (y * size.height / 100);
     return Offset(xPos, yPos);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class HomeView extends StatefulWidget {
@@ -109,6 +111,20 @@ class _HomeViewState extends State<HomeView> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Ana sayfayı yüklendiğinde güncelle
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      homeController.anaSayfayiGuncelle();
+      
+      // ProfileViewModel'e context referansı ekle
+      final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+      profileViewModel.setContext(context);
+    });
+  }
 
   @override
   void dispose() {
@@ -229,28 +245,16 @@ class _HomeViewState extends State<HomeView> {
 
   // Mesaj Analizi Tab
   Widget _buildMessageAnalysisTab(BuildContext context) {
-    final theme = Theme.of(context);
-    final messageViewModel = Provider.of<MessageViewModel>(context);
-    final authViewModel = Provider.of<AuthViewModel>(context);
-    
-    // Kullanıcı profilinden analiz sonucunu al
-    final profileViewModel = Provider.of<ProfileViewModel>(context, listen: true);
-    final analizSonucu = profileViewModel.user?.sonAnalizSonucu;
-    
-    // build sırasında doğrudan state değişikliği yapmamak için postFrameCallback kullan
-    WidgetsBinding.instance.addPostFrameCallback((_) { 
-      if (context.mounted && 
-          authViewModel.user != null && 
-          !messageViewModel.isLoading && 
-          !messageViewModel.isFirstLoadCompleted) { 
-        messageViewModel.loadMessages(authViewModel.user!.id); 
-      } 
-    });
+    // HomeController'ı dinle
+    final homeController = Provider.of<HomeController>(context);
+    final analizSonucu = homeController.sonAnalizSonucu;
+    final kategoriDegisimleri = homeController.kategoriDegisimleri;
+    final tavsiyeler = homeController.kisisellestirilmisTavsiyeler;
     
     return SafeArea(
-        child: Column(
-          children: [
-            // App Bar
+      child: Column(
+        children: [
+          // App Bar
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -306,20 +310,20 @@ class _HomeViewState extends State<HomeView> {
                       color: const Color(0xFF352269),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                child: Column(
-                  children: [
-                      const Text(
+                    child: Column(
+                      children: [
+                        const Text(
                           'İlişki Uyum Puanı',
-                        style: TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
                         ),
-                      ),
                         const SizedBox(height: 24),
                         Stack(
                           alignment: Alignment.center,
-                        children: [
+                          children: [
                             SizedBox(
                               width: 120,
                               height: 120,
@@ -334,83 +338,90 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                               ),
                             ),
-                          Text(
+                            Text(
                               analizSonucu != null 
                                 ? '${analizSonucu.iliskiPuani}%' 
                                 : 'Analiz\nYapılmamış',
-                            style: TextStyle(
+                              style: TextStyle(
                                 fontSize: analizSonucu != null ? 32 : 18,
-                              fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.white,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                              Text(
+                        Text(
                           analizSonucu != null 
-                            ? 'Son analiz: ${_formatDate(analizSonucu.tarih)}' 
-                            : 'Henüz analiz yapılmamış',
-                                style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  messageViewModel.clearCurrentMessage();
-                                  context.push(AppRouter.messageAnalysis);
-                                },
-                          icon: const Icon(Icons.add_circle_outline),
-                          label: const Text('Yeni Analiz Başlat'),
-                                style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF9D3FFF),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                ),
-                              ),
-                            ],
-                              ),
-                            ),
-                  
-                  // Kategori Analizleri Başlık
-                  Row(
-                    children: [
-                      const Text(
-                        'Kategori Analizleri',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (analizSonucu == null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
+                            ? _getScoreText(analizSonucu.iliskiPuani)
+                            : 'İlişkinizi analiz etmek için bir mesaj gönderin',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
                           ),
-                          child: const Text(
-                            'Analiz Yapılmamış',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          textAlign: TextAlign.center,
+                        ),
+                        
+                        // Geçmiş analiz noktasına göre ilerleme
+                        if (analizSonucu != null && homeController.analizGecmisi.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24),
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Önceki Analize Göre',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    _buildChangeIndicator(
+                                      context,
+                                      analizSonucu.iliskiPuani - 
+                                        homeController.analizGecmisi[homeController.analizGecmisi.length - 2].iliskiPuani
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  height: 60,
+                                  width: double.infinity,
+                                  child: CustomPaint(
+                                    painter: ChartPainter(
+                                      dataPoints: homeController.analizGecmisi
+                                        .map((analiz) => {
+                                          'x': homeController.analizGecmisi.indexOf(analiz), 
+                                          'y': analiz.iliskiPuani
+                                        })
+                                        .toList()
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
                   
-                  // Kategori Kartları
+                  // Kategori Analiz Kartları
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Kategori Analizleri',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  
                   SizedBox(
                     height: 190,
                     child: analizSonucu != null 
@@ -423,6 +434,10 @@ class _HomeViewState extends State<HomeView> {
                             final String aciklama = _getCategoryDescription(entry.key, puan);
                             final Color renk = _getCategoryColor(entry.key);
                             
+                            // Değişim bilgisi
+                            final dynamic degisim = kategoriDegisimleri[entry.key];
+                            final int? degisimYuzde = degisim != null ? degisim['yuzde'] as int? : null;
+                            
                             return Row(
                               children: [
                                 _buildCategoryCard(
@@ -432,6 +447,7 @@ class _HomeViewState extends State<HomeView> {
                                   value: puan / 100,
                                   color: renk,
                                   width: 220,
+                                  degisim: degisimYuzde,
                                 ),
                                 const SizedBox(width: 12),
                               ],
@@ -439,72 +455,40 @@ class _HomeViewState extends State<HomeView> {
                           }).toList(),
                         )
                       : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.analytics_outlined,
-                                color: Colors.white.withOpacity(0.5),
-                                size: 48,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Henüz analiz yapılmamış',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                  ),
-                      
-                      const SizedBox(height: 24),
-                  
-                  // Kişiselleştirilmiş Tavsiyeler Başlık
-                  Row(
-                    children: [
-                      const Text(
-                        'Kişiselleştirilmiş Tavsiyeler',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (analizSonucu == null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Analiz Yapılmamış',
+                          child: Text(
+                            'Önce bir analiz yapmanız gerekiyor',
                             style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 16,
                             ),
                           ),
                         ),
-                    ],
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   
-                  // Kişiselleştirilmiş Tavsiye Kartları
-                  if (analizSonucu != null && analizSonucu.kisiselestirilmisTavsiyeler.isNotEmpty)
-                    ...analizSonucu.kisiselestirilmisTavsiyeler.map((tavsiye) => 
-                      Column(
-                        children: [
-                          _buildAdviceCard(context, tavsiye),
-                          const SizedBox(height: 12),
-                        ],
-                      )
-                    ).toList()
+                  // Kişiselleştirilmiş Tavsiyeler
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Kişiselleştirilmiş Tavsiyeler',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  
+                  // Tavsiye Kartları
+                  if (analizSonucu != null && tavsiyeler.isNotEmpty)
+                    ...tavsiyeler.map((tavsiye) => _buildAdviceCard(
+                      context, 
+                      title: _getTitleFromAdvice(tavsiye),
+                      advice: tavsiye,
+                      color: _getRandomAdviceColor(),
+                      icon: _getRandomAdviceIcon(),
+                    )).toList()
                   else if (analizSonucu == null)
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -540,24 +524,9 @@ class _HomeViewState extends State<HomeView> {
                           ),
                         ],
                       ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF352269),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Bu analiz için kişiselleştirilmiş tavsiye bulunmuyor',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
                     ),
                   
-                  const SizedBox(height: 100), // Boşluk ekleyerek alt navigationbar'ın üzerindeki içeriği görelim
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -570,24 +539,27 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // Kategori kartı widget'ı
-  Widget _buildCategoryCard(BuildContext context, {
+  Widget _buildCategoryCard(
+    BuildContext context, {
     required String title,
     required String description,
     required double value,
     required Color color,
-    required double width,
+    double width = 180,
+    int? degisim,
   }) {
     return Container(
       width: width,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF352269),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 title,
@@ -597,67 +569,64 @@ class _HomeViewState extends State<HomeView> {
                   fontSize: 16,
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${(value * 100).toInt()}/100',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
+              if (degisim != null)
+                _buildChangeIndicator(context, degisim),
             ],
           ),
-          const SizedBox(height: 16),
-          // Progress bar
-          Container(
-            height: 6,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: (width - 32) * value,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: value,
+            backgroundColor: Colors.white.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            borderRadius: BorderRadius.circular(4),
           ),
-          const Spacer(),
-          // Description
+          const SizedBox(height: 12),
           Text(
             description,
             style: TextStyle(
               color: Colors.white.withOpacity(0.8),
               fontSize: 14,
             ),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  // Tavsiye kartı widget'ı
-  Widget _buildAdviceCard(BuildContext context, String adviceText) {
-    final Color randomColor = _getRandomAdviceColor();
-    final IconData randomIcon = _getRandomAdviceIcon();
+  // Değişim göstergesi widget'ı
+  Widget _buildChangeIndicator(BuildContext context, int change) {
+    final isPositive = change > 0;
+    final color = isPositive ? Colors.green : (change < 0 ? Colors.red : Colors.grey);
+    final icon = isPositive ? Icons.arrow_upward : (change < 0 ? Icons.arrow_downward : Icons.remove);
     
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 14,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          '${change.abs()}%',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Tavsiye kartı widget'ı
+  Widget _buildAdviceCard(BuildContext context, String title, String advice, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: randomColor,
+        color: color,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -669,7 +638,7 @@ class _HomeViewState extends State<HomeView> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              randomIcon,
+              icon,
               color: Colors.white,
               size: 24,
             ),
@@ -680,7 +649,7 @@ class _HomeViewState extends State<HomeView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _getTitleFromAdvice(adviceText),
+                  title,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -689,7 +658,7 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  adviceText,
+                  advice,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -701,175 +670,6 @@ class _HomeViewState extends State<HomeView> {
         ],
       ),
     );
-  }
-
-  // Tarih formatlama
-  String _formatDate(DateTime date) {
-    return '${date.day} ${_getMonthName(date.month)} ${date.year}';
-  }
-
-  // Ay numarasından ay adını alma
-  String _getMonthName(int month) {
-    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-    return monthNames[month - 1];
-  }
-
-  // Kategori adını formatlama
-  String _formatCategoryName(String category) {
-    switch (category.toLowerCase()) {
-      case 'iletisim':
-        return 'İletişim';
-      case 'guven':
-        return 'Güven';
-      case 'uyum':
-        return 'Uyum';
-      case 'saygi':
-      case 'saygı':
-        return 'Saygı';
-      case 'destek':
-        return 'Destek';
-      default:
-        return category;
-    }
-  }
-  
-  // Kategori açıklaması alma
-  String _getCategoryDescription(String category, int score) {
-    if (score >= 80) {
-      switch (category.toLowerCase()) {
-        case 'iletisim':
-          return 'Mesajlaşma sıklığınız ve kalitesi oldukça iyi durumda.';
-        case 'guven':
-          return 'Partnerinizin size olan güveni çok yüksek seviyede.';
-        case 'uyum':
-          return 'İlişkinizde uyum seviyesi oldukça yüksek.';
-        case 'saygi':
-        case 'saygı':
-          return 'Birbirinize karşı saygınız takdire değer seviyede.';
-        case 'destek':
-          return 'Partnerinize destek olma konusunda çok başarılısınız.';
-        default:
-          return 'Bu alanda oldukça başarılısınız.';
-      }
-    } else if (score >= 60) {
-      switch (category.toLowerCase()) {
-        case 'iletisim':
-          return 'İletişiminiz iyi, ancak daha da geliştirilebilir.';
-        case 'guven':
-          return 'Güven seviyeniz iyi durumda, küçük gelişmeler yapabilirsiniz.';
-        case 'uyum':
-          return 'Uyumunuz iyi seviyede ama geliştirme alanları var.';
-        case 'saygi':
-        case 'saygı':
-          return 'Karşılıklı saygı seviyeniz iyi, küçük iyileştirmeler yapabilirsiniz.';
-        case 'destek':
-          return 'Destek konusunda iyi durumdasınız, biraz daha geliştirebilirsiniz.';
-        default:
-          return 'Bu alanda iyi durumdasınız, ancak gelişme fırsatları var.';
-      }
-    } else if (score >= 40) {
-      switch (category.toLowerCase()) {
-        case 'iletisim':
-          return 'İletişim alanında gelişime açık yönleriniz var.';
-        case 'guven':
-          return 'Güven konusunda gelişim göstermeniz gerekiyor.';
-        case 'uyum':
-          return 'Uyum seviyenizi artırmak için çalışmalar yapmanız faydalı olabilir.';
-        case 'saygi':
-        case 'saygı':
-          return 'Saygı konusunda dikkate değer iyileştirmelere ihtiyacınız var.';
-        case 'destek':
-          return 'Destek alanında gelişim göstermeniz ilişkinize olumlu katkı sağlayacaktır.';
-        default:
-          return 'Bu alanda gelişime açık yönleriniz var.';
-      }
-    } else {
-      switch (category.toLowerCase()) {
-        case 'iletisim':
-          return 'İletişim konusunda ciddi gelişime ihtiyacınız var.';
-        case 'guven':
-          return 'Güven seviyenizi artırmak için acilen çalışmalar yapmanız gerekiyor.';
-        case 'uyum':
-          return 'Uyum konusunda önemli sorunlar yaşıyorsunuz, profesyonel destek faydalı olabilir.';
-        case 'saygi':
-        case 'saygı':
-          return 'Saygı alanında ciddi gelişime ihtiyacınız var.';
-        case 'destek':
-          return 'Destek konusunda önemli eksiklikler görülüyor, bu alan üzerinde çalışın.';
-        default:
-          return 'Bu alanda ciddi gelişime ihtiyacınız var.';
-      }
-    }
-  }
-  
-  // Kategori rengi alma
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'iletisim':
-        return const Color(0xFF6C5DD3);
-      case 'guven':
-        return const Color(0xFF4F8CF6);
-      case 'uyum':
-        return const Color(0xFFFF4FD8);
-      case 'saygi':
-      case 'saygı':
-        return const Color(0xFFF79E1B);
-      case 'destek':
-        return const Color(0xFF8CCF4D);
-      default:
-        return const Color(0xFF9D3FFF);
-    }
-  }
-  
-  // Puan rengi alma
-  Color _getScoreColor(int score) {
-    if (score >= 80) return const Color(0xFF8CCF4D); // Yeşil
-    if (score >= 60) return const Color(0xFF4F8CF6); // Mavi
-    if (score >= 40) return const Color(0xFFF79E1B); // Turuncu
-    if (score >= 20) return const Color(0xFFFF7D05); // Koyu turuncu
-    return const Color(0xFFFF3030); // Kırmızı
-  }
-  
-  // Puan metni alma
-  String _getScoreText(int score) {
-    if (score >= 80) return 'Harika';
-    if (score >= 60) return 'İyi';
-    if (score >= 40) return 'Orta';
-    if (score >= 20) return 'Zayıf';
-    return 'Kritik';
-  }
-  
-  // Rastgele tavsiye rengi alma
-  Color _getRandomAdviceColor() {
-    final colors = [
-      const Color(0xFF6C5DD3),
-      const Color(0xFFFF4FD8),
-      const Color(0xFF4F8CF6),
-      const Color(0xFFF79E1B),
-    ];
-    return colors[Random().nextInt(colors.length)];
-  }
-  
-  // Rastgele tavsiye ikonu alma
-  IconData _getRandomAdviceIcon() {
-    final icons = [
-      Icons.lightbulb_outline,
-      Icons.favorite,
-      Icons.headset_mic,
-      Icons.psychology,
-      Icons.support,
-      Icons.health_and_safety,
-    ];
-    return icons[Random().nextInt(icons.length)];
-  }
-  
-  // Tavsiye metninden başlık oluşturma
-  String _getTitleFromAdvice(String advice) {
-    if (advice.length > 30) {
-      final firstPart = advice.substring(0, 30).split(' ');
-      return firstPart.take(firstPart.length - 1).join(' ');
-    }
-    return advice.split('.').first;
   }
 
   // İlişki Raporu Tab
@@ -971,7 +771,16 @@ class _HomeViewState extends State<HomeView> {
                                     child: Container(
                                       child: CustomPaint(
                                         size: const Size(double.infinity, double.infinity),
-                                        painter: ChartPainter(),
+                                        painter: ChartPainter(
+                                          dataPoints: [
+                                            {'x': 0, 'y': 100},
+                                            {'x': 1, 'y': 80},
+                                            {'x': 2, 'y': 60},
+                                            {'x': 3, 'y': 40},
+                                            {'x': 4, 'y': 20},
+                                            {'x': 5, 'y': 0},
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),

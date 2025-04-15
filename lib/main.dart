@@ -18,6 +18,11 @@ import 'viewmodels/report_viewmodel.dart';
 import 'viewmodels/profile_viewmodel.dart';
 import 'services/logger_service.dart';
 import 'widgets/turkish_keyboard_provider.dart';
+import 'controllers/home_controller.dart';
+import 'screens/message_analysis_screen.dart';
+import 'services/shared_prefs.dart';
+import 'services/ai_service.dart';
+import 'services/user_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +50,31 @@ void main() async {
     // Tarih formatları için Türkçe desteği
     await initializeDateFormatting('tr_TR');
     
-    runApp(const MyApp());
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthViewModel>(
+            create: (_) => AuthViewModel(
+              authService: FirebaseAuth.instance,
+              firestore: FirebaseFirestore.instance,
+            ),
+          ),
+          ChangeNotifierProvider<MessageViewModel>(
+            create: (_) => MessageViewModel(),
+          ),
+          ChangeNotifierProvider<ProfileViewModel>(
+            create: (_) => ProfileViewModel(),
+          ),
+          ChangeNotifierProvider<HomeController>(
+            create: (_) => HomeController(
+              userService: UserService(),
+              aiService: AiService(),
+            ),
+          ),
+        ],
+        child: MyApp(),
+      ),
+    );
   } catch (e, stackTrace) {
     logger.e('Uygulama başlatma hatası: $e', stackTrace);
     runApp(ErrorApp(error: e.toString()));
