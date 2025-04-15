@@ -5,7 +5,11 @@ import 'package:flutter/services.dart';
 class InputService {
   /// TextField için TextInputFormatter oluşturur
   static List<TextInputFormatter> getTurkishTextFormatters() {
-    return [TurkishTextInputFormatter()];
+    // FilteringTextInputFormatter.deny kullanarak sınırlamaları engelliyoruz
+    return [
+      TurkishTextInputFormatter(),
+      FilteringTextInputFormatter.deny(RegExp(r'^\s*$')), // Yalnızca boşluk engelleme
+    ];
   }
   
   /// TextField'a Türkçe karakter desteği ekleyen dekorasyon ve formatter
@@ -38,9 +42,43 @@ class TurkishTextInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    // Türkçe karakter girişi için özel işlem gerekmiyor
-    // Flutter'ın kendi sistemini kullanarak Türkçe karakterleri doğrudan destekler
-    // Bu formatter gelecekte özel bir işlem gerekirse eklenebilir
+    // Türkçe karakterler: ğ, ü, ş, i, ö, ç, ı, Ğ, Ü, Ş, İ, Ö, Ç, I
+    // Değişiklik yapılmadan önce karakter kontrolü yapalım 
+    if (newValue.text.contains(RegExp(r'[ğüşiöçıĞÜŞİÖÇI]'))) {
+      // Türkçe karakter içeriyorsa doğru şekilde geri döndürelim
+      return newValue;
+    }
+    
+    // Bazı durumlarda Flutter'ın IME klavye entegrasyonu 
+    // Türkçe karakterleri ASCII eşdeğerlerine dönüştürebilir
+    // Bu durumları kontrol edip düzeltelim
+    String correctedText = newValue.text;
+    
+    // Genel ASCII-Türkçe dönüşüm kontrolleri
+    correctedText = correctedText.replaceAll('g~', 'ğ');
+    correctedText = correctedText.replaceAll('G~', 'Ğ');
+    correctedText = correctedText.replaceAll('u:', 'ü');
+    correctedText = correctedText.replaceAll('U:', 'Ü');
+    correctedText = correctedText.replaceAll('s,', 'ş');
+    correctedText = correctedText.replaceAll('S,', 'Ş');
+    correctedText = correctedText.replaceAll('o:', 'ö');
+    correctedText = correctedText.replaceAll('O:', 'Ö'); 
+    correctedText = correctedText.replaceAll('c,', 'ç');
+    correctedText = correctedText.replaceAll('C,', 'Ç');
+    correctedText = correctedText.replaceAll('i\'', 'ı');
+    correctedText = correctedText.replaceAll('I\'', 'I');
+    
+    // Düzeltilmiş bir metin varsa, imleç pozisyonunu da ayarlayalım
+    if (correctedText != newValue.text) {
+      return TextEditingValue(
+        text: correctedText,
+        selection: TextSelection.collapsed(
+          offset: newValue.selection.baseOffset + 
+            (correctedText.length - newValue.text.length),
+        ),
+      );
+    }
+    
     return newValue;
   }
 }

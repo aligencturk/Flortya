@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
+import '../services/input_service.dart';
 
 
 class MessageScreen extends StatefulWidget {
@@ -72,6 +73,9 @@ class _MessageScreenState extends State<MessageScreen> {
           ),
           TextField(
             controller: _messageController,
+            inputFormatters: InputService.getTurkishTextFormatters(),
+            keyboardType: TextInputType.text,
+            textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
               hintText: 'Mesaj yazın...',
             ),

@@ -851,24 +851,29 @@ class _HomeViewState extends State<HomeView> {
                           color: const Color(0xFF9D3FFF),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min, // Buton içeriği kadar yer kaplasın
-                          children: [
-                            const Icon(
-                              Icons.favorite,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'İlişki Değerlendirmesi',
-                              style: TextStyle(
+                        child: InkWell(
+                          onTap: () {
+                            _showRelationshipEvaluation(context);
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min, // Buton içeriği kadar yer kaplasın
+                            children: [
+                              const Icon(
+                                Icons.favorite,
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                size: 18,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              const Text(
+                                'İlişki Değerlendirmesi',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1679,6 +1684,11 @@ class _HomeViewState extends State<HomeView> {
         );
       },
     );
+  }
+
+  void _showRelationshipEvaluation(BuildContext context) {
+    // İlişki değerlendirmesi için ReportView'a yönlendir
+    context.push('/report');
   }
 } 
 

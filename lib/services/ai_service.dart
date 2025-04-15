@@ -464,7 +464,7 @@ class AiService {
               'parts': [
                 {
                   'text': '''
-                  Sen bir ilişki koçusun. Aşağıdaki 5 soruya verilen yanıtlara dayanarak bir ilişki raporu hazırla.
+                  Sen bir ilişki koçusun. Aşağıdaki 6 soruya verilen yanıtlara dayanarak bir ilişki raporu hazırla.
                   
                   Raporu aşağıdaki JSON formatında hazırla:
                   {
@@ -487,6 +487,9 @@ class AiService {
                   
                   Soru 5: İlişkinizde değiştirmek istediğiniz bir şey var mı?
                   Yanıt: ${answers[4]}
+
+                  Soru 6: İlişkinizde ne sıklıkla görüşüyorsunuz?
+                  Yanıt: ${answers[5]}
                   '''
                 }
               ]

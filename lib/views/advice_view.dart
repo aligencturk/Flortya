@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import '../widgets/custom_button.dart';
+import '../services/input_service.dart';
 
 class AdviceView extends StatefulWidget {
   const AdviceView({Key? key}) : super(key: key);
@@ -595,6 +596,9 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
           Expanded(
             child: TextField(
               controller: _chatInputController,
+              inputFormatters: InputService.getTurkishTextFormatters(),
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 hintText: 'Bir mesaj yazın...',
                 border: OutlineInputBorder(
@@ -648,6 +652,9 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
         title: const Text('Yeni Sohbet Başlat'),
         content: TextField(
           controller: textController,
+          inputFormatters: InputService.getTurkishTextFormatters(),
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             hintText: 'İlişki sorunuz nedir?',
             border: OutlineInputBorder(),

@@ -14,6 +14,7 @@ import '../viewmodels/message_viewmodel.dart';
 import '../widgets/analysis_result_box.dart';
 import '../widgets/custom_button.dart';
 import '../models/analysis_result_model.dart';
+import '../services/input_service.dart';  // Türkçe karakter desteği için
 
 
 class MessageAnalysisView extends StatefulWidget {
@@ -575,6 +576,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               maxLines: null,
                               expands: true,
                               style: const TextStyle(color: Colors.white),
+                              inputFormatters: InputService.getTurkishTextFormatters(),
+                              keyboardType: TextInputType.multiline,
+                              textCapitalization: TextCapitalization.sentences,
+                              textInputAction: TextInputAction.newline,
                               decoration: const InputDecoration(
                                 hintText: 'Analiz etmek istediğiniz mesajı girin...',
                                 hintStyle: TextStyle(color: Colors.white60),
@@ -807,10 +812,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   Widget _buildAnalysisResult(BuildContext context, MessageViewModel viewModel) {
     final result = viewModel.currentAnalysisResult!;
     
-    // aiResponse içinden gerekli değerleri al
-    final int overallScore = _getOverallScore(result);
-    final Map<String, int> categoryScores = _getCategoryScores(result);
-    final String summary = _getSummary(result);
+    // AI yanıtından gerekli değerleri doğrudan al
+    final String duygu = result.emotion;
+    final String niyet = result.intent;
+    final String mesajYorumu = result.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
+    final List<String> cevapOnerileri = List<String>.from(result.aiResponse['cevapOnerileri'] ?? []);
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -832,93 +838,132 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           ),
           const SizedBox(height: 16),
           
-          // Genel Skor
-          Row(
-            children: [
-              const Text(
-                'Genel Skor:',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-              const Spacer(),
+          // Duygu Durumu
           Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-                  color: _getSentimentColor(overallScore),
-                  borderRadius: BorderRadius.circular(20),
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık
+                const Row(
+                  children: [
+                    Icon(Icons.face, color: Colors.white70, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Duygu Durumu',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  '$overallScore%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                const SizedBox(height: 8),
+                // İçerik
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    duygu,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Divider(color: const Color(0xFF9D3FFF).withOpacity(0.3), height: 24),
           
-          // Kategori skorları
-          ...categoryScores.entries.map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        entry.key,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
+          const SizedBox(height: 16),
+          
+          // Niyet Yorumu
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık
+                const Row(
+                  children: [
+                    Icon(Icons.psychology, color: Colors.white70, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Niyet Yorumu',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      const Spacer(),
-                      Text(
-                        '${entry.value}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // İçerik
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: entry.value / 100,
-                    backgroundColor: Colors.white.withOpacity(0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(_getSentimentColor(entry.value)),
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(4),
+                  child: Text(
+                    mesajYorumu,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
-          }).toList(),
+          ),
           
-          Divider(color: const Color(0xFF9D3FFF).withOpacity(0.3), height: 24),
+          const SizedBox(height: 16),
           
-          // Özet ve tavsiyeler
-          const Text(
-            'Özet ve Tavsiyeler',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          // Cevap Önerileri
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-            summary,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              height: 1.5,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık
+                const Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Cevap Önerileri',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // İçerik
+                ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList(),
+              ],
             ),
           ),
           
@@ -937,7 +982,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 backgroundColor: const Color(0xFF9D3FFF),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 0,
@@ -951,54 +996,46 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       ),
     );
   }
-
-  // AnalysisResult'dan genel skoru al
-  int _getOverallScore(AnalysisResult result) {
-    try {
-      // aiResponse içerisinden skoru al, yoksa varsayılan değer kullan
-      return result.aiResponse['overallScore'] ?? result.severity;
-    } catch (e) {
-      debugPrint('Genel skor alınamadı: $e');
-      return result.severity;
-    }
-  }
-
-  // AnalysisResult'dan kategori skorlarını al
-  Map<String, int> _getCategoryScores(AnalysisResult result) {
-    try {
-      final Map<String, dynamic> rawScores = result.aiResponse['categoryScores'] ?? {};
-      // String ve int'e dönüştür
-      return rawScores.map((key, value) => 
-          MapEntry(key, value is int ? value : (value is double ? value.round() : 0)));
-    } catch (e) {
-      debugPrint('Kategori skorları alınamadı: $e');
-      // Varsayılan kategoriler
-      return {
-        'Duygusal İletişim': result.severity,
-        'Dil Kullanımı': 50,
-        'İlişki Etkisi': 50,
-      };
-    }
-  }
-
-  // AnalysisResult'dan özeti al
-  String _getSummary(AnalysisResult result) {
-    try {
-      return result.aiResponse['summary'] ?? 
-             'Bu mesajda ${result.emotion} duygusu ve ${result.tone} tonu tespit edildi. ' +
-             'Bu tür mesajlar ilişkiyi ${result.severity < 50 ? 'olumsuz' : 'olumlu'} etkileyebilir.';
-              } catch (e) {
-      debugPrint('Özet alınamadı: $e');
-      return 'Analiz sonucu detayları gösterilemiyor.';
-    }
-  }
-
-  // Duygu skoruna göre renk belirleme
-  Color _getSentimentColor(int score) {
-    if (score >= 80) return const Color(0xFF4CAF50);
-    if (score >= 60) return const Color(0xFF8BC34A);
-    if (score >= 40) return const Color(0xFFFF9800);
-    if (score >= 20) return const Color(0xFFFF5722);
-    return const Color(0xFFF44336);
+  
+  // Öneri öğesi widget'ı
+  Widget _buildSuggestionItem(String oneri) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF9D3FFF),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              Icons.reply,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              oneri,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 } 

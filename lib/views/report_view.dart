@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../widgets/custom_button.dart';
+import '../services/input_service.dart';
 
 class ReportView extends StatefulWidget {
   const ReportView({Key? key}) : super(key: key);
@@ -209,6 +210,9 @@ class _ReportViewState extends State<ReportView> {
           TextField(
             controller: _answerController,
             maxLines: 5,
+            inputFormatters: InputService.getTurkishTextFormatters(),
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
               hintText: 'Cevabınızı buraya yazın...',
             ),
@@ -370,6 +374,9 @@ class _ReportViewState extends State<ReportView> {
                   Expanded(
                     child: TextField(
                       controller: _commentController,
+                      inputFormatters: InputService.getTurkishTextFormatters(),
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
                         hintText: 'Raporunuz hakkında yorum yazın...',
                         border: OutlineInputBorder(
