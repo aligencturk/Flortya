@@ -5,18 +5,14 @@ import 'package:logger/logger.dart';
 import '../models/analysis_result_model.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// Firebase kullanımına göre düzenlenmiş ConfigService
+// Geçici ConfigService tanımı
 class ConfigService {
   String? getApiUrl() {
-    return 'https://firebaseapi.com';  // Firebase için gerekiyorsa
+    return 'https://api.flortai.com';
   }
   
   String? getApiKey() {
-    return '';  // Firebase için API key gerekmeyebilir
-  }
-  
-  String? getFirebaseProjectId() {
-    return 'your-firebase-project-id';
+    return '';
   }
 }
 

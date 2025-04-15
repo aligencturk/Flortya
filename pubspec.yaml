@@ -81,7 +81,6 @@ dependencies:
   flutter_keyboard_visibility: ^6.0.0
   
   # OCR ve Görüntü İşleme
-  google_mlkit_text_recognition: ^0.15.0
   path_provider: ^2.1.2
   path: ^1.8.3
   

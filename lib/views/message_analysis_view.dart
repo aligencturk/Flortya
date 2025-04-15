@@ -13,12 +13,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../widgets/analysis_result_box.dart';
 import '../widgets/custom_button.dart';
-import '../services/ocr_service.dart';
-import '../models/message.dart';
-import '../widgets/chat_bubble.dart';
-import '../models/analysis_result_model.dart';
-import '../constants/colors.dart';
-import '../constants/text_styles.dart';
+
 
 class MessageAnalysisView extends StatefulWidget {
   const MessageAnalysisView({Key? key}) : super(key: key);
@@ -39,7 +34,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   File? _selectedImage;
   bool _isImageMode = false;
   bool _isProcessingImage = false;
-  final OcrService _ocrService = OcrService();
   String? _extractedText;
   
   @override
@@ -71,7 +65,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _ocrService.dispose();
     super.dispose();
   }
 
@@ -147,10 +140,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
         // OCR ile metin çıkarma - kullanıcıya gösterilmeyecek, sadece backend'e gönderilecek
         try {
-          String extractedText = await _ocrService.metniOku(imageFile);
           
           setState(() {
-            _extractedText = extractedText;
+            _extractedText = _extractedText;
             _isProcessingImage = false;
           });
           
