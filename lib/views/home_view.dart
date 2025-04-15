@@ -632,61 +632,188 @@ class _HomeViewState extends State<HomeView> {
     required Color color,
     required IconData icon,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
+    return InkWell(
+      onTap: () {
+        // Tıklanınca tüm metni göster
+        _showAdviceDetail(context, title, advice, color, icon);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 24,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        advice,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // Daha fazla oku göstergesi
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  "Detaylı Görüntüle",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Tavsiye detayı dialog
+  void _showAdviceDetail(BuildContext context, String title, String advice, Color color, IconData icon) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık ve ikon
+                Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        icon,
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      advice,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                
+                // İçerik (Scrollable)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      advice,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Kapat butonu
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Kapat',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1761,24 +1888,48 @@ class _HomeViewState extends State<HomeView> {
   
   // Tavsiye metninden başlık oluşturma
   String _getTitleFromAdvice(String advice) {
-    // İlk cümleyi bul
-    final firstSentence = advice.split('.').first.trim();
+    // Etkileyici ve vurgulu tek kelimelik başlıklar için anahtar kelime listesi
+    final impactfulTitles = [
+      'Dürüstlük!', 'Dinle!', 'Bağlan!', 'Cesaret!', 'Açıklık!', 
+      'Değerli!', 'Keşfet!', 'Canlandır!', 'Yenilen!', 'Güçlen!',
+      'Samimi!', 'Anla!', 'Kabul!', 'Yansıt!', 'Harekete!', 
+      'Tutkulu!', 'Saygılı!', 'Büyü!', 'Dengeli!', 'Odaklan!'
+    ];
     
-    // Eğer ilk cümle çok uzunsa kısalt
-    if (firstSentence.length > 40) {
-      // İlk 2-3 kelimeyi içeren anlamlı bir başlık oluştur
-      final words = firstSentence.split(' ');
-      final titleWords = words.length > 3 ? words.sublist(0, 3) : words;
-      return '${titleWords.join(' ')}...';
+    // İlk cümleyi al
+    final firstSentence = advice.split('.').first.trim().toLowerCase();
+    
+    // Anahtar kelimelerle metnin içeriğini eşleştirmeye çalış
+    final keywordMap = {
+      'dinle': ['Dinle!', 'Odaklan!'],
+      'dürüst': ['Dürüstlük!', 'Açıklık!'],
+      'açık': ['Açıklık!', 'Dürüstlük!'],
+      'güven': ['Güven!', 'İnan!'],
+      'zaman': ['Değerli!', 'Anı Yaşa!'],
+      'aktivite': ['Keşfet!', 'Canlandır!'],
+      'sevgi': ['Derinleş!', 'Tutkulu!'],
+      'anlayış': ['Anla!', 'Empati!'],
+      'paylaş': ['Paylaş!', 'Birlikte!'],
+      'saygı': ['Saygılı!', 'Onurlu!'],
+      'sabır': ['Sabırlı!', 'Dengeli!'],
+      'tartış': ['Çözümle!', 'Yansıt!'],
+      'empati': ['Empati!', 'Hisset!'],
+      'özür': ['Yenilen!', 'Cesaret!'],
+      'cesaret': ['Cesaret!', 'Atıl!'],
+      'değer': ['Değerli!', 'Kıymetli!']
+    };
+    
+    // Metinde geçen anahtar kelimeleri bul
+    for (final entry in keywordMap.entries) {
+      if (firstSentence.contains(entry.key)) {
+        // Rastgele bir başlık seç
+        final options = entry.value;
+        return options[Random().nextInt(options.length)];
+      }
     }
     
-    // İlk cümle kısaysa ve anlamlıysa direkt kullan
-    if (firstSentence.length < 40) {
-      return firstSentence;
-    }
-    
-    // Cümleyi ikiye böl ve ilk yarısını kullan
-    return '${firstSentence.substring(0, firstSentence.length ~/ 2)}...';
+    // Eşleşme yoksa, rastgele etkileyici bir başlık döndür
+    return impactfulTitles[Random().nextInt(impactfulTitles.length)];
   }
 } 
 

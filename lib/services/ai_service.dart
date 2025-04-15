@@ -556,10 +556,21 @@ class AiService {
                   
                   Tavsiyeyi şu JSON formatında hazırla:
                   {
-                    "title": "Tavsiye başlığı",
+                    "title": "TEK KELİMELİK, ETKİLEYİCİ ve VURGULU bir başlık olmalı. Basit fiil veya isimler yerine (Konuşmak, Özür, Zaman gibi) daha dikkat çekici ve motive edici kelimeler kullan (Dürüstlük!, Açıklık!, Samimiyet!, Bağlan!, Keşfet!, Cesaret!, Yenilen!)",
                     "content": "Tavsiye içeriği - nasıl uygulanacağıyla ilgili detaylı açıklama",
                     "category": "tavsiye kategorisi (iletişim, duygusal bağ, aktiviteler, vb.)"
                   }
+                  
+                  Önemli: Başlık sadece TEK KELİME olmalı, ancak basit değil ETKİLEYİCİ ve VURGULU olmalı.
+                  
+                  ÖNEMLİ - İŞTE UYGUN BAŞLIK ÖRNEKLERİ:
+                  - "Dürüstlük!" (Daha etkili, "Konuşmak" yerine)
+                  - "Bağlan!" (Daha etkili, "Temas" yerine)
+                  - "Dinle!" (Daha etkili, "Dinlemek" yerine)
+                  - "Açıklık!" (Daha etkili, "Açık olmak" yerine)
+                  - "Samimi!" (Daha etkili, "Samimiyet" yerine)
+                  - "Cesaret!" (Daha etkili, "Cesur olmak" yerine)
+                  - "Değerli!" (Daha etkili, "Değer vermek" yerine)
                   '''
                 }
               ]
