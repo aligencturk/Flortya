@@ -31,7 +31,7 @@ class MessageViewModel extends ChangeNotifier {
   final LoggerService _logger = LoggerService();
   final NotificationService _notificationService = NotificationService();
   final AuthService _authService = AuthService();
-  late final ProfileViewModel _profileViewModel;
+  ProfileViewModel? _profileViewModel;
   
   // İlk yükleme denemesinin yapılıp yapılmadığını takip eden bayrak (static değil)
   bool _isFirstLoadCompleted = false;
@@ -565,14 +565,20 @@ class MessageViewModel extends ChangeNotifier {
       
       _logger.i('Kullanıcı profili başarıyla güncellendi. İlişki puanı: ${analizSonucu.iliskiPuani}');
       
-      // Ana sayfayı güncelle - HomeController ile
+      // Ana sayfayı güncelle - HomeController ile güvenli bir şekilde
       try {
-        // HomeController'ı bul ve güncelle
-        final BuildContext? context = _profileViewModel.context;
-        if (context != null) {
-          final homeController = Provider.of<HomeController>(context, listen: false);
-          await homeController.analizSonucuIleGuncelle(analizSonucu);
-          _logger.i('Ana sayfa başarıyla güncellendi');
+        // Null-aware operatör kullanarak context değerine erişiyoruz
+        final context = _profileViewModel?.context;
+        if (context != null && context.mounted) {
+          try {
+            final homeController = Provider.of<HomeController>(context, listen: false);
+            await homeController.analizSonucuIleGuncelle(analizSonucu);
+            _logger.i('Ana sayfa başarıyla güncellendi');
+          } catch (e) {
+            _logger.e('HomeController ile güncelleme hatası: $e');
+          }
+        } else {
+          _logger.w('Context null veya artık geçerli değil');
         }
       } catch (e) {
         _logger.e('Ana sayfa güncellenirken hata oluştu', e);
@@ -824,5 +830,10 @@ class MessageViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // ProfileViewModel ataması için metod
+  void setProfileViewModel(ProfileViewModel profileViewModel) {
+    _profileViewModel = profileViewModel;
   }
 } 

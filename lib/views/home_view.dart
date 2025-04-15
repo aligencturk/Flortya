@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -123,6 +122,10 @@ class _HomeViewState extends State<HomeView> {
       // ProfileViewModel'e context referansı ekle
       final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
       profileViewModel.setContext(context);
+      
+      // ProfileViewModel'i MessageViewModel'e aktar
+      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      messageViewModel.setProfileViewModel(profileViewModel);
     });
   }
 
@@ -622,50 +625,65 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // Tavsiye kartı widget'ı
-  Widget _buildAdviceCard(BuildContext context, String title, String advice, Color color, IconData icon) {
+  Widget _buildAdviceCard(
+    BuildContext context, {
+    required String title,
+    required String advice,
+    required Color color,
+    required IconData icon,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  advice,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 24,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      advice,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1590,6 +1608,177 @@ class _HomeViewState extends State<HomeView> {
   void _showRelationshipEvaluation(BuildContext context) {
     // İlişki değerlendirmesi için ReportView'a yönlendir
     context.push('/report');
+  }
+
+  // Kategori adını formatlama
+  String _formatCategoryName(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return 'İletişim';
+      case 'guven':
+        return 'Güven';
+      case 'uyum':
+        return 'Uyum';
+      case 'saygi':
+      case 'saygı':
+        return 'Saygı';
+      case 'destek':
+        return 'Destek';
+      default:
+        return category;
+    }
+  }
+  
+  // Kategori açıklaması alma
+  String _getCategoryDescription(String category, int score) {
+    if (score >= 80) {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'Mesajlaşma sıklığınız ve kalitesi oldukça iyi durumda.';
+        case 'guven':
+          return 'Partnerinizin size olan güveni çok yüksek seviyede.';
+        case 'uyum':
+          return 'İlişkinizde uyum seviyesi oldukça yüksek.';
+        case 'saygi':
+        case 'saygı':
+          return 'Birbirinize karşı saygınız takdire değer seviyede.';
+        case 'destek':
+          return 'Partnerinize destek olma konusunda çok başarılısınız.';
+        default:
+          return 'Bu alanda oldukça başarılısınız.';
+      }
+    } else if (score >= 60) {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'İletişiminiz iyi, ancak daha da geliştirilebilir.';
+        case 'guven':
+          return 'Güven seviyeniz iyi durumda, küçük gelişmeler yapabilirsiniz.';
+        case 'uyum':
+          return 'Uyumunuz iyi seviyede ama geliştirme alanları var.';
+        case 'saygi':
+        case 'saygı':
+          return 'Karşılıklı saygı seviyeniz iyi, küçük iyileştirmeler yapabilirsiniz.';
+        case 'destek':
+          return 'Destek konusunda iyi durumdasınız, biraz daha geliştirebilirsiniz.';
+        default:
+          return 'Bu alanda iyi durumdasınız, ancak gelişme fırsatları var.';
+      }
+    } else if (score >= 40) {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'İletişim alanında gelişime açık yönleriniz var.';
+        case 'guven':
+          return 'Güven konusunda gelişim göstermeniz gerekiyor.';
+        case 'uyum':
+          return 'Uyum seviyenizi artırmak için çalışmalar yapmanız faydalı olabilir.';
+        case 'saygi':
+        case 'saygı':
+          return 'Saygı konusunda dikkate değer iyileştirmelere ihtiyacınız var.';
+        case 'destek':
+          return 'Destek alanında gelişim göstermeniz ilişkinize olumlu katkı sağlayacaktır.';
+        default:
+          return 'Bu alanda gelişime açık yönleriniz var.';
+      }
+    } else {
+      switch (category.toLowerCase()) {
+        case 'iletisim':
+          return 'İletişim konusunda ciddi gelişime ihtiyacınız var.';
+        case 'guven':
+          return 'Güven seviyenizi artırmak için acilen çalışmalar yapmanız gerekiyor.';
+        case 'uyum':
+          return 'Uyum konusunda önemli sorunlar yaşıyorsunuz, profesyonel destek faydalı olabilir.';
+        case 'saygi':
+        case 'saygı':
+          return 'Saygı alanında ciddi gelişime ihtiyacınız var.';
+        case 'destek':
+          return 'Destek konusunda önemli eksiklikler görülüyor, bu alan üzerinde çalışın.';
+        default:
+          return 'Bu alanda ciddi gelişime ihtiyacınız var.';
+      }
+    }
+  }
+  
+  // Kategori rengi alma
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return const Color(0xFF6C5DD3);
+      case 'guven':
+        return const Color(0xFF4F8CF6);
+      case 'uyum':
+        return const Color(0xFFFF4FD8);
+      case 'saygi':
+      case 'saygı':
+        return const Color(0xFFF79E1B);
+      case 'destek':
+        return const Color(0xFF8CCF4D);
+      default:
+        return const Color(0xFF9D3FFF);
+    }
+  }
+  
+  // Puan rengi alma
+  Color _getScoreColor(int score) {
+    if (score >= 80) return const Color(0xFF8CCF4D); // Yeşil
+    if (score >= 60) return const Color(0xFF4F8CF6); // Mavi
+    if (score >= 40) return const Color(0xFFF79E1B); // Turuncu
+    if (score >= 20) return const Color(0xFFFF7D05); // Koyu turuncu
+    return const Color(0xFFFF3030); // Kırmızı
+  }
+  
+  // Puan metni alma
+  String _getScoreText(int score) {
+    if (score >= 80) return 'Harika';
+    if (score >= 60) return 'İyi';
+    if (score >= 40) return 'Orta';
+    if (score >= 20) return 'Zayıf';
+    return 'Kritik';
+  }
+  
+  // Rastgele tavsiye rengi alma
+  Color _getRandomAdviceColor() {
+    final colors = [
+      const Color(0xFF6C5DD3),
+      const Color(0xFFFF4FD8),
+      const Color(0xFF4F8CF6),
+      const Color(0xFFF79E1B),
+    ];
+    return colors[Random().nextInt(colors.length)];
+  }
+  
+  // Rastgele tavsiye ikonu alma
+  IconData _getRandomAdviceIcon() {
+    final icons = [
+      Icons.lightbulb_outline,
+      Icons.favorite,
+      Icons.headset_mic,
+      Icons.psychology,
+      Icons.support,
+      Icons.health_and_safety,
+    ];
+    return icons[Random().nextInt(icons.length)];
+  }
+  
+  // Tavsiye metninden başlık oluşturma
+  String _getTitleFromAdvice(String advice) {
+    // İlk cümleyi bul
+    final firstSentence = advice.split('.').first.trim();
+    
+    // Eğer ilk cümle çok uzunsa kısalt
+    if (firstSentence.length > 40) {
+      // İlk 2-3 kelimeyi içeren anlamlı bir başlık oluştur
+      final words = firstSentence.split(' ');
+      final titleWords = words.length > 3 ? words.sublist(0, 3) : words;
+      return '${titleWords.join(' ')}...';
+    }
+    
+    // İlk cümle kısaysa ve anlamlıysa direkt kullan
+    if (firstSentence.length < 40) {
+      return firstSentence;
+    }
+    
+    // Cümleyi ikiye böl ve ilk yarısını kullan
+    return '${firstSentence.substring(0, firstSentence.length ~/ 2)}...';
   }
 } 
 

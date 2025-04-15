@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
@@ -18,9 +17,7 @@ class AppRouter {
   static const String advice = '/advice';
   static const String profile = '/profile';
 
-  static GoRouter createRouter(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-
+  static GoRouter createRouter(AuthViewModel authViewModel) {
     return GoRouter(
       initialLocation: onboarding,
       debugLogDiagnostics: true,

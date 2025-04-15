@@ -89,66 +89,32 @@ class MyApp extends StatelessWidget {
     final LoggerService logger = LoggerService();
     logger.d('MyApp inşa ediliyor');
     
-    return MultiProvider(
-      providers: [
-        // Auth ViewModel
-        ChangeNotifierProvider(
-          create: (_) => AuthViewModel(
-            authService: FirebaseAuth.instance,
-            firestore: FirebaseFirestore.instance,
+    // AuthViewModel'i al
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    // Material App temasını yapılandır
+    return TurkishKeyboardProvider(
+      child: MaterialApp.router(
+        title: 'FlörtAI',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF6750A4),
+            brightness: Brightness.light,
           ),
+          useMaterial3: true,
+          fontFamily: 'Nunito',
         ),
-        
-        // Message ViewModel
-        ChangeNotifierProvider(
-          create: (_) => MessageViewModel(),
-        ),
-        
-        // Advice ViewModel
-        ChangeNotifierProvider(
-          create: (_) => AdviceViewModel(),
-        ),
-        
-        // Report ViewModel
-        ChangeNotifierProvider(
-          create: (_) => ReportViewModel(),
-        ),
-        
-        // Profile ViewModel
-        ChangeNotifierProvider(
-          create: (_) => ProfileViewModel(),
-        ),
-      ],
-      child: Builder(
-        builder: (context) {
-          logger.d('Router ve tema yapılandırılıyor');
-          
-          // Material App temasını yapılandır
-          return TurkishKeyboardProvider(
-            child: MaterialApp.router(
-              title: 'FlörtAI',
-              theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: const Color(0xFF6750A4),
-                  brightness: Brightness.light,
-                ),
-                useMaterial3: true,
-                fontFamily: 'Nunito',
-              ),
-              localizationsDelegates: const [
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              supportedLocales: const [
-                Locale('tr', 'TR'),
-              ],
-              locale: const Locale('tr', 'TR'),
-              routerConfig: AppRouter.createRouter(context),
-              debugShowCheckedModeBanner: false,
-            ),
-          );
-        },
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('tr', 'TR'),
+        ],
+        locale: const Locale('tr', 'TR'),
+        routerConfig: AppRouter.createRouter(authViewModel),
+        debugShowCheckedModeBanner: false,
       ),
     );
   }
