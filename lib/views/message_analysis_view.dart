@@ -854,7 +854,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final List<String> cevapOnerileri = List<String>.from(result.aiResponse['cevapOnerileri'] ?? []);
     
     // Kullanıcı profilinden son analiz sonucunu al
-    final profileViewModel = Provider.of<ProfileViewModel>(context, listening: true);
+    final profileViewModel = Provider.of<ProfileViewModel>(context, listen: true);
     final analizSonucu = profileViewModel.user?.sonAnalizSonucu;
     
     return Container(

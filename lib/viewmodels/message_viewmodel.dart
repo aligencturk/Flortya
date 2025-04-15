@@ -473,7 +473,6 @@ class MessageViewModel extends ChangeNotifier {
           isAnalyzed: true,
           analysisResult: analysisResult,
           errorMessage: null,
-          isSaved: true, // Yerel mesajda da kaydedildi olarak işaretlenir
         );
         _currentMessage = _messages[index];
         // Geçerli analiz sonucunu da güncelle
