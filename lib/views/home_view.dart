@@ -253,6 +253,7 @@ class _HomeViewState extends State<HomeView> {
     final analizSonucu = homeController.sonAnalizSonucu;
     final kategoriDegisimleri = homeController.kategoriDegisimleri;
     final tavsiyeler = homeController.kisisellestirilmisTavsiyeler;
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
     return SafeArea(
       child: Column(
@@ -296,6 +297,53 @@ class _HomeViewState extends State<HomeView> {
                     },
                   ),
                 ],
+              ),
+            ),
+            
+            // Analiz Et Butonu
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: InkWell(
+                onTap: () {
+                  // Önce viewModel'i temizle
+                  messageViewModel.clearCurrentMessage();
+                  // Sonra analiz sayfasına git
+                  context.push(AppRouter.messageAnalysis);
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9D3FFF),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.analytics_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Analiz Et',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
             
@@ -489,8 +537,8 @@ class _HomeViewState extends State<HomeView> {
                       context, 
                       title: _getTitleFromAdvice(tavsiye),
                       advice: tavsiye,
-                      color: _getRandomAdviceColor(),
-                      icon: _getRandomAdviceIcon(),
+                      color: _getAdviceColor(tavsiye),
+                      icon: _getAdviceIcon(tavsiye),
                     )).toList()
                   else if (analizSonucu == null)
                     Container(
@@ -715,6 +763,10 @@ class _HomeViewState extends State<HomeView> {
   
   // Tavsiye detayı dialog
   void _showAdviceDetail(BuildContext context, String title, String advice, Color color, IconData icon) {
+    // Tutarlılık için aynı renk ve ikonları kullan - değiştirme
+    final tavsiyeRengi = color;
+    final tavsiyeIkonu = icon;
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -723,7 +775,7 @@ class _HomeViewState extends State<HomeView> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: color,
+              color: tavsiyeRengi,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -741,7 +793,7 @@ class _HomeViewState extends State<HomeView> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
-                        icon,
+                        tavsiyeIkonu,
                         color: Colors.white,
                         size: 24,
                       ),
@@ -1862,74 +1914,221 @@ class _HomeViewState extends State<HomeView> {
     return 'Kritik';
   }
   
-  // Rastgele tavsiye rengi alma
-  Color _getRandomAdviceColor() {
-    final colors = [
-      const Color(0xFF6C5DD3),
-      const Color(0xFFFF4FD8),
-      const Color(0xFF4F8CF6),
-      const Color(0xFFF79E1B),
-    ];
-    return colors[Random().nextInt(colors.length)];
-  }
-  
-  // Rastgele tavsiye ikonu alma
-  IconData _getRandomAdviceIcon() {
-    final icons = [
-      Icons.lightbulb_outline,
-      Icons.favorite,
-      Icons.headset_mic,
-      Icons.psychology,
-      Icons.support,
-      Icons.health_and_safety,
-    ];
-    return icons[Random().nextInt(icons.length)];
-  }
-  
-  // Tavsiye metninden başlık oluşturma
-  String _getTitleFromAdvice(String advice) {
-    // Etkileyici ve vurgulu tek kelimelik başlıklar için anahtar kelime listesi
-    final impactfulTitles = [
-      'Dürüstlük!', 'Dinle!', 'Bağlan!', 'Cesaret!', 'Açıklık!', 
-      'Değerli!', 'Keşfet!', 'Canlandır!', 'Yenilen!', 'Güçlen!',
-      'Samimi!', 'Anla!', 'Kabul!', 'Yansıt!', 'Harekete!', 
-      'Tutkulu!', 'Saygılı!', 'Büyü!', 'Dengeli!', 'Odaklan!'
-    ];
+  // Tavsiye metninden sabit renk oluşturma - Koyu tonlar ve kategori bazlı renkler
+  Color _getAdviceColor(String advice) {
+    // Tavsiye metninden sabit bir hash değeri oluştur
+    int hash = 0;
+    for (var i = 0; i < advice.length; i++) {
+      hash = advice.codeUnitAt(i) + ((hash << 5) - hash);
+    }
     
-    // İlk cümleyi al
-    final firstSentence = advice.split('.').first.trim().toLowerCase();
-    
-    // Anahtar kelimelerle metnin içeriğini eşleştirmeye çalış
-    final keywordMap = {
-      'dinle': ['Dinle!', 'Odaklan!'],
-      'dürüst': ['Dürüstlük!', 'Açıklık!'],
-      'açık': ['Açıklık!', 'Dürüstlük!'],
-      'güven': ['Güven!', 'İnan!'],
-      'zaman': ['Değerli!', 'Anı Yaşa!'],
-      'aktivite': ['Keşfet!', 'Canlandır!'],
-      'sevgi': ['Derinleş!', 'Tutkulu!'],
-      'anlayış': ['Anla!', 'Empati!'],
-      'paylaş': ['Paylaş!', 'Birlikte!'],
-      'saygı': ['Saygılı!', 'Onurlu!'],
-      'sabır': ['Sabırlı!', 'Dengeli!'],
-      'tartış': ['Çözümle!', 'Yansıt!'],
-      'empati': ['Empati!', 'Hisset!'],
-      'özür': ['Yenilen!', 'Cesaret!'],
-      'cesaret': ['Cesaret!', 'Atıl!'],
-      'değer': ['Değerli!', 'Kıymetli!']
+    // Kategori bazlı koyu renkler - tavsiye türüne göre
+    final categoryColors = {
+      'iletişim': const Color(0xFF22577A),    // koyu mavi - iletişim
+      'güven': const Color(0xFF5E548E),      // koyu mor - güven
+      'sevgi': const Color(0xFF7D0633),      // koyu kırmızı - sevgi
+      'aktivite': const Color(0xFF264653),   // koyu çam yeşili - aktiviteler
+      'saygı': const Color(0xFF1B3A4B),      // koyu petrol mavisi - saygı
+      'anlayış': const Color(0xFF3A506B),    // koyu mavi-gri - anlayış
+      'denge': const Color(0xFF352F44),      // koyu mor-gri - denge
+      'birlikte': const Color(0xFF2D4263),   // koyu indigo - birliktelik
+      'paylaşım': const Color(0xFF2F4858),   // koyu lacivert - paylaşım
+      'zaman': const Color(0xFF2D241A),      // koyu kahve - zaman
     };
     
-    // Metinde geçen anahtar kelimeleri bul
-    for (final entry in keywordMap.entries) {
-      if (firstSentence.contains(entry.key)) {
-        // Rastgele bir başlık seç
-        final options = entry.value;
-        return options[Random().nextInt(options.length)];
+    // Anahtar kelimeler ve kategori eşleştirmeleri
+    final keywordCategoryMap = {
+      'dinle': 'iletişim',
+      'konuş': 'iletişim',
+      'iletişim': 'iletişim',
+      
+      'güven': 'güven',
+      'inan': 'güven',
+      'dürüst': 'güven',
+      
+      'sevgi': 'sevgi',
+      'aşk': 'sevgi',
+      'sev': 'sevgi',
+      
+      'aktivite': 'aktivite',
+      'etkinlik': 'aktivite',
+      'yap': 'aktivite',
+      
+      'saygı': 'saygı',
+      'değer': 'saygı',
+      'kıymet': 'saygı',
+      
+      'anla': 'anlayış',
+      'anlayış': 'anlayış',
+      'empati': 'anlayış',
+      
+      'denge': 'denge',
+      'ölçü': 'denge',
+      'uyum': 'denge',
+      
+      'birlikte': 'birlikte',
+      'beraber': 'birlikte',
+      'biz': 'birlikte',
+      
+      'paylaş': 'paylaşım',
+      'ortak': 'paylaşım',
+      'paylaşım': 'paylaşım',
+      
+      'zaman': 'zaman',
+      'vakit': 'zaman',
+      'süre': 'zaman',
+    };
+    
+    // Metni küçük harflere çevir
+    final lowerAdvice = advice.toLowerCase();
+    
+    // Anahtar kelime ile kategori bul, varsa ilgili rengi döndür
+    for (final entry in keywordCategoryMap.entries) {
+      if (lowerAdvice.contains(entry.key)) {
+        final category = entry.value;
+        if (categoryColors.containsKey(category)) {
+          return categoryColors[category]!;
+        }
       }
     }
     
-    // Eşleşme yoksa, rastgele etkileyici bir başlık döndür
-    return impactfulTitles[Random().nextInt(impactfulTitles.length)];
+    // Hiç eşleşme yoksa, varsayılan koyu renk listesinden hash'e göre seç
+    final defaultColors = [
+      const Color(0xFF22577A),    // koyu mavi
+      const Color(0xFF5E548E),    // koyu mor
+      const Color(0xFF7D0633),    // koyu kırmızı
+      const Color(0xFF264653),    // koyu çam yeşili
+      const Color(0xFF1B3A4B),    // koyu petrol mavisi
+    ];
+    
+    return defaultColors[hash.abs() % defaultColors.length];
+  }
+  
+  // Tavsiye metninden sabit ikon oluşturma
+  IconData _getAdviceIcon(String advice) {
+    // Tavsiye metninden sabit bir hash değeri oluştur
+    int hash = 0;
+    for (var i = 0; i < advice.length; i++) {
+      hash = advice.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Tavsiye kartları için anlamlı ikonlar
+    final adviceIcons = [
+      Icons.favorite, // sevgi
+      Icons.people,   // ilişkiler
+      Icons.schedule, // zaman
+      Icons.psychology, // anlayış
+      Icons.nightlight_round, // dinlenme
+      Icons.emoji_emotions, // duygular
+      Icons.celebration, // kutlama
+      Icons.spa,      // rahatlama
+      Icons.forum,    // konuşma
+      Icons.directions_run, // aktivite
+    ];
+    
+    // Anahtar kelimeler ve sabit ikonları eşleştiren harita
+    final keywordIconMap = {
+      'dinle': Icons.hearing,
+      'iletişim': Icons.forum,
+      'konuş': Icons.forum,
+      'dürüst': Icons.verified,
+      'açık': Icons.lock_open,
+      'şeffaf': Icons.visibility,
+      'güven': Icons.security,
+      'inan': Icons.favorite,
+      'zaman': Icons.schedule,
+      'vakit': Icons.access_time,
+      'aktivite': Icons.directions_run,
+      'etkinlik': Icons.event,
+      'sev': Icons.favorite,
+      'aşk': Icons.favorite,
+      'duygu': Icons.emoji_emotions,
+      'anla': Icons.psychology,
+      'anlayış': Icons.psychology,
+      'empati': Icons.people,
+      'paylaş': Icons.share,
+      'ortak': Icons.group,
+      'birlikte': Icons.group,
+      'saygı': Icons.thumb_up,
+      'değer': Icons.star,
+      'denge': Icons.balance,
+      'ölçü': Icons.straighten,
+      'uyum': Icons.compare,
+    };
+    
+    // Önce içeriği küçük harfe çevir
+    final lowerAdvice = advice.toLowerCase();
+    
+    // Her anahtar kelimeyi kontrol et ve varsa sabit ikon döndür
+    for (final entry in keywordIconMap.entries) {
+      if (lowerAdvice.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    
+    // Eşleşme yoksa, hash'e göre sabit bir ikon seç
+    return adviceIcons[hash.abs() % adviceIcons.length];
+  }
+  
+  // Tavsiye metninden sabit başlık oluşturma
+  String _getTitleFromAdvice(String advice) {
+    // Tavsiye metninden sabit bir hash değeri oluştur
+    int hash = 0;
+    for (var i = 0; i < advice.length; i++) {
+      hash = advice.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Tavsiye kartları için sabit başlıklar
+    final adviceTitles = [
+      "İyi Dinle!",
+      "Birlikte Büyü",
+      "Bunu Dene",
+      "Kendini Geliştir",
+      "Şimdi Harekete Geç",
+      "Bunu Bilmelisin",
+      "Bu Senin İçin",
+      "Bunu Hatırla",
+      "İlişkini Güçlendir",
+      "Mutluluğun Anahtarı",
+    ];
+    
+    // Anahtar kelimeler ve sabit başlıkları eşleştiren harita
+    final keywordTitleMap = {
+      'dinle': "İletişimin Sırrı",
+      'konuş': "Etkili İletişim",
+      'iletişim': "İletişim Zamanı",
+      'dürüst': "Dürüstlüğün Gücü",
+      'açık': "Açıklık ve Şeffaflık",
+      'paylaş': "Paylaşmanın Değeri",
+      'güven': "Güven Gelişimi",
+      'birlikte': "Birlikte Daha Güçlü",
+      'ortak': "Ortaklık Zamanı",
+      'sevgi': "Sevgi İlişkisi",
+      'aşk': "Aşkın Dili",
+      'sev': "Sevgiyi Göster",
+      'anlayış': "Anlayış Geliştirme",
+      'saygı': "Saygı ve Değer",
+      'değer': "Değer Vermenin Önemi",
+      'empati': "Empati Kurma",
+      'denge': "Denge ve Uyum",
+      'huzur': "İçsel Huzur",
+      'plan': "Geleceği Planla",
+      'zaman': "Zaman Yönetimi",
+      'aktivite': "Aktif Yaşam",
+    };
+    
+    // Önce içeriği küçük harfe çevir
+    final lowerAdvice = advice.toLowerCase();
+    
+    // Her anahtar kelimeyi kontrol et ve varsa sabit başlık döndür
+    for (final entry in keywordTitleMap.entries) {
+      if (lowerAdvice.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    
+    // Eşleşme yoksa, hash'e göre sabit bir başlık seç
+    return adviceTitles[hash.abs() % adviceTitles.length];
   }
 } 
 
