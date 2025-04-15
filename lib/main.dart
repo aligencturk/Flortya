@@ -65,6 +65,9 @@ void main() async {
           ChangeNotifierProvider<ProfileViewModel>(
             create: (_) => ProfileViewModel(),
           ),
+          ChangeNotifierProvider<ReportViewModel>(
+            create: (_) => ReportViewModel(),
+          ),
           ChangeNotifierProvider<HomeController>(
             create: (_) => HomeController(
               userService: UserService(),
