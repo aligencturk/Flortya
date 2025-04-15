@@ -11,9 +11,11 @@ import 'package:flutter/services.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
+import '../viewmodels/profile_viewmodel.dart';
 import '../widgets/analysis_result_box.dart';
 import '../widgets/custom_button.dart';
 import '../models/analysis_result_model.dart';
+import '../models/user_model.dart';
 import '../services/input_service.dart';  // Türkçe karakter desteği için
 
 
@@ -57,6 +59,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       // Eğer daha önce mesajlar yüklenmediyse yükle
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+      
+      // Kullanıcı profili yükleniyor
+      if (authViewModel.user != null) {
+        profileViewModel.loadUserProfile();
+      }
+      
       if (!_messagesLoaded && authViewModel.user != null) {
         debugPrint('initState - İlk kez mesaj yükleniyor - User ID: ${authViewModel.user!.id}');
         _loadMessages();
@@ -844,183 +853,494 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final String mesajYorumu = result.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
     final List<String> cevapOnerileri = List<String>.from(result.aiResponse['cevapOnerileri'] ?? []);
     
+    // Kullanıcı profilinden son analiz sonucunu al
+    final profileViewModel = Provider.of<ProfileViewModel>(context, listen: true);
+    final analizSonucu = profileViewModel.user?.sonAnalizSonucu;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF9D3FFF).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: ListView(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // İlişki Puanı ve Kategori Analizleri
+            if (analizSonucu != null) ...[
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.5)),
+                ),
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık
+                    const Row(
+                      children: [
+                        Icon(Icons.favorite, color: Color(0xFFFF4E91), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'İlişki Durum Analizi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // İlişki Puanı
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'İlişki Uyum Puanı',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${analizSonucu.iliskiPuani}/100',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // İlişki Puanı Göstergesi
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.05),
+                            border: Border.all(
+                              color: _getScoreColor(analizSonucu.iliskiPuani),
+                              width: 3,
+                            ),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _getScoreText(analizSonucu.iliskiPuani),
+                                  style: TextStyle(
+                                    color: _getScoreColor(analizSonucu.iliskiPuani),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '${analizSonucu.iliskiPuani}',
+                                  style: TextStyle(
+                                    color: _getScoreColor(analizSonucu.iliskiPuani),
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Kategori Analizleri
+                    const Text(
+                      'Kategori Analizleri',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Kategori çubukları
+                    ...analizSonucu.kategoriPuanlari.entries
+                        .map((entry) => _buildCategoryBar(
+                              entry.key, 
+                              entry.value, 
+                              _getCategoryColor(entry.key),
+                              _getCategoryIcon(entry.key),
+                            ))
+                        .toList(),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Kişiselleştirilmiş Tavsiyeler
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık
+                    const Row(
+                      children: [
+                        Icon(Icons.tips_and_updates, color: Colors.amber, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Kişiselleştirilmiş Tavsiyeler',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Tavsiyeler listesi
+                    ...analizSonucu.kisiselestirilmisTavsiyeler
+                        .map((tavsiye) => _buildAdviceItem(tavsiye))
+                        .toList(),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+            ],
+            
+            // Duygu Çözümlemesi
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.mood, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Duygu Çözümlemesi',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // İçerik
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      duygu,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Niyet Yorumu
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.psychology, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Niyet Yorumu',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // İçerik
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      mesajYorumu,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Cevap Önerileri
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Cevap Önerileri',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // İçerik
+                  ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList(),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Kategori çubuğu widget'ı
+  Widget _buildCategoryBar(
+    String category, 
+    int value, 
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Başlık
-          const Text(
-            'Analiz Sonucu',
-            style: TextStyle(
+          Row(
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                _formatCategoryName(category),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 14,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$value/100',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Stack(
+            children: [
+              // Arkaplan çubuğu
+              Container(
+                width: double.infinity,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              // Dolgu çubuğu
+              Container(
+                width: MediaQuery.of(context).size.width * (value / 100) * 0.7,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Tavsiye öğesi widget'ı
+  Widget _buildAdviceItem(String tavsiye) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.amber,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              Icons.tips_and_updates,
               color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+              size: 14,
             ),
           ),
-          const SizedBox(height: 16),
-          
-          // Duygu Durumu
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Başlık
-                const Row(
-                  children: [
-                    Icon(Icons.face, color: Colors.white70, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Duygu Durumu',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // İçerik
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    duygu,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Niyet Yorumu
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Başlık
-                const Row(
-                  children: [
-                    Icon(Icons.psychology, color: Colors.white70, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Niyet Yorumu',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // İçerik
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    mesajYorumu,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Cevap Önerileri
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Başlık
-                const Row(
-                  children: [
-                    Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Cevap Önerileri',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // İçerik
-                ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList(),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Analizi Kaydet butonu
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.save_outlined),
-              label: const Text(
-                'Bu Analizi Kaydet',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              tavsiye,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                height: 1.4,
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF9D3FFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              onPressed: () {
-                _saveAnalysis(context);
-              },
             ),
           ),
         ],
       ),
     );
+  }
+  
+  // Kategori adını formatlama
+  String _formatCategoryName(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return 'İletişim';
+      case 'guven':
+        return 'Güven';
+      case 'uyum':
+        return 'Uyum';
+      case 'saygi':
+      case 'saygı':
+        return 'Saygı';
+      case 'destek':
+        return 'Destek';
+      default:
+        return category;
+    }
+  }
+  
+  // Kategori ikonu alma
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return Icons.chat_bubble;
+      case 'guven':
+        return Icons.security;
+      case 'uyum':
+        return Icons.sync;
+      case 'saygi':
+      case 'saygı':
+        return Icons.handshake;
+      case 'destek':
+        return Icons.support;
+      default:
+        return Icons.star;
+    }
+  }
+  
+  // Kategori rengi alma
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'iletisim':
+        return Colors.blue;
+      case 'guven':
+        return Colors.green;
+      case 'uyum':
+        return Colors.purple;
+      case 'saygi':
+      case 'saygı':
+        return Colors.orange;
+      case 'destek':
+        return Colors.teal;
+      default:
+        return Colors.grey;
+    }
+  }
+  
+  // Puan rengi alma
+  Color _getScoreColor(int score) {
+    if (score >= 80) return Colors.green;
+    if (score >= 60) return Colors.lightGreen;
+    if (score >= 40) return Colors.orange;
+    if (score >= 20) return Colors.deepOrange;
+    return Colors.red;
+  }
+  
+  // Puan metni alma
+  String _getScoreText(int score) {
+    if (score >= 80) return 'Harika';
+    if (score >= 60) return 'İyi';
+    if (score >= 40) return 'Orta';
+    if (score >= 20) return 'Zayıf';
+    return 'Kritik';
   }
   
   // Öneri öğesi widget'ı

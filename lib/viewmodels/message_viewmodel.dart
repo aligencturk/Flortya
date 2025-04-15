@@ -5,10 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/message.dart';
 import '../models/analysis_result_model.dart';
+import '../models/user_model.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
 import '../services/auth_service.dart';
+import '../viewmodels/profile_viewmodel.dart';
 
 // Extension to add firstWhereOrNull functionality
 extension ListExtension<T> on List<T> {
@@ -27,6 +29,7 @@ class MessageViewModel extends ChangeNotifier {
   final LoggerService _logger = LoggerService();
   final NotificationService _notificationService = NotificationService();
   final AuthService _authService = AuthService();
+  late final ProfileViewModel _profileViewModel;
   
   // İlk yükleme denemesinin yapılıp yapılmadığını takip eden bayrak (static değil)
   bool _isFirstLoadCompleted = false;
@@ -460,6 +463,7 @@ class MessageViewModel extends ChangeNotifier {
         'analysisResult': analysisResult.toMap(),
         'errorMessage': null,
         'updatedAt': Timestamp.now(),
+        'isSaved': true, // Analiz otomatik kaydedildi olarak işaretlenir
       });
       
       // Yerel listedeki mesajı güncelle
@@ -469,13 +473,17 @@ class MessageViewModel extends ChangeNotifier {
           isAnalyzed: true,
           analysisResult: analysisResult,
           errorMessage: null,
+          isSaved: true, // Yerel mesajda da kaydedildi olarak işaretlenir
         );
         _currentMessage = _messages[index];
         // Geçerli analiz sonucunu da güncelle
         _currentAnalysisResult = analysisResult;
       }
       
-      _logger.i('Mesaj analizi tamamlandı: $messageId');
+      // Analiz sonucunu kullanıcı profiline de kaydet
+      await _updateUserProfileWithAnalysis(userId, analysisResult);
+      
+      _logger.i('Mesaj analizi tamamlandı ve kullanıcı profiline kaydedildi: $messageId');
       notifyListeners();
       
       return true;
@@ -512,6 +520,51 @@ class MessageViewModel extends ChangeNotifier {
       _errorMessage = 'Mesaj analizi sırasında hata oluştu: $e';
       notifyListeners();
       return false;
+    }
+  }
+
+  // Analiz sonucunu kullanıcı profiline kaydetme
+  Future<void> _updateUserProfileWithAnalysis(String userId, AnalysisResult analysisResult) async {
+    try {
+      _logger.i('Analiz sonucu kullanıcı profiline kaydediliyor: $userId');
+      
+      // İlişki puanı ve kategori puanlarını hesapla
+      final Map<String, dynamic> analizVerileri = {
+        'mesajIcerigi': _currentMessage?.content ?? '',
+        'duygu': analysisResult.emotion,
+        'niyet': analysisResult.intent,
+        'ton': analysisResult.tone,
+        'mesajYorumu': analysisResult.aiResponse['mesajYorumu'] ?? '',
+      };
+      
+      // Kullanıcı profilini çek
+      DocumentReference userRef = _firestore.collection('users').doc(userId);
+      DocumentSnapshot<Map<String, dynamic>> userDoc = await userRef.get() as DocumentSnapshot<Map<String, dynamic>>;
+      
+      // Kullanıcı modeli yoksa oluştur
+      if (!userDoc.exists) {
+        _logger.w('Kullanıcı belgesi bulunamadı, analiz kaydedilemedi: $userId');
+        return;
+      }
+      
+      // Kullanıcı modelini oluştur
+      UserModel userModel = UserModel.fromFirestore(userDoc);
+      
+      // Analiz hizmeti ile ilişki durumunu analiz et
+      final analizSonucu = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
+      
+      // Kullanıcı modelini güncelle
+      final UserModel guncelKullanici = userModel.analizSonucuEkle(analizSonucu);
+      
+      // Firestore'a kaydet
+      await userRef.update({
+        'sonAnalizSonucu': analizSonucu.toMap(),
+        'analizGecmisi': FieldValue.arrayUnion([analizSonucu.toMap()]),
+      });
+      
+      _logger.i('Kullanıcı profili başarıyla güncellendi. İlişki puanı: ${analizSonucu.iliskiPuani}');
+    } catch (e) {
+      _logger.e('Kullanıcı profili güncellenirken hata oluştu', e);
     }
   }
 
