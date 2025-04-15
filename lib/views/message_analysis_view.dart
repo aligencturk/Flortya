@@ -854,7 +854,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final List<String> cevapOnerileri = List<String>.from(result.aiResponse['cevapOnerileri'] ?? []);
     
     // Kullanıcı profilinden son analiz sonucunu al
-    final profileViewModel = Provider.of<ProfileViewModel>(context, listen: true);
+    final profileViewModel = Provider.of<ProfileViewModel>(context, listening: true);
     final analizSonucu = profileViewModel.user?.sonAnalizSonucu;
     
     return Container(
@@ -869,34 +869,35 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // İlişki Puanı ve Kategori Analizleri
-            if (analizSonucu != null) ...[
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.5)),
-                ),
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Başlık
-                    const Row(
-                      children: [
-                        Icon(Icons.favorite, color: Color(0xFFFF4E91), size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'İlişki Durum Analizi',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.5)),
+              ),
+              padding: const EdgeInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.favorite, color: Color(0xFFFF4E91), size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'İlişki Durum Analizi',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Analiz sonucu varsa ilişki puanını göster, yoksa "henüz analiz yapılmamış" mesajı göster
+                  if (analizSonucu != null) ...[
                     // İlişki Puanı
                     Row(
                       children: [
@@ -984,49 +985,109 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               _getCategoryIcon(entry.key),
                             ))
                         .toList(),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 20),
-              
-              // Kişiselleştirilmiş Tavsiyeler
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Başlık
-                    const Row(
-                      children: [
-                        Icon(Icons.tips_and_updates, color: Colors.amber, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Kişiselleştirilmiş Tavsiyeler',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                  ] else ...[
+                    // Analiz sonucu yoksa bilgilendirme mesajı göster
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.analytics_outlined,
+                            color: Colors.white.withOpacity(0.5),
+                            size: 48,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Henüz analiz yapılmamış',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Profil istatistikleri için analiz yapmanız gerekiyor',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    
-                    // Tavsiyeler listesi
+                  ],
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Kişiselleştirilmiş Tavsiyeler
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.tips_and_updates, color: Colors.amber, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Kişiselleştirilmiş Tavsiyeler',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Tavsiyeler listesi veya "henüz analiz yapılmamış" mesajı
+                  if (analizSonucu != null && analizSonucu.kisiselestirilmisTavsiyeler.isNotEmpty) ...[
                     ...analizSonucu.kisiselestirilmisTavsiyeler
                         .map((tavsiye) => _buildAdviceItem(tavsiye))
                         .toList(),
+                  ] else ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                      ),
+                      child: Text(
+                        analizSonucu == null 
+                          ? 'Henüz analiz yapılmamış. Tavsiyeler için analiz yapın.'
+                          : 'Bu analiz için kişiselleştirilmiş tavsiye bulunmuyor.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-              
-              const SizedBox(height: 20),
-            ],
+            ),
+            
+            const SizedBox(height: 20),
             
             // Duygu Çözümlemesi
             Container(
@@ -1062,13 +1123,33 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      duygu,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                      ),
-                    ),
+                    child: analizSonucu == null
+                      ? Row(
+                          children: [
+                            Icon(
+                              Icons.analytics_outlined,
+                              color: Colors.white.withOpacity(0.5),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Henüz analiz yapılmamış',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          duygu,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                        ),
                   ),
                 ],
               ),
@@ -1110,14 +1191,34 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      mesajYorumu,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        height: 1.5,
-                      ),
-                    ),
+                    child: analizSonucu == null
+                      ? Row(
+                          children: [
+                            Icon(
+                              Icons.analytics_outlined,
+                              color: Colors.white.withOpacity(0.5),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Henüz analiz yapılmamış',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          mesajYorumu,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            height: 1.5,
+                          ),
+                        ),
                   ),
                 ],
               ),
@@ -1152,7 +1253,38 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   ),
                   const SizedBox(height: 12),
                   // İçerik
-                  ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList(),
+                  analizSonucu == null
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.analytics_outlined,
+                              color: Colors.white.withOpacity(0.5),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Henüz analiz yapılmamış',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        children: [...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri)).toList()],
+                      ),
                 ],
               ),
             ),
