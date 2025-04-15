@@ -121,7 +121,7 @@ class AuthService {
       _logger.d('Kullanıcı bilgileri alınıyor: ${currentUser!.uid}');
       
       // Firestore'dan güncel veriyi al
-      DocumentSnapshot doc = await _firestore.collection('users').doc(currentUser!.uid).get();
+      DocumentSnapshot<Map<String, dynamic>> doc = await _firestore.collection('users').doc(currentUser!.uid).get();
       
       if (doc.exists) {
         _logger.d('Kullanıcı verisi bulundu: ${doc.data()}');
