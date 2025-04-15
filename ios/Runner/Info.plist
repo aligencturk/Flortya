@@ -42,9 +42,9 @@
 	
 	<!-- Kamera ve fotoğraf kütüphanesi izinleri -->
 	<key>NSCameraUsageDescription</key>
-	<string>Uygulama, mesaj analizinde fotoğraf göndermek için kamera erişimi gerektirir.</string>
+	<string>Uygulama, mesaj analizinde fotoğraf çekmek ve göndermek için kamera erişimi gerektirir. İzin vermezseniz, kamera ile fotoğraf çekip analiz edemezsiniz.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Uygulama, mesaj analizinde fotoğraf göndermek için fotoğraf kütüphanesi erişimi gerektirir.</string>
+	<string>Uygulama, mesaj analizinde fotoğraf seçmek ve göndermek için fotoğraf kütüphanesi erişimi gerektirir. İzin vermezseniz, galeriden fotoğraf seçip analiz edemezsiniz.</string>
 	
 	<!-- Internet bağlantısı izni (güvenli olmayan HTTP bağlantılarına izin ver) -->
 	<key>NSAppTransportSecurity</key>
