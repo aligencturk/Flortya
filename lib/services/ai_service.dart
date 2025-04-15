@@ -1042,15 +1042,15 @@ class AiService {
             return tavsiyeler;
           }
           
-          return _varsayilanTavsiyeleriGetir(kategoriPuanlari);
+          return _varsayilanTavsiyelerGetir(kategoriPuanlari);
         }
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return _varsayilanTavsiyeleriGetir(kategoriPuanlari);
+        return _varsayilanTavsiyelerGetir(kategoriPuanlari);
       }
     } catch (e) {
       _logger.e('Tavsiye oluşturma hatası', e);
-      return _varsayilanTavsiyeleriGetir(kategoriPuanlari);
+      return _varsayilanTavsiyelerGetir(kategoriPuanlari);
     }
   }
   
@@ -1096,7 +1096,7 @@ class AiService {
   }
   
   /// Varsayılan tavsiyeleri alma
-  List<String> _varsayilanTavsiyeleriGetir(Map<String, int> kategoriPuanlari) {
+  List<String> _varsayilanTavsiyelerGetir(Map<String, int> kategoriPuanlari) {
     // En düşük puana sahip kategorileri bul
     final sortedKategories = kategoriPuanlari.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));

@@ -1,4 +1,4 @@
-flutimport 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AnalizSonucu {
   final int iliskiPuani;
@@ -17,7 +17,9 @@ class AnalizSonucu {
     return AnalizSonucu(
       iliskiPuani: map['iliskiPuani'] ?? 0,
       kategoriPuanlari: Map<String, int>.from(map['kategoriPuanlari'] ?? {}),
-      tarih: (map['tarih'] as Timestamp).toDate(),
+      tarih: map['tarih'] is Timestamp 
+          ? (map['tarih'] as Timestamp).toDate() 
+          : (map['tarih'] != null ? DateTime.parse(map['tarih'].toString()) : DateTime.now()),
       kisiselestirilmisTavsiyeler: List<String>.from(map['kisiselestirilmisTavsiyeler'] ?? []),
     );
   }
@@ -74,21 +76,21 @@ class UserModel {
   });
 
   // Firestore'dan veri okuma
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+  factory UserModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    Map<String, dynamic> data = doc.data() ?? {};
     
     // Analiz geçmişini dönüştürme
     List<AnalizSonucu> analizGecmisi = [];
     if (data['analizGecmisi'] != null) {
       analizGecmisi = (data['analizGecmisi'] as List)
-          .map((analizMap) => AnalizSonucu.fromMap(analizMap))
+          .map((analizMap) => AnalizSonucu.fromMap(analizMap as Map<String, dynamic>))
           .toList();
     }
     
     // Son analiz sonucunu dönüştürme
     AnalizSonucu? sonAnalizSonucu;
     if (data['sonAnalizSonucu'] != null) {
-      sonAnalizSonucu = AnalizSonucu.fromMap(data['sonAnalizSonucu']);
+      sonAnalizSonucu = AnalizSonucu.fromMap(data['sonAnalizSonucu'] as Map<String, dynamic>);
     }
     
     return UserModel(
@@ -100,8 +102,12 @@ class UserModel {
       premiumExpiry: data['premiumExpiry'] != null 
           ? (data['premiumExpiry'] as Timestamp).toDate() 
           : null,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      lastLoginAt: (data['lastLoginAt'] as Timestamp).toDate(),
+      createdAt: data['createdAt'] != null 
+          ? (data['createdAt'] as Timestamp).toDate() 
+          : DateTime.now(),
+      lastLoginAt: data['lastLoginAt'] != null 
+          ? (data['lastLoginAt'] as Timestamp).toDate() 
+          : DateTime.now(),
       preferences: data['preferences'] ?? {},
       sonAnalizSonucu: sonAnalizSonucu,
       analizGecmisi: analizGecmisi,
