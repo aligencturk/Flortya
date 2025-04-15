@@ -278,7 +278,9 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                    onPressed: () {},
+                    onPressed: () {
+                      _showSettingsDialog(context);
+                    },
                   ),
                 ],
               ),
@@ -747,7 +749,9 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                    onPressed: () {},
+                    onPressed: () {
+                      _showSettingsDialog(context);
+                    },
                   ),
                 ],
               ),
@@ -959,7 +963,9 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                    onPressed: () {},
+                    onPressed: () {
+                      _showSettingsDialog(context);
+                    },
                   ),
                 ],
               ),
@@ -1218,7 +1224,9 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 IconButton(
                     icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                  onPressed: () {},
+                  onPressed: () {
+                    _showSettingsDialog(context);
+                  },
                 ),
               ],
             ),
@@ -1466,6 +1474,210 @@ class _HomeViewState extends State<HomeView> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSettingsDialog(BuildContext context) {
+    bool bildirimlerAcik = true; // Varsayılan olarak açık
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık ve Kapat Butonu
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Ayarlar',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Bildirimler
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Bildirimler',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: bildirimlerAcik,
+                          onChanged: (value) {
+                            setState(() {
+                              bildirimlerAcik = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                          activeTrackColor: const Color(0xFF9D3FFF).withOpacity(0.5),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Dil
+                    InkWell(
+                      onTap: () {
+                        // Dil değiştirme ekranına git
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Dil',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Türkçe',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: Colors.white.withOpacity(0.7),
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Gizlilik
+                    InkWell(
+                      onTap: () {
+                        // Gizlilik ayarları ekranına git
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Gizlilik',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Ayarlar',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: Colors.white.withOpacity(0.7),
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Değişiklikleri Kaydet Butonu
+                    Container(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Değişiklikleri kaydet
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9D3FFF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.save_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Değişiklikleri Kaydet',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 } 

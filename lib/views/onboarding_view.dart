@@ -19,18 +19,18 @@ class OnboardingView extends StatefulWidget {
 class _OnboardingViewState extends State<OnboardingView> {
   final List<Map<String, dynamic>> _onboardingItems = [
     {
-      'title': 'İlişki Dinamiklerinizi Anlayın',
-      'description': 'Mesajlarınızı analiz ederek ilişkiniz hakkında detaylı içgörüler edinin.',
+      'title': 'Gelişimi Takip Edin',
+      'description': 'Detaylı raporlar ve grafiklerle ilişkinizin gelişimini izleyin',
       'image': 'assets/images/onboarding1.jpg',
     },
     {
-      'title': 'İlişki Desenlerinizi Keşfedin',
-      'description': 'İletişim kalıplarınızı öğrenin ve ilişkinizi geliştirin.',
+      'title': 'Kişisel Tavsiyeler Alın',
+      'description': 'Size özel tavsiyelerle ilişkinizi güçlendirin',
       'image': 'assets/images/onboarding2.jpg',
     },
     {
-      'title': 'İlişkinizi Geliştirin',
-      'description': 'Kişiselleştirilmiş tavsiyelerle ilişkinizi güçlendirin.',
+      'title': 'İlişkinizi Analiz Edin',
+      'description': 'Mesajlarınızı analiz ederek ilişkinizin durumunu öğrenin',
       'image': 'assets/images/onboarding3.jpg',
     },
   ];
@@ -86,39 +86,10 @@ class _OnboardingViewState extends State<OnboardingView> {
     final authViewModel = Provider.of<AuthViewModel>(context);
     
     return Scaffold(
+      backgroundColor: const Color(0xFF121929), // Koyu lacivert arka plan
       body: SafeArea(
         child: Column(
           children: [
-            // Üst Başlık ve Ana Mesaj
-            Padding(
-              padding: EdgeInsets.fromLTRB(24.0, screenHeight * 0.03, 24.0, 0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Retto',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "O seni hâlâ düşünüyorsa, öğrenmenin zamanı gelmedi mi?",
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
             // Slaytlar
             Expanded(
               child: PageView.builder(
@@ -138,65 +109,80 @@ class _OnboardingViewState extends State<OnboardingView> {
             
             // Sayfa İndikatörü
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   _onboardingItems.length,
-                  (index) => _buildPageIndicator(index == _currentPage),
+                  (index) => _buildPageIndicator(index == _currentPage, index),
                 ),
               ),
             ),
             
-            // Giriş Butonları
+            // Alt Butonlar (Atla, İleri, Başla)
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Column(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (_currentPage == _onboardingItems.length - 1) ...[
-                    // Özel buton yerine yeni GoogleSignInButton widget'ını kullan
-                    GoogleSignInButton(
-                      onSuccess: () async {
-                        await _completeOnboarding();
-                      },
+                  // Atla butonu
+                  TextButton(
+                    onPressed: () {
+                      _pageController.animateToPage(
+                        _onboardingItems.length - 1,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: const Text(
+                      'Atla',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
                     ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Özel buton yerine yeni AppleSignInButton widget'ını kullan
-                    AppleSignInButton(
-                      onSuccess: () async {
-                        await _completeOnboarding();
-                      },
+                  ),
+                  
+                  // İleri veya Başla butonu
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_currentPage == _onboardingItems.length - 1) {
+                        // Son sayfadaysa ana sayfaya git
+                        _completeOnboarding();
+                        context.go(AppRouter.home);
+                      } else {
+                        // Sonraki sayfaya git
+                        _pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
-                  ] else ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextButton(
-                          onPressed: () {
-                            _pageController.animateToPage(
-                              _onboardingItems.length - 1,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
-                          child: const Text('Atla'),
+                        Text(
+                          _currentPage == _onboardingItems.length - 1 ? 'Başla' : 'İleri',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        
-                        CustomButton(
-                          text: 'Devam Et',
-                          onPressed: () {
-                            _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
-                          icon: Icons.arrow_forward,
-                        ),
+                        if (_currentPage != _onboardingItems.length - 1) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward, size: 16),
+                        ],
                       ],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -211,90 +197,80 @@ class _OnboardingViewState extends State<OnboardingView> {
     final screenHeight = MediaQuery.of(context).size.height;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Görsel
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Container(
-              height: screenHeight * 0.42,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  item['image'],
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      child: Center(
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+          Container(
+            height: screenHeight * 0.35,
+            width: screenHeight * 0.35,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                item['image'],
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  // Görsel yüklenemezse
+                  return Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 64,
+                      color: Colors.grey.shade600,
+                    ),
+                  );
+                },
               ),
             ),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
           
           // Başlık
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              item['title'],
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
+          Text(
+            item['title'],
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
             ),
-          )
-          .animate()
-          .fadeIn(duration: 600.ms)
-          .slide(begin: const Offset(0, 0.2), end: Offset.zero),
+            textAlign: TextAlign.center,
+          ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
           // Açıklama
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              item['description'],
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
+          Text(
+            item['description'],
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
             ),
-          )
-          .animate()
-          .fadeIn(delay: 200.ms, duration: 600.ms)
-          .slide(begin: const Offset(0, 0.2), end: Offset.zero),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
   }
 
   // Sayfa indikatörü widget'ı
-  Widget _buildPageIndicator(bool isActive) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+  Widget _buildPageIndicator(bool isActive, int index) {
+    // Aktif sayfanın mor, diğerlerinin soluk mor olması
+    final color = isActive 
+        ? const Color(0xFF9D3FFF) 
+        : Colors.grey.withOpacity(0.5);
+    
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
       height: 8,
-      width: isActive ? 24 : 8,
+      width: 8,
       decoration: BoxDecoration(
-        color: isActive
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.primary.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(4),
+        color: color,
+        shape: BoxShape.circle,
       ),
     );
   }
