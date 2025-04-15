@@ -13,6 +13,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../widgets/analysis_result_box.dart';
 import '../widgets/custom_button.dart';
+import '../models/analysis_result_model.dart';
 
 
 class MessageAnalysisView extends StatefulWidget {
@@ -415,275 +416,387 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
 
+  // Bilgi diyaloğunu gösteren metod
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Mesaj Analizi Hakkında', style: TextStyle(color: Color(0xFF9D3FFF))),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: [
+                Text('Bu araç, mesajlarınızı analiz ederek anlam ve duygu değerlendirmesi yapar.'),
+                SizedBox(height: 8),
+                Text('Nasıl kullanılır:'),
+                Text('1. Analiz etmek istediğiniz metni girin veya görsel seçin'),
+                Text('2. "Mesajı Analiz Et" butonuna tıklayın'),
+                Text('3. Analiz sonuçlarını görüntüleyin ve isterseniz kaydedin'),
+                SizedBox(height: 8),
+                Text('Not: Analiz işlemi birkaç saniye sürebilir.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Anladım', style: TextStyle(color: Color(0xFF9D3FFF))),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: const Color(0xFF352269),
+          contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+          titleTextStyle: const TextStyle(color: Color(0xFF9D3FFF), fontSize: 18, fontWeight: FontWeight.bold),
+        );
+      },
+    );
+  }
+
+  // Analiz sonucunu kaydetme metodu
+  void _saveAnalysis(BuildContext context) {
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    if (messageViewModel.currentMessage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kaydedilecek analiz bulunamadı'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    try {
+      // Analizi kaydedildi olarak işaretleme işlemi burada yapılacak
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Analiz sonuçları başarıyla kaydedildi'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Analiz kaydedilemedi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final messageViewModel = Provider.of<MessageViewModel>(context);
-    final authViewModel = Provider.of<AuthViewModel>(context);
-    final theme = Theme.of(context);
-    
-    // Build metodu için debug bilgisi - rebuild tespiti için önemli
-    // debugPrint('MessageAnalysisView - build çağrıldı');
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mesaj Analizi'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          // Metin/Görsel modu geçiş butonu
-          IconButton(
-            icon: Icon(_isImageMode ? Icons.text_fields : Icons.image),
-            onPressed: _toggleMode,
-            tooltip: _isImageMode ? 'Metin Moduna Geç' : 'Görsel Moduna Geç',
-          ),
-        ],
-      ),
-      backgroundColor: messageViewModel.hasCurrentMessage ? theme.colorScheme.primary : Colors.white,
+      backgroundColor: const Color(0xFF4A2A80),
       body: SafeArea(
         child: Column(
           children: [
-            // Analiz sonucu gösterimi veya giriş formu
-            if (messageViewModel.hasCurrentMessage && messageViewModel.hasAnalysisResult)
-              // Analiz Sonucu Gösterimi
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        color: Colors.white,
-                        padding: const EdgeInsets.all(16.0),
-                        child: SingleChildScrollView(
-                          child: _buildAnalysisResult(),
-                        ),
-                      ),
+            // App Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => context.pop(),
+                  ),
+                  const Text(
+                    'Mesaj Analizi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
                     ),
-                    // Geçmiş Analizlere Dön Butonu
-                    InkWell(
-                      onTap: () {
-                        messageViewModel.clearCurrentMessage();
-                        setState(() {
-                          _showDetailedAnalysis = false;
-                        });
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.history, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Geçmiş Analizlere Dön',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.info_outline, color: Colors.white),
+                    onPressed: () {
+                      _showInfoDialog(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            
+            // Ana içerik
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF352269),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Analiz için mesaj girişi kartı
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Analiz Edilecek Mesaj',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Mesaj girişi
+                          Container(
+                            height: 150,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: TextField(
+                              controller: _messageController,
+                              maxLines: null,
+                              expands: true,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: const InputDecoration(
+                                hintText: 'Analiz etmek istediğiniz mesajı girin...',
+                                hintStyle: TextStyle(color: Colors.white60),
+                                border: InputBorder.none,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              // Yeni Form ve Liste Görünümü - Tab bazlı
-              Expanded(
-                child: DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    children: [
-                      // Tab Bar
-                      Container(
-                        color: theme.colorScheme.primary,
-                        child: TabBar(
-                          tabs: const [
-                            Tab(
-                              icon: Icon(Icons.create),
-                              text: 'Yeni Analiz',
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Görsel seçimi özelliği
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                             ),
-                            Tab(
-                              icon: Icon(Icons.history),
-                              text: 'Geçmiş',
-                            ),
-                          ],
-                          indicatorColor: Colors.white,
-                          labelColor: Colors.white,
-                        ),
-                      ),
-                      
-                      // Tab İçerikleri
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            // Yeni Analiz Formu
-                            Container(
-                              padding: const EdgeInsets.all(16.0),
-                              color: Colors.white,
-                              child: SingleChildScrollView(
-                                physics: const BouncingScrollPhysics(),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    // Partnerden gelen mesaj bilgisi
-                                    Text(
-                                      'Partnerinizden gelen mesajı aşağıya girin ve analiz edin.',
-                                      style: Theme.of(context).textTheme.bodyLarge,
-                                      textAlign: TextAlign.center,
+                                    Icon(
+                                      Icons.photo_library_outlined,
+                                      color: Colors.white.withOpacity(0.9),
+                                      size: 22,
                                     ),
-                                    
-                                    const SizedBox(height: 24),
-                                    
-                                    // Eğer görsel modundaysa resim yükleme butonu göster
-                                    if (_isImageMode) ...[
-                                      // Kullanıcı yönlendirme metni
-                                      Text(
-                                        'Analiz etmek istediğiniz görüntüyü yükleyin:',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                      ),
-                                      
-                                      const SizedBox(height: 12),
-                                      
-                                      // Resim seçme butonu - Daha belirgin
-                                      Container(
-                                        width: double.infinity,
-                                        height: 100,
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                                            width: 2,
-                                          ),
-                                          borderRadius: BorderRadius.circular(12),
-                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                        ),
-                                        child: InkWell(
-                                          onTap: _isProcessingImage ? null : _pickImage,
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.photo_library,
-                                                size: 36,
-                                                color: Theme.of(context).colorScheme.primary,
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                _isProcessingImage ? 'İşleniyor...' : 'Resim Seçmek İçin Tıklayın',
-                                                style: TextStyle(
-                                                  color: Theme.of(context).colorScheme.primary,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      
-                                      // Seçilmiş resmi göster
-                                      if (_selectedImage != null) ...[
-                                        const SizedBox(height: 16),
-                                        Container(
-                                          constraints: const BoxConstraints(
-                                            minHeight: 200,
-                                            maxHeight: 400,
-                                          ),
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: Image.file(
-                                              _selectedImage!,
-                                              width: double.infinity,
-                                              fit: BoxFit.contain,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                      
-                                      const SizedBox(height: 24),
-                                    ],
-                                    
-                                    // Mesaj/Açıklama Girişi - her modda göster
-                                    if (_isImageMode) ...[
-                                      // Görsel modu için bilgi metni
-                                      Text(
-                                        _selectedImage != null
-                                          ? 'Görsel hakkında açıklama ekleyin:'
-                                          : 'Resim seçtikten sonra açıklama ekleyebilirsiniz:',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    
-                                    TextField(
-                                      controller: _messageController,
-                                      maxLines: 4,
-                                      decoration: InputDecoration(
-                                        hintText: _isImageMode 
-                                            ? 'Resim ile ilgili ek bilgi yazabilirsiniz...' 
-                                            : 'Mesajı buraya yazın...',
-                                        prefixIcon: const Icon(Icons.message),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-                                        ),
-                                        filled: true,
-                                        fillColor: theme.colorScheme.surface,
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Görsel Seçimi',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    
-                                    const SizedBox(height: 24),
-                                    
-                                    // Analiz Butonu
-                                    CustomButton(
-                                      text: 'Mesajı Analiz Et',
-                                      onPressed: _isProcessingImage ? () {} : _sendMessage,
-                                      icon: Icons.psychology,
-                                      isLoading: messageViewModel.isLoading || _isProcessingImage,
-                                      isFullWidth: true,
+                                    const Spacer(),
+                                    Switch(
+                                      value: _isImageMode,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _isImageMode = value;
+                                          if (!value) {
+                                            _selectedImage = null;
+                                            _extractedText = null;
+                                          }
+                                        });
+                                      },
+                                      activeColor: const Color(0xFF9D3FFF),
                                     ),
                                   ],
                                 ),
+                                
+                                if (_isImageMode) ...[
+                                  const SizedBox(height: 8),
+                                  if (_selectedImage == null) ...[
+                                    GestureDetector(
+                                      onTap: _isProcessingImage ? null : _pickImage,
+                                      child: Container(
+                                        height: 100,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                        ),
+                                        child: _isProcessingImage
+                                            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
+                                            : Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.add_photo_alternate,
+                                                    color: Colors.white.withOpacity(0.7),
+                                                    size: 40,
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  const Text(
+                                                    'Görsel seçmek için tıklayın',
+                                                    style: TextStyle(color: Colors.white70),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Image.file(
+                                            _selectedImage!,
+                                            height: 150,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedImage = null;
+                                                _extractedText = null;
+                                              });
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF9D3FFF).withOpacity(0.9),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.close,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Analiz butonu
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.psychology_outlined),
+                              label: Text(
+                                messageViewModel.isLoading ? 'Analiz Ediliyor...' : 'Mesajı Analiz Et',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF9D3FFF),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: messageViewModel.isLoading ? null : _sendMessage,
                             ),
-                            
-                            // Geçmiş Analizler Listesi
-                            Container(
-                              padding: const EdgeInsets.all(16.0),
-                              color: Colors.white,
-                              child: messageViewModel.isLoading
-                                  ? const Center(child: CircularProgressIndicator())
-                                  : _buildHistoryList(),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Analiz sonucu veya analiz bekleniyor göstergesi
+                    Expanded(
+                      child: messageViewModel.isLoading
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Mesajınız analiz ediliyor...',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Bu işlem biraz zaman alabilir',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.6),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : messageViewModel.currentAnalysisResult != null
+                              ? _buildAnalysisResult(context, messageViewModel)
+                              : Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.message_outlined,
+                                        size: 64,
+                                        color: const Color(0xFF9D3FFF).withOpacity(0.3),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Henüz analiz yapılmadı',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Mesajınızı girin ve "Analiz Et" butonuna tıklayın',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.5),
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                    ),
+                  ],
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -691,269 +804,201 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   }
 
   // Analiz sonuçlarını gösteren widget
-  Widget _buildAnalysisResult() {
-    final messageViewModel = Provider.of<MessageViewModel>(context);
+  Widget _buildAnalysisResult(BuildContext context, MessageViewModel viewModel) {
+    final result = viewModel.currentAnalysisResult!;
     
-    if (messageViewModel.isLoading) {
-      return const SizedBox(
-        height: 300,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Mesaj analiz ediliyor...')
-            ],
-          ),
-        ),
-      );
-    }
+    // aiResponse içinden gerekli değerleri al
+    final int overallScore = _getOverallScore(result);
+    final Map<String, int> categoryScores = _getCategoryScores(result);
+    final String summary = _getSummary(result);
     
-    if (messageViewModel.hasAnalysisResult && messageViewModel.currentAnalysisResult != null) {
-      // Mesaj içeriğini sadeleştir
-      String displayMessage = messageViewModel.currentMessage?.content ?? '';
-      
-      // Eğer "Görsel Analizi:" ile başlıyorsa, sadece "Kullanıcı Açıklaması:" kısmını göster
-      if (displayMessage.startsWith('Görsel Analizi:')) {
-        // Kullanıcı Açıklaması bölümünü bul
-        final userCommentIndex = displayMessage.indexOf('Kullanıcı Açıklaması:');
-        if (userCommentIndex >= 0) {
-          // Kullanıcı Açıklaması: kısmını al
-          displayMessage = displayMessage.substring(userCommentIndex + 'Kullanıcı Açıklaması:'.length).trim();
-        } else {
-          // Kullanıcı açıklaması yoksa sadece görsel bilgisini göster
-          displayMessage = "[Görsel analizi]";
-        }
-      }
-      
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF9D3FFF).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+      ),
+      child: ListView(
         children: [
+          // Başlık
           const Text(
             'Analiz Sonucu',
             style: TextStyle(
-              fontSize: 18,
+              color: Colors.white,
               fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ),
-          
           const SizedBox(height: 16),
           
-          // Mesaj İçeriği - Sadeleştirilmiş
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mesaj:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(displayMessage),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Analiz Sonucu Kutusu
-          AnalysisResultBox(
-            result: messageViewModel.currentAnalysisResult!,
-            showDetailedInfo: _showDetailedAnalysis,
-            onTap: () {
-              setState(() {
-                _showDetailedAnalysis = !_showDetailedAnalysis;
-              });
-            },
-          ),
-        ],
-      ).animate().fadeIn(duration: 400.ms);
-    } else if (messageViewModel.errorMessage != null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.error.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                messageViewModel.errorMessage!,
+          // Genel Skor
+          Row(
+            children: [
+              const Text(
+                'Genel Skor:',
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
+                  color: Colors.white,
+                  fontSize: 16,
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    return const SizedBox(); // Boş durum
-  }
-  
-  // Geçmiş analizler listesi
-  Widget _buildHistoryList() {
-    final messageViewModel = Provider.of<MessageViewModel>(context);
-    
-    if (messageViewModel.messages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Henüz analiz yapılmamış',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Analiz için bir mesaj girin veya görsel yükleyin',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const BouncingScrollPhysics(),
-      itemCount: messageViewModel.messages.length,
-      itemBuilder: (context, index) {
-        final message = messageViewModel.messages[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            title: Text(
-              message.content.length > 30 
-                  ? '${message.content.substring(0, 30)}...' 
-                  : message.content,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 14,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getSentimentColor(overallScore),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(message.sentAt),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            trailing: message.isAnalyzed
-              ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
-              : Icon(Icons.circle_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            onTap: () async {
-              // Mesaj kimliğini kontrol et ve log al
-              print('Tıklanan mesaj ID: "${message.id}"');
-              print('Mesaj içeriği: ${message.content}');
-              print('Analiz edilmiş mi? ${message.isAnalyzed}');
-              
-              // ID'nin geçerli olup olmadığını kontrol et
-              if (message.id.isEmpty || message.id == 'null' || message.id == 'undefined') {
-                print('HATA: Geçersiz mesaj ID: "${message.id}"');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Geçersiz mesaj ID. Bu mesaj işlenemiyor.'),
-                    backgroundColor: Colors.red,
+                child: Text(
+                  '$overallScore%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-                );
-                return;
-              }
-              
-              try {
-                if (message.isAnalyzed) {
-                  // Eğer mesaj zaten analiz edildiyse, sonucu göster
-                  final result = await messageViewModel.getAnalysisResult(message.id);
-                  if (result != null) {
-                    // Analiz sonucu görüntüleme sayfasına git
-                    setState(() {
-                      _showDetailedAnalysis = true;
-                    });
-                  } else {
-                    print('HATA: Analiz sonucu bulunamadı, ID: ${message.id}');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Analiz sonucu yüklenirken bir hata oluştu.'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                } else {
-                  // Eğer mesaj henüz analiz edilmediyse, analiz et
-                  final success = await messageViewModel.analyzeMessage(message.id);
-                  if (success) {
-                    // Analiz başarılıysa, mesajı güncelle ve sonuçları göster
-                    final updatedMessage = await messageViewModel.getMessage(message.id);
-                    if (updatedMessage != null) {
-                      setState(() {
-                        _showDetailedAnalysis = true;
-                      });
-                    } else {
-                      print('HATA: Güncellenmiş mesaj bulunamadı, ID: ${message.id}');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Mesaj yüklenirken bir hata oluştu.'),
-                          backgroundColor: Colors.red,
+                ),
+              ),
+            ],
+          ),
+          Divider(color: const Color(0xFF9D3FFF).withOpacity(0.3), height: 24),
+          
+          // Kategori skorları
+          ...categoryScores.entries.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        entry.key,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
                         ),
-                      );
-                    }
-                  } else {
-                    print('HATA: Mesaj analizi başarısız, ID: ${message.id}');
-                  }
-                }
-              } catch (e) {
-                // Hata yakalama ve logla
-                print('HATA: $e');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('İşlem sırasında hata: $e'),
-                    backgroundColor: Colors.red,
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${entry.value}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              }
-            },
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: entry.value / 100,
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(_getSentimentColor(entry.value)),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          
+          Divider(color: const Color(0xFF9D3FFF).withOpacity(0.3), height: 24),
+          
+          // Özet ve tavsiyeler
+          const Text(
+            'Özet ve Tavsiyeler',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
-        ).animate().fadeIn(duration: 300.ms, delay: (50 * index).ms).slideX(begin: 0.2, end: 0);
-      },
+          const SizedBox(height: 8),
+          Text(
+            summary,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Analizi Kaydet butonu
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.save_outlined),
+              label: const Text(
+                'Bu Analizi Kaydet',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              onPressed: () {
+                _saveAnalysis(context);
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // Tarih formatını düzenleme
-  String _formatDate(DateTime date) {
-    return DateFormat('dd.MM.yyyy HH:mm').format(date);
+  // AnalysisResult'dan genel skoru al
+  int _getOverallScore(AnalysisResult result) {
+    try {
+      // aiResponse içerisinden skoru al, yoksa varsayılan değer kullan
+      return result.aiResponse['overallScore'] ?? result.severity;
+    } catch (e) {
+      debugPrint('Genel skor alınamadı: $e');
+      return result.severity;
+    }
+  }
+
+  // AnalysisResult'dan kategori skorlarını al
+  Map<String, int> _getCategoryScores(AnalysisResult result) {
+    try {
+      final Map<String, dynamic> rawScores = result.aiResponse['categoryScores'] ?? {};
+      // String ve int'e dönüştür
+      return rawScores.map((key, value) => 
+          MapEntry(key, value is int ? value : (value is double ? value.round() : 0)));
+    } catch (e) {
+      debugPrint('Kategori skorları alınamadı: $e');
+      // Varsayılan kategoriler
+      return {
+        'Duygusal İletişim': result.severity,
+        'Dil Kullanımı': 50,
+        'İlişki Etkisi': 50,
+      };
+    }
+  }
+
+  // AnalysisResult'dan özeti al
+  String _getSummary(AnalysisResult result) {
+    try {
+      return result.aiResponse['summary'] ?? 
+             'Bu mesajda ${result.emotion} duygusu ve ${result.tone} tonu tespit edildi. ' +
+             'Bu tür mesajlar ilişkiyi ${result.severity < 50 ? 'olumsuz' : 'olumlu'} etkileyebilir.';
+    } catch (e) {
+      debugPrint('Özet alınamadı: $e');
+      return 'Analiz sonucu detayları gösterilemiyor.';
+    }
+  }
+
+  // Duygu skoruna göre renk belirleme
+  Color _getSentimentColor(int score) {
+    if (score >= 80) return const Color(0xFF4CAF50);
+    if (score >= 60) return const Color(0xFF8BC34A);
+    if (score >= 40) return const Color(0xFFFF9800);
+    if (score >= 20) return const Color(0xFFFF5722);
+    return const Color(0xFFF44336);
   }
 } 

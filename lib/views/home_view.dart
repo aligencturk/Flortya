@@ -8,6 +8,94 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../app_router.dart';
 
+// Grafik Çizici Sınıf
+class ChartPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const pointData = [
+      {'x': 0, 'y': 70},
+      {'x': 1, 'y': 75},
+      {'x': 2, 'y': 78},
+      {'x': 3, 'y': 82},
+    ];
+    
+    // Nokta boyutu ve renkleri
+    const pointRadius = 4.0;
+    final pointFillColor = Colors.white;
+    final pointStrokeColor = const Color(0xFF9D3FFF);
+    
+    // Çizgi stili
+    final linePaint = Paint()
+      ..color = const Color(0xFF9D3FFF)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    
+    // Nokta dolgu stili
+    final pointFillPaint = Paint()
+      ..color = pointFillColor
+      ..style = PaintingStyle.fill;
+    
+    // Nokta kenar stili
+    final pointStrokePaint = Paint()
+      ..color = pointStrokeColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    
+    // Arka plan çizgileri çizme
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.1)
+      ..strokeWidth = 1;
+    
+    // Yatay ızgara çizgileri
+    for (var i = 0; i <= 5; i++) {
+      final y = size.height - (i * size.height / 5);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+    
+    // Dikey ızgara çizgileri
+    for (var i = 0; i <= 3; i++) {
+      final x = i * size.width / 3;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    
+    // Noktaları birleştiren çizgiyi çizme
+    final path = Path();
+    
+    // İlk noktayı ayarla
+    var startPoint = _getPointLocation(pointData[0]['x']!, pointData[0]['y']!, size);
+    path.moveTo(startPoint.dx, startPoint.dy);
+    
+    // Diğer noktalara bağla
+    for (var i = 1; i < pointData.length; i++) {
+      final point = _getPointLocation(pointData[i]['x']!, pointData[i]['y']!, size);
+      path.lineTo(point.dx, point.dy);
+    }
+    
+    // Çizgiyi çiz
+    canvas.drawPath(path, linePaint);
+    
+    // Noktaları çizme
+    for (var data in pointData) {
+      final point = _getPointLocation(data['x']!, data['y']!, size);
+      
+      // Dolgu
+      canvas.drawCircle(point, pointRadius, pointFillPaint);
+      // Kenar
+      canvas.drawCircle(point, pointRadius, pointStrokePaint);
+    }
+  }
+  
+  // X, Y koordinatlarını ekrandaki konuma dönüştürme
+  Offset _getPointLocation(int x, int y, Size size) {
+    final xPos = (x * size.width / 3);
+    final yPos = size.height - (y * size.height / 100);
+    return Offset(xPos, yPos);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
 
@@ -52,29 +140,39 @@ class _HomeViewState extends State<HomeView> {
     final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
-        children: [
-          // Mesaj Analizi Tab
-          _buildMessageAnalysisTab(context),
-          
-          // İlişki Raporu Tab
-          _buildRelationshipReportTab(context),
-          
-          // Tavsiye Kartı Tab
-          _buildAdviceCardTab(context),
-          
-          // Profil Tab
-          _buildProfileTab(context),
-        ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF4A2A80), Color(0xFF2D1957)],
+          ),
+        ),
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
+          physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
+          children: [
+            // Mesaj Analizi Tab
+            _buildMessageAnalysisTab(context),
+            
+            // İlişki Raporu Tab
+            _buildRelationshipReportTab(context),
+            
+            // Tavsiye Kartı Tab
+            _buildAdviceCardTab(context),
+            
+            // Profil Tab
+            _buildProfileTab(context),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: const Color(0xFF2D1957),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.2),
               blurRadius: 10,
               offset: const Offset(0, -1),
             ),
@@ -84,25 +182,25 @@ class _HomeViewState extends State<HomeView> {
           type: BottomNavigationBarType.fixed,
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          selectedItemColor: theme.colorScheme.primary,
-          unselectedItemColor: Colors.grey.shade600,
-          backgroundColor: Colors.white,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white.withOpacity(0.5),
+          backgroundColor: Colors.transparent,
           elevation: 0,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat_outlined),
-              activeIcon: Icon(Icons.chat),
-              label: 'Mesaj Analizi',
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Analiz',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart_outlined),
               activeIcon: Icon(Icons.bar_chart),
-              label: 'İlişki Raporu',
+              label: 'Rapor',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.card_giftcard_outlined),
-              activeIcon: Icon(Icons.card_giftcard),
-              label: 'Tavsiye Kartı',
+              icon: Icon(Icons.favorite_outline),
+              activeIcon: Icon(Icons.favorite),
+              label: 'Tavsiyeler',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
@@ -112,16 +210,16 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
         onPressed: () {
           // Önce viewModel'i temizle
           messageViewModel.clearCurrentMessage();
           // Sonra analiz sayfasına git
           context.push(AppRouter.messageAnalysis);
         },
-        backgroundColor: theme.colorScheme.primary,
+        backgroundColor: const Color(0xFF9D3FFF),
         child: const Icon(Icons.add, color: Colors.white),
-      ),
+      ) : null,
     )
     .animate()
     .fadeIn(duration: 300.ms);
@@ -135,8 +233,7 @@ class _HomeViewState extends State<HomeView> {
     
     // build sırasında doğrudan state değişikliği yapmamak için postFrameCallback kullan
     WidgetsBinding.instance.addPostFrameCallback((_) { 
-      // Callback içinde tekrar kontrol et
-      if (context.mounted && // Widget ağaçta mı?
+      if (context.mounted && 
           authViewModel.user != null && 
           !messageViewModel.isLoading && 
           !messageViewModel.isFirstLoadCompleted) { 
@@ -144,643 +241,941 @@ class _HomeViewState extends State<HomeView> {
       } 
     });
     
-    return Scaffold(
-      backgroundColor: theme.colorScheme.primary,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Text(
-                    'Mesaj Analizi',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-            
-            // Ana içerik
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
+    return SafeArea(
+      child: Column(
+        children: [
+          // App Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                const Text(
+                  'logo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                      const Text(
-                        'Mesajlarınızı Analiz Edin',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
+                const SizedBox(width: 12),
+                FutureBuilder<User?>(
+                  future: Future.value(FirebaseAuth.instance.currentUser),
+                  builder: (context, snapshot) {
+                    final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
+                    return Text(
+                      'Merhaba, $displayName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
                       ),
-                      const SizedBox(height: 16),
-                      
-                      // Mesaj Analiz Kartı
-                      Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                                'Yeni Analiz Başlat',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                            ),
+                    );
+                  },
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          
+          // Ana içerik
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListView(
+                children: [
+                  // İlişki Uyum Puanı Kartı
+                  Container(
+                    margin: const EdgeInsets.only(top: 16, bottom: 24),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF352269),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'İlişki Uyum Puanı',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
                           ),
-                          const SizedBox(height: 12),
+                        ),
+                        const SizedBox(height: 24),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 120,
+                              height: 120,
+                              child: CircularProgressIndicator(
+                                value: 0.78,
+                                strokeWidth: 12,
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF4FD8)),
+                              ),
+                            ),
+                            const Text(
+                              '78%',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Son analiz: 15 Nisan 2025',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            messageViewModel.clearCurrentMessage();
+                            context.push(AppRouter.messageAnalysis);
+                          },
+                          icon: const Icon(Icons.add_circle_outline),
+                          label: const Text('Yeni Analiz Başlat'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF9D3FFF),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Kategori Analizleri Başlık
+                  const Text(
+                    'Kategori Analizleri',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Kategori Kartları
+                  SizedBox(
+                    height: 190,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        _buildCategoryCard(
+                          context, 
+                          title: 'İletişim',
+                          description: 'Mesajlaşma sıklığınız ve kalitesi oldukça iyi durumda.',
+                          value: 0.82,
+                          color: const Color(0xFF6C5DD3),
+                          width: 240,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildCategoryCard(
+                          context, 
+                          title: 'Duygusal',
+                          description: 'Duygusal paylaşımlarınız biraz daha artabilir.',
+                          value: 0.65,
+                          color: const Color(0xFFFF4FD8),
+                          width: 180,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildCategoryCard(
+                          context, 
+                          title: 'Çatışma Çözümü',
+                          description: 'Anlaşmazlıkları çözme konusunda iyi bir performans gösteriyorsunuz.',
+                          value: 0.75,
+                          color: const Color(0xFF4F8CF6),
+                          width: 220,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildCategoryCard(
+                          context, 
+                          title: 'Destek',
+                          description: 'Partnerinize destek olma konusunda çok başarılısınız.',
+                          value: 0.90,
+                          color: const Color(0xFF8CCF4D),
+                          width: 200,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Son Analizler Başlık
+                  const Text(
+                    'Son Analizler',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Son Analizler
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF352269),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               const Text(
-                                'Mesajlarınızı yükleyin ve ilişkiniz hakkında detaylı analiz alın.',
+                                '8 Nisan 2025',
                                 style: TextStyle(
-                                  color: Colors.black87,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  // Önce viewModel'i temizle
-                                  messageViewModel.clearCurrentMessage();
-                                  // Sonra analiz sayfasına git
-                                  context.push(AppRouter.messageAnalysis);
-                                },
-                                icon: const Icon(Icons.upload_file),
-                                label: const Text('Mesaj Yükle'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '3,254 mesaj analiz edildi',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Text(
+                              '74%',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
                               ),
                             ),
-                          ),
-                      
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Son Analizler',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Analizler listesi
-                      if (messageViewModel.isLoading)
-                        const Expanded(
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      else if (messageViewModel.messages.isEmpty)
-                        Expanded(
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.search_off,
-                                  size: 64,
-                                  color: Colors.grey.shade400,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Henüz analiz bulunamadı',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.grey.shade700,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'İlk analizinizi yapmak için "Mesaj Yükle" butonuna tıklayın',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: messageViewModel.messages.length,
-                            itemBuilder: (context, index) {
-                              final message = messageViewModel.messages[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  leading: CircleAvatar(
-                                    backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                                    child: Icon(
-                                      Icons.message,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    message.content.length > 30 
-                                        ? '${message.content.substring(0, 30)}...' 
-                                        : message.content
-                                  ),
-                                  subtitle: Text(
-                                    '${message.sentAt.day}.${message.sentAt.month}.${message.sentAt.year}'
-                                  ),
-                                  trailing: message.isAnalyzed
-                                    ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 18)
-                                    : const Icon(Icons.arrow_forward_ios, size: 16),
-                                  onTap: () {
-                                    // Mesaj detayına git
-                                    messageViewModel.clearCurrentMessage();
-                                    
-                                    // Mesaj ID boş kontrolü
-                                    if (message.id.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Geçersiz mesaj ID'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    
-                                    // İlgili mesajın ID'sini saklayalım
-                                    final String messageId = message.id;
-                                    
-                                    // İlgili mesajın detay sayfasına yönlendir
-                                    context.push(AppRouter.messageAnalysis);
-                                    
-                                    // Mesaj detayını yükle - bu işlem sayfa açıldıktan sonra yapılır
-                                    WidgetsBinding.instance.addPostFrameCallback((_) async {
-                                      try {
-                                        // Mesajı yükle
-                                        final loadedMessage = await messageViewModel.getMessage(messageId);
-                                        
-                                        // Mesaj yüklenemediyse hata ver
-                                        if (loadedMessage == null) {
-                                          throw Exception('Mesaj yüklenemedi');
-                                        }
-                                        
-                                        // Eğer mesaj analiz edilmişse sonucu da yükle
-                                        if (loadedMessage.isAnalyzed) {
-                                          await messageViewModel.getAnalysisResult(messageId);
-                                        }
-                                      } catch (e) {
-                                        print('HATA: Mesaj yüklenirken hata oluştu: $e');
-                                      }
-                                    });
-                                  },
-                                ),
-                              ).animate().fadeIn(duration: 300.ms, delay: (50 * index).ms);
-                            },
-                          ),
-                        ),
-                  ],
+                      ],
+                    ),
                   ),
-                ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // 2. Analiz
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF352269),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '1 Nisan 2025',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '2,845 mesaj analiz edildi',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Text(
+                              '72%',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // 3. Analiz
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF352269),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '25 Mart 2025',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '3,102 mesaj analiz edildi',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Text(
+                              '70%',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Kişiselleştirilmiş Tavsiyeler
+                  const Text(
+                    'Kişiselleştirilmiş Tavsiyeler',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Aktif Dinleme Tavsiye Kartı
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C5DD3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.headset_mic,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Aktif Dinleme',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Partneriniz konuşurken, anladığınızı göstermek için sorular sorun ve geri bildirim verin.',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Duygusal Paylaşım Tavsiye Kartı
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF4FD8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.favorite,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Duygusal Paylaşım',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Günlük duygularınızı ve düşüncelerinizi daha sık paylaşın, bu duygusal bağınızı güçlendirecektir.',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 100), // Boşluk ekleyerek alt navigationbar'ın üzerindeki içeriği görelim
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     )
     .animate()
     .fadeIn(duration: 300.ms);
   }
 
+  String _getMonthName(int month) {
+    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    return monthNames[month - 1];
+  }
+
   // İlişki Raporu Tab
   Widget _buildRelationshipReportTab(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Scaffold(
-      backgroundColor: theme.colorScheme.primary,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Text(
-                    'İlişki Raporu',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.help_outline, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-            
-            // Ana içerik
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
+    return SafeArea(
+      child: Column(
+        children: [
+          // App Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                const Text(
+                  'logo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                        'İlişkinizin Detaylı Analizi',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                            ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Merhaba, Zeynep',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          
+          // Ana içerik
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF352269),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık ve Değerlendirme Düğmesi
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'İlişki Gelişim\nRaporu',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
                           ),
-                          const SizedBox(height: 16),
-                      
-                      // İlişki Puanı Kartı
-                      Card(
-                        elevation: 2,
-                                shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF9D3FFF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
                             children: [
+                              const Icon(
+                                Icons.favorite,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
                               const Text(
-                                'İlişki Uyum Puanınız',
+                                'İlişki Değerlendirmesi',
                                 style: TextStyle(
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                                  fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 24),
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 150,
-                                    height: 150,
-                                    child: CircularProgressIndicator(
-                                      value: 0.78,
-                                      strokeWidth: 12,
-                                      backgroundColor: Colors.grey.shade200,
-                                      valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // İlişki Gelişim Grafiği
+                    Container(
+                      height: 250,
+                      width: double.infinity,
+                      child: Column(
+                        children: [
+                          // Y ekseni değerleri ve grafik
+                          Expanded(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Y ekseni değerleri
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text('100', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                    const Text('80', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                    const Text('60', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                    const Text('40', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                    const Text('20', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                    const Text('0', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                  ],
+                                ),
+                                const SizedBox(width: 10),
+                                
+                                // Grafik alanı
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      child: CustomPaint(
+                                        size: const Size(double.infinity, double.infinity),
+                                        painter: ChartPainter(),
+                                      ),
                                     ),
                                   ),
-                                  Text(
-                                    '78%',
-                            style: TextStyle(
-                                      fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          // X ekseni değerleri
+                          Padding(
+                            padding: const EdgeInsets.only(left: 24, top: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Mart', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                const Text('Nisan', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                const Text('Mayıs', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                const Text('Haziran', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'İyi bir ilişkiniz var! Detaylı raporunuzu görmek için tıklayın.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () {
-                                  context.push(AppRouter.report);
-                                },
-                                child: const Text('Detaylı Raporu Gör'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
                     ),
+                    
+                    // Kategori başlıkları yukarıya biraz daha yakın olsun
+                    const Spacer(flex: 1),
+                    
+                    // Alt kategoriler değişim oranları
+                    _buildCategoryChangeRow('İletişim Kalitesi', 12, true),
+                    const SizedBox(height: 12),
+                    _buildCategoryChangeRow('Duygusal Bağ', 8, true),
+                    const SizedBox(height: 12),
+                    _buildCategoryChangeRow('Çatışma Çözümü', 15, true),
+                    
+                    // Alt kategori yazılarından sonra biraz boşluk bırakalım
+                    const Spacer(flex: 1),
                   ],
                 ),
               ),
             ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Kategoriler
-                      const Text(
-                        'Kategori Bazlı Analizler',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 16),
-                      
-                      // Örnek Kategori Kartları
-                      Expanded(
-                        child: ListView(
-                          children: [
-                            _buildCategoryCard(
-            context, 
-                              title: 'İletişim Kalitesi',
-                              value: 0.85,
-                              color: Colors.blue,
-                            ),
-                            _buildCategoryCard(
-            context, 
-                              title: 'Duygusal Bağ',
-                              value: 0.72,
-                              color: Colors.purple,
-                            ),
-                            _buildCategoryCard(
-            context, 
-                              title: 'Çatışma Çözümü',
-                              value: 0.65,
-                              color: Colors.orange,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ),
           ),
         ],
-        ),
       ),
     )
     .animate()
     .fadeIn(duration: 300.ms);
   }
   
-  Widget _buildCategoryCard(
-    BuildContext context, {
-    required String title,
-    required double value,
-    required Color color,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  // Kategori değişim satırını oluşturan yardımcı fonksiyon
+  Widget _buildCategoryChangeRow(String title, int percentage, bool isIncrease) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        Row(
           children: [
+            Icon(
+              isIncrease ? Icons.arrow_upward : Icons.arrow_downward,
+              color: isIncrease ? Colors.green : Colors.red,
+              size: 16,
+            ),
+            const SizedBox(width: 4),
             Text(
-              title,
+              '$percentage%',
               style: const TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: value,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Tavsiye Kartı Tab
+  Widget _buildAdviceCardTab(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          // App Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
               children: [
-                Text(
-                  '${(value * 100).toInt()}%',
+                const Text(
+                  'logo',
                   style: TextStyle(
-                    color: color,
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Merhaba, Zeynep',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                  onPressed: () {},
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // Tavsiye Kartı Tab
-  Widget _buildAdviceCardTab(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Scaffold(
-      backgroundColor: theme.colorScheme.primary,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            Container(
+          ),
+          
+          // Ana içerik
+          Expanded(
+            child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Text(
-                    'Tavsiye Kartları',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.favorite_border, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-            
-            // Ana içerik
-            Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF352269),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Kişiselleştirilmiş Tavsiyeler',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık, kalan sayısı ve yenile butonu
+                    Row(
+                      children: [
+                        // Başlık
+                        const Text(
+                          'Günlük AI\nTavsiyesi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'İlişkinizi güçlendirmek için günlük tavsiyeler',
-                        style: TextStyle(
-                          color: Colors.black87,
+                        const Spacer(),
+                        
+                        // Kalan tavsiye sayısı
+                        const Text(
+                          'Kalan:\n1/1',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.right,
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Tavsiye Kartları
-                      Expanded(
-                        child: PageView.builder(
-                          itemCount: 5,
-                          controller: PageController(viewportFraction: 0.9),
-                          itemBuilder: (context, index) {
-                            // Renk listesi
-                            final List<Color> cardColors = [
-                              const Color(0xFF9D59FF),
-                              const Color(0xFF4F8CF6),
-                              const Color(0xFFFF7F50),
-                              const Color(0xFF8CCF4D),
-                              const Color(0xFFE85D75),
-                            ];
-                            
-                            // Başlık listesi
-                            final List<String> titles = [
-                              'Aktif Dinleme',
-                              'Takdir Etme',
-                              'Ortak Aktiviteler',
-                              'Açık İletişim',
-                              'Destek Olma'
-                            ];
-                            
-                            // İçerik listesi
-                            final List<String> contents = [
-                              'Bugün partnerinizi daha aktif bir şekilde dinlemeyi deneyin. Göz teması kurun ve ne söylediklerini kendi cümlelerinizle tekrarlayın.',
-                              'Partnerinize bugün en az üç kez takdir ettiğiniz bir özelliğini söyleyin ve bunu neden beğendiğinizi açıklayın.',
-                              'Bu hafta sonu birlikte yapabileceğiniz yeni bir aktivite planlayın. İkinizin de daha önce denemediği bir şey seçin.',
-                              'Sizi rahatsız eden bir konuyu "Ben" dili kullanarak açıkça ifade edin. Suçlamadan ve sakin bir şekilde hislerinizi paylaşın.',
-                              'Partnerinizin zor bir durumla karşılaştığında sadece dinleyin ve çözüm önermeden önce "Nasıl yardımcı olabilirim?" diye sorun.'
-                            ];
-                          
-                            return GestureDetector(
-                              onTap: () {
-                                context.push(AppRouter.advice);
-                              },
-                              child: Card(
-                                elevation: 4,
-                                color: cardColors[index],
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                        const SizedBox(width: 16),
+                        
+                        // Yenile butonu
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade700,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Yenile',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
-                                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                                      Icon(
-                                        Icons.card_giftcard,
-                                        color: Colors.white.withOpacity(0.9),
-                                        size: 48,
-                                      ),
-                                      const SizedBox(height: 24),
-                  Text(
-                                        titles[index],
-                    style: const TextStyle(
-                                          color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                                          fontSize: 24,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Expanded(
-                                        child: Text(
-                                          contents[index],
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 24),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Tavsiye kartı
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6C5DD3),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Başlık ve simge
+                            Row(
+                              children: [
+                                const Text(
+                                  'İlişkinizi Güçlendirin',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.circle,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Tavsiye metni
+                            const Text(
+                              'Bugün partnerinizle birlikte yeni bir aktivite planlamayı deneyin. Örneğin, evde birlikte yemek yapabilir veya online bir dans dersi alabilirsiniz. Yeni deneyimler paylaşmak, ilişkinizi taze ve heyecanlı tutar.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                height: 1.5,
+                              ),
+                            ),
+                            
+                            const Spacer(),
+                            
+                            // Premium buton
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF352269),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  // Sol kısım - Premium'a Geç
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
-                                          ElevatedButton(
-                                            onPressed: () {},
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.white,
-                                              foregroundColor: cardColors[index],
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(30),
-                                              ),
-                                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                          Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF9D3FFF),
+                                              borderRadius: BorderRadius.circular(4),
                                             ),
-                                            child: const Text(
-                                              'Detaylar',
-                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                            child: const Icon(
+                                              Icons.diamond,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Premium\'a Geç',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
                                             ),
                                           ),
                                         ],
                                       ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'Sınırsız AI tavsiyesi al',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     ],
                                   ),
-        ),
-      ),
-    );
-                          },
+                                  
+                                  const Spacer(),
+                                  
+                                  // Sağ kısım - Yükselt butonu
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF9D3FFF),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.diamond,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Yükselt',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      
-                      // Sayfa indikatörü
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          5,
-                          (index) => Container(
-                            width: 10,
-                            height: 10,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: index == 0
-                                  ? theme.colorScheme.primary
-                                  : Colors.grey.shade300,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
             ),
           ),
         ],
-      ),
       ),
     )
     .animate()
@@ -789,240 +1184,288 @@ class _HomeViewState extends State<HomeView> {
 
   // Profil Tab
   Widget _buildProfileTab(BuildContext context) {
-    final theme = Theme.of(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     
-    return Scaffold(
-      backgroundColor: theme.colorScheme.primary,
-      body: SafeArea(
+    return SafeArea(
       child: Column(
         children: [
           // App Bar
-          Container(
-            padding: const EdgeInsets.all(16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                  Text(
-                    'Profil',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                const Text(
+                  'logo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
-                  const Spacer(),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Merhaba, Zeynep',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                const Spacer(),
                 IconButton(
-                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
                   onPressed: () {},
                 ),
               ],
             ),
           ),
           
-            // Ana içerik
+          // Ana içerik
           Expanded(
-            child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        // Profil Bilgileri
-                        const SizedBox(height: 24),
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.colorScheme.primary,
-                              width: 3,
-                            ),
-                          ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                            child: Icon(
-                              Icons.person,
-                              size: 50,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Profil Bilgileri
+                    const SizedBox(height: 24),
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3,
                         ),
-                        const SizedBox(height: 16),
-                        FutureBuilder<User?>(
-                          future: Future.value(FirebaseAuth.instance.currentUser),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const CircularProgressIndicator();
-                            }
-                            
-                            final user = snapshot.data;
-                            final displayName = user?.displayName ?? 'İsimsiz Kullanıcı';
-                            final email = user?.email ?? '';
-                            
-                            return Column(
-                              children: [
-                                Text(
-                                  displayName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 24,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  email,
-                                  style: const TextStyle(
-                                    color: Colors.black54,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
+                      ),
+                      child: const CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Color(0xFF352269),
+                        child: Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.white,
                         ),
-                        const SizedBox(height: 24),
-                        
-                        // Üyelik Bilgileri
-                        Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-              children: [
-                                ListTile(
-                                  leading: Icon(
-                                    Icons.workspace_premium,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                  title: const Text('Premium Üyelik'),
-                                  subtitle: const Text('Aktif - 12.05.2023 tarihinde yenileniyor'),
-                                ),
-                                const Divider(),
-                                ListTile(
-                                  leading: Icon(
-                                    Icons.insights,
-                    color: theme.colorScheme.primary,
-                                  ),
-                                  title: const Text('Yapılan Analizler'),
-                                  subtitle: const Text('22 analiz'),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Hesap Ayarları
-                        const Text(
-                          'Hesap Ayarları',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                              ListTile(
-                                leading: const Icon(Icons.person_outline),
-                                title: const Text('Hesap Bilgileri'),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () {},
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.notifications_outlined),
-                                title: const Text('Bildirim Ayarları'),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () {},
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.security_outlined),
-                                title: const Text('Gizlilik ve Güvenlik'),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () {},
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.support_outlined),
-                                title: const Text('Yardım ve Destek'),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () {},
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: Icon(
-                                  Icons.logout,
-                                  color: Colors.red.shade400,
-                                ),
-                                title: Text(
-                                  'Çıkış Yap',
-                  style: TextStyle(
-                                    color: Colors.red.shade400,
-                  ),
-                                ),
-                                onTap: () async {
-                                  final shouldLogout = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Çıkış Yap'),
-                                      content: const Text('Çıkış yapmak istediğinizden emin misiniz?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(false),
-                                          child: const Text('İptal'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(true),
-                                          child: const Text('Çıkış Yap'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  
-                                  if (shouldLogout == true) {
-                                    await authViewModel.signOut();
-                                    if (context.mounted) {
-                                      context.go('/onboarding');
-                                    }
-                                  }
-                                },
-                ),
-              ],
-            ),
-          ),
-                        
-                        const SizedBox(height: 24),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<User?>(
+                      future: Future.value(FirebaseAuth.instance.currentUser),
+                      builder: (context, snapshot) {
+                        final displayName = snapshot.data?.displayName ?? 'Zeynep';
+                        final email = snapshot.data?.email ?? 'zeynep@example.com';
+                        
+                        return Column(
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              email,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Profil Ayarları
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF352269),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildProfileMenuItem(
+                            icon: Icons.person_outline,
+                            title: 'Hesap Bilgileri',
+                          ),
+                          const Divider(height: 1, color: Colors.white24),
+                          _buildProfileMenuItem(
+                            icon: Icons.notifications_outlined,
+                            title: 'Bildirim Ayarları',
+                          ),
+                          const Divider(height: 1, color: Colors.white24),
+                          _buildProfileMenuItem(
+                            icon: Icons.security_outlined,
+                            title: 'Gizlilik ve Güvenlik',
+                          ),
+                          const Divider(height: 1, color: Colors.white24),
+                          _buildProfileMenuItem(
+                            icon: Icons.support_outlined,
+                            title: 'Yardım ve Destek',
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Çıkış Butonu
+                    TextButton.icon(
+                      onPressed: () async {
+                        final shouldLogout = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: const Color(0xFF352269),
+                            title: const Text(
+                              'Çıkış Yap',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            content: const Text(
+                              'Çıkış yapmak istediğinizden emin misiniz?',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text(
+                                  'İptal',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text(
+                                  'Çıkış Yap',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        if (shouldLogout == true) {
+                          await authViewModel.signOut();
+                          if (context.mounted) {
+                            context.go('/onboarding');
+                          }
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.logout,
+                        color: Colors.white70,
+                      ),
+                      label: const Text(
+                        'Çıkış Yap',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
         ],
-      ),
       ),
     )
     .animate()
     .fadeIn(duration: 300.ms);
   }
+
+  Widget _buildProfileMenuItem({
+    required IconData icon,
+    required String title,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: Colors.white70,
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        color: Colors.white70,
+        size: 16,
+      ),
+      onTap: () {},
+    );
+  }
+
+  Widget _buildCategoryCard(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required double value,
+    required Color color,
+    required double width,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: value,
+            backgroundColor: Colors.white.withOpacity(0.2),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  description,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+              Text(
+                '${(value * 100).toInt()}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 } 
+
