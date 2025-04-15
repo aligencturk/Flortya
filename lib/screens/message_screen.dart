@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:your_app/viewmodels/auth_viewmodel.dart';
-import 'package:your_app/viewmodels/message_viewmodel.dart';
-import 'package:your_app/models/message.dart';
+
+import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/message_viewmodel.dart';
+
 
 class MessageScreen extends StatefulWidget {
   // ... (existing code)
@@ -47,11 +48,42 @@ class _MessageScreenState extends State<MessageScreen> {
     }
     
     // Mesajı direkt olarak viewmodel üzerinden ekle ve analiz et
-    await messageViewModel.addMessage(text, userId);
+    await messageViewModel.addMessage(text);
   }
 
   @override
   Widget build(BuildContext context) {
+    final messageViewModel = Provider.of<MessageViewModel>(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mesajlar'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: messageViewModel.messages.length,
+              itemBuilder: (context, index) {
+                final message = messageViewModel.messages[index];
+                return ListTile(
+                  title: Text(message.content),
+                );
+              },
+            ),
+          ),
+          TextField(
+            controller: _messageController,
+            decoration: const InputDecoration(
+              hintText: 'Mesaj yazın...',
+            ),
+          ),
+          ElevatedButton(
+            onPressed: _handleSendMessage,
+            child: const Text('Gönder'),
+          ),
+        ],
+      ),
+    );
+  }
     // ... (existing code)
   }
-} 
