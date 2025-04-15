@@ -256,9 +256,9 @@ class _HomeViewState extends State<HomeView> {
     final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
     return SafeArea(
-      child: Column(
-        children: [
-          // App Bar
+        child: Column(
+          children: [
+            // App Bar
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -361,20 +361,20 @@ class _HomeViewState extends State<HomeView> {
                       color: const Color(0xFF352269),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Column(
-                      children: [
-                        const Text(
+                child: Column(
+                  children: [
+                      const Text(
                           'İlişki Uyum Puanı',
-                          style: TextStyle(
+                        style: TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
                         ),
+                      ),
                         const SizedBox(height: 24),
                         Stack(
                           alignment: Alignment.center,
-                          children: [
+                        children: [
                             SizedBox(
                               width: 120,
                               height: 120,
@@ -389,25 +389,25 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                               ),
                             ),
-                            Text(
+                          Text(
                               analizSonucu != null 
                                 ? '${analizSonucu.iliskiPuani}%' 
                                 : 'Analiz\nYapılmamış',
-                              style: TextStyle(
+                            style: TextStyle(
                                 fontSize: analizSonucu != null ? 32 : 18,
-                                fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                              ),
-                              textAlign: TextAlign.center,
                             ),
+                            textAlign: TextAlign.center,
+                          ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Text(
+                              Text(
                           analizSonucu != null 
                             ? _getScoreText(analizSonucu.iliskiPuani)
                             : 'İlişkinizi analiz etmek için bir mesaj gönderin',
-                          style: TextStyle(
+                                style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
                             fontSize: 16,
                           ),
@@ -428,8 +428,8 @@ class _HomeViewState extends State<HomeView> {
                                       'Önceki Analize Göre',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.7),
-                                        fontSize: 14,
-                                      ),
+                            fontSize: 14,
+                                ),
                                     ),
                                     _buildChangeIndicator(
                                       context,
@@ -437,8 +437,8 @@ class _HomeViewState extends State<HomeView> {
                                         homeController.analizGecmisi[homeController.analizGecmisi.length - 2].iliskiPuani
                                     ),
                                   ],
-                                ),
-                                const SizedBox(height: 16),
+                              ),
+                              const SizedBox(height: 16),
                                 SizedBox(
                                   height: 60,
                                   width: double.infinity,
@@ -454,23 +454,23 @@ class _HomeViewState extends State<HomeView> {
                                   ),
                                 ),
                               ],
+                                ),
+                              ),
+                            ],
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
                   
                   // Kategori Analiz Kartları
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Kategori Analizleri',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        'Kategori Analizleri',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                    ),
                   ),
                   
                   SizedBox(
@@ -508,27 +508,27 @@ class _HomeViewState extends State<HomeView> {
                       : Center(
                           child: Text(
                             'Önce bir analiz yapmanız gerekiyor',
-                            style: TextStyle(
+                                style: TextStyle(
                               color: Colors.white.withOpacity(0.7),
-                              fontSize: 16,
-                            ),
+                                  fontSize: 16,
+                                ),
                           ),
                         ),
                   ),
-                  
-                  const SizedBox(height: 24),
+                      
+                      const SizedBox(height: 24),
                   
                   // Kişiselleştirilmiş Tavsiyeler
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Kişiselleştirilmiş Tavsiyeler',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        'Kişiselleştirilmiş Tavsiyeler',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                    ),
                   ),
                   
                   // Tavsiye Kartları
@@ -640,9 +640,9 @@ class _HomeViewState extends State<HomeView> {
             ),
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -653,22 +653,22 @@ class _HomeViewState extends State<HomeView> {
     final icon = isPositive ? Icons.arrow_upward : (change < 0 ? Icons.arrow_downward : Icons.remove);
     
     return Row(
-      children: [
+              children: [
         Icon(
           icon,
           color: color,
           size: 14,
         ),
         const SizedBox(width: 2),
-        Text(
+          Text(
           '${change.abs()}%',
-          style: TextStyle(
+            style: TextStyle(
             color: color,
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+              fontSize: 14,
+            ),
           ),
-        ),
-      ],
+        ],
     );
   }
 
@@ -686,59 +686,59 @@ class _HomeViewState extends State<HomeView> {
         _showAdviceDetail(context, title, advice, color, icon);
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
+      decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: [
-                Container(
+        children: [
+          Container(
                   width: 40,
                   height: 40,
-                  decoration: BoxDecoration(
+            decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
+            ),
+            child: Icon(
                     icon,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
+                ),
+                const SizedBox(height: 4),
+                Text(
                         advice,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                  style: const TextStyle(
+                    color: Colors.white70,
                           fontSize: 14,
-                        ),
+                  ),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
                 ),
               ],
+            ),
+          ),
+        ],
             ),
             // Daha fazla oku göstergesi
             Align(
@@ -760,7 +760,7 @@ class _HomeViewState extends State<HomeView> {
       ),
     );
   }
-  
+
   // Tavsiye detayı dialog
   void _showAdviceDetail(BuildContext context, String title, String advice, Color color, IconData icon) {
     // Tutarlılık için aynı renk ve ikonları kullan - değiştirme

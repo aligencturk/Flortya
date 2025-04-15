@@ -12,9 +12,10 @@ class ReportViewModel extends ChangeNotifier {
     'İlişkinizde sizi en çok ne mutlu ediyor?',
     'İlişkinizde gelecek beklentileriniz neler?',
     'İlişkinizde değiştirmek istediğiniz bir şey var mı?',
+    'İlişkinizde ne sıklıkla görüşüyorsunuz?',
   ];
   
-  List<String> _answers = ['', '', '', '', ''];
+  List<String> _answers = ['', '', '', '', '', ''];
   int _currentQuestionIndex = 0;
   Map<String, dynamic>? _reportResult;
   bool _isLoading = false;
@@ -234,7 +235,7 @@ class ReportViewModel extends ChangeNotifier {
 
   // Raporu sıfırlama
   void resetReport() {
-    _answers = ['', '', '', '', ''];
+    _answers = ['', '', '', '', '', ''];
     _currentQuestionIndex = 0;
     _reportResult = null;
     _comments = [];

@@ -452,6 +452,16 @@ class AiService {
   // İlişki raporu oluşturma
   Future<Map<String, dynamic>> generateRelationshipReport(List<String> answers) async {
     try {
+      // Güvenli bir şekilde cevaplara eriş (en az 6 elemanlı olduğunu kontrol et)
+      if (answers.length < 6) {
+        // Yetersiz cevap varsa, eksik olanları boş string ile doldur
+        final safeAnswers = List<String>.from(answers);
+        while (safeAnswers.length < 6) {
+          safeAnswers.add('');
+        }
+        answers = safeAnswers;
+      }
+    
       // Gemini API'ye istek gönderme
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
