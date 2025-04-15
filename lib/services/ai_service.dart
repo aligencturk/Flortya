@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
+import '../models/user_model.dart';
 import 'logger_service.dart';
 
 class AiService {
@@ -860,5 +861,294 @@ class AiService {
       return list.map((item) => item.toString()).toList();
     }
     return [];
+  }
+
+  /// İlişki durumu analizi yapan fonksiyon
+  Future<AnalizSonucu> iliskiDurumuAnaliziYap(String userId, Map<String, dynamic> analizVerileri) async {
+    try {
+      _logger.i('İlişki durumu analizi yapılıyor...');
+      
+      // Analiz verilerini kullanarak AI'a gönderilecek istek oluşturma
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki analisti olarak çalışıyorsun. Kullanıcının gönderdiği veriler üzerinden ilişki durumu analizi yapacaksın.
+                
+                Analiz verileri:
+                ${jsonEncode(analizVerileri)}
+                
+                Lütfen aşağıdaki JSON formatında bir analiz sonucu döndür:
+                {
+                  "iliskiPuani": 0-100 arası bir puan (ilişkinin genel sağlık puanı),
+                  "kategoriPuanlari": {
+                    "iletisim": 0-100 arası bir puan,
+                    "guven": 0-100 arası bir puan,
+                    "uyum": 0-100 arası bir puan,
+                    "saygı": 0-100 arası bir puan,
+                    "destek": 0-100 arası bir puan
+                  },
+                  "kisiselestirilmisTavsiyeler": [
+                    "İlişkiyi geliştirmek için tavsiye 1",
+                    "İlişkiyi geliştirmek için tavsiye 2",
+                    "İlişkiyi geliştirmek için tavsiye 3"
+                  ]
+                }
+                
+                Verilen puanlar ve tavsiyeler tamamen verilere dayalı olmalı ve gerçekçi olmalıdır.
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.4,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('İlişki analizi API isteği: $_geminiApiUrl');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          throw Exception('Analiz sonucu alınamadı');
+        }
+        
+        // JSON yanıtı ayrıştırma
+        try {
+          Map<String, dynamic> jsonResponse = _parseJsonFromText(aiContent);
+          
+          // Analiz sonucunu oluştur
+          return AnalizSonucu(
+            iliskiPuani: jsonResponse['iliskiPuani'] ?? 50,
+            kategoriPuanlari: Map<String, int>.from(jsonResponse['kategoriPuanlari'] ?? {}),
+            tarih: DateTime.now(),
+            kisiselestirilmisTavsiyeler: List<String>.from(jsonResponse['kisiselestirilmisTavsiyeler'] ?? []),
+          );
+        } catch (e) {
+          _logger.e('JSON ayrıştırma hatası', e);
+          
+          // Hata durumunda varsayılan bir analiz sonucu dön
+          return AnalizSonucu(
+            iliskiPuani: 50,
+            kategoriPuanlari: {
+              'iletisim': 50,
+              'guven': 50,
+              'uyum': 50,
+              'saygı': 50,
+              'destek': 50,
+            },
+            tarih: DateTime.now(),
+            kisiselestirilmisTavsiyeler: [
+              'Verilere dayalı analiz yapılamadı. Lütfen daha fazla veri sağlayın.',
+              'Düzenli iletişim kurmaya devam edin.',
+              'İlişkinizde karşılıklı saygıyı koruyun.'
+            ],
+          );
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        throw Exception('Analiz sonucu alınamadı. API hatası: ${response.statusCode}');
+      }
+    } catch (e) {
+      _logger.e('İlişki analizi hatası', e);
+      rethrow;
+    }
+  }
+  
+  /// Kişiselleştirilmiş tavsiyeler oluşturma
+  Future<List<String>> kisisellestirilmisTavsiyelerOlustur(
+    int iliskiPuani, 
+    Map<String, int> kategoriPuanlari,
+    Map<String, dynamic> kullaniciVerileri
+  ) async {
+    try {
+      _logger.i('Kişiselleştirilmiş tavsiyeler oluşturuluyor...');
+      
+      // Tavsiye oluşturmak için AI'a istek gönderme
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki terapistisin. Kullanıcının ilişki durumu analizine göre kişiselleştirilmiş tavsiyeler oluşturacaksın.
+                
+                İlişki puanı: $iliskiPuani
+                Kategori puanları: ${jsonEncode(kategoriPuanlari)}
+                Kullanıcı verileri: ${jsonEncode(kullaniciVerileri)}
+                
+                Lütfen bu analiz sonuçlarına göre, ilişkiyi geliştirmek için 5 tane spesifik ve uygulanabilir tavsiye öner.
+                Her tavsiye kısa, net ve uygulanabilir olmalıdır.
+                
+                Yanıtı sadece JSON formatında döndür:
+                ["Tavsiye 1", "Tavsiye 2", "Tavsiye 3", "Tavsiye 4", "Tavsiye 5"]
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return _varsayilanTavsiyelerGetir(kategoriPuanlari);
+        }
+        
+        // JSON yanıtı ayrıştırma
+        try {
+          final List<dynamic> jsonResponse = jsonDecode(aiContent);
+          return jsonResponse.map((item) => item.toString()).toList();
+        } catch (e) {
+          _logger.e('JSON ayrıştırma hatası', e);
+          
+          // Metinden tavsiyeleri ayıklamaya çalış
+          final tavsiyeler = _metnindenTavsiyeleriAyikla(aiContent);
+          if (tavsiyeler.isNotEmpty) {
+            return tavsiyeler;
+          }
+          
+          return _varsayilanTavsiyeleriGetir(kategoriPuanlari);
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return _varsayilanTavsiyeleriGetir(kategoriPuanlari);
+      }
+    } catch (e) {
+      _logger.e('Tavsiye oluşturma hatası', e);
+      return _varsayilanTavsiyeleriGetir(kategoriPuanlari);
+    }
+  }
+  
+  /// Metinden tavsiyeleri ayıklama
+  List<String> _metnindenTavsiyeleriAyikla(String metin) {
+    final List<String> tavsiyeler = [];
+    
+    // Olası liste formatlarını tanımla
+    final listeDesenleri = [
+      RegExp(r'\d+\.\s*(.+)'), // 1. Tavsiye
+      RegExp(r'[\*\-]\s*(.+)'), // * Tavsiye or - Tavsiye
+      RegExp(r'"([^"]+)"'),     // "Tavsiye"
+      RegExp(r'''\s*(.+)'''),   // 'Tavsiye'
+    ];
+    
+    // Her satırı kontrol et
+    final satirlar = metin.split('\n');
+    for (final satir in satirlar) {
+      final temizSatir = satir.trim();
+      if (temizSatir.isEmpty) continue;
+      
+      // Desenleri kontrol et
+      bool bulundu = false;
+      for (final desen in listeDesenleri) {
+        final match = desen.firstMatch(temizSatir);
+        if (match != null && match.groupCount >= 1) {
+          final tavsiye = match.group(1)?.trim();
+          if (tavsiye != null && tavsiye.isNotEmpty) {
+            tavsiyeler.add(tavsiye);
+            bulundu = true;
+            break;
+          }
+        }
+      }
+      
+      // Eğer desen uymadıysa ve satır yeterince uzunsa, doğrudan ekle
+      if (!bulundu && temizSatir.length > 10 && temizSatir.length < 150) {
+        tavsiyeler.add(temizSatir);
+      }
+    }
+    
+    return tavsiyeler;
+  }
+  
+  /// Varsayılan tavsiyeleri alma
+  List<String> _varsayilanTavsiyeleriGetir(Map<String, int> kategoriPuanlari) {
+    // En düşük puana sahip kategorileri bul
+    final sortedKategories = kategoriPuanlari.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    
+    final List<String> tavsiyeler = [];
+    
+    // Tüm kategoriler için varsayılan tavsiyeler
+    final Map<String, List<String>> kategoriTavsiyeleri = {
+      'iletisim': [
+        'Her gün en az 20 dakika kesintisiz sohbet etmeye zaman ayırın.',
+        'Karşınızdakini dinlerken telefonu bir kenara bırakın.',
+        'Düzenli olarak beklentilerinizi ve ihtiyaçlarınızı açıkça ifade edin.',
+      ],
+      'guven': [
+        'Söz verdiğinizde tutmaya özen gösterin, tutamayacağınız sözler vermeyin.',
+        'Partnerinizin kişisel alanına ve sınırlarına saygı gösterin.',
+        'Zor zamanlarda bile dürüst kalmaya özen gösterin.',
+      ],
+      'uyum': [
+        'Haftalık aktivite planı yapın ve ortak kararlar alın.',
+        'Farklılıklarınızı anlayış ve saygıyla karşılayın.',
+        'Ortak hobiler edinmeye çalışın.',
+      ],
+      'saygı': [
+        'Tartışmalar sırasında bile aşağılayıcı sözlerden kaçının.',
+        'Partnerinizin fikirlerine değer verdiğinizi gösterin.',
+        'Birbirinizin başarılarını kutlamayı ihmal etmeyin.',
+      ],
+      'destek': [
+        'Zorlu günlerde yanında olduğunuzu hissettirin.',
+        'Partnerinizin hedeflerini destekleyin ve cesaretlendirin.',
+        'Onun için önemli olan şeylere ilgi gösterin.',
+      ],
+    };
+    
+    // En düşük 2 kategoriden tavsiyeler ekle
+    for (int i = 0; i < min(2, sortedKategories.length); i++) {
+      final kategori = sortedKategories[i].key;
+      final kategoriTavsiye = kategoriTavsiyeleri[kategori];
+      if (kategoriTavsiye != null && kategoriTavsiye.isNotEmpty) {
+        tavsiyeler.add(kategoriTavsiye.first);
+      }
+    }
+    
+    // Genel tavsiyeler ekle
+    tavsiyeler.addAll([
+      'Düzenli tarih geceleri planlayın ve bu zamanı özel tutun.',
+      'Partnerinize minnettarlığınızı düzenli olarak ifade edin.',
+      'Sorunları büyümeden çözmeye çalışın ve gerekirse profesyonel destek alın.',
+    ]);
+    
+    // En fazla 5 tavsiye döndür
+    return tavsiyeler.take(5).toList();
   }
 } 

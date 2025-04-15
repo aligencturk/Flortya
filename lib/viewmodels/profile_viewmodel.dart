@@ -3,11 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/ai_service.dart';
 
 class ProfileViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthService _authService = AuthService();
+  final AiService _aiService = AiService();
   
   UserModel? _user;
   Map<String, dynamic>? _userProfile;
@@ -330,5 +332,94 @@ class ProfileViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Yeni bir analiz sonucu ekleyerek kullanıcı profilini günceller
+  Future<bool> analizSonucuIleProfilGuncelle(Map<String, dynamic> analizVerileri) async {
+    if (_auth.currentUser == null || _user == null) return false;
+    
+    _setLoading(true);
+    try {
+      // Analiz sonucu oluştur
+      final analizSonucu = await _aiService.iliskiDurumuAnaliziYap(
+        _auth.currentUser!.uid, 
+        analizVerileri
+      );
+      
+      // Kullanıcı modelini güncelle
+      final UserModel guncelKullanici = _user!.analizSonucuEkle(analizSonucu);
+      
+      // Firestore'a kaydet
+      await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+        'sonAnalizSonucu': analizSonucu.toMap(),
+        'analizGecmisi': FieldValue.arrayUnion([analizSonucu.toMap()]),
+      });
+      
+      // Yerel kullanıcı nesnesini güncelle
+      _user = guncelKullanici;
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Analiz sonucu güncellenirken hata oluştu: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  /// Kullanıcının en son analiz sonucunu yeniden değerlendirir
+  /// ve kişiselleştirilmiş tavsiyeleri günceller
+  Future<bool> kisiselestirilmisTavsiyeleriGuncelle() async {
+    if (_auth.currentUser == null || _user == null || _user!.sonAnalizSonucu == null) {
+      return false;
+    }
+    
+    _setLoading(true);
+    try {
+      final sonAnalizSonucu = _user!.sonAnalizSonucu!;
+      
+      // Kullanıcı verilerini hazırla
+      final Map<String, dynamic> kullaniciVerileri = {
+        'displayName': _user!.displayName,
+        'preferences': _user!.preferences,
+      };
+      
+      // Yeni tavsiyeler oluştur
+      final yeniTavsiyeler = await _aiService.kisisellestirilmisTavsiyelerOlustur(
+        sonAnalizSonucu.iliskiPuani,
+        sonAnalizSonucu.kategoriPuanlari,
+        kullaniciVerileri
+      );
+      
+      // Yeni analiz sonucu oluştur
+      final yeniAnalizSonucu = AnalizSonucu(
+        iliskiPuani: sonAnalizSonucu.iliskiPuani,
+        kategoriPuanlari: sonAnalizSonucu.kategoriPuanlari,
+        tarih: DateTime.now(),
+        kisiselestirilmisTavsiyeler: yeniTavsiyeler,
+      );
+      
+      // Kullanıcı modelini güncelle
+      final UserModel guncelKullanici = _user!.copyWith(
+        sonAnalizSonucu: yeniAnalizSonucu,
+      );
+      
+      // Firestore'a kaydet
+      await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+        'sonAnalizSonucu': yeniAnalizSonucu.toMap(),
+      });
+      
+      // Yerel kullanıcı nesnesini güncelle
+      _user = guncelKullanici;
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Tavsiyeler güncellenirken hata oluştu: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 } 
