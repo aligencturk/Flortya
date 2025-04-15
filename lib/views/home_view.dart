@@ -149,22 +149,22 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         child: PageView(
-          controller: _pageController,
-          onPageChanged: _onPageChanged,
-          physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
-          children: [
-            // Mesaj Analizi Tab
-            _buildMessageAnalysisTab(context),
-            
-            // İlişki Raporu Tab
-            _buildRelationshipReportTab(context),
-            
-            // Tavsiye Kartı Tab
-            _buildAdviceCardTab(context),
-            
-            // Profil Tab
-            _buildProfileTab(context),
-          ],
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
+        children: [
+          // Mesaj Analizi Tab
+          _buildMessageAnalysisTab(context),
+          
+          // İlişki Raporu Tab
+          _buildRelationshipReportTab(context),
+          
+          // Tavsiye Kartı Tab
+          _buildAdviceCardTab(context),
+          
+          // Profil Tab
+          _buildProfileTab(context),
+        ],
         ),
       ),
       bottomNavigationBar: Container(
@@ -242,18 +242,18 @@ class _HomeViewState extends State<HomeView> {
     });
     
     return SafeArea(
-      child: Column(
-        children: [
-          // App Bar
+        child: Column(
+          children: [
+            // App Bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
                 const Text(
                   'logo',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
                 ),
@@ -271,22 +271,22 @@ class _HomeViewState extends State<HomeView> {
                     );
                   },
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                  onPressed: () {},
-                ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                    onPressed: () {},
+                  ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ],
+                    onPressed: () {},
+                  ),
+                ],
+              ),
             ),
-          ),
-          
-          // Ana içerik
-          Expanded(
-            child: Padding(
+            
+            // Ana içerik
+            Expanded(
+                child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ListView(
                 children: [
@@ -298,20 +298,20 @@ class _HomeViewState extends State<HomeView> {
                       color: const Color(0xFF352269),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Column(
-                      children: [
-                        const Text(
+                child: Column(
+                  children: [
+                      const Text(
                           'İlişki Uyum Puanı',
-                          style: TextStyle(
+                        style: TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
                         ),
+                      ),
                         const SizedBox(height: 24),
                         Stack(
                           alignment: Alignment.center,
-                          children: [
+                        children: [
                             SizedBox(
                               width: 120,
                               height: 120,
@@ -322,44 +322,44 @@ class _HomeViewState extends State<HomeView> {
                                 valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF4FD8)),
                               ),
                             ),
-                            const Text(
+                          const Text(
                               '78%',
-                              style: TextStyle(
+                            style: TextStyle(
                                 fontSize: 32,
-                                fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                              ),
                             ),
+                          ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                              const Text(
                           'Son analiz: 15 Nisan 2025',
-                          style: TextStyle(
+                                style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            messageViewModel.clearCurrentMessage();
-                            context.push(AppRouter.messageAnalysis);
-                          },
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  messageViewModel.clearCurrentMessage();
+                                  context.push(AppRouter.messageAnalysis);
+                                },
                           icon: const Icon(Icons.add_circle_outline),
                           label: const Text('Yeni Analiz Başlat'),
-                          style: ElevatedButton.styleFrom(
+                                style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF9D3FFF),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                                ),
+                              ),
+                            ],
+                              ),
+                            ),
                   
                   // Kategori Analizleri Başlık
                   const Text(
@@ -416,22 +416,22 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ],
                     ),
-                  ),
-                  
-                  const SizedBox(height: 24),
+                          ),
+                      
+                      const SizedBox(height: 24),
                   
                   // Son Analizler Başlık
-                  const Text(
-                    'Son Analizler',
-                    style: TextStyle(
+                      const Text(
+                        'Son Analizler',
+                        style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
                   
-                  const SizedBox(height: 16),
-                  
+                      const SizedBox(height: 16),
+                      
                   // Son Analizler
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -442,9 +442,9 @@ class _HomeViewState extends State<HomeView> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Column(
+                            child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                              children: [
                               const Text(
                                 '8 Nisan 2025',
                                 style: TextStyle(
@@ -465,7 +465,7 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         Row(
                           children: [
-                            const Text(
+                                const Text(
                               '74%',
                               style: TextStyle(
                                 color: Colors.white,
@@ -488,8 +488,8 @@ class _HomeViewState extends State<HomeView> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: const Color(0xFF352269),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                     child: Row(
                       children: [
                         Expanded(
@@ -688,18 +688,18 @@ class _HomeViewState extends State<HomeView> {
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      ],
-                    ),
+                  ],
                   ),
+                ),
+                      ],
+              ),
+            ),
                   
                   const SizedBox(height: 100), // Boşluk ekleyerek alt navigationbar'ın üzerindeki içeriği görelim
-                ],
-              ),
+          ],
+        ),
             ),
           ),
         ],
@@ -717,18 +717,18 @@ class _HomeViewState extends State<HomeView> {
   // İlişki Raporu Tab
   Widget _buildRelationshipReportTab(BuildContext context) {
     return SafeArea(
-      child: Column(
-        children: [
-          // App Bar
+        child: Column(
+          children: [
+            // App Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
+              child: Row(
+                children: [
                 const Text(
                   'logo',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
                 ),
@@ -738,23 +738,23 @@ class _HomeViewState extends State<HomeView> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
+                  const Spacer(),
+                  IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
                   onPressed: () {},
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ],
+                    onPressed: () {},
+                  ),
+                ],
+              ),
             ),
-          ),
-          
-          // Ana içerik
-          Expanded(
+            
+            // Ana içerik
+            Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Container(
@@ -763,47 +763,17 @@ class _HomeViewState extends State<HomeView> {
                   color: const Color(0xFF352269),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Başlık ve Değerlendirme Düğmesi
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'İlişki Gelişim\nRaporu',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 22,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF9D3FFF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.favorite,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                'İlişki Değerlendirmesi',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    // Başlık
+                    const Text(
+                      'İlişki Gelişim\nRaporu',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                      ),
                     ),
                     
                     const SizedBox(height: 24),
@@ -867,8 +837,39 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ),
                     
-                    // Kategori başlıkları yukarıya biraz daha yakın olsun
-                    const Spacer(flex: 1),
+                    const SizedBox(height: 16),
+                    
+                    // İlişki Değerlendirmesi Butonu - Buraya taşındı
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9D3FFF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min, // Buton içeriği kadar yer kaplasın
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'İlişki Değerlendirmesi',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
                     
                     // Alt kategoriler değişim oranları
                     _buildCategoryChangeRow('İletişim Kalitesi', 12, true),
@@ -895,51 +896,51 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildCategoryChangeRow(String title, int percentage, bool isIncrease) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-          ),
-        ),
-        Row(
           children: [
+            Text(
+              title,
+              style: const TextStyle(
+            color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+        Row(
+              children: [
             Icon(
               isIncrease ? Icons.arrow_upward : Icons.arrow_downward,
               color: isIncrease ? Colors.green : Colors.red,
               size: 16,
             ),
             const SizedBox(width: 4),
-            Text(
+                Text(
               '$percentage%',
               style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                 fontSize: 16,
-              ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
     );
   }
-
+  
   // Tavsiye Kartı Tab
   Widget _buildAdviceCardTab(BuildContext context) {
     return SafeArea(
-      child: Column(
-        children: [
-          // App Bar
+        child: Column(
+          children: [
+            // App Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
+              child: Row(
+                children: [
                 const Text(
                   'logo',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
                 ),
@@ -949,23 +950,23 @@ class _HomeViewState extends State<HomeView> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
+                  const Spacer(),
+                  IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
                   onPressed: () {},
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ],
+                    onPressed: () {},
+                  ),
+                ],
+              ),
             ),
-          ),
-          
-          // Ana içerik
-          Expanded(
+            
+            // Ana içerik
+            Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Container(
@@ -974,27 +975,27 @@ class _HomeViewState extends State<HomeView> {
                   color: const Color(0xFF352269),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     // Başlık, kalan sayısı ve yenile butonu
                     Row(
                       children: [
                         // Başlık
-                        const Text(
+                      const Text(
                           'Günlük AI\nTavsiyesi',
-                          style: TextStyle(
+                        style: TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                             fontSize: 22,
-                          ),
                         ),
+                      ),
                         const Spacer(),
                         
                         // Kalan tavsiye sayısı
-                        const Text(
+                      const Text(
                           'Kalan:\n1/1',
-                          style: TextStyle(
+                        style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
                             height: 1.5,
@@ -1040,19 +1041,19 @@ class _HomeViewState extends State<HomeView> {
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: const Color(0xFF6C5DD3),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                             // Başlık ve simge
                             Row(
                               children: [
                                 const Text(
                                   'İlişkinizi Güçlendirin',
                                   style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                      fontWeight: FontWeight.bold,
                                     fontSize: 18,
                                   ),
                                 ),
@@ -1072,14 +1073,14 @@ class _HomeViewState extends State<HomeView> {
                               ],
                             ),
                             
-                            const SizedBox(height: 16),
+                                      const SizedBox(height: 16),
                             
                             // Tavsiye metni
                             const Text(
                               'Bugün partnerinizle birlikte yeni bir aktivite planlamayı deneyin. Örneğin, evde birlikte yemek yapabilir veya online bir dans dersi alabilirsiniz. Yeni deneyimler paylaşmak, ilişkinizi taze ve heyecanlı tutar.',
-                              style: TextStyle(
+                                          style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 16,
+                      fontSize: 16,
                                 height: 1.5,
                               ),
                             ),
@@ -1121,9 +1122,9 @@ class _HomeViewState extends State<HomeView> {
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
                                             ),
-                                          ),
-                                        ],
                                       ),
+                                    ],
+                                  ),
                                       const SizedBox(height: 4),
                                       const Text(
                                         'Sınırsız AI tavsiyesi al',
@@ -1140,7 +1141,7 @@ class _HomeViewState extends State<HomeView> {
                                   // Sağ kısım - Yükselt butonu
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                    decoration: BoxDecoration(
+                            decoration: BoxDecoration(
                                       color: const Color(0xFF9D3FFF),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -1158,16 +1159,16 @@ class _HomeViewState extends State<HomeView> {
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                  ),
+                ),
+              ],
+            ),
+          ),
                                 ],
-                              ),
-                            ),
-                          ],
-                        ),
+            ),
+          ),
+        ],
+      ),
                       ),
                     ),
                   ],
@@ -1197,8 +1198,8 @@ class _HomeViewState extends State<HomeView> {
                 const Text(
                   'logo',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
                 ),
@@ -1208,77 +1209,77 @@ class _HomeViewState extends State<HomeView> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
+                    ),
                   ),
-                ),
-                const Spacer(),
+                  const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
                   onPressed: () {},
                 ),
               ],
             ),
           ),
           
-          // Ana içerik
+            // Ana içerik
           Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
+                child: SingleChildScrollView(
+                  child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    // Profil Bilgileri
-                    const SizedBox(height: 24),
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
+                    child: Column(
+                      children: [
+                        // Profil Bilgileri
+                        const SizedBox(height: 24),
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
                           color: Colors.white,
-                          width: 3,
-                        ),
-                      ),
+                              width: 3,
+                            ),
+                          ),
                       child: const CircleAvatar(
-                        radius: 50,
+                            radius: 50,
                         backgroundColor: Color(0xFF352269),
-                        child: Icon(
-                          Icons.person,
-                          size: 50,
+                            child: Icon(
+                              Icons.person,
+                              size: 50,
                           color: Colors.white,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<User?>(
-                      future: Future.value(FirebaseAuth.instance.currentUser),
-                      builder: (context, snapshot) {
+                        const SizedBox(height: 16),
+                        FutureBuilder<User?>(
+                          future: Future.value(FirebaseAuth.instance.currentUser),
+                          builder: (context, snapshot) {
                         final displayName = snapshot.data?.displayName ?? 'Zeynep';
                         final email = snapshot.data?.email ?? 'zeynep@example.com';
-                        
-                        return Column(
-                          children: [
-                            Text(
-                              displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 24,
+                            
+                            return Column(
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
                                 color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              email,
-                              style: const TextStyle(
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  email,
+                                  style: const TextStyle(
                                 color: Colors.white70,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                     const SizedBox(height: 32),
                     
                     // Profil Ayarları
@@ -1286,10 +1287,10 @@ class _HomeViewState extends State<HomeView> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: const Color(0xFF352269),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                            child: Column(
+              children: [
                           _buildProfileMenuItem(
                             icon: Icons.person_outline,
                             title: 'Hesap Bilgileri',
@@ -1310,17 +1311,17 @@ class _HomeViewState extends State<HomeView> {
                             title: 'Yardım ve Destek',
                           ),
                         ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
+          ),
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
                     // Çıkış Butonu
                     TextButton.icon(
                       onPressed: () async {
-                        final shouldLogout = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
+                                  final shouldLogout = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
                             backgroundColor: const Color(0xFF352269),
                             title: const Text(
                               'Çıkış Yap',
@@ -1330,32 +1331,32 @@ class _HomeViewState extends State<HomeView> {
                               'Çıkış yapmak istediğinizden emin misiniz?',
                               style: TextStyle(color: Colors.white70),
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(false),
                                 child: const Text(
                                   'İptal',
                                   style: TextStyle(color: Colors.white70),
                                 ),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(true),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(true),
                                 child: const Text(
                                   'Çıkış Yap',
                                   style: TextStyle(color: Colors.white),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                        
-                        if (shouldLogout == true) {
-                          await authViewModel.signOut();
-                          if (context.mounted) {
-                            context.go('/onboarding');
-                          }
-                        }
-                      },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  
+                                  if (shouldLogout == true) {
+                                    await authViewModel.signOut();
+                                    if (context.mounted) {
+                                      context.go('/onboarding');
+                                    }
+                                  }
+                                },
                       icon: const Icon(
                         Icons.logout,
                         color: Colors.white70,
@@ -1369,10 +1370,10 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ),
                   ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     )

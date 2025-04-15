@@ -436,8 +436,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 Text('Not: Analiz işlemi birkaç saniye sürebilir.'),
               ],
             ),
-          ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               child: const Text('Anladım', style: TextStyle(color: Color(0xFF9D3FFF))),
               onPressed: () {
@@ -501,17 +501,17 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             // App Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
+                        child: Row(
+                          children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                     onPressed: () => context.pop(),
                   ),
                   const Text(
                     'Mesaj Analizi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                       fontSize: 20,
                     ),
                   ),
@@ -521,10 +521,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     onPressed: () {
                       _showInfoDialog(context);
                     },
-                  ),
-                ],
-              ),
-            ),
+                            ),
+                          ],
+                        ),
+                      ),
             
             // Ana içerik
             Expanded(
@@ -537,19 +537,19 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     topRight: Radius.circular(30),
                   ),
                 ),
-                child: Column(
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+                    children: [
                     // Analiz için mesaj girişi kartı
-                    Container(
+                      Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Column(
+                                child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                                  children: [
                           const Text(
                             'Analiz Edilecek Mesaj',
                             style: TextStyle(
@@ -586,19 +586,19 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           const SizedBox(height: 16),
                           
                           // Görsel seçimi özelliği
-                          Container(
+                                      Container(
                             padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
+                                        decoration: BoxDecoration(
                               color: const Color(0xFF9D3FFF).withOpacity(0.2),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                             ),
-                            child: Column(
+                                          child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  children: [
-                                    Icon(
+                                            children: [
+                                              Icon(
                                       Icons.photo_library_outlined,
                                       color: Colors.white.withOpacity(0.9),
                                       size: 22,
@@ -606,11 +606,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                     const SizedBox(width: 8),
                                     const Text(
                                       'Görsel Seçimi',
-                                      style: TextStyle(
+                                                style: TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                     const Spacer(),
                                     Switch(
                                       value: _isImageMode,
@@ -635,8 +635,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                       onTap: _isProcessingImage ? null : _pickImage,
                                       child: Container(
                                         height: 100,
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.05),
                                           borderRadius: BorderRadius.circular(16),
                                           border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
@@ -665,10 +665,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(16),
-                                          child: Image.file(
-                                            _selectedImage!,
+                                            child: Image.file(
+                                              _selectedImage!,
                                             height: 150,
-                                            width: double.infinity,
+                                              width: double.infinity,
                                             fit: BoxFit.cover,
                                           ),
                                         ),
@@ -735,7 +735,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     
                     // Analiz sonucu veya analiz bekleniyor göstergesi
                     Expanded(
-                      child: messageViewModel.isLoading
+                              child: messageViewModel.isLoading
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -787,22 +787,22 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                         style: TextStyle(
                                           color: Colors.white.withOpacity(0.5),
                                           fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                    ),
-                  ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
-    );
-  }
-
+            ),
+            ],
+          ),
+        ),
+      );
+    }
+    
   // Analiz sonuçlarını gösteren widget
   Widget _buildAnalysisResult(BuildContext context, MessageViewModel viewModel) {
     final result = viewModel.currentAnalysisResult!;
@@ -843,9 +843,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 ),
               ),
               const Spacer(),
-              Container(
+          Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
+            decoration: BoxDecoration(
                   color: _getSentimentColor(overallScore),
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -895,10 +895,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     valueColor: AlwaysStoppedAnimation<Color>(_getSentimentColor(entry.value)),
                     minHeight: 8,
                     borderRadius: BorderRadius.circular(4),
-                  ),
-                ],
-              ),
-            );
+            ),
+          ],
+        ),
+      );
           }).toList(),
           
           Divider(color: const Color(0xFF9D3FFF).withOpacity(0.3), height: 24),
@@ -911,9 +911,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
+            ),
+            const SizedBox(height: 8),
+            Text(
             summary,
             style: const TextStyle(
               color: Colors.white,
@@ -937,7 +937,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 backgroundColor: const Color(0xFF9D3FFF),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 0,
@@ -987,7 +987,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       return result.aiResponse['summary'] ?? 
              'Bu mesajda ${result.emotion} duygusu ve ${result.tone} tonu tespit edildi. ' +
              'Bu tür mesajlar ilişkiyi ${result.severity < 50 ? 'olumsuz' : 'olumlu'} etkileyebilir.';
-    } catch (e) {
+              } catch (e) {
       debugPrint('Özet alınamadı: $e');
       return 'Analiz sonucu detayları gösterilemiyor.';
     }
