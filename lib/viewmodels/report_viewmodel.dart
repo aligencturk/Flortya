@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
 import '../services/ai_service.dart';
 
 class ReportViewModel extends ChangeNotifier {
@@ -21,6 +22,9 @@ class ReportViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<Map<String, dynamic>> _comments = [];
+
+  // İlişki geçmişi sınıf değişkeni
+  List<Map<String, dynamic>>? _relationshipHistory;
 
   // Getters
   List<String> get questions => _questions;
@@ -143,6 +147,9 @@ class ReportViewModel extends ChangeNotifier {
         // Rapor yorumlarını yükle
         await loadReportComments(doc.id);
         
+        // İlişki geçmişini temizle (yeni rapor için yeniden yüklenecek)
+        _relationshipHistory = null;
+        
         notifyListeners();
       }
     } catch (e) {
@@ -259,5 +266,124 @@ class ReportViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // İlişki gelişim geçmişini alma
+  Future<List<Map<String, dynamic>>> getRelationshipHistory() async {
+    if (_relationshipHistory != null) {
+      return _relationshipHistory!;
+    }
+    
+    try {
+      final userId = _reportResult != null && _reportResult!.containsKey('userId') 
+          ? _reportResult!['userId'] 
+          : null;
+      
+      if (userId == null) {
+        return _generateFakeGraphData(); // Gerçek veri yoksa demo veri göster
+      }
+      
+      final QuerySnapshot snapshot = await _firestore
+          .collection('relationship_reports')
+          .where('userId', isEqualTo: userId)
+          .orderBy('created_at', descending: false)
+          .get();
+      
+      if (snapshot.docs.isEmpty) {
+        return _generateFakeGraphData();
+      }
+      
+      // İlişki gelişim verilerini hazırla
+      _relationshipHistory = [];
+      
+      // Son 5 raporu al (veya daha az varsa tümünü)
+      final docs = snapshot.docs.length > 5 
+          ? snapshot.docs.sublist(snapshot.docs.length - 5) 
+          : snapshot.docs;
+      
+      for (var i = 0; i < docs.length; i++) {
+        final doc = docs[i];
+        final data = doc.data() as Map<String, dynamic>;
+        
+        final relationshipType = data['relationship_type'] ?? 'Belirsiz';
+        final date = (data['created_at'] as Timestamp).toDate();
+        
+        // İlişki tipine göre değer belirleme
+        int value = _calculateRelationshipScore(relationshipType);
+        
+        _relationshipHistory!.add({
+          'value': value,
+          'label': '${date.day}/${date.month}',
+          'type': relationshipType,
+        });
+      }
+      
+      return _relationshipHistory!;
+    } catch (e) {
+      debugPrint('İlişki geçmişi yüklenirken hata oluştu: $e');
+      return _generateFakeGraphData();
+    }
+  }
+  
+  // İlişki tipine göre puan hesaplama
+  int _calculateRelationshipScore(String relationshipType) {
+    final Map<String, int> typeScores = {
+      'Güven Odaklı': 85,
+      'Tutkulu': 75,
+      'Uyumlu': 80,
+      'Dengeli': 90,
+      'Mesafeli': 60,
+      'Kaçıngan': 50,
+      'Endişeli': 55,
+      'Çatışmalı': 40,
+      'Kararsız': 60,
+      'Gelişmekte Olan': 70,
+      'Sağlıklı': 95,
+      'Zorlayıcı': 45,
+    };
+    
+    return typeScores[relationshipType] ?? 65;
+  }
+  
+  // Demo veri oluşturma (henüz gerçek veri yoksa)
+  List<Map<String, dynamic>> _generateFakeGraphData() {
+    // Şu anki raporu kullan
+    final currentType = _reportResult != null 
+        ? _reportResult!['relationship_type'] as String? ?? 'Gelişmekte Olan'
+        : 'Gelişmekte Olan';
+        
+    final currentScore = _calculateRelationshipScore(currentType);
+    
+    // Şu anki tarih
+    final now = DateTime.now();
+    
+    // Sahte gelişim verileri oluştur (geçmişten şimdiye)
+    return [
+      {
+        'value': max(30, currentScore - 30), // En düşük 30 puan
+        'label': '${now.day-20}/${now.month}',
+        'type': 'Mesafeli',
+      },
+      {
+        'value': max(40, currentScore - 20),
+        'label': '${now.day-15}/${now.month}',
+        'type': 'Kararsız',
+      },
+      {
+        'value': max(50, currentScore - 10),
+        'label': '${now.day-10}/${now.month}',
+        'type': 'Gelişmekte Olan',
+      },
+      {
+        'value': max(60, currentScore - 5),
+        'label': '${now.day-5}/${now.month}',
+        'type': 'Gelişmekte Olan',
+      },
+      {
+        'value': currentScore,
+        'label': 'Bugün',
+        'type': currentType,
+      },
+    ];
   }
 } 

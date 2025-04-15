@@ -274,6 +274,11 @@ class _ReportViewState extends State<ReportView> {
               
               const SizedBox(height: 32),
               
+              // İlişki Gelişim Grafiği
+              _buildRelationshipGraph(context, reportViewModel),
+              
+              const SizedBox(height: 32),
+              
               // Rapor
               Container(
                 padding: const EdgeInsets.all(16),
@@ -405,6 +410,146 @@ class _ReportViewState extends State<ReportView> {
           ),
       ],
     );
+  }
+
+  // İlişki gelişimi grafiği
+  Widget _buildRelationshipGraph(BuildContext context, ReportViewModel reportViewModel) {
+    // İlişki tipini alıyoruz
+    final relationshipType = reportViewModel.reportResult!['relationship_type'] ?? 'Belirsiz';
+    
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'İlişki Gelişimi',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getRelationshipTypeColor(relationshipType),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  relationshipType,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: reportViewModel.getRelationshipHistory(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Henüz yeterli veri yok',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  );
+                }
+                
+                final graphData = snapshot.data!;
+                
+                // Basit çizgi grafiği
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(
+                    graphData.length,
+                    (index) {
+                      final data = graphData[index];
+                      final value = (data['value'] as int?) ?? 0;
+                      final label = data['label'] as String? ?? '';
+                      final heightPercentage = value / 100;
+                      
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 100 * heightPercentage,
+                            decoration: BoxDecoration(
+                              color: _getGraphBarColor(value),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // İlişki tipine göre renk belirleme
+  Color _getRelationshipTypeColor(String relationshipType) {
+    final Map<String, Color> typeColors = {
+      'Güven Odaklı': Colors.blue.shade700,
+      'Tutkulu': Colors.red.shade700,
+      'Uyumlu': Colors.green.shade700,
+      'Dengeli': Colors.purple.shade700,
+      'Mesafeli': Colors.amber.shade700,
+      'Kaçıngan': Colors.orange.shade700,
+      'Endişeli': Colors.pink.shade700,
+      'Çatışmalı': Colors.deepOrange.shade700,
+      'Kararsız': Colors.teal.shade700,
+      'Gelişmekte Olan': Colors.cyan.shade700,
+      'Sağlıklı': Colors.green.shade700,
+      'Zorlayıcı': Colors.deepOrange.shade700,
+    };
+    
+    return typeColors[relationshipType] ?? Colors.indigo.shade700;
+  }
+  
+  // Grafik çubuğu için renk belirleme
+  Color _getGraphBarColor(int value) {
+    if (value >= 80) return Colors.green.shade600;
+    if (value >= 60) return Colors.blue.shade600;
+    if (value >= 40) return Colors.amber.shade600;
+    if (value >= 20) return Colors.orange.shade600;
+    return Colors.red.shade600;
   }
 
   // Öneri listesi oluşturma
