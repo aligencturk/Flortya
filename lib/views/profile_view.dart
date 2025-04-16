@@ -22,34 +22,6 @@ class _ProfileViewState extends State<ProfileView> {
   final _formKey = GlobalKey<FormState>();
   bool _isEditingProfile = false;
 
-  // Basit dialog gösterme yardımcı metodu
-  void _showBasicDialog(BuildContext context, String title, String content) {
-    print('_showBasicDialog çağrıldı: $title');
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () {
-                print('Dialog kapatılıyor: $title');
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Tamam'),
-            ),
-          ],
-        );
-      },
-    ).then((_) {
-      print('Dialog kapandı: $title');
-    }).catchError((error) {
-      print('Dialog hatası: $error');
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -704,30 +676,29 @@ class _ProfileViewState extends State<ProfileView> {
       ),
       margin: const EdgeInsets.only(bottom: 8),
       color: Colors.white,
-      child: Material( // Material widget ekleyerek InkWell'in çalışmasını sağlayalım
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: Theme.of(context).primaryColor,
-                  size: 24,
+      child: GestureDetector( // InkWell yerine GestureDetector kullanılıyor
+        onTap: () {
+          debugPrint('[$title] kartına tıklandı');
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: Theme.of(context).primaryColor,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
-              ],
-            ),
+              ),
+              trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
+            ],
           ),
         ),
       ),
@@ -736,35 +707,43 @@ class _ProfileViewState extends State<ProfileView> {
   
   // Navigasyon metodları
   void _navigateToAccountSettings(BuildContext context) {
+    debugPrint('_navigateToAccountSettings metodu çağrıldı');
     _showAccountSettingsDialog(context);
   }
 
   void _navigateToNotificationSettings(BuildContext context) {
+    debugPrint('_navigateToNotificationSettings metodu çağrıldı');
     _showNotificationSettingsDialog(context);
   }
 
   void _navigateToPrivacySettings(BuildContext context) {
+    debugPrint('_navigateToPrivacySettings metodu çağrıldı');
     _showPrivacySettingsDialog(context);
   }
 
   void _navigateToHelpAndSupport(BuildContext context) {
+    debugPrint('_navigateToHelpAndSupport metodu çağrıldı');
     _showHelpAndSupportDialog(context);
   }
   
   // Profil bilgileri dialog
   void _showAccountSettingsDialog(BuildContext context) {
     try {
+      debugPrint('_showAccountSettingsDialog başladı');
       // Gerçek kullanıcı bilgilerini al
       final firebaseUser = FirebaseAuth.instance.currentUser;
+      debugPrint('Firebase kullanıcısı: ${firebaseUser?.uid}');
       final adSoyadController = TextEditingController(text: firebaseUser?.displayName ?? "");
       final emailController = TextEditingController(text: firebaseUser?.email ?? "");
       final telefonController = TextEditingController();
 
       // Dialog'u göster, Firestore verisinin yüklenmesini bekleme
+      debugPrint('Dialog gösteriliyor...');
       showDialog(
         context: context,
         barrierDismissible: true,
-        builder: (BuildContext context) {
+        builder: (BuildContext dialogContext) { // Context parametresini yeniden adlandırdık
+          debugPrint('Dialog builder çağrıldı');
           return AlertDialog(
             title: const Text('Profil Bilgileri'),
             content: SingleChildScrollView(
@@ -802,7 +781,7 @@ class _ProfileViewState extends State<ProfileView> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('İptal'),
               ),
               ElevatedButton(
@@ -820,17 +799,17 @@ class _ProfileViewState extends State<ProfileView> {
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
                       
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(content: Text('Profil bilgileri güncellendi')),
                       );
                     } catch (e) {
                       debugPrint('Profil güncelleme hatası: $e');
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         SnackBar(content: Text('Hata: $e')),
                       );
                     }
                   }
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
                 },
                 child: const Text('Kaydet'),
               ),
@@ -863,6 +842,7 @@ class _ProfileViewState extends State<ProfileView> {
   // Bildirim ayarları dialog
   void _showNotificationSettingsDialog(BuildContext context) {
     try {
+      debugPrint('_showNotificationSettingsDialog başladı');
       // Bildirim ayarları başlangıç değerleri
       bool tumBildirimler = true;
       bool epostaBildirimleri = true;
@@ -870,12 +850,14 @@ class _ProfileViewState extends State<ProfileView> {
       bool pazarlamaBildirimleri = false;
       
       // Dialog'u hemen göster
+      debugPrint('Bildirim dialog gösteriliyor...');
       showDialog(
         context: context,
         barrierDismissible: true,
-        builder: (BuildContext context) {
+        builder: (BuildContext dialogContext) {
+          debugPrint('Bildirim dialog builder çağrıldı');
           return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
+            builder: (BuildContext statefulContext, StateSetter setState) {
               return AlertDialog(
                 title: const Text('Bildirim Ayarları'),
                 content: SingleChildScrollView(
@@ -939,7 +921,7 @@ class _ProfileViewState extends State<ProfileView> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     child: const Text('İptal'),
                   ),
                   ElevatedButton(
@@ -958,13 +940,13 @@ class _ProfileViewState extends State<ProfileView> {
                             });
                         }
                         
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
                           const SnackBar(content: Text('Bildirim ayarları güncellendi')),
                         );
-                        Navigator.of(context).pop();
+                        Navigator.of(dialogContext).pop();
                       } catch (e) {
                         debugPrint('Bildirim ayarları güncelleme hatası: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
                           SnackBar(content: Text('Hata: $e')),
                         );
                       }
@@ -1003,18 +985,20 @@ class _ProfileViewState extends State<ProfileView> {
   // Gizlilik ve güvenlik dialog
   void _showPrivacySettingsDialog(BuildContext context) {
     try {
-      debugPrint('Gizlilik dialog\'u açılıyor...');
+      debugPrint('_showPrivacySettingsDialog başladı');
       // Basit sabit değerlerle dialog'u hemen göster
       bool konumPaylasimi = true;
       bool profilGorunurlugu = true;
       bool ikiAdimliDogrulama = false;
       bool cevrimiciDurum = true;
 
+      debugPrint('Gizlilik dialog gösteriliyor...');
       showDialog(
         context: context,
-        builder: (BuildContext context) {
+        builder: (BuildContext dialogContext) {
+          debugPrint('Gizlilik dialog builder çağrıldı');
           return StatefulBuilder(
-            builder: (context, setState) {
+            builder: (BuildContext statefulContext, StateSetter setState) {
               return AlertDialog(
                 title: const Text('Gizlilik Ayarları'),
                 content: SingleChildScrollView(
@@ -1069,16 +1053,16 @@ class _ProfileViewState extends State<ProfileView> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     child: const Text('İptal'),
                   ),
                   ElevatedButton(
                     onPressed: () {
                       // Burada kaydetme işlemi olabilir
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(content: Text('Gizlilik ayarları güncellendi')),
                       );
-                      Navigator.of(context).pop();
+                      Navigator.of(dialogContext).pop();
                     },
                     child: const Text('Kaydet'),
                   ),
@@ -1099,10 +1083,12 @@ class _ProfileViewState extends State<ProfileView> {
   // Yardım ve destek dialog
   void _showHelpAndSupportDialog(BuildContext context) {
     try {
-      debugPrint('Yardım dialog\'u açılıyor...');
+      debugPrint('_showHelpAndSupportDialog başladı');
+      debugPrint('Yardım dialog gösteriliyor...');
       showDialog(
         context: context,
-        builder: (BuildContext context) {
+        builder: (BuildContext dialogContext) {
+          debugPrint('Yardım dialog builder çağrıldı');
           return AlertDialog(
             title: const Text('Yardım ve Destek'),
             content: SingleChildScrollView(
@@ -1114,8 +1100,8 @@ class _ProfileViewState extends State<ProfileView> {
                     title: const Text('Sıkça Sorulan Sorular'),
                     subtitle: const Text('Yaygın sorular ve cevapları'),
                     onTap: () {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      Navigator.of(dialogContext).pop();
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(content: Text('SSS sayfasına yönlendiriliyorsunuz')),
                       );
                     },
@@ -1126,8 +1112,8 @@ class _ProfileViewState extends State<ProfileView> {
                     title: const Text('Canlı Destek'),
                     subtitle: const Text('Destek ekibimizle görüşün'),
                     onTap: () {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      Navigator.of(dialogContext).pop();
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(content: Text('Canlı destek başlatılıyor...')),
                       );
                     },
@@ -1138,8 +1124,8 @@ class _ProfileViewState extends State<ProfileView> {
                     title: const Text('E-posta Desteği'),
                     subtitle: const Text('Sorularınızı e-posta ile gönderin'),
                     onTap: () {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      Navigator.of(dialogContext).pop();
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(content: Text('E-posta desteği yakında aktif olacak')),
                       );
                     },
@@ -1149,7 +1135,7 @@ class _ProfileViewState extends State<ProfileView> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('Kapat'),
               ),
             ],
@@ -1166,10 +1152,10 @@ class _ProfileViewState extends State<ProfileView> {
 
   @override
   Widget build(BuildContext context) {
-    // Sayfanın context'inin kullanılabilir olduğunu doğrulayalım
-    print("ProfileView build metodu çalıştı");
-    final mediaQuery = MediaQuery.of(context);
-    print("Ekran boyutları: ${mediaQuery.size.width}x${mediaQuery.size.height}");
+    // Test debug kodu - KALDIR
+    // print("ProfileView build metodu çalıştı");
+    // final mediaQuery = MediaQuery.of(context);
+    // print("Ekran boyutları: ${mediaQuery.size.width}x${mediaQuery.size.height}");
 
     // Doğrudan Firebase'den kullanıcı bilgilerini al
     final firebaseUser = FirebaseAuth.instance.currentUser;
@@ -1181,41 +1167,42 @@ class _ProfileViewState extends State<ProfileView> {
       appBar: AppBar(
         title: const Text('Profil'),
         actions: [
-          // Test butonu - Basit dialog gösterimi
-          IconButton(
-            icon: const Icon(Icons.checklist),
-            onPressed: () {
-              print("Test butonu tıklandı");
-              try {
-                showDialog(
-                  context: context,
-                  barrierDismissible: true,
-                  builder: (_) => SimpleDialog(
-                    title: const Text('Basit Dialog Testi'),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text('Dialog açılması testi: ${DateTime.now()}'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Kapat'),
-                      ),
-                    ],
-                  ),
-                );
-              } catch (e) {
-                print("Dialog açma hatası: $e");
-              }
-            },
-            tooltip: 'Dialog Test',
-          ),
-          // Var olan diğer butonlar...
+          // Test butonu - KALDIR
+          // IconButton(
+          //   icon: const Icon(Icons.checklist),
+          //   onPressed: () {
+          //     print("Test butonu tıklandı");
+          //     try {
+          //       showDialog(
+          //         context: context,
+          //         barrierDismissible: true,
+          //         builder: (_) => SimpleDialog(
+          //           title: const Text('Basit Dialog Testi'),
+          //           children: [
+          //             Padding(
+          //               padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          //               child: Text('Dialog açılması testi: ${DateTime.now()}'),
+          //             ),
+          //             TextButton(
+          //               onPressed: () => Navigator.of(context).pop(),
+          //               child: const Text('Kapat'),
+          //             ),
+          //           ],
+          //         ),
+          //       );
+          //     } catch (e) {
+          //       print("Dialog açma hatası: $e");
+          //     }
+          //   },
+          //   tooltip: 'Dialog Test',
+          // ),
+          // Yenileme butonu
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _forceRefreshUserData,
             tooltip: 'Yenile',
           ),
+          // Çıkış butonu
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -1275,97 +1262,38 @@ class _ProfileViewState extends State<ProfileView> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            // Basit buton yaklaşımı - Card yerine ElevatedButton kullanımı
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  print("Profil butonu tıklandı");
-                                  _showBasicDialog(context, 'Profil', 'Profil bilgileri içeriği');
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.all(12),
-                                  alignment: Alignment.centerLeft,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.person, color: Theme.of(context).primaryColor),
-                                    const SizedBox(width: 16),
-                                    const Text('Profil Bilgilerini Düzenle'),
-                                    const Spacer(),
-                                    const Icon(Icons.arrow_forward_ios, size: 16),
-                                  ],
-                                ),
-                              ),
+                            // Basit buton yaklaşımını kaldır, önceki yapıyı kullan
+                            _buildSettingsCard(
+                              context,
+                              icon: Icons.person,
+                              title: 'Profil Bilgilerini Düzenle',
+                              onTap: () {
+                                _navigateToAccountSettings(context);
+                              },
                             ),
-                            
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  print("Bildirim butonu tıklandı");
-                                  _showBasicDialog(context, 'Bildirimler', 'Bildirim ayarları içeriği');
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.all(12),
-                                  alignment: Alignment.centerLeft,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.notifications, color: Theme.of(context).primaryColor),
-                                    const SizedBox(width: 16),
-                                    const Text('Bildirim Ayarları'),
-                                    const Spacer(),
-                                    const Icon(Icons.arrow_forward_ios, size: 16),
-                                  ],
-                                ),
-                              ),
+                            _buildSettingsCard(
+                              context,
+                              icon: Icons.notifications,
+                              title: 'Bildirim Ayarları',
+                              onTap: () {
+                                _navigateToNotificationSettings(context);
+                              },
                             ),
-                            
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  print("Gizlilik butonu tıklandı");
-                                  _showBasicDialog(context, 'Gizlilik', 'Gizlilik ayarları içeriği');
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.all(12),
-                                  alignment: Alignment.centerLeft,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.security, color: Theme.of(context).primaryColor),
-                                    const SizedBox(width: 16),
-                                    const Text('Gizlilik ve Güvenlik'),
-                                    const Spacer(),
-                                    const Icon(Icons.arrow_forward_ios, size: 16),
-                                  ],
-                                ),
-                              ),
+                            _buildSettingsCard(
+                              context,
+                              icon: Icons.security,
+                              title: 'Gizlilik ve Güvenlik',
+                              onTap: () {
+                                _navigateToPrivacySettings(context);
+                              },
                             ),
-                            
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  print("Yardım butonu tıklandı");
-                                  _showBasicDialog(context, 'Yardım', 'Yardım ve destek içeriği');
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.all(12),
-                                  alignment: Alignment.centerLeft,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.help, color: Theme.of(context).primaryColor),
-                                    const SizedBox(width: 16),
-                                    const Text('Yardım ve Destek'),
-                                    const Spacer(),
-                                    const Icon(Icons.arrow_forward_ios, size: 16),
-                                  ],
-                                ),
-                              ),
+                            _buildSettingsCard(
+                              context,
+                              icon: Icons.help,
+                              title: 'Yardım ve Destek',
+                              onTap: () {
+                                _navigateToHelpAndSupport(context);
+                              },
                             ),
                           ],
                         ),
@@ -1411,26 +1339,7 @@ class _ProfileViewState extends State<ProfileView> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Basit test dialog
-          print('FloatingActionButton tıklandı'); // Konsola yazdır
-          showDialog(
-            context: context,
-            builder: (BuildContext ctx) {
-              return AlertDialog(
-                title: const Text('Test Dialog'),
-                content: const Text('Bu dialog açılıyor mu?'),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      print('Dialog kapatılıyor'); // Konsola yazdır
-                      Navigator.of(ctx).pop();
-                    },
-                    child: const Text('Tamam'),
-                  ),
-                ],
-              );
-            },
-          );
+          
         },
         child: const Icon(Icons.add),
       ),
