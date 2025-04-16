@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
@@ -96,7 +97,7 @@ class _ReportViewState extends State<ReportView> {
   }
 
   // Yeni bir teste başla
-  void _startNewReport() {
+  void _startNewReport(BuildContext context) {
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
     
     reportViewModel.resetReport();
@@ -252,174 +253,107 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  // Rapor sonucu widget'ı
+  // Rapor sonuçlarını gösteren widget
   Widget _buildReportResult(BuildContext context, ReportViewModel reportViewModel) {
     final report = reportViewModel.reportResult!;
     
     return Stack(
       children: [
-        // Rapor içeriği
-        SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Başlık
-              Text(
-                'İlişki Tipiniz: ${report['relationship_type']}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                textAlign: TextAlign.center,
-              )
-              .animate()
-              .fadeIn(duration: 600.ms),
-              
-              const SizedBox(height: 32),
-              
-              // İlişki gelişimi grafiği
-              _buildRelationshipGraph(context, reportViewModel),
-              
-              const SizedBox(height: 32),
-              
-              // Rapor
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  ),
-                ),
-                child: Text(
-                  report['report'],
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              )
-              .animate()
-              .fadeIn(delay: 300.ms, duration: 600.ms),
-              
-              const SizedBox(height: 32),
-              
-              // Öneriler
-              Text(
-                'Öneriler',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Öneri listesi
-              ..._buildSuggestionList(context, report),
-              
-              const SizedBox(height: 32),
-              
-              // Yorumlar başlığı
-              if (reportViewModel.comments.isNotEmpty) ...[
-                Text(
-                  'Yorumlarınız',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Yorum listesi
-                ..._buildCommentList(context, reportViewModel),
-                
-                const SizedBox(height: 32),
-              ],
-              
-              // Yeni test butonu
-              CustomButton(
-                text: 'Yeni Test Başlat',
-                onPressed: _startNewReport,
-                type: ButtonType.outline,
-                isFullWidth: true,
-              ),
-              
-              // Yorum butonu
-              const SizedBox(height: 16),
-              
-              CustomButton(
-                text: 'Rapor Hakkında Yorum Ekle',
-                onPressed: _toggleCommentMode,
-                icon: Icons.comment,
-                type: ButtonType.outline,
-                isFullWidth: true,
-              ),
-              
-              // Boşluk (alt kısımdaki mesaj gönderme alanı için)
-              const SizedBox(height: 80),
-            ],
+        ListView(
+          padding: const EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 10,
+            bottom: 120, // Butonlar için daha fazla boşluk
           ),
-        ),
-        
-        // Yorum gönderme alanı (rapor gösterimi sırasında alt kısımda sabit)
-        if (_isCommenting)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 5,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      inputFormatters: InputService.getTurkishTextFormatters(),
-                      keyboardType: TextInputType.multiline,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: 'Raporunuz hakkında yorum yazın...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[200],
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      minLines: 1,
-                      maxLines: 3,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: _sendComment,
-                    ),
-                  ),
-                ],
+          children: [
+            // İlişki değerlendirme grafiği (Başlığı kaldırıldı)
+            const SizedBox(height: 20),
+            
+            _buildRelationshipGraph(context, reportViewModel),
+            
+            const SizedBox(height: 24),
+            
+            // Öneriler başlığı
+            Text(
+              'İlişkinizi Geliştirecek Öneriler',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
             ),
+            
+            const SizedBox(height: 16),
+            
+            // Öneriler listesi
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _buildSuggestionList(context, report),
+            ),
+          ],
+        ),
+        
+        // Alt butonlar
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  offset: const Offset(0, -2),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Testi yeniden başlat butonu
+                Expanded(
+                  child: CustomButton(
+                    text: 'Testi Yeniden Başlat',
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ReportView(),
+                        ),
+                      );
+                    },
+                    type: ButtonType.outline,
+                    icon: Icons.refresh,
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Testi puanla butonu
+                Expanded(
+                  child: CustomButton(
+                    text: 'Testi Puanla',
+                    onPressed: () {
+                      // Puanlama modalini göster
+                      _showRatingDialog(context);
+                    },
+                    icon: Icons.star,
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
       ],
     );
   }
 
   // İlişki gelişimi grafiği
   Widget _buildRelationshipGraph(BuildContext context, ReportViewModel reportViewModel) {
-    // İlişki tipini alıyoruz
-    final relationshipType = reportViewModel.reportResult!['relationship_type'] ?? 'Belirsiz';
+    final report = reportViewModel.reportResult!;
+    final relationshipType = report['relationship_type'] ?? 'Belirsiz';
+    final color = _getRelationshipTypeColor(relationshipType);
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -427,7 +361,7 @@ class _ReportViewState extends State<ReportView> {
         color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          color: color.withOpacity(0.3),
         ),
       ),
       child: Column(
@@ -442,29 +376,41 @@ class _ReportViewState extends State<ReportView> {
             ),
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
-          // İlişki Tipi Etiketi
+          // İlişki tipi göstergesi
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _getRelationshipTypeColor(relationshipType),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: _getRelationshipTypeColor(relationshipType).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withOpacity(0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.favorite, size: 18, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  relationshipType,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               ],
             ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // İlişki açıklaması - Yapay zeka tarafından üretilen metin
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              relationshipType,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              report['ai_analysis'] as String? ?? _getFallbackRelationshipDescription(relationshipType),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],
@@ -472,6 +418,29 @@ class _ReportViewState extends State<ReportView> {
     )
     .animate()
     .fadeIn(duration: 600.ms);
+  }
+  
+  // Yedek ilişki tipi açıklaması (Yapay zeka açıklaması yoksa kullanılır)
+  String _getFallbackRelationshipDescription(String relationshipType) {
+    // Bu fonksiyon sadece yapay zeka metni olmadığında yedek olarak kullanılır
+    final Map<String, String> descriptions = {
+      'Güven Odaklı': 'İlişkinizde güven ön planda ve bu sağlıklı bir temel oluşturuyor.',
+      'Tutkulu': 'İlişkinizde tutku ve yoğun duygular hâkim, ancak dengeli ilerlemesi önemli.',
+      'Uyumlu': 'Birbirinizle uyumlu bir ilişki içindesiniz, iletişim kanallarınız açık.',
+      'Dengeli': 'İlişkinizde denge unsuru güçlü, karşılıklı anlayış ve saygı mevcut.',
+      'Mesafeli': 'İlişkinizde duygusal mesafe var, daha açık iletişim kurmanız faydalı olabilir.',
+      'Kaçıngan': 'Sorunlardan kaçınma eğiliminiz var, yüzleşme cesareti göstermelisiniz.',
+      'Endişeli': 'İlişkinizde endişe ve kaygı unsurları mevcut, güvenin artırılması gerekiyor.',
+      'Çatışmalı': 'İlişkinizde çatışmalar ön planda, yapıcı tartışma becerileri geliştirmelisiniz.',
+      'Kararsız': 'İlişkinizde kararsızlık hâkim, ortak hedefler belirlemek faydalı olabilir.',
+      'Gelişmekte Olan': 'İlişkiniz gelişim aşamasında, sabır ve anlayış göstermeye devam edin.',
+      'Gelişmekte Olan, Güven Sorunları Olan': 'İlişkinizde gelişim mevcut ancak güven sorunları bulunuyor. İletişim kanallarını açık tutarak ve beklentilerinizi açıkça ifade ederek güven temelini yeniden inşa etmeye odaklanın.',
+      'Sağlıklı': 'İlişkiniz sağlıklı bir yapıya sahip, bu temeli korumaya özen gösterin.',
+      'Zorlayıcı': 'İlişkinizde zorlayıcı unsurlar var, sınırları netleştirmeniz önemli.',
+      'Belirsiz': 'Yapay zeka analizi sonucunda ilişkinizde bazı gelişim alanları tespit edilmiştir. Aşağıdaki önerileri dikkate alarak ilişkinizi güçlendirebilirsiniz.',
+    };
+    
+    return descriptions[relationshipType] ?? 'Yapay zeka analizlerine göre, ilişkiniz için kişiselleştirilmiş öneriler hazırlanmıştır. Bu önerileri dikkate alarak ilişkinizi geliştirebilirsiniz.';
   }
   
   // İlişki tipine göre renk belirleme
@@ -507,126 +476,114 @@ class _ReportViewState extends State<ReportView> {
   List<Widget> _buildSuggestionList(BuildContext context, Map<String, dynamic> report) {
     final List<dynamic> suggestions = report['suggestions'] as List<dynamic>;
     
+    if (suggestions.isEmpty) {
+      return [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'Henüz öneri bulunmuyor',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+    
     return suggestions.map((suggestion) {
       final index = suggestions.indexOf(suggestion);
       
       return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '${index + 1}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontWeight: FontWeight.bold,
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                suggestion.toString(),
-                style: Theme.of(context).textTheme.bodyMedium,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  suggestion.toString(),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(delay: Duration(milliseconds: 400 + (index * 100)), duration: 400.ms)
+        .slideX(begin: 0.2, end: 0),
+      );
+    }).toList();
+  }
+
+  // Puanlama diyalogu
+  void _showRatingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Testi Puanla'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Bu test size ne kadar yardımcı oldu?'),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                5,
+                (index) => IconButton(
+                  icon: Icon(
+                    Icons.star,
+                    size: 36,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  onPressed: () {
+                    // Puanı kaydet ve diyalogu kapat
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Değerlendirmeniz için teşekkürler!')),
+                    );
+                  },
+                ),
               ),
             ),
           ],
         ),
-      )
-      .animate()
-      .fadeIn(delay: Duration(milliseconds: 400 + (index * 100)), duration: 400.ms)
-      .slideX(begin: 0.2, end: 0);
-    }).toList();
-  }
-
-  // Yorum listesi oluşturma
-  List<Widget> _buildCommentList(BuildContext context, ReportViewModel reportViewModel) {
-    return reportViewModel.comments.map((comment) {
-      final index = reportViewModel.comments.indexOf(comment);
-      final dateTime = comment['timestamp'] as DateTime;
-      final formattedDate = '${dateTime.day}.${dateTime.month}.${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
-      
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Kullanıcı yorumu
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Yorumunuz',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        formattedDate,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(comment['comment']),
-                ],
-              ),
-            ),
-            
-            // AI yanıtı (varsa)
-            if (comment['aiResponse'] != null && comment['aiResponse'].toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.psychology, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          'Terapistiniz',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(comment['aiResponse']),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        )
-        .animate()
-        .fadeIn(delay: Duration(milliseconds: 300 + (index * 100)), duration: 400.ms)
-        .slideY(begin: 0.2, end: 0),
-      );
-    }).toList();
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Vazgeç'),
+          ),
+        ],
+      ),
+    );
   }
 } 
