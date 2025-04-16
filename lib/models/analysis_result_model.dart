@@ -141,7 +141,7 @@ class AdviceChat {
     this.updatedAt,
     required this.title,
   });
-
+  
   factory AdviceChat.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return AdviceChat(

@@ -186,7 +186,7 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   // Profil güncelleme
-  Future<void> _updateProfile() async {
+  Future<void> updateUserProfile() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }

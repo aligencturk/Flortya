@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 class Message {
   final String id;
   final String userId;
@@ -26,7 +25,6 @@ class Message {
       isAnalyzed: data['isAnalyzed'] ?? false,
     );
   }
-
   // Firestore'a veri yazma
   Map<String, dynamic> toFirestore() {
     return {
@@ -36,7 +34,6 @@ class Message {
       'isAnalyzed': isAnalyzed,
     };
   }
-
   // Mesajın kopyasını oluşturma
   Message copyWith({
     String? id,

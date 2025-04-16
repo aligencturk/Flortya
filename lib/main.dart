@@ -5,11 +5,8 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
 import 'app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/message_viewmodel.dart';
@@ -19,8 +16,6 @@ import 'viewmodels/profile_viewmodel.dart';
 import 'services/logger_service.dart';
 import 'widgets/turkish_keyboard_provider.dart';
 import 'controllers/home_controller.dart';
-import 'screens/message_analysis_screen.dart';
-import 'services/shared_prefs.dart';
 import 'services/ai_service.dart';
 import 'services/user_service.dart';
 

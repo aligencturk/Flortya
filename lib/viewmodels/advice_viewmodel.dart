@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../models/analysis_result_model.dart';
@@ -70,13 +69,10 @@ class AdviceViewModel extends ChangeNotifier {
       
       // Kullanıcı ID'si ekle
       advice['userId'] = userId;
-      
       // Firestore'a kaydet
       final docRef = await _firestore.collection('advice_cards').add(advice);
-      
       // ID'yi ekle
       advice['id'] = docRef.id;
-      
       // Güncel tavsiyeyi ayarla
       _adviceCard = advice;
       
@@ -127,7 +123,6 @@ class AdviceViewModel extends ChangeNotifier {
       _setLoading(false);
     }
   }
-  
   // Tavsiye geçmişini alma
   Future<List<Map<String, dynamic>>> getAdviceHistory(String userId) async {
     try {
