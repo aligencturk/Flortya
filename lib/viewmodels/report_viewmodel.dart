@@ -30,12 +30,22 @@ class ReportViewModel extends ChangeNotifier {
   List<String> get questions => _questions;
   List<String> get answers => _answers;
   int get currentQuestionIndex => _currentQuestionIndex;
-  String get currentQuestion => _questions[_currentQuestionIndex];
+  String get currentQuestion {
+    // Güvenlik kontrolü ekleyerek 5. indekse uygun erişim sağlayalım
+    if (_currentQuestionIndex >= 0 && _currentQuestionIndex < _questions.length) {
+      return _questions[_currentQuestionIndex];
+    } else if (_currentQuestionIndex == 5) {
+      // 6. soru için sabit bir metin döndürelim
+      return 'İlişkinizde ne sıklıkla görüşüyorsunuz?';
+    } else {
+      return 'Bilinmeyen soru';
+    }
+  }
   Map<String, dynamic>? get reportResult => _reportResult;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasReport => _reportResult != null;
-  bool get isLastQuestion => _currentQuestionIndex == _questions.length - 1;
+  bool get isLastQuestion => _currentQuestionIndex == 5;
   bool get allQuestionsAnswered => !_answers.any((answer) => answer.isEmpty);
   List<Map<String, dynamic>> get comments => _comments;
 
@@ -47,7 +57,7 @@ class ReportViewModel extends ChangeNotifier {
 
   // Sonraki soruya geçme
   void nextQuestion() {
-    if (_currentQuestionIndex < _questions.length - 1) {
+    if (_currentQuestionIndex < 5) {
       _currentQuestionIndex++;
       notifyListeners();
     }
@@ -242,10 +252,12 @@ class ReportViewModel extends ChangeNotifier {
 
   // Raporu sıfırlama
   void resetReport() {
-    _answers = ['', '', '', '', '', ''];
+    _answers = List.filled(_questions.length, '');
     _currentQuestionIndex = 0;
     _reportResult = null;
+    _errorMessage = null;
     _comments = [];
+    _relationshipHistory = null;
     notifyListeners();
   }
 

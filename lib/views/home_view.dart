@@ -8,6 +8,7 @@ import 'dart:math';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
+import '../viewmodels/advice_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
 
@@ -126,6 +127,9 @@ class _HomeViewState extends State<HomeView> {
       // ProfileViewModel'i MessageViewModel'e aktar
       final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
       messageViewModel.setProfileViewModel(profileViewModel);
+      
+      // Günlük tavsiyeyi yükle
+      _loadDailyAdvice();
     });
   }
 
@@ -153,6 +157,30 @@ class _HomeViewState extends State<HomeView> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  // Günlük tavsiyeyi yükle
+  Future<void> _loadDailyAdvice() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+    
+    if (authViewModel.user != null) {
+      await adviceViewModel.getDailyAdviceCard(authViewModel.user!.id);
+    }
+  }
+  
+  // Tavsiyeyi yenile (premium kullanıcı için)
+  Future<void> _refreshDailyAdvice() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+    
+    if (authViewModel.user != null) {
+      await adviceViewModel.getDailyAdvice(
+        authViewModel.user!.id,
+        isPremium: authViewModel.isPremium,
+        force: true,
+      );
+    }
   }
 
   @override
@@ -263,15 +291,6 @@ class _HomeViewState extends State<HomeView> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                const Text(
-                  'logo',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
                 FutureBuilder<User?>(
                   future: Future.value(FirebaseAuth.instance.currentUser),
                   builder: (context, snapshot) {
@@ -879,15 +898,6 @@ class _HomeViewState extends State<HomeView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                const Text(
-                  'logo',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
                 FutureBuilder<User?>(
                   future: Future.value(FirebaseAuth.instance.currentUser),
                   builder: (context, snapshot) {
@@ -1113,15 +1123,6 @@ class _HomeViewState extends State<HomeView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                const Text(
-                  'logo',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
                 FutureBuilder<User?>(
                   future: Future.value(FirebaseAuth.instance.currentUser),
                   builder: (context, snapshot) {
@@ -1196,23 +1197,28 @@ class _HomeViewState extends State<HomeView> {
                             color: Colors.grey.shade700,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Yenile',
-                                style: TextStyle(
+                          child: InkWell(
+                            onTap: () {
+                              _refreshDailyAdvice();
+                            },
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.refresh,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  size: 18,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Yenile',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -1222,138 +1228,207 @@ class _HomeViewState extends State<HomeView> {
                     
                     // Tavsiye kartı
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6C5DD3),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                            // Başlık ve simge
-                            Row(
-                              children: [
-                                const Text(
-                                  'İlişkinizi Güçlendirin',
-                                  style: TextStyle(
-                                          color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.circle,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                                      const SizedBox(height: 16),
-                            
-                            // Tavsiye metni
-                            const Text(
-                              'Bugün partnerinizle birlikte yeni bir aktivite planlamayı deneyin. Örneğin, evde birlikte yemek yapabilir veya online bir dans dersi alabilirsiniz. Yeni deneyimler paylaşmak, ilişkinizi taze ve heyecanlı tutar.',
-                                          style: TextStyle(
+                      child: Consumer<AdviceViewModel>(
+                        builder: (context, adviceViewModel, child) {
+                          if (adviceViewModel.isLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(
                                 color: Colors.white,
-                      fontSize: 16,
-                                height: 1.5,
                               ),
-                            ),
-                            
-                            const Spacer(),
-                            
-                            // Premium buton
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF352269),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
+                            );
+                          }
+                          
+                          if (adviceViewModel.errorMessage != null) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // Sol kısım - Premium'a Geç
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.white70,
+                                    size: 48,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Tavsiye yüklenirken bir sorun oluştu',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 16,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  TextButton(
+                                    onPressed: _loadDailyAdvice,
+                                    child: const Text(
+                                      'Tekrar Dene',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          
+                          final advice = adviceViewModel.adviceCard;
+                          
+                          if (advice == null) {
+                            return const Center(
+                              child: Text(
+                                'Henüz tavsiye bulunmuyor',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          final title = advice['title'] ?? 'İlişki Tavsiyesi';
+                          final content = advice['content'] ?? 'Tavsiye içeriği bulunamadı.';
+                          final category = advice['category'] ?? 'genel';
+                          
+                          return Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C5DD3),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Başlık ve simge
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        title,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.lightbulb_outline,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                
+                                const SizedBox(height: 16),
+                                
+                                // Tavsiye metni
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    child: Text(
+                                      content,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                
+                                // Premium buton
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF352269),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Row(
+                                      // Sol kısım - Premium'a Geç
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF9D3FFF),
-                                              borderRadius: BorderRadius.circular(4),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(4),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF9D3FFF),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.diamond,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Text(
+                                                'Premium\'a Geç',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Text(
+                                            'Sınırsız AI tavsiyesi al',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
                                             ),
-                                            child: const Icon(
+                                          ),
+                                        ],
+                                      ),
+                                      
+                                      const Spacer(),
+                                      
+                                      // Sağ kısım - Yükselt butonu
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF9D3FFF),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
                                               Icons.diamond,
                                               color: Colors.white,
                                               size: 16,
                                             ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Premium\'a Geç',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              'Yükselt',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
                                             ),
-                                      ),
-                                    ],
-                                  ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Sınırsız AI tavsiyesi al',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
-                                  
-                                  const Spacer(),
-                                  
-                                  // Sağ kısım - Yükselt butonu
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            decoration: BoxDecoration(
-                                      color: const Color(0xFF9D3FFF),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.diamond,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          'Yükselt',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-                                ],
-            ),
-          ),
-        ],
-      ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -1380,15 +1455,6 @@ class _HomeViewState extends State<HomeView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const Text(
-                  'logo',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
                 FutureBuilder<User?>(
                   future: Future.value(FirebaseAuth.instance.currentUser),
                   builder: (context, snapshot) {

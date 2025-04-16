@@ -166,7 +166,11 @@ class _ReportViewState extends State<ReportView> {
   // Soru formu widget'ı
   Widget _buildQuestionForm(BuildContext context, ReportViewModel reportViewModel) {
     final currentQuestionNumber = reportViewModel.currentQuestionIndex + 1;
-    final totalQuestions = reportViewModel.questions.length;
+    final totalQuestions = 6;
+    
+    // Debugging
+    debugPrint('Toplam soru sayısı: $totalQuestions');
+    debugPrint('Sorular: ${reportViewModel.questions}');
     
     return Padding(
       padding: const EdgeInsets.all(24.0),
