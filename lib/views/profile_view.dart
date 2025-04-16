@@ -22,6 +22,34 @@ class _ProfileViewState extends State<ProfileView> {
   final _formKey = GlobalKey<FormState>();
   bool _isEditingProfile = false;
 
+  // Basit dialog gösterme yardımcı metodu
+  void _showBasicDialog(BuildContext context, String title, String content) {
+    print('_showBasicDialog çağrıldı: $title');
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () {
+                print('Dialog kapatılıyor: $title');
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Tamam'),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      print('Dialog kapandı: $title');
+    }).catchError((error) {
+      print('Dialog hatası: $error');
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -43,96 +71,104 @@ class _ProfileViewState extends State<ProfileView> {
 
   // Kullanıcı adını doğrudan değiştirme dialog'u (ViewModel kullanmadan)
   Future<void> _showDirectNameChangeDialog(BuildContext context) async {
-    final nameController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    
-    // Mevcut ismi al
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser?.displayName != null) {
-      nameController.text = currentUser!.displayName!;
-    }
-    
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('İsim Değiştir'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: nameController,
-            decoration: const InputDecoration(
-              labelText: 'Yeni İsim',
-              hintText: 'Yeni isminizi girin',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'İsim boş olamaz';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.of(context).pop(true);
-              }
-            },
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-    
-    if (result == true && nameController.text.isNotEmpty) {
-      bool success = false;
-      try {
-        // Yükleniyor gösterelim
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('İsminiz güncelleniyor...')),
-        );
-        
-        final authUser = FirebaseAuth.instance.currentUser;
-        if (authUser != null) {
-          // Firebase Auth'da ismi güncelle
-          await authUser.updateDisplayName(nameController.text);
-          
-          // Kullanıcıyı yenile
-          await authUser.reload();
-          
-          // Firestore'da da güncelle
-          await FirebaseFirestore.instance.collection('users').doc(authUser.uid).update({
-            'displayName': nameController.text,
-            'name': nameController.text,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-          
-          success = true;
-          
-          // UI'ı yenile
-          setState(() {});
-        }
-      } catch (e) {
-        debugPrint('İsim güncelleme hatası: $e');
-        success = false;
+    try {
+      debugPrint('İsim değiştirme dialog\'u açılıyor...');
+      final nameController = TextEditingController();
+      final formKey = GlobalKey<FormState>();
+      
+      // Mevcut ismi al
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser?.displayName != null) {
+        nameController.text = currentUser!.displayName!;
       }
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success 
-              ? 'İsminiz başarıyla güncellendi' 
-              : 'İsim güncellenirken hata oluştu, lütfen tekrar deneyin'
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('İsim Değiştir'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Yeni İsim',
+                hintText: 'Yeni isminizi girin',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'İsim boş olamaz';
+                }
+                return null;
+              },
             ),
           ),
-        );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('İptal'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              child: const Text('Kaydet'),
+            ),
+          ],
+        ),
+      );
+      
+      if (result == true && nameController.text.isNotEmpty) {
+        bool success = false;
+        try {
+          // Yükleniyor gösterelim
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('İsminiz güncelleniyor...')),
+          );
+          
+          final authUser = FirebaseAuth.instance.currentUser;
+          if (authUser != null) {
+            // Firebase Auth'da ismi güncelle
+            await authUser.updateDisplayName(nameController.text);
+            
+            // Kullanıcıyı yenile
+            await authUser.reload();
+            
+            // Firestore'da da güncelle
+            await FirebaseFirestore.instance.collection('users').doc(authUser.uid).update({
+              'displayName': nameController.text,
+              'name': nameController.text,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            
+            success = true;
+            
+            // UI'ı yenile
+            setState(() {});
+          }
+        } catch (e) {
+          debugPrint('İsim güncelleme hatası: $e');
+          success = false;
+        }
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(success 
+                ? 'İsminiz başarıyla güncellendi' 
+                : 'İsim güncellenirken hata oluştu, lütfen tekrar deneyin'
+              ),
+            ),
+          );
+        }
       }
+    } catch (e) {
+      debugPrint('İsim değiştirme dialog hatası: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bir hata oluştu: $e')),
+      );
     }
   }
 
@@ -321,38 +357,6 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
   
-  // Hesap ayarları ekranına git
-  void _navigateToAccountSettings() {
-    // Şimdilik sadece bilgi verelim
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Hesap Bilgileri sayfası yapım aşamasında')),
-    );
-  }
-  
-  // Bildirim ayarları ekranına git
-  void _navigateToNotificationSettings() {
-    // Şimdilik sadece bilgi verelim
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bildirim Ayarları sayfası yapım aşamasında')),
-    );
-  }
-  
-  // Gizlilik ve güvenlik ekranına git
-  void _navigateToPrivacySettings() {
-    // Şimdilik sadece bilgi verelim
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Gizlilik ve Güvenlik sayfası yapım aşamasında')),
-    );
-  }
-  
-  // Yapılan analizler sayfasına git
-  void _navigateToAnalysisHistory() {
-    // Şimdilik sadece bilgi verelim
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Yapılan Analizler sayfası yapım aşamasında')),
-    );
-  }
-
   // Profil kartı
   Widget _buildProfileCard(
     BuildContext context,
@@ -638,7 +642,7 @@ class _ProfileViewState extends State<ProfileView> {
           ),
           color: Colors.white,
           child: InkWell(
-            onTap: _navigateToAnalysisHistory,
+            onTap: () => _navigateToAnalysisHistory(),
             borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -677,49 +681,496 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
   
-  // Ayarlar kartı
+  // Yapılan analizler sayfasına git
+  void _navigateToAnalysisHistory() {
+    // Şimdilik sadece bilgi verelim
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Yapılan Analizler sayfası yapım aşamasında')),
+    );
+  }
+
+  // Hesap ayarları kartları
   Widget _buildSettingsCard(
     BuildContext context, {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    Widget? trailing,
   }) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
+      margin: const EdgeInsets.only(bottom: 8),
       color: Colors.white,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: Theme.of(context).primaryColor,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
+      child: Material( // Material widget ekleyerek InkWell'in çalışmasını sağlayalım
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: Theme.of(context).primaryColor,
+                  size: 24,
                 ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
+              ],
+            ),
           ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 300.ms, delay: 100.ms).slideX(begin: 0.1, end: 0);
+  }
+  
+  // Navigasyon metodları
+  void _navigateToAccountSettings(BuildContext context) {
+    _showAccountSettingsDialog(context);
+  }
+
+  void _navigateToNotificationSettings(BuildContext context) {
+    _showNotificationSettingsDialog(context);
+  }
+
+  void _navigateToPrivacySettings(BuildContext context) {
+    _showPrivacySettingsDialog(context);
+  }
+
+  void _navigateToHelpAndSupport(BuildContext context) {
+    _showHelpAndSupportDialog(context);
+  }
+  
+  // Profil bilgileri dialog
+  void _showAccountSettingsDialog(BuildContext context) {
+    try {
+      // Gerçek kullanıcı bilgilerini al
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      final adSoyadController = TextEditingController(text: firebaseUser?.displayName ?? "");
+      final emailController = TextEditingController(text: firebaseUser?.email ?? "");
+      final telefonController = TextEditingController();
+
+      // Dialog'u göster, Firestore verisinin yüklenmesini bekleme
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Profil Bilgileri'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: adSoyadController,
+                    decoration: const InputDecoration(
+                      labelText: 'Ad Soyad',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'E-posta',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    enabled: false, // E-posta değiştirilemez
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: telefonController,
+                    decoration: const InputDecoration(
+                      labelText: 'Telefon',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('İptal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (firebaseUser != null && adSoyadController.text.trim().isNotEmpty) {
+                    try {
+                      // Firebase Auth displayName güncelleme
+                      firebaseUser.updateDisplayName(adSoyadController.text.trim());
+                      
+                      // Firestore güncelleme
+                      FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid).update({
+                        'displayName': adSoyadController.text.trim(),
+                        'name': adSoyadController.text.trim(),
+                        'phone': telefonController.text.trim(),
+                        'updatedAt': FieldValue.serverTimestamp(),
+                      });
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profil bilgileri güncellendi')),
+                      );
+                    } catch (e) {
+                      debugPrint('Profil güncelleme hatası: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Hata: $e')),
+                      );
+                    }
+                  }
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Kaydet'),
+              ),
+            ],
+          );
+        },
+      );
+      
+      // Firestore'dan telefon numarasını asenkron olarak al ve varsa controller'a yükle
+      if (firebaseUser != null) {
+        FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid).get().then((doc) {
+          if (doc.exists && doc.data() != null) {
+            final userData = doc.data()!;
+            if (userData['phone'] != null && userData['phone'].toString().isNotEmpty) {
+              telefonController.text = userData['phone'];
+            }
+          }
+        }).catchError((e) {
+          debugPrint('Kullanıcı verisi getirme hatası: $e');
+        });
+      }
+    } catch (e) {
+      debugPrint('Dialog gösterme hatası: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bir hata oluştu: $e')),
+      );
+    }
+  }
+
+  // Bildirim ayarları dialog
+  void _showNotificationSettingsDialog(BuildContext context) {
+    try {
+      // Bildirim ayarları başlangıç değerleri
+      bool tumBildirimler = true;
+      bool epostaBildirimleri = true;
+      bool uygulamaBildirimleri = true;
+      bool pazarlamaBildirimleri = false;
+      
+      // Dialog'u hemen göster
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return AlertDialog(
+                title: const Text('Bildirim Ayarları'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SwitchListTile(
+                        title: const Text('Tüm Bildirimler'),
+                        subtitle: const Text('Tüm bildirimleri aç/kapat'),
+                        value: tumBildirimler,
+                        onChanged: (value) {
+                          setState(() {
+                            tumBildirimler = value;
+                            if (!value) {
+                              epostaBildirimleri = false;
+                              uygulamaBildirimleri = false;
+                              pazarlamaBildirimleri = false;
+                            }
+                          });
+                        },
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        title: const Text('E-posta Bildirimleri'),
+                        subtitle: const Text('Önemli güncellemeler için e-posta alın'),
+                        value: epostaBildirimleri,
+                        onChanged: tumBildirimler
+                            ? (value) {
+                                setState(() {
+                                  epostaBildirimleri = value;
+                                });
+                              }
+                            : null,
+                      ),
+                      SwitchListTile(
+                        title: const Text('Uygulama Bildirimleri'),
+                        subtitle: const Text('Uygulama içi bildirimler alın'),
+                        value: uygulamaBildirimleri,
+                        onChanged: tumBildirimler
+                            ? (value) {
+                                setState(() {
+                                  uygulamaBildirimleri = value;
+                                });
+                              }
+                            : null,
+                      ),
+                      SwitchListTile(
+                        title: const Text('Pazarlama Bildirimleri'),
+                        subtitle: const Text('Kampanya ve özel fırsatlar hakkında bilgi alın'),
+                        value: pazarlamaBildirimleri,
+                        onChanged: tumBildirimler
+                            ? (value) {
+                                setState(() {
+                                  pazarlamaBildirimleri = value;
+                                });
+                              }
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('İptal'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      try {
+                        // Bildirim ayarlarını kaydetme işlemi
+                        final firebaseUser = FirebaseAuth.instance.currentUser;
+                        if (firebaseUser != null) {
+                          FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid)
+                            .collection('settings').doc('notifications').set({
+                              'allEnabled': tumBildirimler,
+                              'emailEnabled': epostaBildirimleri,
+                              'appEnabled': uygulamaBildirimleri,
+                              'marketingEnabled': pazarlamaBildirimleri,
+                              'updatedAt': FieldValue.serverTimestamp(),
+                            });
+                        }
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Bildirim ayarları güncellendi')),
+                        );
+                        Navigator.of(context).pop();
+                      } catch (e) {
+                        debugPrint('Bildirim ayarları güncelleme hatası: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Hata: $e')),
+                        );
+                      }
+                    },
+                    child: const Text('Kaydet'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
+      // Mevcut ayarları Firebase'den asenkron olarak al
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid)
+          .collection('settings').doc('notifications').get().then((doc) {
+            if (doc.exists && doc.data() != null) {
+              // Belgenin verilerini al
+              // Not: Dialog kapatıldıysa bu veri işe yaramaz ama
+              // kod akışını etkilemez
+            }
+          }).catchError((e) {
+            debugPrint('Bildirim ayarları getirme hatası: $e');
+          });
+      }
+    } catch (e) {
+      debugPrint('Bildirim dialog hatası: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bir hata oluştu: $e')),
+      );
+    }
+  }
+
+  // Gizlilik ve güvenlik dialog
+  void _showPrivacySettingsDialog(BuildContext context) {
+    try {
+      debugPrint('Gizlilik dialog\'u açılıyor...');
+      // Basit sabit değerlerle dialog'u hemen göster
+      bool konumPaylasimi = true;
+      bool profilGorunurlugu = true;
+      bool ikiAdimliDogrulama = false;
+      bool cevrimiciDurum = true;
+
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: const Text('Gizlilik Ayarları'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SwitchListTile(
+                        title: const Text('Konum Paylaşımı'),
+                        subtitle: const Text('Konum bilgileriniz diğer kullanıcılarla paylaşılsın'),
+                        value: konumPaylasimi,
+                        onChanged: (value) {
+                          setState(() {
+                            konumPaylasimi = value;
+                          });
+                        },
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        title: const Text('Profil Görünürlüğü'),
+                        subtitle: const Text('Profiliniz diğer kullanıcılar tarafından görüntülenebilir'),
+                        value: profilGorunurlugu,
+                        onChanged: (value) {
+                          setState(() {
+                            profilGorunurlugu = value;
+                          });
+                        },
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        title: const Text('İki Adımlı Doğrulama'),
+                        subtitle: const Text('Hesabınızı daha güvenli hale getirin'),
+                        value: ikiAdimliDogrulama,
+                        onChanged: (value) {
+                          setState(() {
+                            ikiAdimliDogrulama = value;
+                          });
+                        },
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        title: const Text('Çevrimiçi Durum'),
+                        subtitle: const Text('Çevrimiçi durumunuz diğer kullanıcılara gösterilsin'),
+                        value: cevrimiciDurum,
+                        onChanged: (value) {
+                          setState(() {
+                            cevrimiciDurum = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('İptal'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Burada kaydetme işlemi olabilir
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gizlilik ayarları güncellendi')),
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Kaydet'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Gizlilik dialog hatası: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bir hata oluştu: $e')),
+      );
+    }
+  }
+
+  // Yardım ve destek dialog
+  void _showHelpAndSupportDialog(BuildContext context) {
+    try {
+      debugPrint('Yardım dialog\'u açılıyor...');
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Yardım ve Destek'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.help_outline),
+                    title: const Text('Sıkça Sorulan Sorular'),
+                    subtitle: const Text('Yaygın sorular ve cevapları'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('SSS sayfasına yönlendiriliyorsunuz')),
+                      );
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.support_agent),
+                    title: const Text('Canlı Destek'),
+                    subtitle: const Text('Destek ekibimizle görüşün'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Canlı destek başlatılıyor...')),
+                      );
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.email_outlined),
+                    title: const Text('E-posta Desteği'),
+                    subtitle: const Text('Sorularınızı e-posta ile gönderin'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('E-posta desteği yakında aktif olacak')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Kapat'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Yardım dialog hatası: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bir hata oluştu: $e')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Sayfanın context'inin kullanılabilir olduğunu doğrulayalım
+    print("ProfileView build metodu çalıştı");
+    final mediaQuery = MediaQuery.of(context);
+    print("Ekran boyutları: ${mediaQuery.size.width}x${mediaQuery.size.height}");
+
     // Doğrudan Firebase'den kullanıcı bilgilerini al
     final firebaseUser = FirebaseAuth.instance.currentUser;
     
@@ -730,13 +1181,41 @@ class _ProfileViewState extends State<ProfileView> {
       appBar: AppBar(
         title: const Text('Profil'),
         actions: [
-          // Yenileme butonu
+          // Test butonu - Basit dialog gösterimi
+          IconButton(
+            icon: const Icon(Icons.checklist),
+            onPressed: () {
+              print("Test butonu tıklandı");
+              try {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (_) => SimpleDialog(
+                    title: const Text('Basit Dialog Testi'),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Text('Dialog açılması testi: ${DateTime.now()}'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Kapat'),
+                      ),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                print("Dialog açma hatası: $e");
+              }
+            },
+            tooltip: 'Dialog Test',
+          ),
+          // Var olan diğer butonlar...
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _forceRefreshUserData,
             tooltip: 'Yenile',
           ),
-          // Çıkış butonu
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -796,23 +1275,97 @@ class _ProfileViewState extends State<ProfileView> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            _buildSettingsCard(
-                              context, 
-                              icon: Icons.person, 
-                              title: 'Hesap Bilgileri',
-                              onTap: _navigateToAccountSettings,
+                            // Basit buton yaklaşımı - Card yerine ElevatedButton kullanımı
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  print("Profil butonu tıklandı");
+                                  _showBasicDialog(context, 'Profil', 'Profil bilgileri içeriği');
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.all(12),
+                                  alignment: Alignment.centerLeft,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.person, color: Theme.of(context).primaryColor),
+                                    const SizedBox(width: 16),
+                                    const Text('Profil Bilgilerini Düzenle'),
+                                    const Spacer(),
+                                    const Icon(Icons.arrow_forward_ios, size: 16),
+                                  ],
+                                ),
+                              ),
                             ),
-                            _buildSettingsCard(
-                              context, 
-                              icon: Icons.notifications, 
-                              title: 'Bildirim Ayarları',
-                              onTap: _navigateToNotificationSettings,
+                            
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  print("Bildirim butonu tıklandı");
+                                  _showBasicDialog(context, 'Bildirimler', 'Bildirim ayarları içeriği');
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.all(12),
+                                  alignment: Alignment.centerLeft,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.notifications, color: Theme.of(context).primaryColor),
+                                    const SizedBox(width: 16),
+                                    const Text('Bildirim Ayarları'),
+                                    const Spacer(),
+                                    const Icon(Icons.arrow_forward_ios, size: 16),
+                                  ],
+                                ),
+                              ),
                             ),
-                            _buildSettingsCard(
-                              context, 
-                              icon: Icons.security, 
-                              title: 'Gizlilik ve Güvenlik',
-                              onTap: _navigateToPrivacySettings,
+                            
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  print("Gizlilik butonu tıklandı");
+                                  _showBasicDialog(context, 'Gizlilik', 'Gizlilik ayarları içeriği');
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.all(12),
+                                  alignment: Alignment.centerLeft,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.security, color: Theme.of(context).primaryColor),
+                                    const SizedBox(width: 16),
+                                    const Text('Gizlilik ve Güvenlik'),
+                                    const Spacer(),
+                                    const Icon(Icons.arrow_forward_ios, size: 16),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  print("Yardım butonu tıklandı");
+                                  _showBasicDialog(context, 'Yardım', 'Yardım ve destek içeriği');
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.all(12),
+                                  alignment: Alignment.centerLeft,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.help, color: Theme.of(context).primaryColor),
+                                    const SizedBox(width: 16),
+                                    const Text('Yardım ve Destek'),
+                                    const Spacer(),
+                                    const Icon(Icons.arrow_forward_ios, size: 16),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -858,7 +1411,26 @@ class _ProfileViewState extends State<ProfileView> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Yeni bir şey eklemek için (premium ayarları, yeni analiz vb.)
+          // Basit test dialog
+          print('FloatingActionButton tıklandı'); // Konsola yazdır
+          showDialog(
+            context: context,
+            builder: (BuildContext ctx) {
+              return AlertDialog(
+                title: const Text('Test Dialog'),
+                content: const Text('Bu dialog açılıyor mu?'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      print('Dialog kapatılıyor'); // Konsola yazdır
+                      Navigator.of(ctx).pop();
+                    },
+                    child: const Text('Tamam'),
+                  ),
+                ],
+              );
+            },
+          );
         },
         child: const Icon(Icons.add),
       ),

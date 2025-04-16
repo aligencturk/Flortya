@@ -68,6 +68,9 @@ void main() async {
           ChangeNotifierProvider<ReportViewModel>(
             create: (_) => ReportViewModel(),
           ),
+          ChangeNotifierProvider<AdviceViewModel>(
+            create: (_) => AdviceViewModel(),
+          ),
           ChangeNotifierProvider<HomeController>(
             create: (_) => HomeController(
               userService: UserService(),

@@ -316,12 +316,26 @@ class _ReportViewState extends State<ReportView> {
                   child: CustomButton(
                     text: 'Testi Yeniden Başlat',
                     onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ReportView(),
-                        ),
-                      );
+                      try {
+                        // ViewModel'i al ve resetle
+                        final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+                        reportViewModel.resetReport();
+                        
+                        // UI güncellemesini güvenli şekilde planlama
+                        Future.microtask(() {
+                          if (mounted) {
+                            setState(() {
+                              _showReportResult = false;
+                            });
+                            _answerController.clear();
+                          }
+                        });
+                      } catch (e) {
+                        // Herhangi bir hata durumunda kullanıcıyı bilgilendir
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Test başlatılırken bir hata oluştu: $e')),
+                        );
+                      }
                     },
                     type: ButtonType.outline,
                     icon: Icons.refresh,
