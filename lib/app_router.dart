@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
@@ -26,6 +27,12 @@ class AppRouter {
         final bool isLoggedIn = authViewModel.isLoggedIn;
         final bool isInitialized = authViewModel.isInitialized;
         final bool isOnboardingRoute = state.uri.path == onboarding;
+        
+        // SharedPreferences'tan hasCompletedOnboarding durumunu al
+        final prefs = await SharedPreferences.getInstance();
+        final bool hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+        
+        debugPrint('Yönlendirme kontrolü: isLoggedIn=$isLoggedIn, isInitialized=$isInitialized, hasCompletedOnboarding=$hasCompletedOnboarding, isOnboardingRoute=$isOnboardingRoute');
 
         // Henüz initializing ise, bir redirect yapmadan bekle
         if (!isInitialized) {
@@ -36,9 +43,14 @@ class AppRouter {
         if (isLoggedIn && isOnboardingRoute) {
           return home;
         }
+        
+        // Kullanıcı onboarding'i tamamlamış ve onboarding sayfasındaysa, ana sayfaya yönlendir
+        if (hasCompletedOnboarding && isOnboardingRoute) {
+          return home;
+        }
 
-        // Kullanıcı oturum açmamış ve onboarding sayfasında değilse, onboarding'e yönlendir
-        if (!isLoggedIn && !isOnboardingRoute) {
+        // Kullanıcı oturum açmamış, onboarding'i tamamlamamış ve onboarding sayfasında değilse, onboarding'e yönlendir
+        if (!isLoggedIn && !hasCompletedOnboarding && !isOnboardingRoute) {
           return onboarding;
         }
 

@@ -43,6 +43,13 @@ class _OnboardingViewState extends State<OnboardingView> {
   void initState() {
     super.initState();
     _checkOnboardingStatus();
+    
+    // 5 saniye sonra hala onboarding ekranındaysa yardım kılavuzu göster
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted && _currentPage == _onboardingItems.length - 1) {
+        _showHelpDialog();
+      }
+    });
   }
 
   Future<void> _checkOnboardingStatus() async {
@@ -54,8 +61,13 @@ class _OnboardingViewState extends State<OnboardingView> {
   }
 
   Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasCompletedOnboarding', true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('hasCompletedOnboarding', true);
+      debugPrint('Onboarding tamamlandı, hasCompletedOnboarding = true ayarlandı');
+    } catch (e) {
+      debugPrint('Onboarding tamamlanamadı hata: $e');
+    }
   }
 
   @override
@@ -78,6 +90,46 @@ class _OnboardingViewState extends State<OnboardingView> {
     
     await _completeOnboarding();
     await authViewModel.signInWithApple();
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Geçiş Yapmakta Sorun mu Yaşıyorsunuz?'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Uygulamaya devam etmek için:'),
+            SizedBox(height: 8),
+            Text('1. Sağ alttaki "Başla" butonuna basın.'),
+            Text('2. Ekranın altından yukarı kaydırın.'),
+            Text('3. Uygulamayı kapatıp tekrar açmayı deneyin.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Tamam'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _completeOnboarding();
+              if (mounted) {
+                try {
+                  context.go(AppRouter.home);
+                } catch (e) {
+                  debugPrint('Manuel geçiş hatası: $e');
+                }
+              }
+            },
+            child: const Text('Devam Et'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -145,11 +197,24 @@ class _OnboardingViewState extends State<OnboardingView> {
                   
                   // İleri veya Başla butonu
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (_currentPage == _onboardingItems.length - 1) {
                         // Son sayfadaysa ana sayfaya git
-                        _completeOnboarding();
-                        context.go(AppRouter.home);
+                        await _completeOnboarding();
+                        if (mounted) {
+                          debugPrint('Ana sayfaya yönlendiriliyor...');
+                          try {
+                            context.go(AppRouter.home);
+                          } catch (e) {
+                            debugPrint('Yönlendirme hatası: $e');
+                            // Hata durumunda alternatif bir yönlendirme deneyin
+                            Future.delayed(Duration.zero, () {
+                              if (mounted) {
+                                Navigator.of(context).pushReplacementNamed(AppRouter.home);
+                              }
+                            });
+                          }
+                        }
                       } else {
                         // Sonraki sayfaya git
                         _pageController.nextPage(
