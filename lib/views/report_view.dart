@@ -278,7 +278,7 @@ class _ReportViewState extends State<ReportView> {
               
               const SizedBox(height: 32),
               
-              // İlişki Gelişim Grafiği
+              // İlişki gelişimi grafiği
               _buildRelationshipGraph(context, reportViewModel),
               
               const SizedBox(height: 32),
@@ -422,8 +422,7 @@ class _ReportViewState extends State<ReportView> {
     final relationshipType = reportViewModel.reportResult!['relationship_type'] ?? 'Belirsiz';
     
     return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
@@ -432,99 +431,47 @@ class _ReportViewState extends State<ReportView> {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'İlişki Gelişimi',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getRelationshipTypeColor(relationshipType),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  relationshipType,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
+          // Başlık
+          Text(
+            'İlişki Değerlendirmesi',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          
           const SizedBox(height: 16),
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: reportViewModel.getRelationshipHistory(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'Henüz yeterli veri yok',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
-                    ),
-                  );
-                }
-                
-                final graphData = snapshot.data!;
-                
-                // Basit çizgi grafiği
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(
-                    graphData.length,
-                    (index) {
-                      final data = graphData[index];
-                      final value = (data['value'] as int?) ?? 0;
-                      final label = data['label'] as String? ?? '';
-                      final heightPercentage = value / 100;
-                      
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Container(
-                            width: 30,
-                            height: 100 * heightPercentage,
-                            decoration: BoxDecoration(
-                              color: _getGraphBarColor(value),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            label,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                );
-              },
+          
+          // İlişki Tipi Etiketi
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            decoration: BoxDecoration(
+              color: _getRelationshipTypeColor(relationshipType),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: _getRelationshipTypeColor(relationshipType).withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Text(
+              relationshipType,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
           ),
         ],
       ),
-    );
+    )
+    .animate()
+    .fadeIn(duration: 600.ms);
   }
   
   // İlişki tipine göre renk belirleme
@@ -547,12 +494,12 @@ class _ReportViewState extends State<ReportView> {
     return typeColors[relationshipType] ?? Colors.indigo.shade700;
   }
   
-  // Grafik çubuğu için renk belirleme
-  Color _getGraphBarColor(int value) {
-    if (value >= 80) return Colors.green.shade600;
-    if (value >= 60) return Colors.blue.shade600;
-    if (value >= 40) return Colors.amber.shade600;
-    if (value >= 20) return Colors.orange.shade600;
+  // Puan rengi belirleme
+  Color _getScoreColor(int score) {
+    if (score >= 80) return Colors.green.shade600;
+    if (score >= 60) return Colors.blue.shade600;
+    if (score >= 40) return Colors.amber.shade600;
+    if (score >= 20) return Colors.orange.shade600;
     return Colors.red.shade600;
   }
 
