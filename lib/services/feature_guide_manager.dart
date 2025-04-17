@@ -77,8 +77,11 @@ class FeatureGuideManager {
     required List<GuideStep> steps,
     required VoidCallback onCompleted,
   }) {
+    // Overlay entry değişkeni
+    late OverlayEntry overlayEntry;
+    
     // Overlay entry oluştur
-    final OverlayEntry overlayEntry = OverlayEntry(
+    overlayEntry = OverlayEntry(
       builder: (context) => FeatureGuideOverlay(
         steps: steps,
         onCompleted: () {

@@ -1356,6 +1356,17 @@ class _HomeViewState extends State<HomeView> {
                           ),
                           child: InkWell(
                             onTap: () {
+                              // Premium kontrolü
+                              final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                              if (!authViewModel.isPremium) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Bu özellik sadece premium kullanıcılar için kullanılabilir.'),
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                                return;
+                              }
                               _refreshDailyAdvice();
                             },
                             child: Row(
