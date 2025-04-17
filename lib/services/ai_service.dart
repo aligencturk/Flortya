@@ -901,6 +901,18 @@ class AiService {
                 Analiz verileri:
                 ${jsonEncode(analizVerileri)}
                 
+                Aşağıdaki kategorileri belirtilen kurallara göre analiz et:
+                
+                Destek: Sadece destek, yanında olma, duygusal destek, anlayışlı davranış gibi ifadeleri dikkate al.
+                
+                Güven: Sadece sadakat, şeffaflık, yalan, kıskançlık, gizli konuşma gibi güven temelli ifadeleri dikkate al.
+                
+                Saygı: Aşağılamak, sınır ihlali, eleştiri, fikir belirtme, karşılıklı değer verme gibi ifadeleri değerlendir.
+                
+                İletişim: Anlayışlı konuşma, yanlış anlama, sessizlik, tartışma şekli gibi iletişimle ilgili bölümleri baz al.
+                
+                Uyum: Yukarıdaki 4 kategorideki puanların ortalaması olarak hesaplanır.
+                
                 Lütfen aşağıdaki JSON formatında bir analiz sonucu döndür:
                 {
                   "iliskiPuani": 0-100 arası bir puan (ilişkinin genel sağlık puanı),
@@ -918,7 +930,7 @@ class AiService {
                   ]
                 }
                 
-                Verilen puanlar ve tavsiyeler tamamen verilere dayalı olmalı ve gerçekçi olmalıdır.
+                Verilen puanlar ve tavsiyeler tamamen belirttiğim kurallara uygun olarak hesaplanmalı ve gerçekçi olmalıdır.
                 '''
               }
             ]
@@ -954,6 +966,22 @@ class AiService {
         // JSON yanıtı ayrıştırma
         try {
           Map<String, dynamic> jsonResponse = _parseJsonFromText(aiContent);
+          
+          // Uyum değerini elle hesapla (diğer 4 kategorinin ortalaması)
+          if (jsonResponse.containsKey('kategoriPuanlari')) {
+            final Map<String, int> kategoriPuanlari = Map<String, int>.from(jsonResponse['kategoriPuanlari'] ?? {});
+            if (kategoriPuanlari.containsKey('iletisim') &&
+                kategoriPuanlari.containsKey('guven') &&
+                kategoriPuanlari.containsKey('saygı') &&
+                kategoriPuanlari.containsKey('destek')) {
+              final int uyumPuani = ((kategoriPuanlari['iletisim']! + 
+                                     kategoriPuanlari['guven']! + 
+                                     kategoriPuanlari['saygı']! + 
+                                     kategoriPuanlari['destek']!) / 4).round();
+              kategoriPuanlari['uyum'] = uyumPuani;
+              jsonResponse['kategoriPuanlari'] = kategoriPuanlari;
+            }
+          }
           
           // Analiz sonucunu oluştur
           return AnalizSonucu(

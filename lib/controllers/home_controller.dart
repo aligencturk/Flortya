@@ -105,15 +105,80 @@ class HomeController extends ChangeNotifier {
       final oncekiPuan = oncekiAnaliz.kategoriPuanlari[kategori] ?? 0;
       final degisim = puan - oncekiPuan;
       
-      degisimler[kategori] = {
-        'onceki': oncekiPuan,
-        'yeni': puan,
-        'degisim': degisim,
-        'yuzde': oncekiPuan > 0 ? (degisim / oncekiPuan * 100).toInt() : 0,
-      };
+      switch (kategori.toLowerCase()) {
+        case 'destek':
+          // Yalnızca destek ile ilgili cümleleri dikkate al
+          degisimler[kategori] = {
+            'onceki': oncekiPuan,
+            'yeni': puan,
+            'degisim': degisim,
+            'yuzde': oncekiPuan > 0 ? (degisim / oncekiPuan * 100).toInt() : 0,
+          };
+          break;
+        
+        case 'guven':
+          // Güven temelli cümleleri dikkate al
+          degisimler[kategori] = {
+            'onceki': oncekiPuan,
+            'yeni': puan,
+            'degisim': degisim,
+            'yuzde': oncekiPuan > 0 ? (degisim / oncekiPuan * 100).toInt() : 0,
+          };
+          break;
+          
+        case 'saygi':
+        case 'saygı':
+          // Saygı ile ilgili ifadeleri değerlendir
+          degisimler[kategori] = {
+            'onceki': oncekiPuan,
+            'yeni': puan,
+            'degisim': degisim,
+            'yuzde': oncekiPuan > 0 ? (degisim / oncekiPuan * 100).toInt() : 0,
+          };
+          break;
+          
+        case 'iletisim':
+          // İletişim ile ilgili bölümleri baz al
+          degisimler[kategori] = {
+            'onceki': oncekiPuan,
+            'yeni': puan,
+            'degisim': degisim,
+            'yuzde': oncekiPuan > 0 ? (degisim / oncekiPuan * 100).toInt() : 0,
+          };
+          break;
+          
+        case 'uyum':
+          // Uyum diğer 4 kategorinin ortalaması olarak hesaplanır
+          final uyumOnceki = (_hesaplaOrtalamaKategoriPuani(oncekiAnaliz.kategoriPuanlari, 'uyum')).toInt();
+          final uyumYeni = (_hesaplaOrtalamaKategoriPuani(sonAnaliz.kategoriPuanlari, 'uyum')).toInt();
+          final uyumDegisim = uyumYeni - uyumOnceki;
+          
+          degisimler[kategori] = {
+            'onceki': uyumOnceki,
+            'yeni': uyumYeni,
+            'degisim': uyumDegisim,
+            'yuzde': uyumOnceki > 0 ? (uyumDegisim / uyumOnceki * 100).toInt() : 0,
+          };
+          break;
+      }
     });
     
     return degisimler;
+  }
+  
+  /// Ortalama kategori puanını hesaplar (Uyum için kullanılır)
+  double _hesaplaOrtalamaKategoriPuani(Map<String, int> kategoriPuanlari, String haricKategori) {
+    int toplam = 0;
+    int sayac = 0;
+    
+    kategoriPuanlari.forEach((kategori, puan) {
+      if (kategori.toLowerCase() != haricKategori.toLowerCase()) {
+        toplam += puan;
+        sayac++;
+      }
+    });
+    
+    return sayac > 0 ? toplam / sayac : 0;
   }
 
   /// Kişiselleştirilmiş tavsiyeleri yeniden oluşturur
