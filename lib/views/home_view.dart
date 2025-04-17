@@ -982,63 +982,33 @@ class _HomeViewState extends State<HomeView> {
                       width: double.infinity,
                       child: Column(
                         children: [
-                          // Y ekseni değerleri ve grafik
-                          Expanded(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Y ekseni değerleri
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text('100', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                    const Text('80', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                    const Text('60', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                    const Text('40', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                    const Text('20', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                    const Text('0', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                  ],
-                                ),
-                                const SizedBox(width: 10),
-                                
-                                // Grafik alanı
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      child: CustomPaint(
-                                        size: const Size(double.infinity, double.infinity),
-                                        painter: ChartPainter(
-                                          dataPoints: [
-                                            {'x': 0, 'y': 100},
-                                            {'x': 1, 'y': 80},
-                                            {'x': 2, 'y': 60},
-                                            {'x': 3, 'y': 40},
-                                            {'x': 4, 'y': 20},
-                                            {'x': 5, 'y': 0},
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          // Emoji Göstergesi
+                          const SizedBox(height: 16),
+                          Text(
+                            _getRelationshipEmoji(60), // İlişki puanını burada belirleyin (örnek: 60)
+                            style: const TextStyle(fontSize: 80),
                           ),
                           
-                          // X ekseni değerleri
-                          Padding(
-                            padding: const EdgeInsets.only(left: 24, top: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Mart', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                const Text('Nisan', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                const Text('Mayıs', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                                const Text('Haziran', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                              ],
-                            ),
+                          const SizedBox(height: 20),
+                          
+                          // Dalga Animasyonu
+                          SizedBox(
+                            height: 60,
+                            width: double.infinity,
+                            child: _buildWaveAnimation(60, const Color(0xFF9D3FFF)), // İlişki puanını burada belirleyin
+                          ),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Ayları göster
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Mart', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                              const Text('Nisan', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                              const Text('Mayıs', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                              const Text('Haziran', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                            ],
                           ),
                         ],
                       ),
@@ -2850,5 +2820,184 @@ class _HomeViewState extends State<HomeView> {
     // Eşleşme yoksa, hash'e göre sabit bir başlık seç
     return adviceTitles[hash.abs() % adviceTitles.length];
   }
+
+  // İlişki uyum emojisi belirleme
+  String _getRelationshipEmoji(int score) {
+    if (score >= 90) return '😍'; // Mükemmel uyum
+    if (score >= 70) return '😊'; // İyi uyum
+    if (score >= 50) return '😐'; // Orta düzey uyum
+    if (score >= 30) return '😟'; // Düşen uyum
+    return '😢'; // Riskli ilişki durumu
+  }
+  
+  // Dalga animasyonu oluşturma
+  Widget _buildWaveAnimation(int score, Color baseColor) {
+    // Dalga hareketinin ve yüksekliğinin puana göre ayarlanması
+    final double waveFrequency = _getWaveFrequency(score);
+    final double waveHeight = _getWaveHeight(score);
+    
+    return AnimatedWave(
+      color: baseColor,
+      frequency: waveFrequency,
+      amplitude: waveHeight,
+    );
+  }
+  
+  // Dalga frekansını puana göre ayarlama (düşük puan = daha hızlı ve düzensiz dalga)
+  double _getWaveFrequency(int score) {
+    if (score >= 80) return 0.05; // Sakin, yavaş dalga
+    if (score >= 60) return 0.08; // Orta hızda dalga
+    if (score >= 40) return 0.12; // Biraz hızlı dalga
+    return 0.15; // Çok hızlı ve düzensiz dalga
+  }
+  
+  // Dalga yüksekliğini puana göre ayarlama (düşük puan = daha yüksek dalga)
+  double _getWaveHeight(int score) {
+    if (score >= 80) return 5; // Çok sakin, düşük dalga
+    if (score >= 60) return 8; // Orta yükseklikte dalga
+    if (score >= 40) return 12; // Yüksek dalga
+    return 16; // Çok yüksek, şiddetli dalga
+  }
 } 
+
+// Sınıf sonu
+
+// Animasyonlu dalga widget'ı
+class AnimatedWave extends StatefulWidget {
+  final Color color;
+  final double frequency;
+  final double amplitude;
+
+  const AnimatedWave({
+    Key? key, 
+    required this.color,
+    required this.frequency,
+    required this.amplitude,
+  }) : super(key: key);
+
+  @override
+  State<AnimatedWave> createState() => _AnimatedWaveState();
+}
+
+class _AnimatedWaveState extends State<AnimatedWave> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Animasyon kontrolcüsü oluşturma
+    _controller = AnimationController(
+      vsync: this,
+      // İlişki puanına göre farklı hızda hareket eden animasyon
+      duration: Duration(milliseconds: (5000 / widget.frequency).round()),
+    );
+
+    // Sürekli tekrarlayan animasyon
+    _animation = Tween<double>(begin: 0, end: 2 * pi).animate(_controller);
+    
+    // Animasyonu başlat
+    _controller.repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: WavePainter(
+            color: widget.color,
+            frequency: widget.frequency,
+            amplitude: widget.amplitude,
+            phase: _animation.value,
+          ),
+          child: Container(),
+        );
+      },
+    );
+  }
+}
+
+// Dalga animasyonu çizici sınıfı
+class WavePainter extends CustomPainter {
+  final Color color;
+  final double frequency;
+  final double amplitude;
+  final double phase;
+
+  WavePainter({
+    required this.color,
+    required this.frequency,
+    required this.amplitude,
+    required this.phase,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withOpacity(0.8)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final width = size.width;
+    final height = size.height;
+    
+    // Yol başlangıcı
+    path.moveTo(0, height / 2);
+    
+    // Dalgalı çizgiyi oluşturma
+    for (double i = 0; i <= width; i++) {
+      // Sinüs dalgasını kullanarak dalgayı çiz
+      // Farklı frekans ve genlik değerleri farklı dalga desenleri oluşturur
+      // phase değeri, dalgayı hareket ettirmek için kullanılır
+      final y = height / 2 + 
+              amplitude * sin((i * frequency) + phase * 10) +
+              (amplitude / 2) * sin((i * frequency * 2) + phase * 15);
+      
+      path.lineTo(i, y);
+    }
+    
+    // Yolun altını kapat
+    path.lineTo(width, height);
+    path.lineTo(0, height);
+    path.close();
+    
+    // Dalgalı alanı doldur
+    canvas.drawPath(path, paint);
+    
+    // Dalga çizgisini de çiz
+    final strokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    
+    final linePath = Path();
+    linePath.moveTo(0, height / 2);
+    
+    for (double i = 0; i <= width; i++) {
+      final y = height / 2 + 
+              amplitude * sin((i * frequency) + phase * 10) +
+              (amplitude / 2) * sin((i * frequency * 2) + phase * 15);
+      
+      linePath.lineTo(i, y);
+    }
+    
+    canvas.drawPath(linePath, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(WavePainter oldDelegate) => 
+      oldDelegate.phase != phase ||
+      oldDelegate.frequency != frequency ||
+      oldDelegate.amplitude != amplitude ||
+      oldDelegate.color != color;
+}
 
