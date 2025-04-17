@@ -10,6 +10,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
+import '../viewmodels/report_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
 
@@ -915,163 +916,208 @@ class _HomeViewState extends State<HomeView> {
 
   // İlişki Raporu Tab
   Widget _buildRelationshipReportTab(BuildContext context) {
-    return SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                FutureBuilder<User?>(
-                  future: Future.value(FirebaseAuth.instance.currentUser),
-                  builder: (context, snapshot) {
-                    final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
-                    return Text(
-                      'Merhaba, $displayName',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    );
-                  },
-                ),
-                  const Spacer(),
-                  IconButton(
-                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                    onPressed: () {
-                      _showSettingsDialog(context);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            
-            // Ana içerik
-            Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF352269),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    // Ekrandaki hata: Consumer kullanarak ReportViewModel içindeki değişimleri dinlemeliyiz
+    return Consumer<ReportViewModel>(
+      builder: (context, reportViewModel, _) {
+        // İlişki puanını al (varsa)
+        int? relationshipScore;
+        if (reportViewModel.reportResult != null && reportViewModel.reportResult!.containsKey('relationship_type')) {
+          final relationshipType = reportViewModel.reportResult!['relationship_type'] as String;
+          relationshipScore = _calculateRelationshipScore(relationshipType);
+          debugPrint('İlişki tipi: $relationshipType, Puan: $relationshipScore');
+        } else {
+          debugPrint('Rapor henüz oluşturulmamış');
+        }
+        
+        return SafeArea(
+          child: Column(
+            children: [
+              // App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
                   children: [
-                    // Başlık
-                    const Text(
-                      'İlişki Gelişim\nRaporu',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                      ),
+                    FutureBuilder<User?>(
+                      future: Future.value(FirebaseAuth.instance.currentUser),
+                      builder: (context, snapshot) {
+                        final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
+                        return Text(
+                          'Merhaba, $displayName',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        );
+                      },
                     ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // İlişki Gelişim Grafiği
-                    Container(
-                      height: 250,
-                      width: double.infinity,
-                      child: Column(
-                        children: [
-                          // Emoji Göstergesi
-                          const SizedBox(height: 16),
-                          Text(
-                            _getRelationshipEmoji(60), // İlişki puanını burada belirleyin (örnek: 60)
-                            style: const TextStyle(fontSize: 80),
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Dalga Animasyonu
-                          SizedBox(
-                            height: 60,
-                            width: double.infinity,
-                            child: _buildWaveAnimation(60, const Color(0xFF9D3FFF)), // İlişki puanını burada belirleyin
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Ayları göster
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Mart', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                              const Text('Nisan', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                              const Text('Mayıs', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                              const Text('Haziran', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                            ],
-                          ),
-                        ],
-                      ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                      onPressed: () {},
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // İlişki Değerlendirmesi Butonu - Buraya taşındı
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF9D3FFF),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            _showRelationshipEvaluation(context);
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min, // Buton içeriği kadar yer kaplasın
-                            children: [
-                              const Icon(
-                                Icons.favorite,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                'İlişki Değerlendirmesi',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                      onPressed: () {
+                        _showSettingsDialog(context);
+                      },
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Alt kategoriler değişim oranları
-                    _buildCategoryChangeRow('İletişim Kalitesi', 12, true),
-                    const SizedBox(height: 12),
-                    _buildCategoryChangeRow('Duygusal Bağ', 8, true),
-                    const SizedBox(height: 12),
-                    _buildCategoryChangeRow('Çatışma Çözümü', 15, true),
-                    
-                    // Alt kategori yazılarından sonra biraz boşluk bırakalım
-                    const Spacer(flex: 1),
                   ],
                 ),
               ),
-            ),
+              
+              // Ana içerik
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF352269),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Başlık
+                        const Text(
+                          'İlişki Gelişim\nRaporu',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // İlişki Gelişim Görselleştirmesi - Emoji ve Dalga Animasyonu
+                        Container(
+                          height: 250,
+                          width: double.infinity,
+                          child: Column(
+                            children: [
+                              // Emoji Göstergesi
+                              const SizedBox(height: 16),
+                              Text(
+                                _getRelationshipEmoji(relationshipScore),
+                                style: const TextStyle(fontSize: 80),
+                              )
+                              .animate()
+                              .fadeIn(duration: 600.ms)
+                              .slide(begin: const Offset(0, -0.5), end: Offset.zero),
+                              
+                              const SizedBox(height: 20),
+                              
+                              // Dalga Animasyonu
+                              SizedBox(
+                                height: 80,
+                                width: double.infinity,
+                                child: relationshipScore != null
+                                  ? _buildWaveAnimation(relationshipScore, const Color(0xFF9D3FFF))
+                                  : Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                              )
+                              .animate()
+                              .fadeIn(delay: 200.ms, duration: 600.ms),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // İlişki Değerlendirmesi Butonu
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF9D3FFF),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF9D3FFF).withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                // AppRouter.reportRoute yerine AppRouter.report kullanılmalı 
+                                // veya doğrudan _showRelationshipEvaluation metodu kullanılmalı
+                                _showRelationshipEvaluation(context);
+                              },
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.favorite,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'İlişki Değerlendirmesi',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Alt kategoriler değişim oranları
+                        _buildCategoryChangeRow('İletişim Kalitesi', 12, true),
+                        const SizedBox(height: 12),
+                        _buildCategoryChangeRow('Duygusal Bağ', 8, true),
+                        const SizedBox(height: 12),
+                        _buildCategoryChangeRow('Çatışma Çözümü', 15, true),
+                        
+                        // Alt kategori yazılarından sonra biraz boşluk bırakalım
+                        const Spacer(flex: 1),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    )
-    .animate()
-    .fadeIn(duration: 300.ms);
+        )
+        .animate()
+        .fadeIn(duration: 300.ms);
+      },
+    );
+  }
+  
+  // İlişki tipini puana dönüştürme
+  int _calculateRelationshipScore(String relationshipType) {
+    final Map<String, int> typeScores = {
+      'Güven Odaklı': 85,
+      'Tutkulu': 75,
+      'Uyumlu': 80,
+      'Dengeli': 90,
+      'Mesafeli': 60,
+      'Kaçıngan': 50,
+      'Endişeli': 55,
+      'Çatışmalı': 40,
+      'Kararsız': 60,
+      'Gelişmekte Olan': 70,
+      'Gelişmekte Olan, Güven Sorunları Olan': 65,
+      'Sağlıklı': 95,
+      'Zorlayıcı': 45,
+      'Belirsiz': 65,
+    };
+    
+    return typeScores[relationshipType] ?? 65;
   }
   
   // Kategori değişim satırını oluşturan yardımcı fonksiyon
@@ -2822,12 +2868,13 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // İlişki uyum emojisi belirleme
-  String _getRelationshipEmoji(int score) {
-    if (score >= 90) return '😍'; // Mükemmel uyum
-    if (score >= 70) return '😊'; // İyi uyum
-    if (score >= 50) return '😐'; // Orta düzey uyum
-    if (score >= 30) return '😟'; // Düşen uyum
-    return '😢'; // Riskli ilişki durumu
+  String _getRelationshipEmoji(int? score) {
+    if (score == null) return '🤔'; // Henüz analiz yapılmadıysa
+    
+    if (score >= 90) return '😊'; // 90-100 puan - mutlu emoji
+    if (score >= 60) return '🙂'; // 60-89 puan - nötr emoji
+    if (score >= 40) return '😟'; // 40-59 puan - endişeli emoji
+    return '😢'; // 0-39 puan - üzgün emoji
   }
   
   // Dalga animasyonu oluşturma
@@ -2836,27 +2883,41 @@ class _HomeViewState extends State<HomeView> {
     final double waveFrequency = _getWaveFrequency(score);
     final double waveHeight = _getWaveHeight(score);
     
-    return AnimatedWave(
-      color: baseColor,
-      frequency: waveFrequency,
-      amplitude: waveHeight,
+    // Skora göre renk değiştirme
+    final Color waveColor = _getWaveColor(score);
+    
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedWave(
+        color: waveColor,
+        frequency: waveFrequency,
+        amplitude: waveHeight,
+      ),
     );
+  }
+  
+  // Dalga rengini puana göre ayarlama
+  Color _getWaveColor(int score) {
+    if (score >= 90) return const Color(0xFF9D3FFF); // Mor - En iyi puan
+    if (score >= 60) return const Color(0xFF7B68EE); // Lavanta
+    if (score >= 40) return const Color(0xFFFF6B6B); // Turuncu-Kırmızı
+    return const Color(0xFFFF4500);  // Kırmızı - En düşük puan
   }
   
   // Dalga frekansını puana göre ayarlama (düşük puan = daha hızlı ve düzensiz dalga)
   double _getWaveFrequency(int score) {
-    if (score >= 80) return 0.05; // Sakin, yavaş dalga
-    if (score >= 60) return 0.08; // Orta hızda dalga
-    if (score >= 40) return 0.12; // Biraz hızlı dalga
-    return 0.15; // Çok hızlı ve düzensiz dalga
+    if (score >= 90) return 0.03; // 90-100 puan - Çok sakin, yavaş dalga
+    if (score >= 60) return 0.06; // 60-89 puan - Orta hızda dalga
+    if (score >= 40) return 0.10; // 40-59 puan - Hızlı dalga
+    return 0.15; // 0-39 puan - Çok hızlı ve düzensiz dalga
   }
   
   // Dalga yüksekliğini puana göre ayarlama (düşük puan = daha yüksek dalga)
   double _getWaveHeight(int score) {
-    if (score >= 80) return 5; // Çok sakin, düşük dalga
-    if (score >= 60) return 8; // Orta yükseklikte dalga
-    if (score >= 40) return 12; // Yüksek dalga
-    return 16; // Çok yüksek, şiddetli dalga
+    if (score >= 90) return 4;  // 90-100 puan - Çok düşük, yumuşak dalga
+    if (score >= 60) return 8;  // 60-89 puan - Orta yükseklikte dalga
+    if (score >= 40) return 12; // 40-59 puan - Yüksek dalga
+    return 18; // 0-39 puan - Çok yüksek, sert ve düzensiz dalga
   }
 } 
 
@@ -2891,7 +2952,7 @@ class _AnimatedWaveState extends State<AnimatedWave> with SingleTickerProviderSt
     _controller = AnimationController(
       vsync: this,
       // İlişki puanına göre farklı hızda hareket eden animasyon
-      duration: Duration(milliseconds: (5000 / widget.frequency).round()),
+      duration: Duration(milliseconds: (3000 / widget.frequency).round()),
     );
 
     // Sürekli tekrarlayan animasyon
@@ -2919,6 +2980,7 @@ class _AnimatedWaveState extends State<AnimatedWave> with SingleTickerProviderSt
             amplitude: widget.amplitude,
             phase: _animation.value,
           ),
+          size: Size.infinite,
           child: Container(),
         );
       },
@@ -2973,11 +3035,11 @@ class WavePainter extends CustomPainter {
     // Dalgalı alanı doldur
     canvas.drawPath(path, paint);
     
-    // Dalga çizgisini de çiz
+    // Dalga çizgisini de çiz (daha kalın ve belirgin)
     final strokePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 3.0;
     
     final linePath = Path();
     linePath.moveTo(0, height / 2);
