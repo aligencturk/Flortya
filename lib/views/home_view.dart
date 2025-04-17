@@ -244,22 +244,7 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
             
-            // Sıfırlama Butonu (sadece analiz ve rapor ekranlarında göster) - Alt sol köşeye taşındı
-            if (_selectedIndex == 0 || _selectedIndex == 1)
-              Positioned(
-                bottom: 16,
-                left: 16,
-                child: FloatingActionButton.small(
-                  heroTag: 'resetButton',
-                  backgroundColor: const Color(0xFF352269),
-                  tooltip: 'Verileri Sıfırla',
-                  child: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.white,
-                  ),
-                  onPressed: () => _showResetConfirmationDialog(context),
-                ),
-              ),
+            // Sıfırlama butonu kaldırıldı - Artık ayarlar menüsünde yer alıyor
           ],
         ),
       ),
@@ -321,7 +306,7 @@ class _HomeViewState extends State<HomeView> {
     .fadeIn(duration: 300.ms);
   }
 
-  // Sıfırlama onay dialogu göster
+  // Sıfırlama onay diyalogu göster
   void _showResetConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -332,7 +317,7 @@ class _HomeViewState extends State<HomeView> {
           style: TextStyle(color: Colors.white),
         ),
         content: const Text(
-          'Tüm analiz ve rapor verileriniz silinecek. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
+          'Bu işlem geri alınamaz. Tüm analiz verilerin silinecek. Devam etmek istiyor musun?',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -345,7 +330,7 @@ class _HomeViewState extends State<HomeView> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF9D3FFF),
+              backgroundColor: Colors.redAccent.withOpacity(0.8),
             ),
             onPressed: () {
               Navigator.pop(context);
@@ -2254,6 +2239,28 @@ class _HomeViewState extends State<HomeView> {
                           ),
                         ),
                         child: const Text('Şifre Değiştir'),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Verileri Sıfırla Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Önce mevcut diyaloğu kapat
+                          _showResetConfirmationDialog(context); // Onay diyaloğunu göster
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent.withOpacity(0.8),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Verileri Sıfırla'),
                       ),
                     ),
                     
