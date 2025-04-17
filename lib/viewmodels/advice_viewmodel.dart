@@ -87,8 +87,12 @@ class AdviceViewModel extends ChangeNotifier {
   
   // Premium kullanıcılar için yeni tavsiye alma
   Future<void> getDailyAdvice(String userId, {bool isPremium = false, bool force = false}) async {
-    if (!isPremium && !force) {
-      _setError('Bu özellik sadece premium kullanıcılar için kullanılabilir.');
+    // Premium kontrolünü daha katı yapıyoruz
+    if (!isPremium) {
+      // _setError çağrısını kaldırıyoruz, sadece loglama yapıp çıkıyoruz.
+      // _setError('Bu özellik sadece premium kullanıcılar için kullanılabilir.');
+      _logger.w('Premium olmayan kullanıcı tavsiye yenileme denemesi: $userId');
+      // Hata durumunda mevcut tavsiye kartını silmiyoruz, böylece ekranda görünmeye devam eder
       return;
     }
     

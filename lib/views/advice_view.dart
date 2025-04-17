@@ -69,6 +69,13 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
     
+    // Premium kontrolü yap
+    if (!authViewModel.isPremium) {
+      // Snackbar ile kullanıcıya bildirme işlemi buton içerisine taşındı
+      // Burada herhangi bir işlem yapmıyoruz, böylece mevcut tavsiye kartı korunacak
+      return;
+    }
+    
     if (authViewModel.user != null) {
       await adviceViewModel.getDailyAdvice(
         authViewModel.user!.id,
@@ -185,6 +192,8 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
   
   // Günlük Tavsiye Tab
   Widget _buildDailyAdviceTab() {
+    // ScaffoldMessenger için context'i burada yakala
+    final scaffoldContext = context;
     return Consumer<AdviceViewModel>(
       builder: (context, viewModel, child) {
         if (viewModel.isLoading || _isLoading) {
@@ -290,14 +299,65 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
               
               // Yenile butonu
               Center(
-                child: ElevatedButton.icon(
-                  onPressed: _loadData,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Tavsiye Yenile'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
+                child: Consumer<AuthViewModel>(
+                  builder: (context, authViewModel, _) {
+                    final isPremium = authViewModel.isPremium;
+                    
+                    return ElevatedButton.icon(
+                      onPressed: () {
+                        // AuthViewModel'i burada da alabiliriz, Consumer2 kullanmak yerine
+                        final authViewModel = Provider.of<AuthViewModel>(scaffoldContext, listen: false);
+                        final isPremium = authViewModel.isPremium;
+                        
+                        if (isPremium) {
+                          _refreshAdvice();
+                        } else {
+                          // Premium olmayan kullanıcılar için uyarı mesajı
+                          // Builder context'i yerine dışarıdaki scaffoldContext'i kullan
+                          ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Bu özellik sadece premium üyelik ile kullanılabilir.'),
+                              backgroundColor: Colors.deepOrange,
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                      icon: Icon(
+                        // isPremium durumunu burada tekrar kontrol etmemiz gerekecek veya Consumer içinde kalmalı
+                        // Şimdilik Consumer içinde bırakalım, sadece context'i değiştirdik
+                        Provider.of<AuthViewModel>(context, listen: false).isPremium ? Icons.refresh : Icons.lock,
+                        color: Provider.of<AuthViewModel>(context, listen: false).isPremium ? null : Colors.grey,
+                      ),
+                      label: Text(Provider.of<AuthViewModel>(context, listen: false).isPremium ? 'Tavsiye Yenile' : 'Premium Özellik'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        backgroundColor: Provider.of<AuthViewModel>(context, listen: false).isPremium ? null : Colors.grey.shade200,
+                      ),
+                    );
+                  },
                 ),
+              ),
+              
+              // Premium olmayan kullanıcılara premium bilgilendirme metni
+              Consumer<AuthViewModel>(
+                builder: (context, authViewModel, _) {
+                  if (!authViewModel.isPremium) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Tavsiye yenilemek için premium üyelik gereklidir',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
               ),
             ],
           ),
