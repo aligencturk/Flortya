@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -142,14 +143,38 @@ class _HomeViewState extends State<HomeView> {
 
   // Tab değişimini işleme
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    });
+    debugPrint('Tab değişimi: $index');
+    
+    if (_selectedIndex == index) {
+      return; // Zaten o sekmedeyse bir şey yapma
+    }
+    
+    try {
+      // Önce sayfalar arası geçiş animasyonu
+      setState(() {
+        _selectedIndex = index;
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      });
+      
+      // Gerekirse GoRouter ile yönlendirme
+      /* Bu kodu etkinleştirirseniz, bottom bar tıklamaları ayrı bir sayfaya yönlendirir
+      if (index == 0) {
+        context.go('/message-analysis');
+      } else if (index == 1) {
+        context.go('/report');
+      } else if (index == 2) {
+        context.go('/advice');
+      } else if (index == 3) {
+        context.go('/profile');
+      }
+      */
+    } catch (e) {
+      debugPrint('Tab değişimi hatası: $e');
+    }
   }
 
   // Sayfa değişimini işleme
@@ -1577,45 +1602,70 @@ class _HomeViewState extends State<HomeView> {
                         
                     // Çıkış Butonu
                     TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                       onPressed: () async {
-                                  final shouldLogout = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
+                        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                        
+                        // Çıkış onayı sor
+                        final shouldLogout = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
                             backgroundColor: const Color(0xFF352269),
                             title: const Text(
-                              'Çıkış Yap',
+                              'Çıkış Yapmak İstiyor musunuz?',
                               style: TextStyle(color: Colors.white),
                             ),
                             content: const Text(
-                              'Çıkış yapmak istediğinizden emin misiniz?',
+                              'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
                               style: TextStyle(color: Colors.white70),
                             ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(false),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
                                 child: const Text(
                                   'İptal',
                                   style: TextStyle(color: Colors.white70),
                                 ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(true),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
                                 child: const Text(
                                   'Çıkış Yap',
                                   style: TextStyle(color: Colors.white),
                                 ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  
-                                  if (shouldLogout == true) {
-                                    await authViewModel.signOut();
-                                    if (context.mounted) {
-                                      context.go('/onboarding');
-                                    }
-                                  }
-                                },
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        if (shouldLogout == true) {
+                          debugPrint('Çıkış yapılıyor...');
+                          try {
+                            // Önce SharedPreferences'tan bilgileri temizle
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('hasCompletedOnboarding', false);
+                            await prefs.remove('user_token');
+                            await prefs.remove('user_login_state');
+                            
+                            // Firebase Auth ile çıkış yap
+                            await authViewModel.signOut();
+                            
+                            if (context.mounted) {
+                              // Force kullanarak doğrudan onboarding sayfasına git
+                              context.go('/onboarding');
+                            }
+                          } catch (e) {
+                            debugPrint('Çıkış yapma hatası: $e');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Çıkış yapma hatası: $e')),
+                              );
+                            }
+                          }
+                        }
+                      },
                       icon: const Icon(
                         Icons.logout,
                         color: Colors.white70,
@@ -1643,30 +1693,45 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildProfileMenuItem({
     required IconData icon,
     required String title,
+    VoidCallback? onTap,
   }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: Colors.white70,
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
+    return InkWell(
+      onTap: () {
+        debugPrint('Profil menü öğesine tıklandı: $title');
+        // Menü öğesine göre dialog aç
+        if (title == 'Hesap Bilgileri') {
+          _showAccountSettingsDialog(context);
+        } else if (title == 'Bildirim Ayarları') {
+          _showNotificationSettingsDialog(context);
+        } else if (title == 'Gizlilik ve Güvenlik') {
+          _showPrivacySettingsDialog(context);
+        } else if (title == 'Yardım ve Destek') {
+          _showHelpSupportDialog(context);
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(width: 16),
+            Text(
+              title, 
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+          ],
         ),
       ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        color: Colors.white70,
-        size: 16,
-      ),
-      onTap: () {},
     );
   }
 
-  void _showSettingsDialog(BuildContext context) {
-    bool bildirimlerAcik = true; // Varsayılan olarak açık
-    
+  // Hesap Bilgileri Dialog
+  void _showAccountSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1675,9 +1740,613 @@ class _HomeViewState extends State<HomeView> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.0),
           ),
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              return Container(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık ve Kapat Butonu
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Hesap Bilgileri',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // İçerik - Örnek olarak bazı hesap ayarları
+                const Text(
+                  'Profil Bilgileri',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                
+                const SizedBox(height: 10),
+                
+                FutureBuilder<User?>(
+                  future: Future.value(FirebaseAuth.instance.currentUser),
+                  builder: (context, snapshot) {
+                    final displayName = snapshot.data?.displayName ?? 'İsimsiz Kullanıcı';
+                    final email = snapshot.data?.email ?? '-';
+                    
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'İsim:',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Text(
+                              'E-posta:',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              email,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Kapat Butonu
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Kapat'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Bildirim Ayarları Dialog
+  void _showNotificationSettingsDialog(BuildContext context) {
+    bool pushBildirimAcik = true;
+    bool emailBildirimAcik = true;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF352269),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık ve Kapat Butonu
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Bildirim Ayarları',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Push Bildirimleri
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Push Bildirimleri',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: pushBildirimAcik,
+                          onChanged: (value) {
+                            setState(() {
+                              pushBildirimAcik = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // E-posta Bildirimleri
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'E-posta Bildirimleri',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: emailBildirimAcik,
+                          onChanged: (value) {
+                            setState(() {
+                              emailBildirimAcik = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Kaydet Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Bildirim ayarlarını kaydet
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Bildirim ayarları kaydedildi')),
+                          );
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9D3FFF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Kaydet'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  // Gizlilik ve Güvenlik Dialog
+  void _showPrivacySettingsDialog(BuildContext context) {
+    bool hesapGizlilik = true;
+    bool konum = false;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF352269),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık ve Kapat Butonu
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Gizlilik ve Güvenlik',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Hesap Gizliliği
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Hesap Gizliliği',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: hesapGizlilik,
+                          onChanged: (value) {
+                            setState(() {
+                              hesapGizlilik = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Konum Erişimi
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Konum Erişimi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: konum,
+                          onChanged: (value) {
+                            setState(() {
+                              konum = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Şifre Değiştir Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Şifre değiştirme özelliği yakında eklenecek')),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: const BorderSide(color: Colors.white30),
+                          ),
+                        ),
+                        child: const Text('Şifre Değiştir'),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Kaydet Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Gizlilik ayarlarını kaydet
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Gizlilik ayarları kaydedildi')),
+                          );
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9D3FFF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Kaydet'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  // Yardım ve Destek Dialog
+  void _showHelpSupportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık ve Kapat Butonu
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Yardım ve Destek',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Yardım Seçenekleri
+                _buildHelpOption(
+                  icon: Icons.help_outline,
+                  title: 'Sık Sorulan Sorular',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('SSS yakında eklenecek')),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 12),
+                
+                _buildHelpOption(
+                  icon: Icons.email_outlined,
+                  title: 'E-posta ile İletişim',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('E-posta desteği: destek@flortai.com')),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 12),
+                
+                _buildHelpOption(
+                  icon: Icons.feedback_outlined,
+                  title: 'Geribildirim Gönder',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Geribildirim özelliği yakında eklenecek')),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Kapat Butonu
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Kapat'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Yardım Seçeneği Widget
+  Widget _buildHelpOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white70,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Genel Ayarlar Dialog
+  void _showSettingsDialog(BuildContext context) {
+    bool bildirimlerAcik = true; // Varsayılan olarak açık
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF352269),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -1718,153 +2387,120 @@ class _HomeViewState extends State<HomeView> {
                     
                     const SizedBox(height: 20),
                     
-                    // Bildirimler
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Bildirimler',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Switch(
-                          value: bildirimlerAcik,
-                          onChanged: (value) {
-                            setState(() {
-                              bildirimlerAcik = value;
-                            });
-                          },
-                          activeColor: const Color(0xFF9D3FFF),
-                          activeTrackColor: const Color(0xFF9D3FFF).withOpacity(0.5),
-                        ),
-                      ],
+                    // Hesap Ayarları
+                    _buildSettingsOption(
+                      icon: Icons.person_outline,
+                      title: 'Hesap Bilgileri',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showAccountSettingsDialog(context);
+                      },
                     ),
                     
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     
-                    // Dil
-                    InkWell(
+                    // Bildirim Ayarları
+                    _buildSettingsOption(
+                      icon: Icons.notifications_outlined,
+                      title: 'Bildirim Ayarları',
                       onTap: () {
-                        // Dil değiştirme ekranına git
+                        Navigator.of(context).pop();
+                        _showNotificationSettingsDialog(context);
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Dil',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const Text(
-                                  'Türkçe',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: Colors.white.withOpacity(0.7),
-                                  size: 16,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                     
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     
-                    // Gizlilik
-                    InkWell(
+                    // Gizlilik ve Güvenlik
+                    _buildSettingsOption(
+                      icon: Icons.security_outlined,
+                      title: 'Gizlilik ve Güvenlik',
                       onTap: () {
-                        // Gizlilik ayarları ekranına git
+                        Navigator.of(context).pop();
+                        _showPrivacySettingsDialog(context);
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Gizlilik',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const Text(
-                                  'Ayarlar',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: Colors.white.withOpacity(0.7),
-                                  size: 16,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Yardım ve Destek
+                    _buildSettingsOption(
+                      icon: Icons.help_outline,
+                      title: 'Yardım ve Destek',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showHelpSupportDialog(context);
+                      },
                     ),
                     
                     const SizedBox(height: 20),
                     
-                    // Değişiklikleri Kaydet Butonu
-                    Container(
+                    // Kapat Butonu
+                    SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Değişiklikleri kaydet
                           Navigator.of(context).pop();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF9D3FFF),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.save_outlined, size: 18),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Değişiklikleri Kaydet',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: const Text('Kapat'),
                       ),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         );
       },
+    );
+  }
+  
+  // Ayarlar Seçeneği Widget
+  Widget _buildSettingsOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white70,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

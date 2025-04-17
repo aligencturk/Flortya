@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../widgets/custom_button.dart';
+import '../app_router.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({Key? key}) : super(key: key);
@@ -41,107 +42,11 @@ class _ProfileViewState extends State<ProfileView> {
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 
-  // Kullanıcı adını doğrudan değiştirme dialog'u (ViewModel kullanmadan)
+  // İsim değiştirme dialog'u - basitleştirilmiş versiyon
   Future<void> _showDirectNameChangeDialog(BuildContext context) async {
-    try {
-      debugPrint('İsim değiştirme dialog\'u açılıyor...');
-      final nameController = TextEditingController();
-      final formKey = GlobalKey<FormState>();
-      
-      // Mevcut ismi al
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser?.displayName != null) {
-        nameController.text = currentUser!.displayName!;
-      }
-      
-      final result = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('İsim Değiştir'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Yeni İsim',
-                hintText: 'Yeni isminizi girin',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'İsim boş olamaz';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('İptal'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.of(context).pop(true);
-                }
-              },
-              child: const Text('Kaydet'),
-            ),
-          ],
-        ),
-      );
-      
-      if (result == true && nameController.text.isNotEmpty) {
-        bool success = false;
-        try {
-          // Yükleniyor gösterelim
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('İsminiz güncelleniyor...')),
-          );
-          
-          final authUser = FirebaseAuth.instance.currentUser;
-          if (authUser != null) {
-            // Firebase Auth'da ismi güncelle
-            await authUser.updateDisplayName(nameController.text);
-            
-            // Kullanıcıyı yenile
-            await authUser.reload();
-            
-            // Firestore'da da güncelle
-            await FirebaseFirestore.instance.collection('users').doc(authUser.uid).update({
-              'displayName': nameController.text,
-              'name': nameController.text,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
-            
-            success = true;
-            
-            // UI'ı yenile
-            setState(() {});
-          }
-        } catch (e) {
-          debugPrint('İsim güncelleme hatası: $e');
-          success = false;
-        }
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(success 
-                ? 'İsminiz başarıyla güncellendi' 
-                : 'İsim güncellenirken hata oluştu, lütfen tekrar deneyin'
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('İsim değiştirme dialog hatası: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bir hata oluştu: $e')),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('İsim değiştirme özelliği yakında kullanıma açılacak')),
+    );
   }
 
   // Kullanıcı verilerini zorla yenileme
@@ -222,111 +127,58 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
-  // Çıkış yapma
+  // Hesaptan çıkış yapma - basitleştirilmiş
   Future<void> _logout() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
-    // Onay iletişim kutusu göster
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Çıkış Yap'),
+    // Basit bir onay mesajı göster
+    bool shouldLogout = false;
+    
+    // Kullanıcıya çıkış yapmak istediğinden emin olup olmadığını sor
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
         content: const Text('Çıkış yapmak istediğinizden emin misiniz?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Çıkış Yap'),
-          ),
-        ],
+        action: SnackBarAction(
+          label: 'Evet, Çıkış Yap',
+          onPressed: () {
+            shouldLogout = true;
+            // Çıkış işlemini başlat
+            _performLogout(authViewModel);
+          },
+        ),
       ),
     );
-    
-    if (shouldLogout == true) {
+  }
+  
+  // Asıl çıkış işlemini gerçekleştirir
+  Future<void> _performLogout(AuthViewModel authViewModel) async {
+    try {
       await authViewModel.signOut();
       if (mounted) {
         context.go('/onboarding');
+      }
+    } catch (e) {
+      debugPrint('Çıkış yapma hatası: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Çıkış yapma hatası: $e')),
+        );
       }
     }
   }
 
   // Premium abonelik satın alma
   Future<void> _upgradeToPremium() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    // Burada normalde ödeme işlemi başlatılır
-    // Şimdilik sadece premium durumunu simüle edelim
-    
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Premium Abonelik'),
-        content: const Text(
-          'Premium abonelik satın almak istediğinizden emin misiniz?\n\n'
-          'Aylık Ücret: ₺49.99',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Satın Al'),
-          ),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Premium abonelik satın alma özelliği yakında kullanıma açılacak')),
     );
-    
-    if (result == true) {
-      // Normalde gerçek ödeme işlemi yapılır
-      final success = await authViewModel.upgradeToPremium();
-      
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Premium abonelik başarıyla aktifleştirildi')),
-        );
-      }
-    }
   }
   
   // Premium aboneliği iptal etme
   Future<void> _cancelPremium() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Premium Abonelik İptali'),
-        content: const Text(
-          'Premium aboneliğinizi iptal etmek istediğinizden emin misiniz?\n\n'
-          'İptal ettiğinizde premium özellikler kullanıma kapanacaktır.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('İptal Et'),
-          ),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Premium abonelik iptal etme özelliği yakında kullanıma açılacak')),
     );
-    
-    if (result == true) {
-      final success = await authViewModel.cancelPremium();
-      
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Premium abonelik başarıyla iptal edildi')),
-        );
-      }
-    }
   }
   
   // Profil kartı
@@ -471,10 +323,7 @@ class _ProfileViewState extends State<ProfileView> {
                   ],
                 ),
               ),
-            )
-            .animate()
-            .fadeIn(duration: 400.ms)
-            .slideY(begin: -0.1, end: 0, duration: 400.ms);
+            );
           },
         );
       },
@@ -669,485 +518,61 @@ class _ProfileViewState extends State<ProfileView> {
     required VoidCallback onTap,
     Widget? trailing,
   }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-      ),
-      margin: const EdgeInsets.only(bottom: 8),
-      color: Colors.white,
-      child: GestureDetector( // InkWell yerine GestureDetector kullanılıyor
-        onTap: () {
-          debugPrint('[$title] kartına tıklandı');
-          onTap();
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: Theme.of(context).primaryColor,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
+        child: InkWell(
+          onTap: () {
+            debugPrint('[$title] butonuna tıklandı');
+            onTap(); // Orijinal onTap fonksiyonunu çağıralım
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: Theme.of(context).primaryColor,
+                  size: 24,
                 ),
-              ),
-              trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
+              ],
+            ),
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 300.ms, delay: 100.ms).slideX(begin: 0.1, end: 0);
+    );
   }
   
-  // Navigasyon metodları
+  // Navigasyon metodları - tümü basitleştirildi
   void _navigateToAccountSettings(BuildContext context) {
     debugPrint('_navigateToAccountSettings metodu çağrıldı');
-    _showAccountSettingsDialog(context);
+    context.go('/account-settings'); // GoRouter ile yönlendirme
   }
 
   void _navigateToNotificationSettings(BuildContext context) {
     debugPrint('_navigateToNotificationSettings metodu çağrıldı');
-    _showNotificationSettingsDialog(context);
+    context.go('/notification-settings'); // GoRouter ile yönlendirme
   }
 
   void _navigateToPrivacySettings(BuildContext context) {
     debugPrint('_navigateToPrivacySettings metodu çağrıldı');
-    _showPrivacySettingsDialog(context);
+    context.go('/privacy-settings'); // GoRouter ile yönlendirme
   }
 
   void _navigateToHelpAndSupport(BuildContext context) {
     debugPrint('_navigateToHelpAndSupport metodu çağrıldı');
-    _showHelpAndSupportDialog(context);
-  }
-  
-  // Profil bilgileri dialog
-  void _showAccountSettingsDialog(BuildContext context) {
-    try {
-      debugPrint('_showAccountSettingsDialog başladı');
-      // Gerçek kullanıcı bilgilerini al
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      debugPrint('Firebase kullanıcısı: ${firebaseUser?.uid}');
-      final adSoyadController = TextEditingController(text: firebaseUser?.displayName ?? "");
-      final emailController = TextEditingController(text: firebaseUser?.email ?? "");
-      final telefonController = TextEditingController();
-
-      // Dialog'u göster, Firestore verisinin yüklenmesini bekleme
-      debugPrint('Dialog gösteriliyor...');
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (BuildContext dialogContext) { // Context parametresini yeniden adlandırdık
-          debugPrint('Dialog builder çağrıldı');
-          return AlertDialog(
-            title: const Text('Profil Bilgileri'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: adSoyadController,
-                    decoration: const InputDecoration(
-                      labelText: 'Ad Soyad',
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'E-posta',
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    enabled: false, // E-posta değiştirilemez
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: telefonController,
-                    decoration: const InputDecoration(
-                      labelText: 'Telefon',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('İptal'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (firebaseUser != null && adSoyadController.text.trim().isNotEmpty) {
-                    try {
-                      // Firebase Auth displayName güncelleme
-                      firebaseUser.updateDisplayName(adSoyadController.text.trim());
-                      
-                      // Firestore güncelleme
-                      FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid).update({
-                        'displayName': adSoyadController.text.trim(),
-                        'name': adSoyadController.text.trim(),
-                        'phone': telefonController.text.trim(),
-                        'updatedAt': FieldValue.serverTimestamp(),
-                      });
-                      
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(content: Text('Profil bilgileri güncellendi')),
-                      );
-                    } catch (e) {
-                      debugPrint('Profil güncelleme hatası: $e');
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        SnackBar(content: Text('Hata: $e')),
-                      );
-                    }
-                  }
-                  Navigator.of(dialogContext).pop();
-                },
-                child: const Text('Kaydet'),
-              ),
-            ],
-          );
-        },
-      );
-      
-      // Firestore'dan telefon numarasını asenkron olarak al ve varsa controller'a yükle
-      if (firebaseUser != null) {
-        FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid).get().then((doc) {
-          if (doc.exists && doc.data() != null) {
-            final userData = doc.data()!;
-            if (userData['phone'] != null && userData['phone'].toString().isNotEmpty) {
-              telefonController.text = userData['phone'];
-            }
-          }
-        }).catchError((e) {
-          debugPrint('Kullanıcı verisi getirme hatası: $e');
-        });
-      }
-    } catch (e) {
-      debugPrint('Dialog gösterme hatası: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bir hata oluştu: $e')),
-      );
-    }
-  }
-
-  // Bildirim ayarları dialog
-  void _showNotificationSettingsDialog(BuildContext context) {
-    try {
-      debugPrint('_showNotificationSettingsDialog başladı');
-      // Bildirim ayarları başlangıç değerleri
-      bool tumBildirimler = true;
-      bool epostaBildirimleri = true;
-      bool uygulamaBildirimleri = true;
-      bool pazarlamaBildirimleri = false;
-      
-      // Dialog'u hemen göster
-      debugPrint('Bildirim dialog gösteriliyor...');
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (BuildContext dialogContext) {
-          debugPrint('Bildirim dialog builder çağrıldı');
-          return StatefulBuilder(
-            builder: (BuildContext statefulContext, StateSetter setState) {
-              return AlertDialog(
-                title: const Text('Bildirim Ayarları'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SwitchListTile(
-                        title: const Text('Tüm Bildirimler'),
-                        subtitle: const Text('Tüm bildirimleri aç/kapat'),
-                        value: tumBildirimler,
-                        onChanged: (value) {
-                          setState(() {
-                            tumBildirimler = value;
-                            if (!value) {
-                              epostaBildirimleri = false;
-                              uygulamaBildirimleri = false;
-                              pazarlamaBildirimleri = false;
-                            }
-                          });
-                        },
-                      ),
-                      const Divider(),
-                      SwitchListTile(
-                        title: const Text('E-posta Bildirimleri'),
-                        subtitle: const Text('Önemli güncellemeler için e-posta alın'),
-                        value: epostaBildirimleri,
-                        onChanged: tumBildirimler
-                            ? (value) {
-                                setState(() {
-                                  epostaBildirimleri = value;
-                                });
-                              }
-                            : null,
-                      ),
-                      SwitchListTile(
-                        title: const Text('Uygulama Bildirimleri'),
-                        subtitle: const Text('Uygulama içi bildirimler alın'),
-                        value: uygulamaBildirimleri,
-                        onChanged: tumBildirimler
-                            ? (value) {
-                                setState(() {
-                                  uygulamaBildirimleri = value;
-                                });
-                              }
-                            : null,
-                      ),
-                      SwitchListTile(
-                        title: const Text('Pazarlama Bildirimleri'),
-                        subtitle: const Text('Kampanya ve özel fırsatlar hakkında bilgi alın'),
-                        value: pazarlamaBildirimleri,
-                        onChanged: tumBildirimler
-                            ? (value) {
-                                setState(() {
-                                  pazarlamaBildirimleri = value;
-                                });
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('İptal'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      try {
-                        // Bildirim ayarlarını kaydetme işlemi
-                        final firebaseUser = FirebaseAuth.instance.currentUser;
-                        if (firebaseUser != null) {
-                          FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid)
-                            .collection('settings').doc('notifications').set({
-                              'allEnabled': tumBildirimler,
-                              'emailEnabled': epostaBildirimleri,
-                              'appEnabled': uygulamaBildirimleri,
-                              'marketingEnabled': pazarlamaBildirimleri,
-                              'updatedAt': FieldValue.serverTimestamp(),
-                            });
-                        }
-                        
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          const SnackBar(content: Text('Bildirim ayarları güncellendi')),
-                        );
-                        Navigator.of(dialogContext).pop();
-                      } catch (e) {
-                        debugPrint('Bildirim ayarları güncelleme hatası: $e');
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(content: Text('Hata: $e')),
-                        );
-                      }
-                    },
-                    child: const Text('Kaydet'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-
-      // Mevcut ayarları Firebase'den asenkron olarak al
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null) {
-        FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid)
-          .collection('settings').doc('notifications').get().then((doc) {
-            if (doc.exists && doc.data() != null) {
-              // Belgenin verilerini al
-              // Not: Dialog kapatıldıysa bu veri işe yaramaz ama
-              // kod akışını etkilemez
-            }
-          }).catchError((e) {
-            debugPrint('Bildirim ayarları getirme hatası: $e');
-          });
-      }
-    } catch (e) {
-      debugPrint('Bildirim dialog hatası: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bir hata oluştu: $e')),
-      );
-    }
-  }
-
-  // Gizlilik ve güvenlik dialog
-  void _showPrivacySettingsDialog(BuildContext context) {
-    try {
-      debugPrint('_showPrivacySettingsDialog başladı');
-      // Basit sabit değerlerle dialog'u hemen göster
-      bool konumPaylasimi = true;
-      bool profilGorunurlugu = true;
-      bool ikiAdimliDogrulama = false;
-      bool cevrimiciDurum = true;
-
-      debugPrint('Gizlilik dialog gösteriliyor...');
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          debugPrint('Gizlilik dialog builder çağrıldı');
-          return StatefulBuilder(
-            builder: (BuildContext statefulContext, StateSetter setState) {
-              return AlertDialog(
-                title: const Text('Gizlilik Ayarları'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SwitchListTile(
-                        title: const Text('Konum Paylaşımı'),
-                        subtitle: const Text('Konum bilgileriniz diğer kullanıcılarla paylaşılsın'),
-                        value: konumPaylasimi,
-                        onChanged: (value) {
-                          setState(() {
-                            konumPaylasimi = value;
-                          });
-                        },
-                      ),
-                      const Divider(),
-                      SwitchListTile(
-                        title: const Text('Profil Görünürlüğü'),
-                        subtitle: const Text('Profiliniz diğer kullanıcılar tarafından görüntülenebilir'),
-                        value: profilGorunurlugu,
-                        onChanged: (value) {
-                          setState(() {
-                            profilGorunurlugu = value;
-                          });
-                        },
-                      ),
-                      const Divider(),
-                      SwitchListTile(
-                        title: const Text('İki Adımlı Doğrulama'),
-                        subtitle: const Text('Hesabınızı daha güvenli hale getirin'),
-                        value: ikiAdimliDogrulama,
-                        onChanged: (value) {
-                          setState(() {
-                            ikiAdimliDogrulama = value;
-                          });
-                        },
-                      ),
-                      const Divider(),
-                      SwitchListTile(
-                        title: const Text('Çevrimiçi Durum'),
-                        subtitle: const Text('Çevrimiçi durumunuz diğer kullanıcılara gösterilsin'),
-                        value: cevrimiciDurum,
-                        onChanged: (value) {
-                          setState(() {
-                            cevrimiciDurum = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('İptal'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Burada kaydetme işlemi olabilir
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(content: Text('Gizlilik ayarları güncellendi')),
-                      );
-                      Navigator.of(dialogContext).pop();
-                    },
-                    child: const Text('Kaydet'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-    } catch (e) {
-      debugPrint('Gizlilik dialog hatası: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bir hata oluştu: $e')),
-      );
-    }
-  }
-
-  // Yardım ve destek dialog
-  void _showHelpAndSupportDialog(BuildContext context) {
-    try {
-      debugPrint('_showHelpAndSupportDialog başladı');
-      debugPrint('Yardım dialog gösteriliyor...');
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          debugPrint('Yardım dialog builder çağrıldı');
-          return AlertDialog(
-            title: const Text('Yardım ve Destek'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text('Sıkça Sorulan Sorular'),
-                    subtitle: const Text('Yaygın sorular ve cevapları'),
-                    onTap: () {
-                      Navigator.of(dialogContext).pop();
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(content: Text('SSS sayfasına yönlendiriliyorsunuz')),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.support_agent),
-                    title: const Text('Canlı Destek'),
-                    subtitle: const Text('Destek ekibimizle görüşün'),
-                    onTap: () {
-                      Navigator.of(dialogContext).pop();
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(content: Text('Canlı destek başlatılıyor...')),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.email_outlined),
-                    title: const Text('E-posta Desteği'),
-                    subtitle: const Text('Sorularınızı e-posta ile gönderin'),
-                    onTap: () {
-                      Navigator.of(dialogContext).pop();
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(content: Text('E-posta desteği yakında aktif olacak')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Kapat'),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (e) {
-      debugPrint('Yardım dialog hatası: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bir hata oluştu: $e')),
-      );
-    }
+    context.go('/help-support'); // GoRouter ile yönlendirme
   }
 
   @override
@@ -1267,8 +692,17 @@ class _ProfileViewState extends State<ProfileView> {
                               context,
                               icon: Icons.person,
                               title: 'Profil Bilgilerini Düzenle',
+                              // Directly call context.go here for testing
                               onTap: () {
-                                _navigateToAccountSettings(context);
+                                debugPrint('Profil Bilgilerini Düzenle - Doğrudan context.go çağrılıyor');
+                                try {
+                                  context.go('/account-settings');
+                                } catch (e) {
+                                  debugPrint('context.go hatası: $e');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Yönlendirme hatası: $e')),
+                                  );
+                                }
                               },
                             ),
                             _buildSettingsCard(
@@ -1327,22 +761,36 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ],
         onTap: (index) {
-          if (index != 3) { // Profil dışındaki bir sekmeye tıklandığında
-            // Burada ilgili sayfaya yönlendirme yapılacak
-            // Örneğin: context.go('/messages') gibi
-            // Şimdilik sadece bir mesaj gösterelim
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${index == 0 ? "Mesaj Analizi" : index == 1 ? "İlişki Raporu" : "Tavsiye Kartı"} sayfasına yönlendiriliyorsunuz...')),
-            );
+          if (index != 3) {
+            debugPrint('Bottom navigation bar index: $index seçildi');
+            try {
+              if (index == 0) {
+                context.go('/message-analysis');
+              } else if (index == 1) {
+                context.go('/report');
+              } else if (index == 2) {
+                context.go('/advice');
+              }
+            } catch (e) {
+              debugPrint('Yönlendirme hatası: $e');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Yönlendirme hatası: $e')),
+              );
+            }
           }
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          
+          debugPrint('FloatingActionButton tıklandı');
+          // Basit bir bilgi mesajı göster
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profil düzenleme özelliği yakında kullanıma açılacak')),
+          );
         },
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.person_outline),
       ),
     );
   }
-} 
+}

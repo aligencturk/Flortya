@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService;
@@ -131,9 +132,18 @@ class AuthViewModel extends ChangeNotifier {
     _setLoading(true);
     _clearError();
     try {
+      // SharedPreferences'tan onboarding durumunu sıfırla
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('hasCompletedOnboarding', false);
+      await prefs.remove('user_token');
+      
+      // Firebase Auth ile çıkış yap
       await _authService.signOut();
       _user = null;
       notifyListeners();
+      
+      // Debug için kullanıcı durumunu kontrol et
+      debugPrint('Çıkış yapıldı, kullanıcı durumu: ${_authService.currentUser}');
     } catch (e) {
       _setError('Çıkış yapma hatası: $e');
     } finally {

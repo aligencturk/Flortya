@@ -62,11 +62,52 @@ class _OnboardingViewState extends State<OnboardingView> {
 
   Future<void> _completeOnboarding() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('hasCompletedOnboarding', true);
-      debugPrint('Onboarding tamamlandı, hasCompletedOnboarding = true ayarlandı');
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Mevcut durumu kontrol et
+      final bool mevcutDurum = prefs.getBool('hasCompletedOnboarding') ?? false;
+      debugPrint('Mevcut onboarding durumu: $mevcutDurum');
+      
+      // Maksimum deneme sayısı
+      const int maksimumDenemeSayisi = 5;
+      bool basarili = false;
+      
+      for (int deneme = 1; deneme <= maksimumDenemeSayisi; deneme++) {
+        debugPrint('Onboarding tamamlama deneme $deneme/$maksimumDenemeSayisi');
+        
+        try {
+          final bool sonuc = await prefs.setBool('hasCompletedOnboarding', true);
+          debugPrint('Deneme $deneme sonucu: $sonuc');
+          
+          // Başarılı kaydedildiyse döngüden çık
+          if (sonuc) {
+            basarili = true;
+            debugPrint('Onboarding başarıyla tamamlandı (deneme $deneme)');
+            break;
+          }
+          
+          // Başarısız olduysa kısa bir süre bekle ve tekrar dene
+          if (deneme < maksimumDenemeSayisi) {
+            await Future.delayed(Duration(milliseconds: 300 * deneme)); // Her denemede bekleme süresini artır
+          }
+        } catch (denemehata) {
+          debugPrint('Deneme $deneme hatası: $denemehata');
+          if (deneme < maksimumDenemeSayisi) {
+            await Future.delayed(Duration(milliseconds: 300 * deneme));
+          }
+        }
+      }
+      
+      // Son durumu kontrol et
+      final bool sonDurum = prefs.getBool('hasCompletedOnboarding') ?? false;
+      debugPrint('Kayıt sonrası onboarding durumu: $sonDurum');
+      
+      if (!basarili) {
+        debugPrint('UYARI: $maksimumDenemeSayisi deneme sonunda onboarding kaydedilemedi!');
+      }
     } catch (e) {
-      debugPrint('Onboarding tamamlanamadı hata: $e');
+      debugPrint('Onboarding tamamlama hatası: ${e.runtimeType} - $e');
+      rethrow; // Hatayı yukarıya ilet
     }
   }
 
@@ -113,18 +154,44 @@ class _OnboardingViewState extends State<OnboardingView> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Tamam'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
-              Navigator.of(context).pop();
-              await _completeOnboarding();
-              if (mounted) {
-                try {
-                  context.go(AppRouter.home);
-                } catch (e) {
-                  debugPrint('Manuel geçiş hatası: $e');
+              debugPrint('Devam Et butonuna tıklandı');
+              try {
+                // Önce dialogu kapat
+                Navigator.of(context).pop();
+                
+                // Onboarding'i tamamla
+                await _completeOnboarding();
+                
+                if (mounted) {
+                  // SharedPreferences'ı tekrar kontrol et
+                  final prefs = await SharedPreferences.getInstance();
+                  final hasCompleted = prefs.getBool('hasCompletedOnboarding') ?? false;
+                  debugPrint('Dialog: hasCompletedOnboarding değeri: $hasCompleted');
+                  
+                  // GoRouter ile yönlendir
+                  debugPrint('Dialog: Login sayfasına yönlendiriliyor...');
+                  context.go(AppRouter.login);
                 }
+              } catch (e) {
+                debugPrint('Dialog yönlendirme hatası: $e');
+                // Gecikmeli olarak tekrar dene
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  if (mounted) {
+                    try {
+                      context.go(AppRouter.login);
+                    } catch (e2) {
+                      debugPrint('Dialog ikinci yönlendirme hatası: $e2');
+                    }
+                  }
+                });
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9D3FFF),
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Devam Et'),
           ),
         ],
@@ -178,19 +245,32 @@ class _OnboardingViewState extends State<OnboardingView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Atla butonu
-                  TextButton(
-                    onPressed: () {
-                      _pageController.animateToPage(
-                        _onboardingItems.length - 1,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: const Text(
-                      'Atla',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      splashColor: Colors.white.withOpacity(0.1),
+                      onTap: () {
+                        debugPrint('Atla butonuna tıklandı');
+                        try {
+                          _pageController.animateToPage(
+                            _onboardingItems.length - 1,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        } catch (e) {
+                          debugPrint('Atla butonunda hata: $e');
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: const Text(
+                          'Atla',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -200,23 +280,107 @@ class _OnboardingViewState extends State<OnboardingView> {
                     onPressed: () async {
                       if (_currentPage == _onboardingItems.length - 1) {
                         // Son sayfadaysa ana sayfaya git
-                        await _completeOnboarding();
-                        if (mounted) {
-                          debugPrint('Ana sayfaya yönlendiriliyor...');
-                          try {
-                            context.go(AppRouter.home);
-                          } catch (e) {
-                            debugPrint('Yönlendirme hatası: $e');
-                            // Hata durumunda alternatif bir yönlendirme deneyin
-                            Future.delayed(Duration.zero, () {
+                        debugPrint('Başla butonuna tıklandı');
+                        try {
+                          await _completeOnboarding();
+                          if (mounted) {
+                            debugPrint('Login sayfasına yönlendirme başlıyor...');
+                            
+                            // 1. Yöntem: GoRouter.go ile yönlendirme
+                            try {
+                              debugPrint('1. Yöntem deneniyor: context.go(AppRouter.login)');
+                              context.go(AppRouter.login);
+                              debugPrint('1. Yöntem başarılı olabilir');
+                              return; // Başarılı olduysa diğer yöntemleri deneme
+                            } catch (navigasyon1Hatasi) {
+                              debugPrint('1. Yöntem hatası: $navigasyon1Hatasi');
+                            }
+                            
+                            // 500ms bekle ve 2. yöntemi dene
+                            await Future.delayed(const Duration(milliseconds: 500));
+                            if (!mounted) return;
+                            
+                            // 2. Yöntem: context.pushReplacement ile yönlendirme
+                            try {
+                              debugPrint('2. Yöntem deneniyor: context.pushReplacement(AppRouter.login)');
+                              context.pushReplacement(AppRouter.login);
+                              debugPrint('2. Yöntem başarılı olabilir');
+                              return; // Başarılı olduysa diğer yöntemleri deneme
+                            } catch (navigasyon2Hatasi) {
+                              debugPrint('2. Yöntem hatası: $navigasyon2Hatasi');
+                            }
+                            
+                            // 500ms bekle ve 3. yöntemi dene
+                            await Future.delayed(const Duration(milliseconds: 500));
+                            if (!mounted) return;
+                            
+                            // 3. Yöntem: Navigator.pushNamedAndRemoveUntil ile yönlendirme
+                            try {
+                              debugPrint('3. Yöntem deneniyor: Navigator.pushNamedAndRemoveUntil');
+                              Navigator.of(context).pushNamedAndRemoveUntil(
+                                AppRouter.login, 
+                                (route) => false
+                              );
+                              debugPrint('3. Yöntem başarılı olabilir');
+                              return; // Başarılı olduysa diğer yöntemleri deneme
+                            } catch (navigasyon3Hatasi) {
+                              debugPrint('3. Yöntem hatası: $navigasyon3Hatasi');
+                            }
+                            
+                            // 500ms bekle ve 4. yöntemi dene
+                            await Future.delayed(const Duration(milliseconds: 1000));
+                            if (!mounted) return;
+                            
+                            // 4. Yöntem: Gecikmeli Navigator.pushReplacementNamed ile yönlendirme
+                            debugPrint('4. Yöntem deneniyor: Gecikmeli Navigator.pushReplacementNamed');
+                            Future.delayed(const Duration(seconds: 1), () {
                               if (mounted) {
-                                Navigator.of(context).pushReplacementNamed(AppRouter.home);
+                                try {
+                                  Navigator.of(context).pushReplacementNamed(AppRouter.login);
+                                  debugPrint('4. Yöntem başarılı olabilir');
+                                } catch (navigasyon4Hatasi) {
+                                  debugPrint('4. Yöntem hatası: $navigasyon4Hatasi');
+                                  
+                                  // Tüm yöntemler başarısız olduysa kullanıcıya bilgi ver
+                                  showDialog(
+                                    context: context, 
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Yönlendirme Hatası'),
+                                      content: const Text('Ana sayfaya yönlendirme yapılamadı. Lütfen uygulamayı yeniden başlatın.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(ctx).pop(),
+                                          child: const Text('Tamam'),
+                                        )
+                                      ],
+                                    )
+                                  );
+                                }
                               }
                             });
+                          }
+                        } catch (e) {
+                          debugPrint('Onboarding tamamlama hatası: $e');
+                          // Hata durumunu kullanıcıya bildir
+                          if (mounted) {
+                            showDialog(
+                              context: context, 
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Onboarding Hatası'),
+                                content: const Text('Onboarding işlemi tamamlanamadı. Lütfen tekrar deneyin.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                    child: const Text('Tamam'),
+                                  )
+                                ],
+                              )
+                            );
                           }
                         }
                       } else {
                         // Sonraki sayfaya git
+                        debugPrint('İleri butonuna tıklandı');
                         _pageController.nextPage(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
