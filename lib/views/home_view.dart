@@ -1118,10 +1118,10 @@ class _HomeViewState extends State<HomeView> {
                         // İlişki Değerlendirmesi Butonu
                         Center(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), // Dikey padding artırıldı
                             decoration: BoxDecoration(
                               color: const Color(0xFF9D3FFF),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(16), // Köşe yuvarlatma artırıldı
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFF9D3FFF).withOpacity(0.3),
@@ -1132,8 +1132,6 @@ class _HomeViewState extends State<HomeView> {
                             ),
                             child: InkWell(
                               onTap: () {
-                                // AppRouter.reportRoute yerine AppRouter.report kullanılmalı 
-                                // veya doğrudan _showRelationshipEvaluation metodu kullanılmalı
                                 _showRelationshipEvaluation(context);
                               },
                               child: Row(
@@ -1142,15 +1140,15 @@ class _HomeViewState extends State<HomeView> {
                                   const Icon(
                                     Icons.favorite,
                                     color: Colors.white,
-                                    size: 18,
+                                    size: 20, // İkon boyutu biraz artırıldı
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 8),
                                   const Text(
                                     'İlişki Değerlendirmesi',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                      fontSize: 16, // Yazı boyutu artırıldı
                                     ),
                                   ),
                                 ],
@@ -1161,15 +1159,15 @@ class _HomeViewState extends State<HomeView> {
                         
                         const SizedBox(height: 24),
                         
-                        // Alt kategoriler değişim oranları
-                        _buildCategoryChangeRow('İletişim Kalitesi', 12, true),
-                        const SizedBox(height: 12),
-                        _buildCategoryChangeRow('Duygusal Bağ', 8, true),
-                        const SizedBox(height: 12),
-                        _buildCategoryChangeRow('Çatışma Çözümü', 15, true),
+                        // Alt kategoriler değişim oranları kaldırıldı
+                        // _buildCategoryChangeRow('İletişim Kalitesi', 12, true),
+                        // const SizedBox(height: 12),
+                        // _buildCategoryChangeRow('Duygusal Bağ', 8, true),
+                        // const SizedBox(height: 12),
+                        // _buildCategoryChangeRow('Çatışma Çözümü', 15, true),
                         
-                        // Alt kategori yazılarından sonra biraz boşluk bırakalım
-                        const Spacer(flex: 1),
+                        // Kaldırılan yazılardan sonraki Spacer da kaldırıldı
+                        const Spacer(flex: 1), // Bu satır kalabilir veya kaldırılabilir, tasarım tercihine bağlı
                       ],
                     ),
                   ),
