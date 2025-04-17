@@ -244,17 +244,19 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
             
-            // Sıfırlama Butonu (sadece analiz ve rapor ekranlarında göster)
+            // Sıfırlama Butonu (sadece analiz ve rapor ekranlarında göster) - Alt sol köşeye taşındı
             if (_selectedIndex == 0 || _selectedIndex == 1)
               Positioned(
-                top: 50,
-                right: 16,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.refresh,
+                bottom: 16,
+                left: 16,
+                child: FloatingActionButton.small(
+                  heroTag: 'resetButton',
+                  backgroundColor: const Color(0xFF352269),
+                  tooltip: 'Verileri Sıfırla',
+                  child: const Icon(
+                    Icons.delete_outline,
                     color: Colors.white,
                   ),
-                  tooltip: 'Verileri Sıfırla',
                   onPressed: () => _showResetConfirmationDialog(context),
                 ),
               ),
