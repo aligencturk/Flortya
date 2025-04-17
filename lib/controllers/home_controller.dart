@@ -218,6 +218,15 @@ class HomeController extends ChangeNotifier {
     }
   }
 
+  /// Tüm analiz verilerini temizler
+  void resetAnalizVerileri() {
+    _sonAnalizSonucu = null;
+    _analizGecmisi = [];
+    _kategoriDegisimleri = {};
+    _kisisellestirilmisTavsiyeler = [];
+    notifyListeners();
+  }
+
   // Yükleme durumunu güncelleme
   void _setLoading(bool loading) {
     _isLoading = loading;

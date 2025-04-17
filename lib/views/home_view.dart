@@ -223,23 +223,42 @@ class _HomeViewState extends State<HomeView> {
             colors: [Color(0xFF4A2A80), Color(0xFF2D1957)],
           ),
         ),
-        child: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
-        children: [
-          // Mesaj Analizi Tab
-          _buildMessageAnalysisTab(context),
-          
-          // İlişki Raporu Tab
-          _buildRelationshipReportTab(context),
-          
-          // Tavsiye Kartı Tab
-          _buildAdviceCardTab(context),
-          
-          // Profil Tab
-          _buildProfileTab(context),
-        ],
+        child: Stack(
+          children: [
+            PageView(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              physics: const NeverScrollableScrollPhysics(), // Manuel kaydırmayı engelle
+              children: [
+                // Mesaj Analizi Tab
+                _buildMessageAnalysisTab(context),
+                
+                // İlişki Raporu Tab
+                _buildRelationshipReportTab(context),
+                
+                // Tavsiye Kartı Tab
+                _buildAdviceCardTab(context),
+                
+                // Profil Tab
+                _buildProfileTab(context),
+              ],
+            ),
+            
+            // Sıfırlama Butonu (sadece analiz ve rapor ekranlarında göster)
+            if (_selectedIndex == 0 || _selectedIndex == 1)
+              Positioned(
+                top: 50,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: Colors.white,
+                  ),
+                  tooltip: 'Verileri Sıfırla',
+                  onPressed: () => _showResetConfirmationDialog(context),
+                ),
+              ),
+          ],
         ),
       ),
       bottomNavigationBar: Container(
@@ -298,6 +317,86 @@ class _HomeViewState extends State<HomeView> {
     )
     .animate()
     .fadeIn(duration: 300.ms);
+  }
+
+  // Sıfırlama onay dialogu göster
+  void _showResetConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF352269),
+        title: const Text(
+          'Verileri Sıfırla',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Tüm analiz ve rapor verileriniz silinecek. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Vazgeç',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9D3FFF),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _resetUserData(context);
+            },
+            child: const Text(
+              'Evet, Sıfırla',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Kullanıcı verilerini sıfırla
+  Future<void> _resetUserData(BuildContext context) async {
+    try {
+      // Tüm view modelleri ve controlleri al
+      final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+      final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      
+      // Yükleme göster
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veriler temizleniyor...')),
+      );
+      
+      // Firestore'daki verileri temizle
+      final result = await profileViewModel.clearUserAnalysisData();
+      
+      if (!result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Veriler temizlenirken bir hata oluştu')),
+        );
+        return;
+      }
+      
+      // Yerel verileri temizle
+      reportViewModel.resetReport();
+      messageViewModel.clearCurrentMessage();
+      homeController.resetAnalizVerileri();
+      
+      // Başarı mesajı göster
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tüm veriler başarıyla temizlendi')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: $e')),
+      );
+    }
   }
 
   // Mesaj Analizi Tab

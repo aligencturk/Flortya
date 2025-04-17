@@ -441,4 +441,63 @@ class ProfileViewModel extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  /// Kullanıcıyı silmeden tüm analiz ve rapor verilerini temizler
+  Future<bool> clearUserAnalysisData() async {
+    if (_auth.currentUser == null) return false;
+    
+    _setLoading(true);
+    try {
+      final userId = _auth.currentUser!.uid;
+      
+      // Batch işlemi başlat
+      final batch = _firestore.batch();
+      
+      // Kullanıcının alt koleksiyonlarındaki mesajları temizle
+      final messagesSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('messages')
+          .get();
+      
+      for (var doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // İlişki raporlarını silme
+      final reportsSnapshot = await _firestore
+          .collection('relationship_reports')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in reportsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Analiz sonuçlarını temizle
+      await _firestore.collection('users').doc(userId).update({
+        'sonAnalizSonucu': FieldValue.delete(),
+        'analizGecmisi': [],
+      });
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      // Kullanıcı nesnesini güncelle
+      if (_user != null) {
+        _user = _user!.copyWith(
+          sonAnalizSonucu: null,
+          analizGecmisi: [],
+        );
+      }
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Analiz verileri temizlenirken hata oluştu: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
 } 
