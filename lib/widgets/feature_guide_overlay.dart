@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 /// Ana sayfadaki özellikleri adım adım tanıtan rehber overlay widget'ı
 class FeatureGuideOverlay extends StatefulWidget {
@@ -91,6 +92,9 @@ class _FeatureGuideOverlayState extends State<FeatureGuideOverlay> with SingleTi
             painter: HighlightAreaPainter(
               highlightedArea: highlightedArea,
               animationValue: _fadeAnimation.value,
+              shape: currentStep.highlightShape,
+              borderWidth: currentStep.borderWidth,
+              padding: currentStep.padding,
             ),
             child: Container(
               width: double.infinity,
@@ -208,24 +212,56 @@ class _FeatureGuideOverlayState extends State<FeatureGuideOverlay> with SingleTi
   Offset _calculateTooltipPosition(BuildContext context, Rect targetArea) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
+    final GuideStep currentStep = widget.steps[_currentStepIndex];
+    final tooltipWidth = 250.0;
+    final tooltipHeight = 160.0;
     
-    // Varsayılan konum
-    double left = targetArea.right + 8;
-    double top = targetArea.center.dy - 100;
+    // Eğer pozisyon kullanıcı tarafından belirtilmişse onu kullan
+    if (currentStep.tooltipPosition != null) {
+      switch (currentStep.tooltipPosition) {
+        case TooltipPosition.top:
+          return Offset(
+            targetArea.center.dx - tooltipWidth / 2,
+            math.max(20, targetArea.top - tooltipHeight - 20)
+          );
+        case TooltipPosition.bottom:
+          return Offset(
+            targetArea.center.dx - tooltipWidth / 2,
+            math.min(screenHeight - tooltipHeight - 20, targetArea.bottom + 20)
+          );
+        case TooltipPosition.left:
+          return Offset(
+            math.max(20, targetArea.left - tooltipWidth - 20),
+            targetArea.center.dy - tooltipHeight / 2
+          );
+        case TooltipPosition.right:
+          return Offset(
+            math.min(screenWidth - tooltipWidth - 20, targetArea.right + 20),
+            targetArea.center.dy - tooltipHeight / 2
+          );
+        default:
+          // Otomatik hesaplama için aşağıdaki kodu çalıştır
+          break;
+      }
+    }
+    
+    // Varsayılan konum (otomatik hesaplama)
+    double left = targetArea.right + 20;
+    double top = targetArea.center.dy - tooltipHeight / 2;
     
     // Sağda yeterli alan yoksa, solda göster
-    if (left + 250 > screenWidth - 20) {
-      left = targetArea.left - 250 - 8;
+    if (left + tooltipWidth > screenWidth - 20) {
+      left = targetArea.left - tooltipWidth - 20;
     }
     
     // Solda yeterli alan yoksa, üstte veya altta göster
     if (left < 20) {
-      left = screenWidth / 2 - 125; // Ortalanmış
+      left = math.max(20, math.min(screenWidth - tooltipWidth - 20, targetArea.center.dx - tooltipWidth / 2));
       
       // Üstte veya altta gösterme
       if (targetArea.center.dy > screenHeight / 2) {
         // Hedef aşağıdaysa, üstte göster
-        top = targetArea.top - 160;
+        top = targetArea.top - tooltipHeight - 20;
       } else {
         // Hedef yukarıdaysa, altta göster
         top = targetArea.bottom + 20;
@@ -235,86 +271,11 @@ class _FeatureGuideOverlayState extends State<FeatureGuideOverlay> with SingleTi
     // Ekran sınırlarını kontrol et
     if (top < 20) {
       top = 20;
-    } else if (top + 160 > screenHeight - 20) {
-      top = screenHeight - 160 - 20;
+    } else if (top + tooltipHeight > screenHeight - 20) {
+      top = screenHeight - tooltipHeight - 20;
     }
     
     return Offset(left, top);
-  }
-}
-
-/// Vurgulanan alanı çizen özel boyacı
-class HighlightAreaPainter extends CustomPainter {
-  final Rect highlightedArea;
-  final double animationValue;
-  
-  HighlightAreaPainter({
-    required this.highlightedArea,
-    required this.animationValue,
-  });
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Animasyonlu vurgulanan alan
-    final Rect animatedArea = Rect.lerp(
-      highlightedArea.inflate(-20),
-      highlightedArea.inflate(5),
-      animationValue,
-    )!;
-    
-    // Arka plan maskesini oluştur
-    final Path mask = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRRect(RRect.fromRectAndRadius(
-        animatedArea,
-        const Radius.circular(12),
-      ))
-      ..fillType = PathFillType.evenOdd;
-    
-    // Gri-siyah yarı saydam arka plan çiz
-    canvas.drawPath(
-      mask,
-      Paint()..color = Colors.black.withOpacity(0.7),
-    );
-    
-    // Vurgulanan alanın kenarlığını çiz
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        animatedArea,
-        const Radius.circular(12),
-      ),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..color = const Color(0xFF9D3FFF)
-        ..strokeWidth = 2,
-    );
-    
-    // Parıltı efekti ekle
-    final Gradient gradient = RadialGradient(
-      center: Alignment.topLeft,
-      radius: 1.5,
-      colors: [
-        const Color(0xFF9D3FFF).withOpacity(0.3 * animationValue),
-        Colors.transparent,
-      ],
-    );
-    
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        animatedArea,
-        const Radius.circular(12),
-      ),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..shader = gradient.createShader(animatedArea),
-    );
-  }
-  
-  @override
-  bool shouldRepaint(HighlightAreaPainter oldDelegate) {
-    return oldDelegate.highlightedArea != highlightedArea ||
-        oldDelegate.animationValue != animationValue;
   }
 }
 
@@ -329,9 +290,189 @@ class GuideStep {
   /// Vurgulanacak hedef widget'ın ekrandaki alanı
   final Rect targetArea;
   
+  /// Tooltip'in konumu - varsayılan olarak otomatik hesaplanır
+  final TooltipPosition? tooltipPosition;
+  
+  /// Vurgulama efekti şekli - varsayılan olarak yuvarlak köşeli dikdörtgen
+  final HighlightShape highlightShape;
+  
+  /// Vurgulama çerçevesi genişliği
+  final double borderWidth;
+  
+  /// Vurgulama alanı ek padding miktarı
+  final double padding;
+  
   GuideStep({
     required this.title,
     required this.description,
     required this.targetArea,
+    this.tooltipPosition,
+    this.highlightShape = HighlightShape.roundedRect,
+    this.borderWidth = 2.0,
+    this.padding = 5.0,
   });
+}
+
+/// Tooltip pozisyonu için enum
+enum TooltipPosition {
+  auto,
+  top,
+  bottom,
+  left,
+  right
+}
+
+/// Vurgulama şekli için enum
+enum HighlightShape {
+  roundedRect,
+  circle,
+  oval
+}
+
+/// Vurgulanan alanı çizen özel boyacı
+class HighlightAreaPainter extends CustomPainter {
+  final Rect highlightedArea;
+  final double animationValue;
+  final HighlightShape shape;
+  final double borderWidth;
+  final double padding;
+  
+  HighlightAreaPainter({
+    required this.highlightedArea,
+    required this.animationValue,
+    this.shape = HighlightShape.roundedRect,
+    this.borderWidth = 2.0,
+    this.padding = 5.0,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Animasyonlu vurgulanan alan - padding'i kullan
+    final Rect animatedArea = Rect.lerp(
+      highlightedArea.inflate(-20),
+      highlightedArea.inflate(padding),
+      animationValue,
+    )!;
+    
+    // Arka plan maskesini oluştur
+    final Path mask = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+       
+    // Seçilen şekle göre highlight oluştur
+    if (shape == HighlightShape.circle) {
+      final double radius = math.max(animatedArea.width, animatedArea.height) / 2;
+      final Offset center = animatedArea.center;
+      mask.addOval(Rect.fromCircle(center: center, radius: radius));
+    } else if (shape == HighlightShape.oval) {
+      mask.addOval(animatedArea);
+    } else {
+      // RoundedRect (varsayılan)
+      mask.addRRect(RRect.fromRectAndRadius(
+        animatedArea,
+        const Radius.circular(12),
+      ));
+    }
+    
+    mask.fillType = PathFillType.evenOdd;
+    
+    // Gri-siyah yarı saydam arka plan çiz
+    canvas.drawPath(
+      mask,
+      Paint()..color = Colors.black.withOpacity(0.7),
+    );
+    
+    // Nabız efekti için genişleme-daralma animasyonu
+    final double pulseValue = (math.sin(animationValue * math.pi * 8) * 0.1) + 0.9;
+    final Rect pulseArea = animatedArea.inflate(pulseValue * 2);
+    
+    // Vurgulanan alanın kenarlığını çiz
+    if (shape == HighlightShape.circle) {
+      final double radius = math.max(pulseArea.width, pulseArea.height) / 2;
+      final Offset center = pulseArea.center;
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = const Color(0xFF9D3FFF)
+          ..strokeWidth = borderWidth,
+      );
+    } else if (shape == HighlightShape.oval) {
+      canvas.drawOval(
+        pulseArea,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = const Color(0xFF9D3FFF)
+          ..strokeWidth = borderWidth,
+      );
+    } else {
+      // RoundedRect (varsayılan)
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          pulseArea,
+          const Radius.circular(12),
+        ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = const Color(0xFF9D3FFF)
+          ..strokeWidth = borderWidth,
+      );
+    }
+    
+    // Parıltı efekti ekle - animasyonu yumuşat
+    final Gradient gradient = SweepGradient(
+      center: Alignment.topLeft,
+      startAngle: 0,
+      endAngle: math.pi * 2 * animationValue,
+      colors: [
+        const Color(0xFF9D3FFF).withOpacity(0.7),
+        const Color(0xFF9D3FFF).withOpacity(0.5),
+        const Color(0xFF9D3FFF).withOpacity(0.3),
+        const Color(0xFF9D3FFF).withOpacity(0.1),
+        Colors.transparent,
+      ],
+    );
+    
+    if (shape == HighlightShape.circle) {
+      final double radius = math.max(pulseArea.width, pulseArea.height) / 2;
+      final Offset center = pulseArea.center;
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..shader = gradient.createShader(pulseArea),
+      );
+    } else if (shape == HighlightShape.oval) {
+      canvas.drawOval(
+        pulseArea,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..shader = gradient.createShader(pulseArea),
+      );
+    } else {
+      // RoundedRect (varsayılan)
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          pulseArea,
+          const Radius.circular(12),
+        ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..shader = gradient.createShader(pulseArea),
+      );
+    }
+  }
+  
+  @override
+  bool shouldRepaint(HighlightAreaPainter oldDelegate) {
+    return oldDelegate.highlightedArea != highlightedArea ||
+        oldDelegate.animationValue != animationValue ||
+        oldDelegate.shape != shape ||
+        oldDelegate.borderWidth != borderWidth ||
+        oldDelegate.padding != padding;
+  }
 } 
