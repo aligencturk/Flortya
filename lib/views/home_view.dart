@@ -13,6 +13,7 @@ import '../viewmodels/advice_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
+import '../services/feature_guide_manager.dart';
 
 // Grafik Çizici Sınıf
 class ChartPainter extends CustomPainter {
@@ -113,6 +114,12 @@ class _HomeViewState extends State<HomeView> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
   final TextEditingController _searchController = TextEditingController();
+  
+  // Widget referans anahtarları
+  final GlobalKey _analyzeButtonKey = GlobalKey();
+  final GlobalKey _relationshipScoreCardKey = GlobalKey();
+  final GlobalKey _categoryAnalysisKey = GlobalKey();
+  final GlobalKey _relationshipEvaluationKey = GlobalKey();
 
   @override
   void initState() {
@@ -132,6 +139,9 @@ class _HomeViewState extends State<HomeView> {
       
       // Günlük tavsiyeyi yükle
       _loadDailyAdvice();
+      
+      // Özellik rehberi kontrolü
+      _checkAndShowGuide();
     });
   }
 
@@ -435,6 +445,7 @@ class _HomeViewState extends State<HomeView> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: InkWell(
+                key: _analyzeButtonKey, // Rehber için anahtar ekle
                 onTap: () {
                   // Önce viewModel'i temizle
                   messageViewModel.clearCurrentMessage();
@@ -486,6 +497,7 @@ class _HomeViewState extends State<HomeView> {
                 children: [
                   // İlişki Uyum Puanı Kartı
                   Container(
+                    key: _relationshipScoreCardKey, // Rehber için anahtar ekle
                     margin: const EdgeInsets.only(top: 16, bottom: 24),
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -592,9 +604,10 @@ class _HomeViewState extends State<HomeView> {
                             ),
                   
                   // Kategori Analiz Kartları
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: Text(
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    key: _categoryAnalysisKey, // Rehber için anahtar ekle
+                    child: const Text(
                         'Kategori Analizleri',
                         style: TextStyle(
                           color: Colors.white,
@@ -709,6 +722,25 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   
                   const SizedBox(height: 24),
+                  
+                  // İlişki Değerlendirme Butonu ekle
+                  Container(
+                    key: _relationshipEvaluationKey, // Rehber için anahtar ekle
+                    margin: const EdgeInsets.only(bottom: 20),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showRelationshipEvaluation(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9D3FFF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.assessment_outlined),
+                      label: const Text('İlişki Değerlendirmesi Başlat'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2555,6 +2587,25 @@ class _HomeViewState extends State<HomeView> {
                       },
                     ),
                     
+                    const SizedBox(height: 12),
+                    
+                    // Özellik Rehberini Göster
+                    _buildSettingsOption(
+                      icon: Icons.lightbulb_outline,
+                      title: 'Özellik Rehberini Göster',
+                      onTap: () async {
+                        Navigator.of(context).pop();
+                        
+                        // Rehber durumunu sıfırla
+                        await FeatureGuideManager.resetGuideStatus();
+                        
+                        // Manuel olarak rehberi göster
+                        if (mounted) {
+                          _showGuideManually();
+                        }
+                      },
+                    ),
+                    
                     const SizedBox(height: 20),
                     
                     // Kapat Butonu
@@ -3024,6 +3075,135 @@ class _HomeViewState extends State<HomeView> {
     if (score >= 60) return 8;  // 60-89 puan - Orta yükseklikte dalga
     if (score >= 40) return 12; // 40-59 puan - Yüksek dalga
     return 18; // 0-39 puan - Çok yüksek, sert ve düzensiz dalga
+  }
+
+  // Rehber için widget alanlarını hesapla
+  Map<String, Rect> _calculateWidgetAreas() {
+    Map<String, Rect> areas = {};
+    
+    // Analiz butonu
+    if (_analyzeButtonKey.currentContext != null) {
+      final RenderBox renderBox = _analyzeButtonKey.currentContext!.findRenderObject() as RenderBox;
+      final Offset position = renderBox.localToGlobal(Offset.zero);
+      areas['analyzeButton'] = Rect.fromLTWH(
+        position.dx, 
+        position.dy, 
+        renderBox.size.width, 
+        renderBox.size.height
+      );
+    }
+    
+    // İlişki puanı kartı
+    if (_relationshipScoreCardKey.currentContext != null) {
+      final RenderBox renderBox = _relationshipScoreCardKey.currentContext!.findRenderObject() as RenderBox;
+      final Offset position = renderBox.localToGlobal(Offset.zero);
+      areas['relationshipScoreCard'] = Rect.fromLTWH(
+        position.dx, 
+        position.dy, 
+        renderBox.size.width, 
+        renderBox.size.height
+      );
+    }
+    
+    // Kategori analizi
+    if (_categoryAnalysisKey.currentContext != null) {
+      final RenderBox renderBox = _categoryAnalysisKey.currentContext!.findRenderObject() as RenderBox;
+      final Offset position = renderBox.localToGlobal(Offset.zero);
+      areas['categoryAnalysis'] = Rect.fromLTWH(
+        position.dx, 
+        position.dy, 
+        renderBox.size.width, 
+        renderBox.size.height
+      );
+    }
+    
+    // İlişki değerlendirme butonu
+    if (_relationshipEvaluationKey.currentContext != null) {
+      final RenderBox renderBox = _relationshipEvaluationKey.currentContext!.findRenderObject() as RenderBox;
+      final Offset position = renderBox.localToGlobal(Offset.zero);
+      areas['relationshipEvaluationButton'] = Rect.fromLTWH(
+        position.dx, 
+        position.dy, 
+        renderBox.size.width, 
+        renderBox.size.height
+      );
+    }
+    
+    return areas;
+  }
+  
+  // Rehberi kontrol et ve göster
+  Future<void> _checkAndShowGuide() async {
+    // Rehberin daha önce görülüp görülmediğini kontrol et
+    final bool hasSeenGuide = await FeatureGuideManager.hasSeenGuide();
+    
+    // Eğer rehber daha önce görülmediyse ve view mount edilmiş durumdaysa göster
+    if (!hasSeenGuide && mounted) {
+      // Widget'ların render edilmesi için biraz bekle
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (mounted) {
+        // Widget alanlarını hesapla
+        final Map<String, Rect> areas = _calculateWidgetAreas();
+        
+        // Tüm gerekli alanlar hesaplanmışsa rehberi göster
+        if (areas.containsKey('analyzeButton') && 
+            areas.containsKey('relationshipScoreCard') && 
+            areas.containsKey('categoryAnalysis') && 
+            areas.containsKey('relationshipEvaluationButton')) {
+          
+          // Rehber adımlarını oluştur
+          final steps = FeatureGuideManager.createHomeGuideSteps(
+            analyzeButtonArea: areas['analyzeButton']!,
+            relationshipScoreCardArea: areas['relationshipScoreCard']!,
+            categoryAnalysisArea: areas['categoryAnalysis']!,
+            relationshipEvaluationButtonArea: areas['relationshipEvaluationButton']!,
+          );
+          
+          // Rehberi göster
+          FeatureGuideManager.showGuide(
+            context: context,
+            steps: steps,
+            onCompleted: () {
+              // Rehber tamamlandığında yapılacak işlemler
+              debugPrint('Özellik rehberi tamamlandı');
+            },
+          );
+        } else {
+          debugPrint('Özellik rehberi için bazı widget alanları hesaplanamadı');
+        }
+      }
+    }
+  }
+  
+  // Rehberi manuel olarak göster (Ayarlar menüsünden çağrılacak)
+  void _showGuideManually() {
+    final Map<String, Rect> areas = _calculateWidgetAreas();
+    
+    if (areas.containsKey('analyzeButton') && 
+        areas.containsKey('relationshipScoreCard') && 
+        areas.containsKey('categoryAnalysis') && 
+        areas.containsKey('relationshipEvaluationButton')) {
+      
+      final steps = FeatureGuideManager.createHomeGuideSteps(
+        analyzeButtonArea: areas['analyzeButton']!,
+        relationshipScoreCardArea: areas['relationshipScoreCard']!,
+        categoryAnalysisArea: areas['categoryAnalysis']!,
+        relationshipEvaluationButtonArea: areas['relationshipEvaluationButton']!,
+      );
+      
+      FeatureGuideManager.showGuide(
+        context: context,
+        steps: steps,
+        onCompleted: () {
+          debugPrint('Manuel başlatılan özellik rehberi tamamlandı');
+        },
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rehber şu anda gösterilemiyor. Lütfen daha sonra tekrar deneyin.')),
+      );
+    }
   }
 } 
 
