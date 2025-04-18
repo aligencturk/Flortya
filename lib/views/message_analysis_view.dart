@@ -8,7 +8,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -20,6 +21,8 @@ import '../models/user_model.dart';
 import '../services/input_service.dart';  // Türkçe karakter desteği için
 import '../services/ocr_service.dart';
 
+// Mesaj tipi enum'u - sınıf dışında tanımlanmalı
+enum MessageType { text, image, chatFile, none }
 
 class MessageAnalysisView extends StatefulWidget {
   const MessageAnalysisView({Key? key}) : super(key: key);
@@ -38,10 +41,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _messageFocusNode = FocusNode(); // FocusNode ekledim
   bool _showDetailedAnalysis = false;
+  
+  // State değişkenleri
+  MessageType _selectedMessageType = MessageType.none;
   File? _selectedImage;
-  bool _isImageMode = false;
-  bool _isProcessingImage = false;
+  File? _selectedChatFile;
   String? _extractedText;
+  String? _chatFileContent;
+  bool _isProcessingFile = false;
   
   @override
   void initState() {
@@ -150,7 +157,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Resim seçme
   Future<void> _pickImage() async {
     setState(() {
-      _isProcessingImage = true;
+      _isProcessingFile = true;
     });
     
     try {
@@ -202,14 +209,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             
             setState(() {
               _extractedText = formattedOcrText;
-              _isProcessingImage = false;
+              _isProcessingFile = false;
             });
             
             // Kaynakları serbest bırak
             ocrService.dispose();
           } else {
             setState(() {
-              _isProcessingImage = false;
+              _isProcessingFile = false;
               // OCR başarısız oldu, boş metin ekle
               _extractedText = "---- Görüntüden metin çıkarılamadı ----";
             });
@@ -233,7 +240,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           );
         } catch (e) {
           setState(() {
-            _isProcessingImage = false;
+            _isProcessingFile = false;
             // OCR başarısız olsa bile resmi kullanabilmek için metni boş ayarla
             _extractedText = "---- OCR hatası: $e ----";
           });
@@ -248,12 +255,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         }
       } else {
         setState(() {
-          _isProcessingImage = false;
+          _isProcessingFile = false;
         });
       }
     } catch (e) {
       setState(() {
-        _isProcessingImage = false;
+        _isProcessingFile = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -264,19 +271,93 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
 
-  // Mesajı gönderme ve analiz etme
+  // Sohbet dosyası seçme fonksiyonu
+  Future<void> _pickChatFile() async {
+    setState(() {
+      _isProcessingFile = true;
+    });
+    
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt'],
+      );
+      
+      if (result != null) {
+        File file = File(result.files.single.path!);
+        setState(() {
+          _selectedChatFile = file;
+        });
+        
+        // Dosya içeriğini oku
+        try {
+          final content = await file.readAsString();
+          setState(() {
+            _chatFileContent = content;
+          });
+          
+          // Kullanıcıya başarı mesajı göster
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Sohbet dosyası başarıyla yüklendi. Şimdi analiz edebilirsiniz.'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } catch (e) {
+          setState(() {
+            _chatFileContent = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Dosya okunamadı: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      
+      setState(() {
+        _isProcessingFile = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isProcessingFile = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Dosya seçme hatası: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Mesajı gönderme ve analiz etme güncellendi
   void _sendMessage() {
     final viewModel = Provider.of<MessageViewModel>(context, listen: false);
     String messageText = _messageController.text.trim();
     
-    if ((messageText.isEmpty && _selectedImage == null) || _isProcessingImage) {
+    bool hasContent = messageText.isNotEmpty || 
+                     _selectedImage != null || 
+                     (_selectedChatFile != null && _chatFileContent != null);
+    
+    if (!hasContent || _isProcessingFile) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
             children: [
               Icon(Icons.warning_amber, color: Colors.white),
               SizedBox(width: 10),
-              Expanded(child: Text('Lütfen bir mesaj girin veya resim seçin')),
+              Expanded(child: Text('Lütfen bir mesaj girin, görsel veya sohbet dosyası seçin')),
             ],
           ),
           backgroundColor: Colors.amber,
@@ -289,16 +370,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     viewModel.clearCurrentMessage();
     
     setState(() {
-      _isProcessingImage = true;
+      _isProcessingFile = true;
     });
 
     String messageContent = '';
     
-    if (_selectedImage != null) {
-      // Görsel modu için içerik oluştur (OCR çıktısı direkt gönderilecek)
+    if (_selectedMessageType == MessageType.image && _selectedImage != null) {
+      // Görsel modu için içerik oluştur
       messageContent = "Görsel Analizi: ";
       
-      // OCR metni varsa ekle (kullanıcıya göstermeden AI'a gönder)
       if (_extractedText != null && _extractedText!.isNotEmpty) {
         messageContent += "\n---- OCR Metni ----\n$_extractedText\n---- OCR Metni Sonu ----";
       } else {
@@ -309,8 +389,19 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (messageText.isNotEmpty) {
         messageContent += "\nKullanıcı Açıklaması: $messageText";
       }
+    } else if (_selectedMessageType == MessageType.chatFile && _selectedChatFile != null && _chatFileContent != null) {
+      // Sohbet dosyası modu için içerik oluştur
+      messageContent = "Sohbet Dosyası Analizi: ";
+      
+      // Dosya içeriğini ekle
+      messageContent += "\n---- Sohbet Metni ----\n$_chatFileContent\n---- Sohbet Metni Sonu ----";
+      
+      // Kullanıcı açıklaması varsa ekle
+      if (messageText.isNotEmpty) {
+        messageContent += "\nKullanıcı Notu: $messageText";
+      }
     } else {
-      // Sadece metin gönderiliyor
+      // Normal metin modu
       messageContent = messageText;
     }
 
@@ -320,10 +411,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Mesajı analiz etme işlemi
   Future<void> _analyzeMessage(String messageContent) async {
     // Boş mesaj kontrolü
-    if (messageContent.trim().isEmpty && _selectedImage == null) {
+    if (messageContent.trim().isEmpty && _selectedImage == null && _selectedChatFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Lütfen bir mesaj yazın veya bir görsel seçin'),
+          content: Text('Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'),
           backgroundColor: Colors.red,
         ),
       );
@@ -344,7 +435,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
     
     setState(() {
-      _isProcessingImage = true;
+      _isProcessingFile = true;
     });
     
     try {
@@ -400,8 +491,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       setState(() {
         _messageController.clear();
         _selectedImage = null;
+        _selectedChatFile = null;
         _extractedText = null;
-        _isProcessingImage = false;
+        _chatFileContent = null;
+        _isProcessingFile = false;
       });
       
       // Debug amaçlı kontroller
@@ -452,109 +545,21 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       );
       
       setState(() {
-        _isProcessingImage = false;
+        _isProcessingFile = false;
       });
     }
   }
 
-  // Mod değiştirme
-  void _toggleMode() {
+  // Temizleme fonksiyonu
+  void _resetSelections() {
     setState(() {
-      _isImageMode = !_isImageMode;
-      // Eğer resim modu kapatılıyorsa, seçili resmi temizle
-      if (!_isImageMode) {
-        _selectedImage = null;
-        _extractedText = null;
-      }
+      _selectedMessageType = MessageType.none;
+      _selectedImage = null;
+      _selectedChatFile = null;
+      _extractedText = null;
+      _chatFileContent = null;
       _messageController.clear();
     });
-    
-    // Debug log
-    debugPrint('Görüntü modu: $_isImageMode');
-    
-    // Kullanıcıya mod değişikliği bildirimi
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isImageMode 
-          ? 'Görsel moduna geçildi. Resim seçebilirsiniz.' 
-          : 'Metin moduna geçildi.'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
-
-  // Bilgi diyaloğunu gösteren metod
-  void _showInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Mesaj Analizi Hakkında', style: TextStyle(color: Color(0xFF9D3FFF))),
-          content: const SingleChildScrollView(
-            child: ListBody(
-              children: [
-                Text('Bu araç, mesajlarınızı analiz ederek anlam ve duygu değerlendirmesi yapar.'),
-                SizedBox(height: 8),
-                Text('Nasıl kullanılır:'),
-                Text('1. Analiz etmek istediğiniz metni girin veya görsel seçin'),
-                Text('2. "Mesajı Analiz Et" butonuna tıklayın'),
-                Text('3. Analiz sonuçlarını görüntüleyin ve isterseniz kaydedin'),
-                SizedBox(height: 8),
-                Text('Not: Analiz işlemi birkaç saniye sürebilir.'),
-              ],
-            ),
-        ),
-        actions: [
-            TextButton(
-              child: const Text('Anladım', style: TextStyle(color: Color(0xFF9D3FFF))),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          backgroundColor: const Color(0xFF352269),
-          contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
-          titleTextStyle: const TextStyle(color: Color(0xFF9D3FFF), fontSize: 18, fontWeight: FontWeight.bold),
-        );
-      },
-    );
-  }
-
-  // Analiz sonucunu kaydetme metodu
-  void _saveAnalysis(BuildContext context) {
-    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    if (messageViewModel.currentMessage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kaydedilecek analiz bulunamadı'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    try {
-      // Analizi kaydedildi olarak işaretleme işlemi burada yapılacak
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Analiz sonuçları başarıyla kaydedildi'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Analiz kaydedilemedi: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   @override
@@ -644,17 +649,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               maxLines: null,
                               expands: true,
                               style: const TextStyle(color: Colors.white),
-                              // Türkçe karakter formatters kullanma, sistem varsayılanlarını kullan
                               keyboardType: TextInputType.multiline,
                               textCapitalization: TextCapitalization.sentences,
                               textInputAction: TextInputAction.newline,
                               enableInteractiveSelection: true,
-                              // Ekstra özellikler
-                              // Hata ayıklama
                               onChanged: (value) {
                                 // Bu satırı değiştirmeyin - sadece Dart'ın 
                                 // Türkçe karakterleri kabul ettiğinden emin oluyoruz
-                                final containsTurkish = value.contains(RegExp(r'[ğüşöçıĞÜŞÖÇİI]'));
+                                final containsTurkish = value.contains(RegExp(r'[ğüşöçıĞÜŞÖÇİ]'));
                                 if (containsTurkish) {
                                   debugPrint('Türkçe karakter algılandı: $value');
                                 }
@@ -701,63 +703,219 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           
                           const SizedBox(height: 16),
                           
-                          // Görsel seçimi özelliği
-                                      Container(
+                          // Mesaj Tipi Seçimi
+                          Container(
                             padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
+                            decoration: BoxDecoration(
                               color: const Color(0xFF9D3FFF).withOpacity(0.2),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                             ),
-                                          child: Column(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                            children: [
-                                              Icon(
-                                      Icons.photo_library_outlined,
+                                  children: [
+                                    Icon(
+                                      Icons.category_outlined,
                                       color: Colors.white.withOpacity(0.9),
                                       size: 22,
                                     ),
                                     const SizedBox(width: 8),
                                     const Text(
-                                      'Görsel Seçimi',
-                                                style: TextStyle(
+                                      'Mesaj Tipi Seç',
+                                      style: TextStyle(
                                         color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                    const Spacer(),
-                                    Switch(
-                                      value: _isImageMode,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _isImageMode = value;
-                                          if (!value) {
-                                            _selectedImage = null;
-                                            _extractedText = null;
-                                          }
-                                        });
-                                      },
-                                      activeColor: const Color(0xFF9D3FFF),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
                                 
-                                if (_isImageMode) ...[
-                                  const SizedBox(height: 8),
+                                const SizedBox(height: 12),
+                                
+                                // Seçenekler satırı
+                                Row(
+                                  children: [
+                                    // Metin seçeneği
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedMessageType = 
+                                              _selectedMessageType == MessageType.text ? 
+                                              MessageType.none : MessageType.text;
+                                            
+                                            if (_selectedMessageType == MessageType.text) {
+                                              _selectedImage = null;
+                                              _selectedChatFile = null;
+                                              _extractedText = null;
+                                              _chatFileContent = null;
+                                            }
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                          decoration: BoxDecoration(
+                                            color: _selectedMessageType == MessageType.text 
+                                                ? const Color(0xFF9D3FFF) 
+                                                : Colors.white.withOpacity(0.05),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: _selectedMessageType == MessageType.text
+                                                  ? Colors.white.withOpacity(0.5)
+                                                  : Colors.white.withOpacity(0.2),
+                                            ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.text_fields,
+                                                color: Colors.white.withOpacity(0.9),
+                                                size: 20,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Metin',
+                                                style: TextStyle(
+                                                  color: Colors.white.withOpacity(0.9),
+                                                  fontWeight: _selectedMessageType == MessageType.text
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    
+                                    const SizedBox(width: 8),
+                                    
+                                    // Görsel seçeneği
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedMessageType = 
+                                              _selectedMessageType == MessageType.image ? 
+                                              MessageType.none : MessageType.image;
+                                            
+                                            if (_selectedMessageType == MessageType.image) {
+                                              _selectedChatFile = null;
+                                              _chatFileContent = null;
+                                            }
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                          decoration: BoxDecoration(
+                                            color: _selectedMessageType == MessageType.image
+                                                ? const Color(0xFF9D3FFF)
+                                                : Colors.white.withOpacity(0.05),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: _selectedMessageType == MessageType.image
+                                                  ? Colors.white.withOpacity(0.5)
+                                                  : Colors.white.withOpacity(0.2),
+                                            ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.photo_camera,
+                                                color: Colors.white.withOpacity(0.9),
+                                                size: 20,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Görsel',
+                                                style: TextStyle(
+                                                  color: Colors.white.withOpacity(0.9),
+                                                  fontWeight: _selectedMessageType == MessageType.image
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    
+                                    const SizedBox(width: 8),
+                                    
+                                    // Sohbet dosyası seçeneği
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedMessageType = 
+                                              _selectedMessageType == MessageType.chatFile ? 
+                                              MessageType.none : MessageType.chatFile;
+                                            
+                                            if (_selectedMessageType == MessageType.chatFile) {
+                                              _selectedImage = null;
+                                              _extractedText = null;
+                                            }
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                          decoration: BoxDecoration(
+                                            color: _selectedMessageType == MessageType.chatFile
+                                                ? const Color(0xFF9D3FFF)
+                                                : Colors.white.withOpacity(0.05),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: _selectedMessageType == MessageType.chatFile
+                                                  ? Colors.white.withOpacity(0.5)
+                                                  : Colors.white.withOpacity(0.2),
+                                            ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.chat_outlined,
+                                                color: Colors.white.withOpacity(0.9),
+                                                size: 20,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Sohbet',
+                                                style: TextStyle(
+                                                  color: Colors.white.withOpacity(0.9),
+                                                  fontWeight: _selectedMessageType == MessageType.chatFile
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                
+                                // Görsel seçimi alanı
+                                if (_selectedMessageType == MessageType.image) ...[
+                                  const SizedBox(height: 16),
                                   if (_selectedImage == null) ...[
                                     GestureDetector(
-                                      onTap: _isProcessingImage ? null : _pickImage,
+                                      onTap: _isProcessingFile ? null : _pickImage,
                                       child: Container(
                                         height: 100,
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.05),
                                           borderRadius: BorderRadius.circular(16),
                                           border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                                         ),
-                                        child: _isProcessingImage
+                                        child: _isProcessingFile
                                             ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
                                             : Column(
                                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -781,10 +939,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(16),
-                                            child: Image.file(
-                                              _selectedImage!,
+                                          child: Image.file(
+                                            _selectedImage!,
                                             height: 150,
-                                              width: double.infinity,
+                                            width: double.infinity,
                                             fit: BoxFit.cover,
                                           ),
                                         ),
@@ -816,6 +974,129 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                     ),
                                   ],
                                 ],
+                                
+                                // Sohbet dosyası seçimi alanı
+                                if (_selectedMessageType == MessageType.chatFile) ...[
+                                  const SizedBox(height: 16),
+                                  if (_selectedChatFile == null) ...[
+                                    GestureDetector(
+                                      onTap: _isProcessingFile ? null : _pickChatFile,
+                                      child: Container(
+                                        height: 100,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                        ),
+                                        child: _isProcessingFile
+                                            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
+                                            : Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.upload_file,
+                                                    color: Colors.white.withOpacity(0.7),
+                                                    size: 40,
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  const Text(
+                                                    'Sohbet dosyası (.txt) seçmek için tıklayın',
+                                                    style: TextStyle(color: Colors.white70),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.insert_drive_file,
+                                                color: Colors.white.withOpacity(0.9),
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  _selectedChatFile!.path.split('/').last,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedChatFile = null;
+                                                    _chatFileContent = null;
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(4),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFF9D3FFF).withOpacity(0.9),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.close,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          if (_chatFileContent != null && _chatFileContent!.isNotEmpty) ...[
+                                            const Text(
+                                              'Önizleme:',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              height: 80,
+                                              child: SingleChildScrollView(
+                                                child: Text(
+                                                  _chatFileContent!.length > 500
+                                                      ? '${_chatFileContent!.substring(0, 500)}...'
+                                                      : _chatFileContent!,
+                                                  style: const TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 12,
+                                                    fontFamily: 'monospace',
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ],
                             ),
                           ),
@@ -828,7 +1109,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             child: ElevatedButton.icon(
                               icon: const Icon(Icons.psychology_outlined),
                               label: Text(
-                                messageViewModel.isLoading ? 'Analiz Ediliyor...' : 'Mesajı Analiz Et',
+                                messageViewModel.isLoading || _isProcessingFile 
+                                    ? 'Analiz Ediliyor...' 
+                                    : 'Mesajı Analiz Et',
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -840,7 +1123,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                 ),
                                 elevation: 0,
                               ),
-                              onPressed: messageViewModel.isLoading ? null : _sendMessage,
+                              onPressed: (messageViewModel.isLoading || _isProcessingFile) ? null : _sendMessage,
                             ),
                           ),
                         ],
@@ -1148,6 +1431,46 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           ),
         ],
       ),
+    );
+  }
+
+  // Bilgi diyaloğunu gösteren metod
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Mesaj Analizi Hakkında', style: TextStyle(color: Color(0xFF9D3FFF))),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: [
+                Text('Bu araç, mesajlarınızı analiz ederek anlam ve duygu değerlendirmesi yapar.'),
+                SizedBox(height: 8),
+                Text('Nasıl kullanılır:'),
+                Text('1. Analiz etmek istediğiniz metni girin veya görsel seçin'),
+                Text('2. "Mesajı Analiz Et" butonuna tıklayın'),
+                Text('3. Analiz sonuçlarını görüntüleyin ve isterseniz kaydedin'),
+                SizedBox(height: 8),
+                Text('Not: Analiz işlemi birkaç saniye sürebilir.'),
+              ],
+            ),
+        ),
+        actions: [
+            TextButton(
+              child: const Text('Anladım', style: TextStyle(color: Color(0xFF9D3FFF))),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: const Color(0xFF352269),
+          contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+          titleTextStyle: const TextStyle(color: Color(0xFF9D3FFF), fontSize: 18, fontWeight: FontWeight.bold),
+        );
+      },
     );
   }
 } 

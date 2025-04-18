@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:logger/logger.dart';
+import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 /// Görsellerden metin çıkarmak için OCR servisi
 class OCRService {
@@ -22,22 +23,14 @@ class OCRService {
       final inputImage = InputImage.fromFile(imageFile);
       final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
       
-      // Tanınan metni birleştir
-      String extractedText = '';
-      for (TextBlock block in recognizedText.blocks) {
-        for (TextLine line in block.lines) {
-          extractedText += '${line.text}\n';
-        }
-      }
-      
-      _logger.i('Metin çıkarma tamamlandı: ${extractedText.length} karakter');
-      
-      if (extractedText.trim().isEmpty) {
+      if (recognizedText.text.isEmpty) {
         _logger.w('Görüntüden hiç metin çıkarılamadı');
         return null;
       }
       
-      return extractedText;
+      _logger.i('Metin çıkarma tamamlandı: ${recognizedText.text.length} karakter');
+      
+      return recognizedText.text;
     } catch (e) {
       _logger.e('Metin çıkarma sırasında hata oluştu: $e');
       return null;
@@ -51,51 +44,35 @@ class OCRService {
         return null;
       }
       
-      // Bu metin bir sohbet içeriği olabilir, sağdaki ve soldaki mesajları belirlemeye çalış
+      // Basit bir WhatsApp mesajı analizi yapıyoruz
+      // Format: [tarih saat] Gönderen: Mesaj
       final Map<String, String> messageParts = {};
-      final List<String> lines = text.split('\n');
+      final RegExp messagePattern = RegExp(r'\[(.*?)\]\s+(.*?):\s+(.*)');
       
-      String currentSpeaker = '';
-      String currentMessage = '';
+      // Mesajı satırlara böl
+      final lines = text.split('\n');
       
-      for (String line in lines) {
-        line = line.trim();
-        if (line.isEmpty) continue;
+      for (final line in lines) {
+        final match = messagePattern.firstMatch(line);
         
-        // Konuşmacı değişimleri için ipuçları ara
-        // Bu kısım, konuşmacı isimlerini ve mesaj içeriklerini 
-        // belirlemek için mesaj formatına özgü mantıkla geliştirilebilir
-        
-        // Şimdilik basit ayrıştırma
-        messageParts.putIfAbsent('user1', () => '');
-        messageParts.putIfAbsent('user2', () => '');
-        
-        // Satırda ":" varsa veya belirli bir formattaysa, konuşmacı değişimi olabilir
-        if (line.contains(':')) {
-          final parts = line.split(':');
-          if (parts.length >= 2) {
-            currentSpeaker = parts[0].trim();
-            currentMessage = parts.sublist(1).join(':').trim();
-            
-            if (!messageParts.containsKey(currentSpeaker)) {
-              messageParts[currentSpeaker] = currentMessage;
-            } else {
-              String existingMessage = messageParts[currentSpeaker] ?? '';
-              messageParts[currentSpeaker] = '$existingMessage\n$currentMessage';
-            }
-            continue;
+        if (match != null && match.groupCount >= 3) {
+          final dateTime = match.group(1)?.trim() ?? '';
+          final sender = match.group(2)?.trim() ?? '';
+          final message = match.group(3)?.trim() ?? '';
+          
+          // Gönderen adını anahtar olarak kullan
+          if (messageParts.containsKey(sender)) {
+            messageParts[sender] = '${messageParts[sender]}\n$message';
+          } else {
+            messageParts[sender] = message;
           }
-        }
-        
-        // Konuşmacı değişimi algılanamadıysa, mevcut konuşmacının mesajına ekle
-        if (currentSpeaker.isNotEmpty) {
-          String existingMessage = messageParts[currentSpeaker] ?? '';
-          messageParts[currentSpeaker] = '$existingMessage\n$line';
         } else {
-          // Konuşmacı belirsizse, içeriği genel mesaj olarak ekle
-          messageParts.putIfAbsent('general', () => '');
-          String existingMessage = messageParts['general'] ?? '';
-          messageParts['general'] = existingMessage + (existingMessage.isEmpty ? '' : '\n') + line;
+          // Mesaj formatına uymayan satırlar için "general" anahtarı kullan
+          if (messageParts.containsKey('general')) {
+            messageParts['general'] = '${messageParts['general']}\n$line';
+          } else {
+            messageParts['general'] = line;
+          }
         }
       }
       
