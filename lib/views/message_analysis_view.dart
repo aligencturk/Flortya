@@ -338,104 +338,125 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
       
       // ImagePicker ile dosya seçimine izin ver
-      final XFile? pickedFile = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-      );
-      
-      if (pickedFile == null) {
-        debugPrint('Dosya seçilmedi');
-        if (mounted) {
-          setState(() {
-            _isProcessingFile = false;
-          });
-        }
-        return;
-      }
-      
-      final path = pickedFile.path;
-      debugPrint('Seçilen dosya: $path');
-      
-      // Seçilen dosyanın uzantısını kontrol et
-      if (!path.toLowerCase().endsWith('.txt')) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Lütfen sadece .txt uzantılı dosya seçin'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() {
-            _isProcessingFile = false;
-          });
-        }
-        return;
-      }
-      
-      // Dosyayı oku
+      // XFile tipinde olduğu için önce normal dosyaya dönüştürmemiz gerekiyor
       try {
-        final file = File(path);
-        final exist = await file.exists();
+        final XFile? pickedFile = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+        );
         
-        if (!exist) {
+        if (pickedFile == null) {
+          debugPrint('Dosya seçilmedi');
+          if (mounted) {
+            setState(() {
+              _isProcessingFile = false;
+            });
+          }
+          return;
+        }
+        
+        final String? path = pickedFile.path;
+        if (path == null || path.isEmpty) {
+          throw Exception('Geçersiz dosya yolu');
+        }
+        
+        debugPrint('Seçilen dosya: $path');
+        
+        // Dosya uzantısını kontrol etmeden önce TXT içeriği gösterilecek
+        // Uzantı önemli değil, içerik okunabilirse yeterli
+        
+        // Dosyayı oku
+        final file = File(path);
+        final exists = await file.exists();
+        
+        if (!exists) {
           throw Exception('Dosya bulunamadı');
         }
         
-        final content = await file.readAsString();
-        
-        if (!mounted) return;
-        
-        setState(() {
-          _selectedChatFile = file;
-          _chatFileContent = content;
-          _isProcessingFile = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text('Sohbet dosyası başarıyla yüklendi. Şimdi analiz edebilirsiniz.'),
-                ),
-              ],
+        try {
+          final String content = await file.readAsString();
+          
+          if (!mounted) return;
+          
+          if (content.isEmpty) {
+            throw Exception('Dosya boş veya içerik okunamadı');
+          }
+          
+          setState(() {
+            _selectedChatFile = file;
+            _chatFileContent = content;
+            _selectedMessageType = MessageType.chatFile;
+            _isProcessingFile = false;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Dosya başarıyla yüklendi. Şimdi analiz edebilirsiniz.'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
             ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      } catch (e) {
-        debugPrint('Dosya okuma hatası: $e');
+          );
+        } catch (readError) {
+          debugPrint('Dosya okuma hatası: $readError');
+          if (mounted) {
+            setState(() {
+              _isProcessingFile = false;
+              _selectedChatFile = null;
+              _chatFileContent = null;
+            });
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Dosya okunamadı: ${readError.toString().substring(0, min(50, readError.toString().length))}...'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (pickError) {
+        debugPrint('Dosya seçme hatası: $pickError');
         if (mounted) {
+          setState(() {
+            _isProcessingFile = false;
+            _selectedChatFile = null;
+            _chatFileContent = null;
+          });
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Dosya okunamadı: $e'),
+              content: Text('Dosya seçilemedi: ${pickError.toString().substring(0, min(50, pickError.toString().length))}...'),
               backgroundColor: Colors.red,
             ),
           );
-          setState(() {
-            _isProcessingFile = false;
-          });
         }
       }
     } catch (e) {
-      debugPrint('Dosya seçme hatası: $e');
+      debugPrint('Genel hata: $e');
       if (mounted) {
+        setState(() {
+          _isProcessingFile = false;
+          _selectedChatFile = null;
+          _chatFileContent = null;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Dosya seçme hatası: $e'),
+            content: Text('İşlem sırasında bir hata oluştu: ${e.toString().substring(0, min(50, e.toString().length))}...'),
             backgroundColor: Colors.red,
           ),
         );
-        setState(() {
-          _isProcessingFile = false;
-        });
       }
     }
   }
 
-  // Metin sohbet dosyası oluşturma (manuel giriş için)
+  // Metin sohbet dosyası oluşturma (emülatör için alternatif çözüm)
   void _createChatFileFromText() {
     if (!mounted) return;
     
@@ -588,7 +609,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       messageContent = "Görsel Analizi: ";
       
       if (_extractedText != null && _extractedText!.isNotEmpty) {
-        messageContent += "\n---- OCR Metni ----\n$_extractedText\n---- OCR Metni Sonu ----";
+        final extractedText = _extractedText ?? '';
+        messageContent += "\n---- OCR Metni ----\n$extractedText\n---- OCR Metni Sonu ----";
       } else {
         messageContent += "\n(Görüntüden metin çıkarılamadı)";
       }
@@ -597,12 +619,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (messageText.isNotEmpty) {
         messageContent += "\nKullanıcı Açıklaması: $messageText";
       }
-    } else if (_selectedMessageType == MessageType.chatFile && _selectedChatFile != null && _chatFileContent != null) {
+    } else if (_selectedMessageType == MessageType.chatFile && (_chatFileContent != null)) {
       // Sohbet dosyası modu için içerik oluştur
       messageContent = "Sohbet Dosyası Analizi: ";
       
       // Dosya içeriğini ekle
-      messageContent += "\n---- Sohbet Metni ----\n$_chatFileContent\n---- Sohbet Metni Sonu ----";
+      final chatContent = _chatFileContent ?? '';
+      messageContent += "\n---- Sohbet Metni ----\n$chatContent\n---- Sohbet Metni Sonu ----";
       
       // Kullanıcı açıklaması varsa ekle
       if (messageText.isNotEmpty) {
@@ -622,12 +645,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     // Boş mesaj kontrolü
     if (messageContent.trim().isEmpty && _selectedImage == null && _selectedChatFile == null) {
       if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
             content: Text('Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'),
-          backgroundColor: Colors.red,
-        ),
-      );
+            backgroundColor: Colors.red,
+          ),
+        );
       }
       return;
     }
@@ -637,21 +660,21 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     if (authViewModel.user == null) {
       if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mesaj analizi için giriş yapmanız gerekiyor'),
-          backgroundColor: Colors.red,
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mesaj analizi için giriş yapmanız gerekiyor'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
       return;
     }
     
     // Analiz sürecinin başladığını göster
     if (mounted) {
-    setState(() {
+      setState(() {
         _isProcessingFile = true;
-    });
+      });
     }
     
     // Yükleme ekranının minimum süresini belirle (2 saniye)
@@ -671,18 +694,21 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Resim varsa yükle
       if (_selectedImage != null) {
         try {
-          await messageViewModel.uploadMessageImage(message.id, _selectedImage!);
+          final selectedImage = _selectedImage; // Local değişkene kopyala
+          if (selectedImage != null) {
+            await messageViewModel.uploadMessageImage(message.id, selectedImage as File);
+          }
         } catch (imageError) {
           // Görsel yüklenmese bile analize devam edebiliriz
           debugPrint('Görsel yüklenirken hata: $imageError');
           if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Görsel yüklenemedi, ancak analiz devam edecek: ${imageError.toString().substring(0, min(50, imageError.toString().length))}...'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 3),
-            ),
-          );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Görsel yüklenemedi, ancak analiz devam edecek: ${imageError.toString().substring(0, min(50, imageError.toString().length))}...'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 3),
+              ),
+            );
           }
         }
       }
@@ -715,15 +741,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
       // Giriş alanlarını temizle ve sonuç ekranına geç
       if (mounted) {
-      setState(() {
-        _messageController.clear();
-        _selectedImage = null;
+        setState(() {
+          _messageController.clear();
+          _selectedImage = null;
           _selectedChatFile = null;
-        _extractedText = null;
+          _extractedText = null;
           _chatFileContent = null;
           _isProcessingFile = false;
           _showDetailedAnalysis = true; // Sonuçları göster
-      });
+        });
       }
       
       // Debug amaçlı kontroller
@@ -764,26 +790,26 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
       
       if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Tekrar Dene',
-            textColor: Colors.white,
-            onPressed: () {
-              if (messageViewModel.currentMessage != null) {
-                _analyzeMessage(messageContent);
-              }
-            },
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Tekrar Dene',
+              textColor: Colors.white,
+              onPressed: () {
+                if (messageViewModel.currentMessage != null) {
+                  _analyzeMessage(messageContent);
+                }
+              },
+            ),
           ),
-        ),
-      );
-      
-      setState(() {
+        );
+        
+        setState(() {
           _isProcessingFile = false;
-      });
+        });
       }
     }
   }
@@ -1177,12 +1203,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(16),
-                                            child: Image.file(
-                                              _selectedImage!,
-                                            height: 150,
+                                            child: _selectedImage != null ? Image.file(
+                                              _selectedImage as File, // Cast ile File tipine dönüştür
+                                              height: 150,
                                               width: double.infinity,
-                                            fit: BoxFit.cover,
-                                          ),
+                                              fit: BoxFit.cover,
+                                            ) : Container(),
                                         ),
                                         Positioned(
                                           top: 8,
@@ -1308,14 +1334,20 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
-                                                child: Text(
-                                                  _selectedChatFile!.path.split('/').last,
+                                                child: _selectedChatFile != null ? Text(
+                                                  _selectedChatFile?.path?.split('/').last ?? 'Sohbet dosyası',
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
+                                                ) : const Text(
+                                                  'Sohbet içeriği',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
@@ -1342,7 +1374,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                             ],
                                           ),
                                           const SizedBox(height: 8),
-                                          if (_chatFileContent != null && _chatFileContent!.isNotEmpty) ...[
+                                          if (_chatFileContent != null) ...[
                                             const Text(
                                               'Önizleme:',
                                               style: TextStyle(
@@ -1360,9 +1392,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                               height: 80,
                                               child: SingleChildScrollView(
                                                 child: Text(
-                                                  _chatFileContent!.length > 500
-                                                      ? '${_chatFileContent!.substring(0, 500)}...'
-                                                      : _chatFileContent!,
+                                                  // _chatFileContent nullable olduğu için önce local değişkene atayalım
+                                                  (() {
+                                                    final content = _chatFileContent;
+                                                    if (content == null) return '';
+                                                    return content.length > 500
+                                                        ? '${content.substring(0, 500)}...'
+                                                        : content;
+                                                  })(),
                                                   style: const TextStyle(
                                                     color: Colors.white70,
                                                     fontSize: 12,
@@ -1501,13 +1538,29 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
   // Analiz sonuçlarını gösteren widget
   Widget _buildAnalysisResult(BuildContext context, MessageViewModel viewModel) {
-    final result = viewModel.currentAnalysisResult!;
+    // Null kontrolü ile güvenli erişim sağlayalım
+    final analysisResult = viewModel.currentAnalysisResult;
+    if (analysisResult == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Text(
+            'Analiz sonucu bulunamadı',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
     
     // AI yanıtından gerekli değerleri doğrudan al
-    final String duygu = result.emotion;
-    final String niyet = result.intent;
-    final String mesajYorumu = result.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
-    final List<String> cevapOnerileri = List<String>.from(result.aiResponse['cevapOnerileri'] ?? []);
+    final String duygu = analysisResult.emotion;
+    final String niyet = analysisResult.intent;
+    final String mesajYorumu = analysisResult.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
+    final List<String> cevapOnerileri = List<String>.from(analysisResult.aiResponse['cevapOnerileri'] ?? []);
     
     return Container(
       padding: const EdgeInsets.all(16),
