@@ -2460,9 +2460,7 @@ class _HomeViewState extends State<HomeView> {
                   title: 'Sık Sorulan Sorular',
                   onTap: () {
                     Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('SSS yakında eklenecek')),
-                    );
+                    _showFAQDialog(context);
                   },
                 ),
                 
@@ -3279,6 +3277,207 @@ class _HomeViewState extends State<HomeView> {
         const SnackBar(content: Text('Rehber şu anda gösterilemiyor. Lütfen daha sonra tekrar deneyin.')),
       );
     }
+  }
+
+  // SSS Diyaloğu
+  void _showFAQDialog(BuildContext context) {
+    // SSS içeriği
+    final List<Map<String, String>> faqItems = [
+      {
+        'soru': 'Bu uygulama ne işe yarar?',
+        'cevap': 'Uygulama, ilişkiniz hakkında geri bildirim almanızı ve kendinizi geliştirme alanlarınızı keşfetmenizi sağlar.'
+      },
+      {
+        'soru': 'İlişki analizi nasıl çalışıyor?',
+        'cevap': 'Analizleriniz, verdiğiniz yanıtlara göre değerlendirilir ve çeşitli ilişki boyutlarında (destek, güven, iletişim, saygı, uyum) bir uyum puanı oluşturulur.'
+      },
+      {
+        'soru': 'Analizlerimi kimse görebilir mi?',
+        'cevap': 'Hayır, analiz sonuçlarınız gizlidir ve sadece size özeldir.'
+      },
+      {
+        'soru': 'Sonuçlar ne kadar güvenilir?',
+        'cevap': 'Sunulan içerikler, verdiğiniz cevaplara göre oluşturulan genel önerilerdir. Son karar ve değerlendirme her zaman size aittir.'
+      },
+      {
+        'soru': 'Uygulama partnerimle olan mesajlarımı analiz edebilir mi?',
+        'cevap': 'Eğer bir ekran görüntüsü ya da metin sağlarsanız, bu içerik üzerinden yorum yapılabilir.'
+      },
+      {
+        'soru': 'Aynı soruları tekrar cevaplayabilir miyim?',
+        'cevap': 'Evet, dilediğiniz zaman yeni bir analiz yaparak gelişimi takip edebilirsiniz.'
+      },
+      {
+        'soru': 'Analiz geçmişimi silebilir miyim?',
+        'cevap': 'Evet. Ayarlar menüsünden analiz geçmişinizi silebilirsiniz.'
+      },
+      {
+        'soru': 'Bu uygulama bir ilişki terapisti yerine geçer mi?',
+        'cevap': 'Hayır. Uygulama destekleyici bilgiler sunar ama profesyonel danışmanlık hizmeti yerine geçmez.'
+      },
+    ];
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: const BoxDecoration(
+            color: Color(0xFF352269),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Üst kısım - başlık ve kapat butonu
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Sık Sorulan Sorular',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Yasal uyarı notu
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      "ℹ️",
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Not: Uygulamada sunulan içerikler yol gösterici niteliktedir, bağlayıcı değildir.",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // SSS içeriği
+              Expanded(
+                child: ListView.builder(
+                  itemCount: faqItems.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemBuilder: (context, index) {
+                    return _buildFAQItem(faqItems[index]);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  // SSS Öğesi
+  Widget _buildFAQItem(Map<String, String> item) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool isExpanded = false;
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              title: Text(
+                item['soru']!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+              ),
+              initiallyExpanded: isExpanded,
+              onExpansionChanged: (expanded) {
+                setState(() {
+                  isExpanded = expanded;
+                });
+              },
+              collapsedIconColor: Colors.white70,
+              iconColor: const Color(0xFF9D3FFF),
+              collapsedBackgroundColor: Colors.transparent,
+              backgroundColor: Colors.transparent,
+              childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    item['cevap']!,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 } 
 
