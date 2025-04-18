@@ -1124,11 +1124,11 @@ class _HomeViewState extends State<HomeView> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Başlık
                         const Text(
-                          'İlişki Gelişim\nRaporu',
+                          'İlişki Gelişim Raporu',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

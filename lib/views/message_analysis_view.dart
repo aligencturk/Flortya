@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -17,6 +18,7 @@ import '../widgets/custom_button.dart';
 import '../models/analysis_result_model.dart';
 import '../models/user_model.dart';
 import '../services/input_service.dart';  // Türkçe karakter desteği için
+import '../services/ocr_service.dart';
 
 
 class MessageAnalysisView extends StatefulWidget {
@@ -165,11 +167,53 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
         // OCR ile metin çıkarma - kullanıcıya gösterilmeyecek, sadece backend'e gönderilecek
         try {
+          // OCR servisi oluştur ve metni çıkar
+          final ocrService = OCRService();
+          final extractedText = await ocrService.extractTextFromImage(imageFile);
           
-          setState(() {
-            _extractedText = _extractedText;
-            _isProcessingImage = false;
-          });
+          if (extractedText != null && extractedText.isNotEmpty) {
+            // Mesaj içeriğindeki bölümleri belirle
+            final messageParts = await ocrService.identifyMessageParts(extractedText);
+            
+            // Görüntüden çıkarılan metni kaydet (çıktı için düzenlenmiş)
+            String formattedOcrText = "---- Görüntüden çıkarılan metin ----\n";
+            
+            // Tüm OCR metnini ekle
+            formattedOcrText += extractedText;
+            
+            // Analiz için metin parçalarını ekle (ama yönsüz olarak)
+            if (messageParts != null && messageParts.isNotEmpty) {
+              formattedOcrText += "\n\n---- Mesaj içeriği ----\n";
+              
+              // Konuşmacıları yön belirtmeden ekle (sağdaki/soldaki yerine)
+              messageParts.forEach((speaker, message) {
+                if (speaker != 'general') {
+                  formattedOcrText += "Konuşmacı: $speaker\nMesaj: $message\n\n";
+                }
+              });
+              
+              // Genel metin varsa ekle
+              if (messageParts.containsKey('general')) {
+                formattedOcrText += "Genel metin: ${messageParts['general']}\n";
+              }
+            }
+            
+            formattedOcrText += "---- Çıkarılan metin sonu ----";
+            
+            setState(() {
+              _extractedText = formattedOcrText;
+              _isProcessingImage = false;
+            });
+            
+            // Kaynakları serbest bırak
+            ocrService.dispose();
+          } else {
+            setState(() {
+              _isProcessingImage = false;
+              // OCR başarısız oldu, boş metin ekle
+              _extractedText = "---- Görüntüden metin çıkarılamadı ----";
+            });
+          }
           
           // Kullanıcıya sadece resmin yüklendiği bilgisini ver, içeriği gösterme
           ScaffoldMessenger.of(context).showSnackBar(
@@ -191,7 +235,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           setState(() {
             _isProcessingImage = false;
             // OCR başarısız olsa bile resmi kullanabilmek için metni boş ayarla
-            _extractedText = "";
+            _extractedText = "---- OCR hatası: $e ----";
           });
           
           // Hata durumunda kullanıcıya bilgi ver
