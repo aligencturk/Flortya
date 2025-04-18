@@ -741,38 +741,6 @@ class _HomeViewState extends State<HomeView> {
                       label: const Text('İlişki Değerlendirmesi Başlat'),
                     ),
                   ),
-                  
-                  // İlişki değerlendirmesi özeti veya uyarı mesajı
-                  Consumer<ReportViewModel>(
-                    builder: (context, reportViewModel, _) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF352269),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withOpacity(0.1)),
-                        ),
-                        child: reportViewModel.hasReport
-                            ? Text(
-                                _getRelationshipSummary(reportViewModel),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              )
-                            : const Text(
-                                "Henüz bir ilişki değerlendirmesi yapılmadı.",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
