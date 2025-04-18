@@ -87,7 +87,7 @@ dependencies:
   
   # iOS ve macOS için ek destekler
   image_picker_ios: ^0.8.9
-  file_picker: ^10.1.2
+  permission_handler: ^11.2.0
 
 dev_dependencies:
   flutter_test:

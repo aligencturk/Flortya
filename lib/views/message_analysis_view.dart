@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -271,78 +271,285 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
 
-  // Sohbet dosyası seçme fonksiyonu
+  // İzinleri kontrol et ve iste
+  Future<bool> _checkAndRequestPermissions() async {
+    // Android 13 sonrası için dosya izinlerini kontrol et
+    bool hasPermission = false;
+    
+    try {
+      debugPrint('İzinler kontrol ediliyor...');
+      
+      // İlgili izinleri kontrol et
+      final status = await Permission.storage.status;
+      final mediaStatus = await Permission.mediaLibrary.status;
+      
+      debugPrint('Storage izin durumu: $status');
+      debugPrint('Media Library izin durumu: $mediaStatus');
+      
+      // İzin durumlarına göre işlem yap
+      if (status.isGranted || mediaStatus.isGranted) {
+        hasPermission = true;
+      } else {
+        // İzinleri iste
+        final result = await [
+          Permission.storage,
+          Permission.mediaLibrary,
+        ].request();
+        
+        // Sonuçları kontrol et
+        if (result[Permission.storage]!.isGranted || 
+            result[Permission.mediaLibrary]!.isGranted) {
+          hasPermission = true;
+        }
+      }
+      
+      debugPrint('İzin durumu: $hasPermission');
+      return hasPermission;
+    } catch (e) {
+      debugPrint('İzin kontrolü sırasında hata: $e');
+      return false;
+    }
+  }
+
+  // Sohbet dosyası seçme fonksiyonu - image_picker kullanarak
   Future<void> _pickChatFile() async {
+    if (!mounted) return;
+
     setState(() {
       _isProcessingFile = true;
     });
     
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['txt'],
-      );
-      
-      if (result != null) {
-        File file = File(result.files.single.path!);
-        setState(() {
-          _selectedChatFile = file;
-        });
-        
-        // Dosya içeriğini oku
-        try {
-          final content = await file.readAsString();
-          setState(() {
-            _chatFileContent = content;
-          });
-          
-          // Kullanıcıya başarı mesajı göster
+      // Dosya izinleri kontrolü
+      final hasPermission = await _checkAndRequestPermissions();
+      if (!hasPermission) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text('Sohbet dosyası başarıyla yüklendi. Şimdi analiz edebilirsiniz.'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              content: Text('Dosya izinleri verilmedi. Lütfen ayarlardan izin verin.'),
+              backgroundColor: Colors.red,
             ),
           );
-        } catch (e) {
           setState(() {
-            _chatFileContent = null;
+            _isProcessingFile = false;
           });
+        }
+        return;
+      }
+      
+      // ImagePicker ile dosya seçimine izin ver
+      final XFile? pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+      );
+      
+      if (pickedFile == null) {
+        debugPrint('Dosya seçilmedi');
+        if (mounted) {
+          setState(() {
+            _isProcessingFile = false;
+          });
+        }
+        return;
+      }
+      
+      final path = pickedFile.path;
+      debugPrint('Seçilen dosya: $path');
+      
+      // Seçilen dosyanın uzantısını kontrol et
+      if (!path.toLowerCase().endsWith('.txt')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Lütfen sadece .txt uzantılı dosya seçin'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() {
+            _isProcessingFile = false;
+          });
+        }
+        return;
+      }
+      
+      // Dosyayı oku
+      try {
+        final file = File(path);
+        final exist = await file.exists();
+        
+        if (!exist) {
+          throw Exception('Dosya bulunamadı');
+        }
+        
+        final content = await file.readAsString();
+        
+        if (!mounted) return;
+        
+        setState(() {
+          _selectedChatFile = file;
+          _chatFileContent = content;
+          _isProcessingFile = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Sohbet dosyası başarıyla yüklendi. Şimdi analiz edebilirsiniz.'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Dosya okuma hatası: $e');
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Dosya okunamadı: $e'),
               backgroundColor: Colors.red,
             ),
           );
+          setState(() {
+            _isProcessingFile = false;
+          });
         }
       }
-      
-      setState(() {
-        _isProcessingFile = false;
-      });
     } catch (e) {
-      setState(() {
-        _isProcessingFile = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Dosya seçme hatası: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      debugPrint('Dosya seçme hatası: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Dosya seçme hatası: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isProcessingFile = false;
+        });
+      }
     }
   }
 
+  // Metin sohbet dosyası oluşturma (manuel giriş için)
+  void _createChatFileFromText() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final TextEditingController _chatTextController = TextEditingController();
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: const Text(
+            'WhatsApp Sohbet İçeriği Girin', 
+            style: TextStyle(color: Colors.white, fontSize: 18)
+          ),
+          content: Container(
+            constraints: const BoxConstraints(maxHeight: 400),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Sohbet içeriğini aşağıdaki formatta girin:', 
+                    style: TextStyle(color: Colors.white70, fontSize: 14)
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      '[16.04.2024 22:14] Ahmet: Merhaba\n[16.04.2024 22:15] Sen: Nasılsın?',
+                      style: TextStyle(
+                        color: Colors.white60, 
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _chatTextController,
+                    maxLines: 10,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Sohbet metnini yapıştırın...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('İptal', style: TextStyle(color: Colors.white70)),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Ekle'),
+              onPressed: () {
+                if (_chatTextController.text.trim().isNotEmpty) {
+                  if (mounted) {
+                    setState(() {
+                      _chatFileContent = _chatTextController.text.trim();
+                      _selectedChatFile = null; // Dosya olmadığı için null
+                      _selectedMessageType = MessageType.chatFile; // Sohbet modunu aktif et
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sohbet içeriği başarıyla eklendi'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Lütfen sohbet metni girin'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // Mesajı gönderme ve analiz etme güncellendi
-  void _sendMessage() {
+  void _sendMessage() async {
     final viewModel = Provider.of<MessageViewModel>(context, listen: false);
     String messageText = _messageController.text.trim();
     
@@ -371,6 +578,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     setState(() {
       _isProcessingFile = true;
+      _showDetailedAnalysis = false; // Analiz başlangıcında sonuç görünümünü kapat
     });
 
     String messageContent = '';
@@ -405,19 +613,22 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       messageContent = messageText;
     }
 
+    // Analiz sürecini başlat ve minimum 2 saniyelik yükleme deneyimi sağla
     _analyzeMessage(messageContent);
   }
 
   // Mesajı analiz etme işlemi
-  Future<void> _analyzeMessage(String messageContent) async {
+  void _analyzeMessage(String messageContent) async {
     // Boş mesaj kontrolü
     if (messageContent.trim().isEmpty && _selectedImage == null && _selectedChatFile == null) {
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'),
+            content: Text('Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'),
           backgroundColor: Colors.red,
         ),
       );
+      }
       return;
     }
     
@@ -425,18 +636,26 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     if (authViewModel.user == null) {
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Mesaj analizi için giriş yapmanız gerekiyor'),
           backgroundColor: Colors.red,
         ),
       );
+      }
       return;
     }
     
+    // Analiz sürecinin başladığını göster
+    if (mounted) {
     setState(() {
-      _isProcessingFile = true;
+        _isProcessingFile = true;
     });
+    }
+    
+    // Yükleme ekranının minimum süresini belirle (2 saniye)
+    final startTime = DateTime.now();
     
     try {
       // Yeni mesaj oluştur
@@ -456,6 +675,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         } catch (imageError) {
           // Görsel yüklenmese bile analize devam edebiliriz
           debugPrint('Görsel yüklenirken hata: $imageError');
+          if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Görsel yüklenemedi, ancak analiz devam edecek: ${imageError.toString().substring(0, min(50, imageError.toString().length))}...'),
@@ -463,6 +683,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               duration: const Duration(seconds: 3),
             ),
           );
+          }
         }
       }
 
@@ -472,12 +693,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         if (!success) {
           throw Exception(messageViewModel.errorMessage ?? 'Analiz sırasında bir hata oluştu');
         }
-        
-        // Analiz başarılı olduysa, analiz sonucunu göster
-        setState(() {
-          _showDetailedAnalysis = true;
-        });
-        
       } catch (analysisError) {
         throw Exception('Analiz hatası: $analysisError');
       }
@@ -487,24 +702,34 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         await messageViewModel.loadMessages(authViewModel.user!.id);
       }
 
-      // Giriş alanlarını temizle
+      // En az 2 saniye süren bir yükleme göster
+      final endTime = DateTime.now();
+      final elapsedMilliseconds = endTime.difference(startTime).inMilliseconds;
+      final minimumLoadingTime = 2000; // 2 saniye
+      
+      if (elapsedMilliseconds < minimumLoadingTime) {
+        await Future.delayed(
+          Duration(milliseconds: minimumLoadingTime - elapsedMilliseconds)
+        );
+      }
+
+      // Giriş alanlarını temizle ve sonuç ekranına geç
+      if (mounted) {
       setState(() {
         _messageController.clear();
         _selectedImage = null;
-        _selectedChatFile = null;
+          _selectedChatFile = null;
         _extractedText = null;
-        _chatFileContent = null;
-        _isProcessingFile = false;
+          _chatFileContent = null;
+          _isProcessingFile = false;
+          _showDetailedAnalysis = true; // Sonuçları göster
       });
+      }
       
       // Debug amaçlı kontroller
       debugPrint('ViewModel sonrası analiz sonucu: ${messageViewModel.hasAnalysisResult}');
       debugPrint('ViewModel sonrası mesaj: ${messageViewModel.hasCurrentMessage}');
       
-      // Ekstra bir yeniden çizim çağrısı ekleyelim
-      if (mounted) {
-        setState(() {});
-      }
     } catch (e) {
       debugPrint('HATA - Mesaj analizi sırasında: $e');
       String errorMessage = 'Mesaj analizi sırasında hata oluştu';
@@ -527,6 +752,18 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         errorMessage = '$errorMessage: $shortError';
       }
       
+      // En az 2 saniye süren bir yükleme göster
+      final endTime = DateTime.now();
+      final elapsedMilliseconds = endTime.difference(startTime).inMilliseconds;
+      final minimumLoadingTime = 2000; // 2 saniye
+      
+      if (elapsedMilliseconds < minimumLoadingTime) {
+        await Future.delayed(
+          Duration(milliseconds: minimumLoadingTime - elapsedMilliseconds)
+        );
+      }
+      
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
@@ -545,8 +782,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       );
       
       setState(() {
-        _isProcessingFile = false;
+          _isProcessingFile = false;
       });
+      }
     }
   }
 
@@ -554,9 +792,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   void _resetSelections() {
     setState(() {
       _selectedMessageType = MessageType.none;
-      _selectedImage = null;
+        _selectedImage = null;
       _selectedChatFile = null;
-      _extractedText = null;
+        _extractedText = null;
       _chatFileContent = null;
       _messageController.clear();
     });
@@ -704,19 +942,19 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           const SizedBox(height: 16),
                           
                           // Mesaj Tipi Seçimi
-                          Container(
+                                      Container(
                             padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
+                                        decoration: BoxDecoration(
                               color: const Color(0xFF9D3FFF).withOpacity(0.2),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                             ),
-                            child: Column(
+                                          child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  children: [
-                                    Icon(
+                                            children: [
+                                              Icon(
                                       Icons.category_outlined,
                                       color: Colors.white.withOpacity(0.9),
                                       size: 22,
@@ -724,11 +962,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                     const SizedBox(width: 8),
                                     const Text(
                                       'Mesaj Tipi Seç',
-                                      style: TextStyle(
+                                                style: TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                   ],
                                 ),
                                 
@@ -741,19 +979,19 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                     Expanded(
                                       child: GestureDetector(
                                         onTap: () {
-                                          setState(() {
+                                        setState(() {
                                             _selectedMessageType = 
                                               _selectedMessageType == MessageType.text ? 
                                               MessageType.none : MessageType.text;
                                             
                                             if (_selectedMessageType == MessageType.text) {
-                                              _selectedImage = null;
+                                            _selectedImage = null;
                                               _selectedChatFile = null;
-                                              _extractedText = null;
+                                            _extractedText = null;
                                               _chatFileContent = null;
-                                            }
-                                          });
-                                        },
+                                          }
+                                        });
+                                      },
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                                           decoration: BoxDecoration(
@@ -909,8 +1147,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                       onTap: _isProcessingFile ? null : _pickImage,
                                       child: Container(
                                         height: 100,
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.05),
                                           borderRadius: BorderRadius.circular(16),
                                           border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
@@ -939,10 +1177,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(16),
-                                          child: Image.file(
-                                            _selectedImage!,
+                                            child: Image.file(
+                                              _selectedImage!,
                                             height: 150,
-                                            width: double.infinity,
+                                              width: double.infinity,
                                             fit: BoxFit.cover,
                                           ),
                                         ),
@@ -978,35 +1216,77 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                 // Sohbet dosyası seçimi alanı
                                 if (_selectedMessageType == MessageType.chatFile) ...[
                                   const SizedBox(height: 16),
-                                  if (_selectedChatFile == null) ...[
-                                    GestureDetector(
-                                      onTap: _isProcessingFile ? null : _pickChatFile,
-                                      child: Container(
-                                        height: 100,
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                  if (_selectedChatFile == null && _chatFileContent == null) ...[
+                                    Row(
+                                      children: [
+                                        // Dosya Seçme Butonu (ImagePicker kullanarak)
+                                        Expanded(
+                                          flex: 1,
+                                          child: GestureDetector(
+                                            onTap: _isProcessingFile ? null : _pickChatFile,
+                                            child: Container(
+                                              height: 100,
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(16),
+                                                border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                              ),
+                                              child: _isProcessingFile
+                                                ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
+                                                : Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.upload_file,
+                                                      color: Colors.white.withOpacity(0.7),
+                                                      size: 30,
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    const Text(
+                                                      'Dosya Seç (.txt)',
+                                                      style: TextStyle(color: Colors.white70),
+                                                      textAlign: TextAlign.center,
+                                                    ),
+                                                  ],
+                                                ),
+                                            ),
+                                          ),
                                         ),
-                                        child: _isProcessingFile
-                                            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
-                                            : Column(
+                                        const SizedBox(width: 8),
+                                        // Metin Giriş Butonu
+                                        Expanded(
+                                          flex: 1,
+                                          child: GestureDetector(
+                                            onTap: _isProcessingFile ? null : _createChatFileFromText,
+                                            child: Container(
+                                              height: 100,
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(16),
+                                                border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                              ),
+                                              child: Column(
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 children: [
                                                   Icon(
-                                                    Icons.upload_file,
+                                                    Icons.edit_document,
                                                     color: Colors.white.withOpacity(0.7),
-                                                    size: 40,
+                                                    size: 30,
                                                   ),
                                                   const SizedBox(height: 8),
                                                   const Text(
-                                                    'Sohbet dosyası (.txt) seçmek için tıklayın',
+                                                    'Metin Olarak Gir',
                                                     style: TextStyle(color: Colors.white70),
+                                                    textAlign: TextAlign.center,
                                                   ),
                                                 ],
                                               ),
-                                      ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ] else ...[
                                     Container(
@@ -1122,8 +1402,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 elevation: 0,
+                                disabledBackgroundColor: const Color(0xFF9D3FFF).withOpacity(0.4),
+                                disabledForegroundColor: Colors.white.withOpacity(0.7),
                               ),
-                              onPressed: (messageViewModel.isLoading || _isProcessingFile) ? null : _sendMessage,
+                              onPressed: (messageViewModel.isLoading || _isProcessingFile || !_isAnalyzeButtonEnabled()) 
+                                  ? null 
+                                  : _sendMessage,
                             ),
                           ),
                         ],
@@ -1134,34 +1418,47 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     
                     // Analiz sonucu veya analiz bekleniyor göstergesi
                     Expanded(
-                              child: messageViewModel.isLoading
+                              child: messageViewModel.isLoading || _isProcessingFile
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const CircularProgressIndicator(
                                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                                    strokeWidth: 3.0, // Animasyonu daha görünür yap
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 24), // Biraz daha boşluk
                                   Text(
                                     'Mesajınız analiz ediliyor...',
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.9),
-                                      fontSize: 16,
+                                      fontSize: 18, // Biraz daha büyük
+                                      fontWeight: FontWeight.bold, // Daha vurgulu
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Bu işlem biraz zaman alabilir',
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Yapay zeka modelimiz mesajınızı inceliyor.\nLütfen bekleyin...',
+                                      textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.6),
+                                        color: Colors.white.withOpacity(0.8),
                                       fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             )
-                          : messageViewModel.currentAnalysisResult != null
+                          : messageViewModel.currentAnalysisResult != null && _showDetailedAnalysis
                               ? _buildAnalysisResult(context, messageViewModel)
                               : Center(
                                   child: Column(
@@ -1472,5 +1769,31 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         );
       },
     );
+  }
+
+  // Analiz butonunun aktif olup olmadığını kontrol eden yardımcı fonksiyon
+  bool _isAnalyzeButtonEnabled() {
+    // İşlem sürüyorsa buton pasif olmalı
+    if (_isProcessingFile) {
+      return false;
+    }
+    
+    // Seçili mesaj tipine göre içerik kontrolü yap
+    switch (_selectedMessageType) {
+      case MessageType.text:
+        // Metin modu için: metin boş olmamalı
+        return _messageController.text.trim().isNotEmpty;
+      case MessageType.image:
+        // Görsel modu için: görsel seçilmiş olmalı
+        return _selectedImage != null;
+      case MessageType.chatFile:
+        // Sohbet dosyası modu için: ya dosya seçilmiş ve içeriği yüklenmiş olmalı
+        // ya da chatFileContent doğrudan manuel olarak girilmiş olmalı
+        return (_selectedChatFile != null || _chatFileContent != null);
+      case MessageType.none:
+      default:
+        // Hiçbir mod seçilmemişse veya bilinmeyen modda: sadece metin varsa aktif olsun
+        return _messageController.text.trim().isNotEmpty;
+    }
   }
 } 
