@@ -439,23 +439,24 @@ class _ReportViewState extends State<ReportView> {
   String _getFallbackRelationshipDescription(String relationshipType) {
     // Bu fonksiyon sadece yapay zeka metni olmadığında yedek olarak kullanılır
     final Map<String, String> descriptions = {
-      'Güven Odaklı': 'İlişkinizde güven ön planda ve bu sağlıklı bir temel oluşturuyor.',
-      'Tutkulu': 'İlişkinizde tutku ve yoğun duygular hâkim, ancak dengeli ilerlemesi önemli.',
-      'Uyumlu': 'Birbirinizle uyumlu bir ilişki içindesiniz, iletişim kanallarınız açık.',
-      'Dengeli': 'İlişkinizde denge unsuru güçlü, karşılıklı anlayış ve saygı mevcut.',
-      'Mesafeli': 'İlişkinizde duygusal mesafe var, daha açık iletişim kurmanız faydalı olabilir.',
-      'Kaçıngan': 'Sorunlardan kaçınma eğiliminiz var, yüzleşme cesareti göstermelisiniz.',
-      'Endişeli': 'İlişkinizde endişe ve kaygı unsurları mevcut, güvenin artırılması gerekiyor.',
-      'Çatışmalı': 'İlişkinizde çatışmalar ön planda, yapıcı tartışma becerileri geliştirmelisiniz.',
-      'Kararsız': 'İlişkinizde kararsızlık hâkim, ortak hedefler belirlemek faydalı olabilir.',
-      'Gelişmekte Olan': 'İlişkiniz gelişim aşamasında, sabır ve anlayış göstermeye devam edin.',
-      'Gelişmekte Olan, Güven Sorunları Olan': 'İlişkinizde gelişim mevcut ancak güven sorunları bulunuyor. İletişim kanallarını açık tutarak ve beklentilerinizi açıkça ifade ederek güven temelini yeniden inşa etmeye odaklanın.',
-      'Sağlıklı': 'İlişkiniz sağlıklı bir yapıya sahip, bu temeli korumaya özen gösterin.',
-      'Zorlayıcı': 'İlişkinizde zorlayıcı unsurlar var, sınırları netleştirmeniz önemli.',
-      'Belirsiz': 'Yapay zeka analizi sonucunda ilişkinizde bazı gelişim alanları tespit edilmiştir. Aşağıdaki önerileri dikkate alarak ilişkinizi güçlendirebilirsiniz.',
+      'Güven Odaklı': 'İlişkinizde güven temeli güçlü ve sağlıklı. İletişiminiz açık, birbirinize karşı dürüst ve şeffafsınız. Bu temeli koruyarak ilişkinizi daha da derinleştirebilirsiniz.',
+      'Tutkulu': 'İlişkinizde tutku ve yoğun duygular ön planda. Duygusal bağınız güçlü ancak dengeyi korumak için iletişime özen göstermelisiniz. Ortak hedefler belirleyerek tutkuyu sürdürülebilir kılabilirsiniz.',
+      'Uyumlu': 'İlişkinizde uyum seviyesi oldukça yüksek. Birbirinizi tamamlıyor ve birlikte hareket edebiliyorsunuz. Bu güçlü yanınızı kullanarak ilişkinizi daha da zenginleştirebilirsiniz.',
+      'Dengeli': 'İlişkiniz dengeli bir şekilde ilerliyor. Karşılıklı anlayış, saygı ve iletişiminiz güçlü. Bu sağlıklı temeli koruyarak birlikte büyümeye devam edebilirsiniz.',
+      'Mesafeli': 'İlişkinizde duygusal bir mesafe söz konusu. Daha açık iletişim kurarak ve duygularınızı paylaşarak bu mesafeyi azaltabilir, daha derin bir bağ kurabilirsiniz.',
+      'Kaçıngan': 'İlişkinizde sorunlardan kaçınma eğilimi görülüyor. Zor konuları konuşmaktan çekinmeyin, yüzleşme cesareti göstererek ilişkinizi güçlendirebilirsiniz.',
+      'Endişeli': 'İlişkinizde endişe ve kaygı unsurları öne çıkıyor. Güveni artırmak için açık iletişim kurun, beklentilerinizi net bir şekilde ifade edin ve birbirinize destek olun.',
+      'Çatışmalı': 'İlişkinizde çatışmalar ön planda. Yapıcı tartışma becerileri geliştirerek ve birbirinizi daha iyi dinleyerek bu çatışmaları ilişkinizi güçlendiren fırsatlara dönüştürebilirsiniz.',
+      'Kararsız': 'İlişkinizde kararsızlık hâkim durumda. Ortak hedefler belirleyerek ve gelecek planları yaparak bu belirsizliği giderebilir, ilişkinize yön verebilirsiniz.',
+      'Gelişmekte Olan': 'İlişkiniz gelişim aşamasında ve potansiyel vadediyor. Sabır ve anlayış göstererek, iletişimi güçlendirerek bu gelişim sürecini olumlu yönde ilerletebilirsiniz.',
+      'Gelişmekte Olan, Güven Sorunları Olan': 'İlişkiniz gelişiyor ancak güven konusunda çalışmanız gereken alanlar var. Açık iletişim kurarak ve sözünüzü tutarak güven temelini yeniden inşa edebilirsiniz.',
+      'Sağlıklı': 'İlişkiniz son derece sağlıklı bir yapıya sahip. Güçlü iletişim, karşılıklı saygı ve güven temelinde ilerliyor. Bu değerli temeli koruyarak ilişkinizi daha da derinleştirebilirsiniz.',
+      'Zorlayıcı': 'İlişkinizde zorlayıcı unsurlar ve sınır sorunları var. Kişisel sınırlarınızı netleştirerek ve birbirinize saygı göstererek bu zorlukları aşabilirsiniz.',
+      'Sağlıklı ve Gelişmekte Olan': 'İlişkiniz sağlıklı bir temel üzerinde gelişmeye devam ediyor. İletişiminiz açık ve saygı çerçevesinde ilerliyor. Bu olumlu temeli koruyarak ilişkinizi daha da güçlendirebilirsiniz.',
+      'Belirsiz': 'İlişkinizde bazı gelişim alanları tespit edildi. Aşağıdaki kişiselleştirilmiş önerileri uygulayarak iletişiminizi güçlendirebilir ve ilişkinizi daha sağlıklı bir noktaya taşıyabilirsiniz.',
     };
     
-    return descriptions[relationshipType] ?? 'Yapay zeka analizlerine göre, ilişkiniz için kişiselleştirilmiş öneriler hazırlanmıştır. Bu önerileri dikkate alarak ilişkinizi geliştirebilirsiniz.';
+    return descriptions[relationshipType] ?? 'İlişkiniz için yapılan değerlendirme sonucunda, kişiselleştirilmiş öneriler hazırlandı. Bu önerileri uyguladığınızda iletişiminiz güçlenecek ve daha sağlıklı bir ilişki kurabileceksiniz.';
   }
   
   // İlişki tipine göre renk belirleme

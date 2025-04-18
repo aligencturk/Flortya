@@ -741,6 +741,38 @@ class _HomeViewState extends State<HomeView> {
                       label: const Text('İlişki Değerlendirmesi Başlat'),
                     ),
                   ),
+                  
+                  // İlişki değerlendirmesi özeti veya uyarı mesajı
+                  Consumer<ReportViewModel>(
+                    builder: (context, reportViewModel, _) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF352269),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
+                        child: reportViewModel.hasReport
+                            ? Text(
+                                _getRelationshipSummary(reportViewModel),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              )
+                            : const Text(
+                                "Henüz bir ilişki değerlendirmesi yapılmadı.",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -750,6 +782,36 @@ class _HomeViewState extends State<HomeView> {
     )
     .animate()
     .fadeIn(duration: 300.ms);
+  }
+
+  // İlişki raporu özeti alma
+  String _getRelationshipSummary(ReportViewModel reportViewModel) {
+    if (reportViewModel.reportResult == null) {
+      return "Henüz bir ilişki değerlendirmesi yapılmadı.";
+    }
+    
+    final relationshipType = reportViewModel.reportResult!['relationship_type'] as String? ?? 'Belirsiz';
+    
+    // İlişki tipine göre özet metin döndür
+    final Map<String, String> summaries = {
+      'Güven Odaklı': 'İlişkinizde güven temeli güçlü ve sağlıklı. İletişiminiz açık, birbirinize karşı dürüst ve şeffafsınız.',
+      'Tutkulu': 'İlişkinizde tutku ve yoğun duygular ön planda. Duygusal bağınız güçlü ancak dengeyi korumak için iletişime özen göstermelisiniz.',
+      'Uyumlu': 'İlişkinizde uyum seviyesi oldukça yüksek. Birbirinizi tamamlıyor ve birlikte hareket edebiliyorsunuz.',
+      'Dengeli': 'İlişkiniz dengeli bir şekilde ilerliyor. Karşılıklı anlayış, saygı ve iletişiminiz güçlü.',
+      'Mesafeli': 'İlişkinizde duygusal bir mesafe söz konusu. Daha açık iletişim kurarak ve duygularınızı paylaşarak bu mesafeyi azaltabilirsiniz.',
+      'Kaçıngan': 'İlişkinizde sorunlardan kaçınma eğilimi görülüyor. Zor konuları konuşmaktan çekinmeyin.',
+      'Endişeli': 'İlişkinizde endişe ve kaygı unsurları öne çıkıyor. Güveni artırmak için açık iletişim kurun.',
+      'Çatışmalı': 'İlişkinizde çatışmalar ön planda. Yapıcı tartışma becerileri geliştirerek ve birbirinizi daha iyi dinleyerek ilişkinizi güçlendirebilirsiniz.',
+      'Kararsız': 'İlişkinizde kararsızlık hâkim durumda. Ortak hedefler belirleyerek ve gelecek planları yaparak ilişkinize yön verebilirsiniz.',
+      'Gelişmekte Olan': 'İlişkiniz gelişim aşamasında ve potansiyel vadediyor. Sabır ve anlayış göstererek, iletişimi güçlendirmeye devam edin.',
+      'Gelişmekte Olan, Güven Sorunları Olan': 'İlişkiniz gelişiyor ancak güven konusunda çalışmanız gereken alanlar var.',
+      'Sağlıklı': 'İlişkiniz son derece sağlıklı bir yapıya sahip. Güçlü iletişim, karşılıklı saygı ve güven temelinde ilerliyor.',
+      'Zorlayıcı': 'İlişkinizde zorlayıcı unsurlar ve sınır sorunları var. Kişisel sınırlarınızı netleştirerek bu zorlukları aşabilirsiniz.',
+      'Sağlıklı ve Gelişmekte Olan': 'İlişkiniz sağlıklı bir temel üzerinde gelişmeye devam ediyor. İletişiminiz açık ve saygı çerçevesinde ilerliyor.',
+      'Belirsiz': 'İlişkinizde bazı gelişim alanları tespit edildi. Önerileri uygulayarak iletişiminizi güçlendirebilirsiniz.',
+    };
+    
+    return summaries[relationshipType] ?? 'İlişkiniz için yapılan değerlendirme sonucunda, kişiselleştirilmiş öneriler hazırlandı.';
   }
 
   // Kategori kartı widget'ı
@@ -1187,6 +1249,40 @@ class _HomeViewState extends State<HomeView> {
                               ),
                             ),
                           ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // İlişki değerlendirmesi özeti veya uyarı mesajı
+                        Consumer<ReportViewModel>(
+                          builder: (context, reportViewModel, _) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                              ),
+                              child: reportViewModel.hasReport
+                                  ? Text(
+                                      _getRelationshipSummary(reportViewModel),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    )
+                                  : const Text(
+                                      "Henüz bir ilişki değerlendirmesi yapılmadı.",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                            );
+                          },
                         ),
                         
                         const SizedBox(height: 24),
