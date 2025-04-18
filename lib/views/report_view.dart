@@ -428,6 +428,38 @@ class _ReportViewState extends State<ReportView> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
+          
+          const SizedBox(height: 16),
+          
+          // Yasal uyarı metni
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  "ℹ️",
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Not: Uygulamada sunulan içerikler yol gösterici niteliktedir, bağlayıcı değildir.",
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     )
