@@ -1764,6 +1764,79 @@ class _HomeViewState extends State<HomeView> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
+                                
+                                // Premium durumu ve butonu
+                                Consumer<AuthViewModel>(
+                                  builder: (context, authViewModel, _) {
+                                    final isPremium = authViewModel.isPremium;
+                                    
+                                    return Column(
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: isPremium 
+                                                  ? const Color(0xFFFFD700).withOpacity(0.2)
+                                                  : Colors.grey.withOpacity(0.2),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    isPremium ? Icons.workspace_premium : Icons.workspace_premium_outlined,
+                                                    color: isPremium ? const Color(0xFFFFD700) : Colors.grey,
+                                                    size: 16,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    isPremium ? 'Premium Üye' : 'Standart Üye',
+                                                    style: TextStyle(
+                                                      color: isPremium ? const Color(0xFFFFD700) : Colors.grey,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            
+                                            if (!isPremium) ...[
+                                              const SizedBox(width: 8),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  // Premium yükseltme işlemi
+                                                  final success = await authViewModel.upgradeToPremium();
+                                                  
+                                                  if (success && context.mounted) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text('Premium üyeliğe yükseltildiniz!'),
+                                                        backgroundColor: Color(0xFF4A2A80),
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(0xFF9D3FFF),
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(0, 32),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                                ),
+                                                child: const Text('Premium Ol'),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                
                                 Text(
                                   email,
                                   style: const TextStyle(

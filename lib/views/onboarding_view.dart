@@ -18,17 +18,17 @@ class _OnboardingViewState extends State<OnboardingView> {
     {
       'title': 'Gelişimi Takip Edin',
       'description': 'Detaylı raporlar ve grafiklerle ilişkinizin gelişimini izleyin',
-      'image': 'assets/images/onboarding1.jpg',
+      'image': 'assets/images/GELİŞİMİ TAKİP EDİN.png',
     },
     {
       'title': 'Kişisel Tavsiyeler Alın',
       'description': 'Size özel tavsiyelerle ilişkinizi güçlendirin',
-      'image': 'assets/images/onboarding2.jpg',
+      'image': 'assets/images/KİŞİSEL TAVSİYELER ALIN.png',
     },
     {
       'title': 'İlişkinizi Analiz Edin',
       'description': 'Mesajlarınızı analiz ederek ilişkinizin durumunu öğrenin',
-      'image': 'assets/images/onboarding3.jpg',
+      'image': 'assets/images/İLİŞKİNİZİ ANALİZ EDİN.png',
     },
   ];
 
@@ -428,29 +428,22 @@ class _OnboardingViewState extends State<OnboardingView> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Görsel
-          Container(
+          SizedBox(
             height: screenHeight * 0.35,
             width: screenHeight * 0.35,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                item['image'],
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  // Görsel yüklenemezse
-                  return Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 64,
-                      color: Colors.grey.shade600,
-                    ),
-                  );
-                },
-              ),
+            child: Image.asset(
+              item['image'],
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                // Görsel yüklenemezse
+                return Center(
+                  child: Icon(
+                    Icons.image_not_supported_outlined,
+                    size: 64,
+                    color: Colors.grey.shade600,
+                  ),
+                );
+              },
             ),
           ),
           
