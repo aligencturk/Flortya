@@ -148,6 +148,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
   // Resim seçme
   Future<void> _pickImage() async {
+    // Eğer işlem zaten devam ediyorsa çık
+    if (_isProcessingFile) {
+      return;
+    }
+    
     setState(() {
       _isProcessingFile = true;
     });
@@ -159,6 +164,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       );
 
       if (pickedFile != null) {
+        if (!mounted) return;
+        
         File imageFile = File(pickedFile.path);
         setState(() {
           _selectedImage = imageFile;
@@ -171,9 +178,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           final ocrService = OCRService();
           final extractedText = await ocrService.extractTextFromImage(imageFile);
           
+          if (!mounted) return;
+          
           if (extractedText != null && extractedText.isNotEmpty) {
             // Mesaj içeriğindeki bölümleri belirle
             final messageParts = await ocrService.identifyMessageParts(extractedText);
+            
+            if (!mounted) return;
             
             // Görüntüden çıkarılan metni kaydet (çıktı için düzenlenmiş)
             String formattedOcrText = "---- Görüntüden çıkarılan metin ----\n";
@@ -216,6 +227,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           }
           
           // Kullanıcıya sadece resmin yüklendiği bilgisini ver, içeriği gösterme
+          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -232,6 +244,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
           );
         } catch (e) {
+          if (!mounted) return;
+          
           setState(() {
             _isProcessingFile = false;
             // OCR başarısız olsa bile resmi kullanabilmek için metni boş ayarla
@@ -239,6 +253,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           });
           
           // Hata durumunda kullanıcıya bilgi ver
+          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Görüntü yüklendi ancak metin çıkarılamadı. Yine de analiz için kullanabilirsiniz.'),
@@ -247,14 +262,20 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           );
         }
       } else {
+        if (!mounted) return;
+        
         setState(() {
           _isProcessingFile = false;
         });
       }
     } catch (e) {
+      if (!mounted) return;
+      
       setState(() {
         _isProcessingFile = false;
       });
+      
+      ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Görüntü seçme hatası: $e'),
@@ -307,6 +328,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Sohbet dosyası seçme fonksiyonu - image_picker kullanarak
   Future<void> _pickChatFile() async {
     if (!mounted) return;
+    
+    // Eğer işlem zaten devam ediyorsa çık
+    if (_isProcessingFile) {
+      return;
+    }
 
     setState(() {
       _isProcessingFile = true;
@@ -317,6 +343,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       final hasPermission = await _checkAndRequestPermissions();
       if (!hasPermission) {
         if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Dosya izinleri verilmedi. Lütfen ayarlardan izin verin.'),
@@ -382,6 +409,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             _isMessageTypeExpanded = false; // Dosya yüklendiğinde paneli kapat
           });
           
+          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Row(
@@ -406,6 +434,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               _chatFileContent = null;
             });
             
+            ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Dosya okunamadı: ${readError.toString().substring(0, min(50, readError.toString().length))}...'),
@@ -423,6 +452,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             _chatFileContent = null;
           });
           
+          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Dosya seçilemedi: ${pickError.toString().substring(0, min(50, pickError.toString().length))}...'),
@@ -440,6 +470,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           _chatFileContent = null;
         });
         
+        ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('İşlem sırasında bir hata oluştu: ${e.toString().substring(0, min(50, e.toString().length))}...'),
@@ -453,6 +484,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Metin sohbet dosyası oluşturma (emülatör için alternatif çözüm)
   void _createChatFileFromText() {
     if (!mounted) return;
+    
+    // İşlem zaten devam ediyorsa çık
+    if (_isProcessingFile) {
+      return;
+    }
     
     showDialog(
       context: context,
@@ -533,6 +569,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               child: const Text('Ekle'),
               onPressed: () {
                 if (chatTextController.text.trim().isNotEmpty) {
+                  Navigator.of(context).pop();
+                  
                   if (mounted) {
                     setState(() {
                       _chatFileContent = chatTextController.text.trim();
@@ -540,6 +578,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       _selectedMessageType = MessageType.chatFile; // Sohbet modunu aktif et
                       _isMessageTypeExpanded = false; // Metin eklendiğinde paneli kapat
                     });
+                    
+                    // Önce SnackBar'ları temizle
+                    ScaffoldMessenger.of(context).clearSnackBars();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Sohbet içeriği başarıyla eklendi'),
@@ -547,8 +588,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       ),
                     );
                   }
-                  Navigator.of(context).pop();
                 } else {
+                  // Önce SnackBar'ları temizle
+                  ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Lütfen sohbet metni girin'),
@@ -566,6 +608,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
   // Mesajı gönderme ve analiz etme güncellendi
   void _sendMessage() async {
+    // Eğer işlem zaten devam ediyorsa çık
+    if (_isProcessingFile) {
+      return;
+    }
+    
     final viewModel = Provider.of<MessageViewModel>(context, listen: false);
     String messageText = _messageController.text.trim();
     
@@ -574,6 +621,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                      (_selectedChatFile != null && _chatFileContent != null);
     
     if (!hasContent || _isProcessingFile) {
+      // Mevcut SnackBar'ları temizle ve yeni bir SnackBar göster
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
@@ -637,9 +686,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
   // Mesajı analiz etme işlemi
   void _analyzeMessage(String messageContent) async {
+    // Eğer işlem zaten devam ediyorsa çık
+    if (_isProcessingFile) {
+      return;
+    }
+    
     // Boş mesaj kontrolü
     if (messageContent.trim().isEmpty && _selectedImage == null && _selectedChatFile == null) {
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'),
@@ -655,6 +710,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     if (authViewModel.user == null) {
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Mesaj analizi için giriş yapmanız gerekiyor'),
@@ -697,6 +753,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           // Görsel yüklenmese bile analize devam edebiliriz
           debugPrint('Görsel yüklenirken hata: $imageError');
           if (mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Görsel yüklenemedi, ancak analiz devam edecek: ${imageError.toString().substring(0, min(50, imageError.toString().length))}...'),
@@ -719,7 +776,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
 
       // Mesaj listesini yenile
-      if (authViewModel.user != null) {
+      if (authViewModel.user != null && mounted) {
         await messageViewModel.loadMessages(authViewModel.user!.id);
       }
 
@@ -785,6 +842,14 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
       
       if (mounted) {
+        setState(() {
+          _isProcessingFile = false;
+        });
+        
+        // Önce diğer SnackBar'ları temizle
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        // Sonra yeni SnackBar göster
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -801,10 +866,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
           ),
         );
-        
-        setState(() {
-          _isProcessingFile = false;
-        });
       }
     }
   }
@@ -2015,7 +2076,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       return false;
     }
     
-    // Sadece metin girişi yeterli - Diğer modlarda dosya yüklenmiş olmalı
+    // Sadece metin girişi yeterli - Diğer modlarda dosya yüklü olmalı
     if (_messageController.text.trim().isNotEmpty) {
       return true;
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/past_analysis_model.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
@@ -40,7 +41,7 @@ class _AnalysisDetailViewState extends State<AnalysisDetailView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Analiz bulunamadı: $e')),
       );
-      Navigator.pop(context);
+      context.go('/past-analyses');
     }
   }
   
@@ -78,7 +79,7 @@ class _AnalysisDetailViewState extends State<AnalysisDetailView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => context.go('/past-analyses'),
                     ),
                     const Text(
                       'Analiz Detayı',

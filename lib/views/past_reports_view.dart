@@ -54,7 +54,7 @@ class _PastReportsViewState extends State<PastReportsView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => context.go('/profile'),
                     ),
                     const Text(
                       'İlişki Raporları',
@@ -188,12 +188,7 @@ class _PastReportsViewState extends State<PastReportsView> {
       child: InkWell(
         onTap: () {
           // Rapor detayına git
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ReportDetailView(reportId: report.id),
-            ),
-          );
+          context.push('/report-detail/${report.id}');
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -276,12 +271,7 @@ class _PastReportsViewState extends State<PastReportsView> {
                   TextButton.icon(
                     onPressed: () {
                       // Rapor detayına git
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ReportDetailView(reportId: report.id),
-                        ),
-                      );
+                      context.push('/report-detail/${report.id}');
                     },
                     icon: const Icon(
                       Icons.visibility,

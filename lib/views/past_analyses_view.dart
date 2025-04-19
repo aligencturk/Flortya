@@ -54,7 +54,7 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => context.go('/'),
                     ),
                     const Text(
                       'Geçmiş Analizler',
@@ -188,12 +188,7 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
       child: InkWell(
         onTap: () {
           // Analiz detayına git
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AnalysisDetailView(analysisId: analysis.id),
-            ),
-          );
+          context.push('/analysis-detail/${analysis.id}');
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

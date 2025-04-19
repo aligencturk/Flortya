@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/past_report_model.dart';
 import '../viewmodels/past_reports_viewmodel.dart';
@@ -32,18 +33,16 @@ class _ReportDetailViewState extends State<ReportDetailView> {
   }
   
   void _loadReport() {
-    final report = _viewModel.getReportById(widget.reportId);
-    if (report == null) {
+    try {
+      _report = _viewModel.getReportById(widget.reportId);
+      setState(() {});
+    } catch (e) {
+      // Rapor bulunamadı
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rapor bulunamadı')),
+        SnackBar(content: Text('Rapor bulunamadı: $e')),
       );
-      Navigator.pop(context);
-      return;
+      context.go('/past-reports');
     }
-    
-    setState(() {
-      _report = report;
-    });
   }
   
   @override
@@ -80,7 +79,7 @@ class _ReportDetailViewState extends State<ReportDetailView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => context.go('/past-reports'),
                     ),
                     const Text(
                       'İlişki Raporu',
