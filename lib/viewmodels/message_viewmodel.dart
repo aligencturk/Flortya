@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import 'package:provider/provider.dart';
+import '../viewmodels/past_analyses_viewmodel.dart';
 
 // Extension to add firstWhereOrNull functionality
 extension ListExtension<T> on List<T> {
@@ -829,5 +830,73 @@ class MessageViewModel extends ChangeNotifier {
   // ProfileViewModel ataması için metod
   void setProfileViewModel(ProfileViewModel profileViewModel) {
     _profileViewModel = profileViewModel;
+  }
+
+  // Tüm mesajları silme
+  Future<void> clearAllData(String userId) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      final userRef = _firestore.collection('users').doc(userId);
+      final messagesRef = userRef.collection('messages');
+      
+      // Tüm mesajları getir
+      final messageSnapshot = await messagesRef.get();
+      
+      // Batch işlemi başlat
+      WriteBatch batch = _firestore.batch();
+      
+      // Her bir mesajı batch'e ekle
+      for (var doc in messageSnapshot.docs) {
+        batch.delete(doc.reference);
+        
+        // Eğer mesaja ait analiz sonucu varsa, analiz sonucunu da sil
+        try {
+          final analysisRef = _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('message_analyses')
+            .where('messageId', isEqualTo: doc.id);
+          
+          final analysisSnapshot = await analysisRef.get();
+          for (var analysisDoc in analysisSnapshot.docs) {
+            batch.delete(analysisDoc.reference);
+          }
+        } catch (e) {
+          debugPrint('Analiz silme hatası: $e');
+        }
+      }
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      // Yerel listeyi temizle
+      _messages.clear();
+      _currentMessage = null;
+      _currentAnalysisResult = null;
+      
+      // Geçmiş analizler için de temizleme işlemi
+      // Not: Bu kısım sadece yerel olarak temizleniyor, PastAnalysesViewModel'de
+      // clearAllAnalyses metodu da çağrılmalı
+      final pastAnalysesViewModel = _profileViewModel?.context != null
+          ? Provider.of<PastAnalysesViewModel>(_profileViewModel!.context!, listen: false)
+          : null;
+      
+      if (pastAnalysesViewModel != null) {
+        await pastAnalysesViewModel.clearAllAnalyses(userId);
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      _logger.i('Tüm mesajlar başarıyla silindi');
+      
+    } catch (e) {
+      _logger.e('Tüm mesajları silme hatası', e);
+      _errorMessage = 'Mesajlar silinirken bir hata oluştu: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 } 

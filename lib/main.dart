@@ -18,6 +18,9 @@ import 'widgets/turkish_keyboard_provider.dart';
 import 'controllers/home_controller.dart';
 import 'services/ai_service.dart';
 import 'services/user_service.dart';
+import 'viewmodels/past_analyses_viewmodel.dart';
+import 'viewmodels/past_reports_viewmodel.dart';
+import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +74,15 @@ void main() async {
               userService: UserService(),
               aiService: AiService(),
             ),
+          ),
+          ChangeNotifierProvider<PastAnalysesViewModel>(
+            create: (context) => PastAnalysesViewModel(),
+          ),
+          ChangeNotifierProvider<PastReportsViewModel>(
+            create: (context) {
+              final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+              return PastReportsViewModel(reportViewModel);
+            },
           ),
         ],
         child: MyApp(),

@@ -627,7 +627,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         messageContent += "\nKullanıcı Notu: $messageText";
       }
     } else {
-      // Normal metin modu
+      // Normal metin modu - Kullanıcı sadece metin yazdığında
       messageContent = messageText;
     }
 
@@ -891,6 +891,37 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             ),
                           ),
                           
+                          const SizedBox(height: 8),
+                          
+                          // Bilgi ipucu ekle
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF9D3FFF).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 16,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    "Metin yazarak veya görsel/sohbet dosyası yükleyerek analiz yapabilirsiniz.",
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
                           const SizedBox(height: 16),
                           
                           // Mesaj girişi
@@ -918,6 +949,25 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                 final containsTurkish = value.contains(RegExp(r'[ğüşöçıĞÜŞÖÇİ]'));
                                 if (containsTurkish) {
                                   debugPrint('Türkçe karakter algılandı: $value');
+                                }
+                                
+                                // Metin girişinde eğer değer boş değilse ve dosya yüklü değilse
+                                // mesaj tipi panelini kapat
+                                if (value.trim().isNotEmpty && 
+                                    _selectedImage == null && 
+                                    _selectedChatFile == null && 
+                                    _chatFileContent == null) {
+                                  setState(() {
+                                    _isMessageTypeExpanded = false;
+                                  });
+                                } else if (value.trim().isEmpty && 
+                                    _selectedImage == null && 
+                                    _selectedChatFile == null && 
+                                    _chatFileContent == null) {
+                                  // Metin boşalırsa ve dosya da yoksa paneli tekrar aç
+                                  setState(() {
+                                    _isMessageTypeExpanded = true;
+                                  });
                                 }
                               },
                               decoration: const InputDecoration(
@@ -1355,33 +1405,68 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           
                           const SizedBox(height: 20),
                           
-                          // Analiz butonu
+                          // Analiz Et butonu
                           SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.psychology_outlined),
-                              label: Text(
-                                messageViewModel.isLoading || _isProcessingFile 
-                                    ? 'Analiz Ediliyor...' 
-                                    : 'Mesajı Analiz Et',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: (_isProcessingFile || !_isAnalyzeButtonEnabled()) 
+                                ? null 
+                                : _sendMessage,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF9D3FFF),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                disabledBackgroundColor: Colors.grey,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                elevation: 0,
-                                disabledBackgroundColor: const Color(0xFF9D3FFF).withOpacity(0.4),
-                                disabledForegroundColor: Colors.white.withOpacity(0.7),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                               ),
-                              onPressed: (messageViewModel.isLoading || _isProcessingFile || !_isAnalyzeButtonEnabled()) 
-                                  ? null 
-                                  : _sendMessage,
+                              child: _isProcessingFile
+                                  ? const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 3,
+                                          ),
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Analiz Yapılıyor...',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Text(
+                                      'Analiz Et',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
+                          
+                          // Analiz et butonu altındaki not
+                          if (!_isProcessingFile && !_showDetailedAnalysis)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text(
+                                'Metni girin veya dosya yükleyin, ardından analiz için tıklayın',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1719,43 +1804,207 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
 
-  // Bilgi diyaloğunu gösteren metod
+  // Bilgi diyaloğunu göster
   void _showInfoDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Mesaj Analizi Hakkında', style: TextStyle(color: Color(0xFF9D3FFF))),
-          content: const SingleChildScrollView(
-            child: ListBody(
+          backgroundColor: const Color(0xFF352269),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mesaj Analizi Hakkında',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Divider(color: Colors.white.withOpacity(0.2), thickness: 1),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Bu araç, mesajlarınızı analiz ederek anlam ve duygu değerlendirmesi yapar.'),
-                SizedBox(height: 8),
-                Text('Nasıl kullanılır:'),
-                Text('1. Analiz etmek istediğiniz metni girin veya görsel seçin'),
-                Text('2. "Mesajı Analiz Et" butonuna tıklayın'),
-                Text('3. Analiz sonuçlarını görüntüleyin ve isterseniz kaydedin'),
-                SizedBox(height: 8),
-                Text('Not: Analiz işlemi birkaç saniye sürebilir.'),
+                // Bilgi başlığı
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.lightbulb_outline,
+                        color: Colors.white.withOpacity(0.9),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Nasıl Kullanılır?',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Kullanım adımları listesi
+                _buildInfoStep(1, 'Metin girin, görsel veya sohbet dosyası yükleyin'),
+                _buildInfoStep(2, '"Analiz Et" butonuna tıklayın'),
+                _buildInfoStep(3, 'İlişkinizle ilgili analizleri ve önerileri görün'),
+                
+                const SizedBox(height: 16),
+                
+                // Yeni analiz yöntemi bilgisi
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9D3FFF).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.new_releases_outlined,
+                            color: Colors.white.withOpacity(0.9),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Yeni Özellik',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Artık dosya yüklemeden doğrudan metin girerek de analiz yapabilirsiniz! Partnerinizle yaşadığınız durumu veya düşüncelerinizi yazın, "Analiz Et" butonuna tıklayın.',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Uyarı metni
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.amber.withOpacity(0.9),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Önemli Bilgi',
+                            style: TextStyle(
+                              color: Colors.amber.withOpacity(0.9),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Bu analiz sonuçları yol gösterici niteliktedir ve profesyonel psikolojik danışmanlık yerine geçmez. Ciddi ilişki sorunları için lütfen bir uzmana başvurun.',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-        ),
-        actions: [
+          ),
+          actions: [
             TextButton(
-              child: const Text('Anladım', style: TextStyle(color: Color(0xFF9D3FFF))),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Kapat'),
             ),
           ],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          backgroundColor: const Color(0xFF352269),
-          contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
-          titleTextStyle: const TextStyle(color: Color(0xFF9D3FFF), fontSize: 18, fontWeight: FontWeight.bold),
         );
       },
+    );
+  }
+  
+  // Bilgi adımı için helper widget
+  Widget _buildInfoStep(int stepNumber, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: const Color(0xFF9D3FFF).withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                stepNumber.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1764,6 +2013,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     // İşlem sürüyorsa buton pasif olmalı
     if (_isProcessingFile) {
       return false;
+    }
+    
+    // Sadece metin girişi yeterli - Diğer modlarda dosya yüklenmiş olmalı
+    if (_messageController.text.trim().isNotEmpty) {
+      return true;
     }
     
     // Seçili mesaj tipine göre içerik kontrolü yap
@@ -1780,7 +2034,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         return (_selectedChatFile != null || _chatFileContent != null);
       case MessageType.none:
       default:
-        // Hiçbir mod seçilmemişse veya bilinmeyen modda: sadece metin varsa aktif olsun
+        // Hiçbir mod seçilmemişse: sadece metin varsa aktif olsun
         return _messageController.text.trim().isNotEmpty;
     }
   }

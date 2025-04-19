@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import '../services/ai_service.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
+import '../viewmodels/past_reports_viewmodel.dart';
 
 class ReportViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -397,5 +400,69 @@ class ReportViewModel extends ChangeNotifier {
         'type': currentType,
       },
     ];
+  }
+
+  // Tüm rapor verilerini silme (verileri sıfırla için)
+  Future<void> clearAllReports(String userId) async {
+    _setLoading(true);
+    try {
+      // Kullanıcının raporlarını al
+      final reportsSnapshot = await _firestore
+          .collection('relationship_reports')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      // Batch işlemi başlat
+      WriteBatch batch = _firestore.batch();
+      
+      // Her raporu silme işlemine ekle
+      for (var doc in reportsSnapshot.docs) {
+        // Önce yorumları sil
+        final commentsSnapshot = await _firestore
+            .collection('relationship_reports')
+            .doc(doc.id)
+            .collection('comments')
+            .get();
+            
+        for (var commentDoc in commentsSnapshot.docs) {
+          batch.delete(commentDoc.reference);
+        }
+        
+        // Sonra rapor belgesini sil
+        batch.delete(doc.reference);
+      }
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      // Yerel verileri temizle
+      _reportResult = null;
+      _answers = ['', '', '', '', '', ''];
+      _currentQuestionIndex = 0;
+      _comments = [];
+      _relationshipHistory = null;
+      
+      // Geçmiş raporlar ViewModel'i varsa onu da temizle
+      final context = _comments.isNotEmpty 
+          ? _comments.first['context'] as BuildContext?
+          : null;
+          
+      if (context != null) {
+        try {
+          final pastReportsViewModel = Provider.of<PastReportsViewModel>(context, listen: false);
+          await pastReportsViewModel.clearAllReports(userId);
+        } catch (e) {
+          debugPrint('PastReportsViewModel temizleme hatası: $e');
+        }
+      }
+      
+      notifyListeners();
+      debugPrint('Tüm raporlar başarıyla silindi');
+      
+    } catch (e) {
+      _setError('Raporlar silinirken hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+    }
   }
 } 

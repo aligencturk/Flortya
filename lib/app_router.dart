@@ -10,6 +10,10 @@ import 'views/message_analysis_view.dart';
 import 'views/report_view.dart';
 import 'views/advice_view.dart';
 import 'views/profile_view.dart';
+import 'views/past_analyses_view.dart';
+import 'views/past_reports_view.dart';
+import 'views/analysis_detail_view.dart';
+import 'views/report_detail_view.dart';
 
 // Placeholder Widgets for new routes
 class AccountSettingsView extends StatelessWidget {
@@ -238,6 +242,11 @@ class AppRouter {
   static const String notificationSettings = '/notification-settings';
   static const String privacySettings = '/privacy-settings';
   static const String helpSupport = '/help-support';
+  // Geçmiş analizler ve raporlar için route sabitleri
+  static const String pastAnalyses = '/past-analyses';
+  static const String pastReports = '/past-reports';
+  static const String analysisDetail = '/analysis-detail';
+  static const String reportDetail = '/report-detail';
 
   static GoRouter createRouter(AuthViewModel authViewModel) {
     return GoRouter(
@@ -367,6 +376,34 @@ class AppRouter {
           path: login,
           name: 'login',
           builder: (context, state) => const LoginView(),
+        ),
+        
+        // Geçmiş analizler ve raporlar için route'lar
+        GoRoute(
+          path: pastAnalyses,
+          name: 'pastAnalyses',
+          builder: (context, state) => const PastAnalysesView(),
+        ),
+        GoRoute(
+          path: pastReports,
+          name: 'pastReports',
+          builder: (context, state) => const PastReportsView(),
+        ),
+        GoRoute(
+          path: '$analysisDetail/:id',
+          name: 'analysisDetail',
+          builder: (context, state) {
+            final analysisId = state.pathParameters['id'] ?? '';
+            return AnalysisDetailView(analysisId: analysisId);
+          },
+        ),
+        GoRoute(
+          path: '$reportDetail/:id',
+          name: 'reportDetail',
+          builder: (context, state) {
+            final reportId = state.pathParameters['id'] ?? '';
+            return ReportDetailView(reportId: reportId);
+          },
         ),
       ],
       errorBuilder: (context, state) => Scaffold(

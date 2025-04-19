@@ -1774,23 +1774,113 @@ class _HomeViewState extends State<HomeView> {
                             child: Column(
               children: [
                           _buildProfileMenuItem(
-                            icon: Icons.person_outline,
+                            icon: Icons.person,
                             title: 'Hesap Bilgileri',
                           ),
-                          const Divider(height: 1, color: Colors.white24),
                           _buildProfileMenuItem(
-                            icon: Icons.notifications_outlined,
+                            icon: Icons.notifications,
                             title: 'Bildirim Ayarları',
                           ),
-                          const Divider(height: 1, color: Colors.white24),
                           _buildProfileMenuItem(
-                            icon: Icons.security_outlined,
+                            icon: Icons.security,
                             title: 'Gizlilik ve Güvenlik',
                           ),
-                          const Divider(height: 1, color: Colors.white24),
                           _buildProfileMenuItem(
-                            icon: Icons.support_outlined,
+                            icon: Icons.question_answer,
                             title: 'Yardım ve Destek',
+                          ),
+                          
+                          // Yeni eklenen menü öğeleri
+                          const Divider(color: Colors.white24, height: 32),
+                          
+                          _buildProfileMenuItem(
+                            icon: Icons.analytics,
+                            title: 'Geçmiş Analizler',
+                          ),
+                          _buildProfileMenuItem(
+                            icon: Icons.assessment,
+                            title: 'İlişki Raporları',
+                          ),
+                          
+                          const Divider(color: Colors.white24, height: 32),
+                          
+                          // Çıkış butonu
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () async {
+                              final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                              
+                              // Çıkış onayı sor
+                              final shouldLogout = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  backgroundColor: const Color(0xFF352269),
+                                  title: const Text(
+                                    'Çıkış Yapmak İstiyor musunuz?',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  content: const Text(
+                                    'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(false),
+                                      child: const Text(
+                                        'İptal',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(true),
+                                      child: const Text(
+                                        'Çıkış Yap',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              
+                              if (shouldLogout == true) {
+                                debugPrint('Çıkış yapılıyor...');
+                                try {
+                                  // Önce SharedPreferences'tan bilgileri temizle
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.setBool('hasCompletedOnboarding', false);
+                                  await prefs.remove('user_token');
+                                  await prefs.remove('user_login_state');
+                                  
+                                  // Firebase Auth ile çıkış yap
+                                  await authViewModel.signOut();
+                                  
+                                  if (context.mounted) {
+                                    // Force kullanarak doğrudan onboarding sayfasına git
+                                    context.go('/onboarding');
+                                  }
+                                } catch (e) {
+                                  debugPrint('Çıkış yapma hatası: $e');
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Çıkış yapma hatası: $e')),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.logout,
+                              color: Colors.white70,
+                            ),
+                            label: const Text(
+                              'Çıkış Yap',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
                           ),
                         ],
           ),
@@ -1895,7 +1985,7 @@ class _HomeViewState extends State<HomeView> {
     return InkWell(
       onTap: () {
         debugPrint('Profil menü öğesine tıklandı: $title');
-        // Menü öğesine göre dialog aç
+        // Menü öğesine göre dialog veya sayfa aç
         if (title == 'Hesap Bilgileri') {
           _showAccountSettingsDialog(context);
         } else if (title == 'Bildirim Ayarları') {
@@ -1904,6 +1994,10 @@ class _HomeViewState extends State<HomeView> {
           _showPrivacySettingsDialog(context);
         } else if (title == 'Yardım ve Destek') {
           _showHelpSupportDialog(context);
+        } else if (title == 'Geçmiş Analizler') {
+          context.go('/past-analyses');
+        } else if (title == 'İlişki Raporları') {
+          context.go('/past-reports');
         }
       },
       child: Padding(
