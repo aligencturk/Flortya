@@ -1553,9 +1553,8 @@ class _HomeViewState extends State<HomeView> {
                               
                               const SizedBox(height: 16),
                               
-                              // Tavsiye metni
-                              SizedBox(
-                                height: 200,
+                              // Tavsiye metni - Daha fazla alan kullanacak şekilde düzenlendi
+                              Expanded(
                                 child: SingleChildScrollView(
                                   child: Text(
                                     content,
@@ -1570,7 +1569,7 @@ class _HomeViewState extends State<HomeView> {
                               
                               const SizedBox(height: 16),
                               
-                              // Premium buton
+                              // Premium buton - En alta sabitlendi
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
