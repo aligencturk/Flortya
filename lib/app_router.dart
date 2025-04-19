@@ -9,7 +9,6 @@ import 'views/home_view.dart';
 import 'views/message_analysis_view.dart';
 import 'views/report_view.dart';
 import 'views/advice_view.dart';
-import 'views/profile_view.dart';
 import 'views/past_analyses_view.dart';
 import 'views/past_reports_view.dart';
 import 'views/analysis_detail_view.dart';
@@ -345,11 +344,11 @@ class AppRouter {
           name: 'advice',
           builder: (context, state) => const AdviceView(),
         ),
-        // Profil sayfası - Detay sayfası  
+        // Profil sayfası - Artık doğrudan HomeView'e yönlendirme yapılıyor  
         GoRoute(
           path: profile,
           name: 'profile',
-          builder: (context, state) => const ProfileView(),
+          builder: (context, state) => const HomeView(initialTabIndex: 3),
         ),
         // Yeni route tanımlamaları
         GoRoute(

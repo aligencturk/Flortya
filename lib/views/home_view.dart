@@ -103,7 +103,12 @@ class ChartPainter extends CustomPainter {
 }
 
 class HomeView extends StatefulWidget {
-  const HomeView({super.key});
+  final int initialTabIndex;
+  
+  const HomeView({
+    super.key, 
+    this.initialTabIndex = 0,
+  });
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -111,18 +116,26 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   int _selectedIndex = 0;
-  final PageController _pageController = PageController();
+  late final PageController _pageController;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   
   // Widget referans anahtarları
   final GlobalKey _analyzeButtonKey = GlobalKey();
   final GlobalKey _relationshipScoreCardKey = GlobalKey();
   final GlobalKey _categoryAnalysisKey = GlobalKey();
   final GlobalKey _relationshipEvaluationKey = GlobalKey();
-
+  
+  // AdviceCard tanımını düzelt
+  Map<String, dynamic>? _dailyAdvice;
+  
   @override
   void initState() {
     super.initState();
+    // Başlangıç sekmesini widget'tan al
+    _selectedIndex = widget.initialTabIndex;
+    _pageController = PageController(initialPage: _selectedIndex);
+    
     // Ana sayfayı yüklendiğinde güncelle
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final homeController = Provider.of<HomeController>(context, listen: false);
