@@ -13,7 +13,7 @@ import 'views/profile_view.dart';
 
 // Placeholder Widgets for new routes
 class AccountSettingsView extends StatelessWidget {
-  const AccountSettingsView({Key? key}) : super(key: key);
+  const AccountSettingsView({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(appBar: AppBar(title: const Text('Hesap Ayarları')));
@@ -21,7 +21,7 @@ class AccountSettingsView extends StatelessWidget {
 }
 
 class NotificationSettingsView extends StatelessWidget {
-  const NotificationSettingsView({Key? key}) : super(key: key);
+  const NotificationSettingsView({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(appBar: AppBar(title: const Text('Bildirim Ayarları')));
@@ -29,7 +29,7 @@ class NotificationSettingsView extends StatelessWidget {
 }
 
 class PrivacySettingsView extends StatelessWidget {
-  const PrivacySettingsView({Key? key}) : super(key: key);
+  const PrivacySettingsView({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(appBar: AppBar(title: const Text('Gizlilik ve Güvenlik')));
@@ -37,7 +37,7 @@ class PrivacySettingsView extends StatelessWidget {
 }
 
 class HelpSupportView extends StatelessWidget {
-  const HelpSupportView({Key? key}) : super(key: key);
+  const HelpSupportView({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(appBar: AppBar(title: const Text('Yardım ve Destek')));
@@ -45,7 +45,7 @@ class HelpSupportView extends StatelessWidget {
 }
 
 class LoginView extends StatelessWidget {
-  const LoginView({Key? key}) : super(key: key);
+  const LoginView({super.key});
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);

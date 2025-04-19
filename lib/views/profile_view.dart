@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
-import '../widgets/custom_button.dart';
-import '../app_router.dart';
 
 class ProfileView extends StatefulWidget {
-  const ProfileView({Key? key}) : super(key: key);
+  const ProfileView({super.key});
 
   @override
   State<ProfileView> createState() => _ProfileViewState();

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io' show Platform;
 
 /// Türkçe karakter girişi için yardımcı servis
 class InputService {
@@ -44,8 +43,7 @@ class InputService {
 /// Tüm metinlerde Türkçe karakter kontrolü
 extension StringExtension on String {
   String get fixTurkishChars {
-    return this
-        .replaceAll('i', 'i')
+    return replaceAll('i', 'i')
         .replaceAll('ı', 'ı')
         .replaceAll('ğ', 'ğ')
         .replaceAll('ü', 'ü')

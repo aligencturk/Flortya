@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import '../models/analysis_result_model.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 // Geçici ConfigService tanımı
 class ConfigService {
@@ -90,7 +89,7 @@ class ApiService {
         _logger.e('API isteği başarısız oldu: ${response.statusCode} - ${response.body}');
         return null;
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.e('Metin analizi sırasında hata oluştu: $e');
       return null;
     }

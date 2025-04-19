@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
-import '../widgets/custom_button.dart';
 import '../services/input_service.dart';
 
 class AdviceView extends StatefulWidget {
-  const AdviceView({Key? key}) : super(key: key);
+  const AdviceView({super.key});
 
   @override
   State<AdviceView> createState() => _AdviceViewState();

@@ -17,7 +17,7 @@ class CustomButton extends StatelessWidget {
   final bool isOutlined;
 
   const CustomButton({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.type = ButtonType.primary,
@@ -29,7 +29,7 @@ class CustomButton extends StatelessWidget {
     this.disabled = false,
     this.color,
     this.isOutlined = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

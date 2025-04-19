@@ -83,7 +83,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +124,7 @@ class MyApp extends StatelessWidget {
 class ErrorApp extends StatelessWidget {
   final String error;
   
-  const ErrorApp({Key? key, required this.error}) : super(key: key);
+  const ErrorApp({super.key, required this.error});
 
   @override
   Widget build(BuildContext context) {

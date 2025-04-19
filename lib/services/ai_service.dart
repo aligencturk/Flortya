@@ -213,7 +213,7 @@ class AiService {
       // Mesajın uzunluğunu kontrol et
       if (messageContent.length > 12000) {
         _logger.w('Mesaj içeriği çok uzun (${messageContent.length} karakter). Kısaltılıyor...');
-        messageContent = messageContent.substring(0, 12000) + "...";
+        messageContent = "${messageContent.substring(0, 12000)}...";
       }
       
       // OCR metni ve Görsel Analizi işleme biçimini modernize edelim
@@ -277,7 +277,7 @@ class AiService {
           ]
         }
         
-        Analiz edilecek mesaj: "${messageContent}"
+        Analiz edilecek mesaj: "$messageContent"
         ''';
       } else if (isImageMessage && hasExtractedText) {
         // Ekran görüntüsü ve OCR ile metin çıkarılmış
@@ -316,7 +316,7 @@ class AiService {
           ]
         }
         
-        Analiz edilecek mesaj: "${messageContent}"
+        Analiz edilecek mesaj: "$messageContent"
         ''';
       } else if (isImageMessage) {
         // Sadece ekran görüntüsü var, OCR metni yok - tamamen içerik odaklı prompt
@@ -348,7 +348,7 @@ class AiService {
           ]
         }
         
-        Analiz edilecek mesaj: "${messageContent}"
+        Analiz edilecek mesaj: "$messageContent"
         ''';
       } else {
         // Normal metin mesajı
@@ -390,7 +390,7 @@ class AiService {
           ]
         }
         
-        Analiz edilecek mesaj: "${messageContent}"
+        Analiz edilecek mesaj: "$messageContent"
         ''';
       }
       

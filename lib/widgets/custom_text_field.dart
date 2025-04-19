@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/input_service.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -22,7 +21,7 @@ class CustomTextField extends StatelessWidget {
   final bool supportTurkishChars;
 
   const CustomTextField({
-    Key? key,
+    super.key,
     required this.controller,
     this.labelText,
     this.hintText,
@@ -40,7 +39,7 @@ class CustomTextField extends StatelessWidget {
     this.autofocus = false,
     this.focusNode,
     this.supportTurkishChars = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

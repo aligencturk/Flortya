@@ -7,7 +7,7 @@ class ReportViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AiService _aiService = AiService();
   
-  List<String> _questions = [
+  final List<String> _questions = [
     'İlişkinizdeki en büyük sorun nedir?',
     'Partnerinizle nasıl iletişim kuruyorsunuz?',
     'İlişkinizde sizi en çok ne mutlu ediyor?',

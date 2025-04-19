@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 
 /// Türkçe klavye desteği sağlayan provider widget
@@ -7,9 +6,9 @@ class TurkishKeyboardProvider extends StatelessWidget {
   final Widget child;
 
   const TurkishKeyboardProvider({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,9 +25,9 @@ class TurkishKeyboardHandler extends StatefulWidget {
   final Widget child;
 
   const TurkishKeyboardHandler({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   State<TurkishKeyboardHandler> createState() => _TurkishKeyboardHandlerState();

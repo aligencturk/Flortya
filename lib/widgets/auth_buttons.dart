@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
@@ -9,10 +8,10 @@ class GoogleSignInButton extends StatelessWidget {
   final bool isWide;
 
   const GoogleSignInButton({
-    Key? key,
+    super.key,
     this.onSuccess,
     this.isWide = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +47,7 @@ class GoogleSignInButton extends StatelessWidget {
               mainAxisSize: isWide ? MainAxisSize.max : MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
+                SizedBox(
                   height: 24,
                   width: 24,
                   child: Image.asset(
@@ -85,10 +84,10 @@ class AppleSignInButton extends StatelessWidget {
   final bool isWide;
 
   const AppleSignInButton({
-    Key? key,
+    super.key,
     this.onSuccess,
     this.isWide = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

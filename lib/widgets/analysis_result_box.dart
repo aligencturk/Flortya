@@ -8,11 +8,11 @@ class AnalysisResultBox extends StatelessWidget {
   final VoidCallback? onTap;
 
   const AnalysisResultBox({
-    Key? key,
+    super.key,
     required this.result,
     this.showDetailedInfo = false,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

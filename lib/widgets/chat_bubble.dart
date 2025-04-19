@@ -10,12 +10,12 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const ChatBubble({
-    Key? key,
+    super.key,
     required this.message,
     this.showImage = true,
     this.onTap,
     this.onLongPress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

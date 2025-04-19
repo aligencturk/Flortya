@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
-import '../widgets/custom_button.dart';
 import '../app_router.dart';
-import '../widgets/auth_buttons.dart';
 
 class OnboardingView extends StatefulWidget {
-  const OnboardingView({Key? key}) : super(key: key);
+  const OnboardingView({super.key});
 
   @override
   State<OnboardingView> createState() => _OnboardingViewState();

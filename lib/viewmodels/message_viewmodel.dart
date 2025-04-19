@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -130,7 +129,7 @@ class MessageViewModel extends ChangeNotifier {
         }
         
         // Mesajları işle
-        if (snapshot != null && snapshot.docs.isNotEmpty) {
+        if (snapshot.docs.isNotEmpty) {
           _logger.i('Mesajlar koleksiyonunda ${snapshot.docs.length} mesaj bulundu');
           List<Message> newMessages = snapshot.docs.map((doc) {
             Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
@@ -593,11 +592,6 @@ class MessageViewModel extends ChangeNotifier {
     // ID boş kontrolü ekle
     if (messageId.isEmpty) {
       _errorMessage = 'Görsel yükleme için geçersiz mesaj ID';
-      return;
-    }
-    
-    if (imageFile == null) {
-      _errorMessage = 'Yüklenecek görsel bulunamadı';
       return;
     }
     

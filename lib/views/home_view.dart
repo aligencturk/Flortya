@@ -104,7 +104,7 @@ class ChartPainter extends CustomPainter {
 }
 
 class HomeView extends StatefulWidget {
-  const HomeView({Key? key}) : super(key: key);
+  const HomeView({super.key});
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -683,7 +683,7 @@ class _HomeViewState extends State<HomeView> {
                       advice: tavsiye,
                       color: _getAdviceColor(tavsiye),
                       icon: _getAdviceIcon(tavsiye),
-                    )).toList()
+                    ))
                   else if (analizSonucu == null)
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -1139,7 +1139,7 @@ class _HomeViewState extends State<HomeView> {
                         const SizedBox(height: 24),
                         
                         // İlişki Gelişim Görselleştirmesi - Emoji ve Dalga Animasyonu
-                        Container(
+                        SizedBox(
                           height: 250,
                           width: double.infinity,
                           child: Column(
@@ -1900,7 +1900,6 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildProfileMenuItem({
     required IconData icon,
     required String title,
-    VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: () {
@@ -3490,11 +3489,11 @@ class AnimatedWave extends StatefulWidget {
   final double amplitude;
 
   const AnimatedWave({
-    Key? key, 
+    super.key, 
     required this.color,
     required this.frequency,
     required this.amplitude,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedWave> createState() => _AnimatedWaveState();

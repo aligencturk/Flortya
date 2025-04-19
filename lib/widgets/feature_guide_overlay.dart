@@ -13,11 +13,11 @@ class FeatureGuideOverlay extends StatefulWidget {
   final VoidCallback onClose;
   
   const FeatureGuideOverlay({
-    Key? key,
+    super.key,
     required this.steps,
     required this.onCompleted,
     required this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   State<FeatureGuideOverlay> createState() => _FeatureGuideOverlayState();
@@ -96,7 +96,7 @@ class _FeatureGuideOverlayState extends State<FeatureGuideOverlay> with SingleTi
               borderWidth: currentStep.borderWidth,
               padding: currentStep.padding,
             ),
-            child: Container(
+            child: SizedBox(
               width: double.infinity,
               height: double.infinity,
             ),

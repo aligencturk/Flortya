@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 
 /// Türkçe metin işlemleri için yardımcı sınıf
 class TextHelper {
@@ -41,7 +40,7 @@ class TextHelper {
     formattedMessage = fixTurkishChars(formattedMessage);
     
     // İlk harfi büyük yap, eğer cümle sonunda nokta yoksa nokta ekle
-    if (formattedMessage.length > 0) {
+    if (formattedMessage.isNotEmpty) {
       formattedMessage = formattedMessage[0].toUpperCase() + formattedMessage.substring(1);
       
       if (!formattedMessage.endsWith('.') && 
