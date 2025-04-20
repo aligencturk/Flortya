@@ -5,12 +5,15 @@ import '../services/ai_service.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import '../viewmodels/past_reports_viewmodel.dart';
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AiService _aiService = AiService();
   
-  final List<String> _questions = [
+  // Statik sorular (sadece yedek olarak tutuyoruz, artık kullanılmayacak)
+  final List<String> _fallbackQuestions = [
     'İlişkinizdeki en büyük sorun nedir?',
     'Partnerinizle nasıl iletişim kuruyorsunuz?',
     'İlişkinizde sizi en çok ne mutlu ediyor?',
@@ -19,7 +22,17 @@ class ReportViewModel extends ChangeNotifier {
     'İlişkinizde ne sıklıkla görüşüyorsunuz?',
   ];
   
-  List<String> _answers = ['', '', '', '', '', ''];
+  // Yapay zeka tarafından üretilen sorular
+  List<String> _questions = [];
+  
+  // Sorular ne zaman yenilenecek
+  DateTime? _nextQuestionUpdateTime;
+  Timer? _countdownTimer;
+  
+  // Geri sayım süresi (saniye cinsinden)
+  int _remainingTimeInSeconds = 0;
+  
+  List<String> _answers = [];
   int _currentQuestionIndex = 0;
   Map<String, dynamic>? _reportResult;
   bool _isLoading = false;
@@ -34,33 +47,154 @@ class ReportViewModel extends ChangeNotifier {
   List<String> get answers => _answers;
   int get currentQuestionIndex => _currentQuestionIndex;
   String get currentQuestion {
-    // Güvenlik kontrolü ekleyerek 5. indekse uygun erişim sağlayalım
+    if (_questions.isEmpty) {
+      return "Sorular yükleniyor...";
+    }
+    
     if (_currentQuestionIndex >= 0 && _currentQuestionIndex < _questions.length) {
       return _questions[_currentQuestionIndex];
-    } else if (_currentQuestionIndex == 5) {
-      // 6. soru için sabit bir metin döndürelim
-      return 'İlişkinizde ne sıklıkla görüşüyorsunuz?';
     } else {
-      return 'Bilinmeyen soru';
+      return "Bilinmeyen soru";
     }
   }
+  
   Map<String, dynamic>? get reportResult => _reportResult;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasReport => _reportResult != null;
-  bool get isLastQuestion => _currentQuestionIndex == 5;
-  bool get allQuestionsAnswered => !_answers.any((answer) => answer.isEmpty);
+  bool get isLastQuestion => _currentQuestionIndex == _questions.length - 1;
+  bool get allQuestionsAnswered => _answers.length == _questions.length && !_answers.any((answer) => answer.isEmpty);
   List<Map<String, dynamic>> get comments => _comments;
+  
+  // Geri sayım için getters
+  int get remainingDays => _remainingTimeInSeconds ~/ 86400;
+  int get remainingHours => (_remainingTimeInSeconds % 86400) ~/ 3600;
+  int get remainingMinutes => (_remainingTimeInSeconds % 3600) ~/ 60;
+  int get remainingSeconds => _remainingTimeInSeconds % 60;
+  bool get questionsNeedUpdate => _nextQuestionUpdateTime == null || DateTime.now().isAfter(_nextQuestionUpdateTime!);
+  DateTime? get nextUpdateTime => _nextQuestionUpdateTime;
+  
+  // Constructor
+  ReportViewModel() {
+    _initializeQuestions();
+  }
+  
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+  
+  // Soruları başlat
+  Future<void> _initializeQuestions() async {
+    _setLoading(true);
+    
+    try {
+      // SharedPreferences'dan soruları ve güncelleme zamanını yükle
+      final prefs = await SharedPreferences.getInstance();
+      final savedQuestions = prefs.getStringList('relationship_questions');
+      final nextUpdateTimeMillis = prefs.getInt('next_question_update_time');
+      
+      if (nextUpdateTimeMillis != null) {
+        _nextQuestionUpdateTime = DateTime.fromMillisecondsSinceEpoch(nextUpdateTimeMillis);
+      }
+      
+      // Eğer kaydedilmiş sorular varsa ve güncelleme zamanı gelmemişse, onları kullan
+      if (savedQuestions != null && savedQuestions.isNotEmpty && !questionsNeedUpdate) {
+        _questions = savedQuestions;
+        _initializeAnswers();
+        _startCountdownTimer();
+      } else {
+        // Değilse, yeni sorular üret
+        await _generateNewQuestions();
+      }
+    } catch (e) {
+      debugPrint('Sorular yüklenirken hata oluştu: $e');
+      _questions = _fallbackQuestions;
+      _initializeAnswers();
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Yeni sorular üret
+  Future<void> _generateNewQuestions() async {
+    try {
+      // Yapay zekadan 15 yeni soru üret
+      final newQuestions = await _aiService.generateRelationshipQuestions();
+      
+      if (newQuestions.isNotEmpty) {
+        _questions = newQuestions;
+        
+        // Bir hafta sonrası için güncelleme zamanı ayarla
+        _nextQuestionUpdateTime = DateTime.now().add(const Duration(days: 7));
+        
+        // Soruları ve güncelleme zamanını locale kaydet
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('relationship_questions', _questions);
+        await prefs.setInt('next_question_update_time', _nextQuestionUpdateTime!.millisecondsSinceEpoch);
+        
+        // Cevapları sıfırla
+        _initializeAnswers();
+        
+        // Geri sayım sayacını başlat
+        _startCountdownTimer();
+        
+        notifyListeners();
+      } else {
+        // Yapay zeka soru üretemediyse yedek soruları kullan
+        _questions = _fallbackQuestions;
+        _initializeAnswers();
+      }
+    } catch (e) {
+      debugPrint('Yeni sorular üretilirken hata oluştu: $e');
+      _questions = _fallbackQuestions;
+      _initializeAnswers();
+    }
+  }
+  
+  // Cevapları sıfırla
+  void _initializeAnswers() {
+    _answers = List.filled(_questions.length, '');
+  }
+  
+  // Geri sayım sayacını başlat
+  void _startCountdownTimer() {
+    if (_nextQuestionUpdateTime == null) return;
+    
+    // Şu anki zaman ile sonraki güncelleme zamanı arasındaki farkı hesapla
+    final now = DateTime.now();
+    final difference = _nextQuestionUpdateTime!.difference(now);
+    
+    // Kalan süreyi saniye cinsinden ayarla
+    _remainingTimeInSeconds = difference.inSeconds > 0 ? difference.inSeconds : 0;
+    
+    // Varsa önceki sayacı iptal et
+    _countdownTimer?.cancel();
+    
+    // Yeni sayacı başlat
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingTimeInSeconds > 0) {
+        _remainingTimeInSeconds--;
+        notifyListeners();
+      } else {
+        timer.cancel();
+        _generateNewQuestions();
+      }
+    });
+  }
 
   // Cevap kaydetme
   void saveAnswer(String answer) {
-    _answers[_currentQuestionIndex] = answer;
-    notifyListeners();
+    if (_currentQuestionIndex < _answers.length) {
+      _answers[_currentQuestionIndex] = answer;
+      notifyListeners();
+    }
   }
 
   // Sonraki soruya geçme
   void nextQuestion() {
-    if (_currentQuestionIndex < 5) {
+    if (_currentQuestionIndex < _questions.length - 1) {
       _currentQuestionIndex++;
       notifyListeners();
     }
@@ -265,7 +399,7 @@ class ReportViewModel extends ChangeNotifier {
                        _relationshipHistory != null;
       
       debugPrint('Rapor verileri temizleniyor...');
-      _answers = List.filled(_questions.length, '');
+      _initializeAnswers();
       _currentQuestionIndex = 0;
       _reportResult = null;
       _errorMessage = null;
@@ -283,7 +417,7 @@ class ReportViewModel extends ChangeNotifier {
       
       // Hata olsa da temizlemeye çalış
       try {
-        _answers = List.filled(_questions.length, '');
+        _initializeAnswers();
         _currentQuestionIndex = 0;
         _reportResult = null;
         _errorMessage = 'Rapor sıfırlanırken hata oluştu: $e';

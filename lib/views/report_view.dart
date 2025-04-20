@@ -17,7 +17,6 @@ class ReportView extends StatefulWidget {
 }
 
 class _ReportViewState extends State<ReportView> {
-  final TextEditingController _answerController = TextEditingController();
   final TextEditingController _commentController = TextEditingController();
   bool _showReportResult = false;
   bool _isCommenting = false;
@@ -32,7 +31,6 @@ class _ReportViewState extends State<ReportView> {
 
   @override
   void dispose() {
-    _answerController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -45,37 +43,6 @@ class _ReportViewState extends State<ReportView> {
     if (authViewModel.user != null) {
       await reportViewModel.loadUserReports(authViewModel.user!.id);
     }
-  }
-
-  // Cevabı kaydet ve bir sonraki soruya geç
-  void _saveAnswerAndContinue() {
-    final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-    
-    final answer = _answerController.text.trim();
-    
-    if (answer.isEmpty) {
-      FeedbackUtils.showToast(context, 'Lütfen soruyu yanıtlayın');
-      return;
-    }
-    
-    // Cevabı kaydet
-    reportViewModel.saveAnswer(answer);
-    
-    // Sonraki soruya geç veya son soruysa rapor oluştur
-    if (reportViewModel.isLastQuestion) {
-      _generateReport();
-    } else {
-      reportViewModel.nextQuestion();
-      _answerController.clear();
-    }
-  }
-
-  // Önceki soruya dön
-  void _goToPreviousQuestion() {
-    final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-    
-    reportViewModel.previousQuestion();
-    _answerController.text = reportViewModel.answers[reportViewModel.currentQuestionIndex];
   }
 
   // Rapor oluştur
@@ -99,7 +66,6 @@ class _ReportViewState extends State<ReportView> {
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
     
     reportViewModel.resetReport();
-    _answerController.clear();
     
     setState(() {
       _showReportResult = false;
@@ -161,7 +127,7 @@ class _ReportViewState extends State<ReportView> {
   // Soru formu widget'ı
   Widget _buildQuestionForm(BuildContext context, ReportViewModel reportViewModel) {
     final currentQuestionNumber = reportViewModel.currentQuestionIndex + 1;
-    final totalQuestions = 6;
+    final totalQuestions = reportViewModel.questions.length;
     
     // Debugging
     debugPrint('Toplam soru sayısı: $totalQuestions');
@@ -172,6 +138,12 @@ class _ReportViewState extends State<ReportView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Soruların yenilenmesine kalan süre göstergesi
+          if (reportViewModel.nextUpdateTime != null)
+            _buildCountdownTimer(context, reportViewModel),
+          
+          const SizedBox(height: 24),
+          
           // İlerleme göstergesi
           LinearProgressIndicator(
             value: currentQuestionNumber / totalQuestions,
@@ -205,17 +177,8 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 24),
           
-          // Cevap alanı
-          TextField(
-            controller: _answerController,
-            maxLines: 5,
-            inputFormatters: InputService.getTurkishTextFormatters(),
-            keyboardType: TextInputType.multiline,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              hintText: 'Cevabınızı buraya yazın...',
-            ),
-          ),
+          // Cevap butonları - Evet/Hayır/Bilmiyorum
+          _buildAnswerButtons(context, reportViewModel),
           
           const Spacer(),
           
@@ -227,7 +190,10 @@ class _ReportViewState extends State<ReportView> {
               if (reportViewModel.currentQuestionIndex > 0)
                 CustomButton(
                   text: 'Önceki',
-                  onPressed: _goToPreviousQuestion,
+                  onPressed: () {
+                    // Önceki soruya geç
+                    reportViewModel.previousQuestion();
+                  },
                   type: ButtonType.outline,
                   icon: Icons.arrow_back,
                 ) 
@@ -237,12 +203,185 @@ class _ReportViewState extends State<ReportView> {
               // İleri / Bitir düğmesi
               CustomButton(
                 text: reportViewModel.isLastQuestion ? 'Raporu Oluştur' : 'Devam Et',
-                onPressed: _saveAnswerAndContinue,
+                onPressed: () {
+                  // Mevcut sorunun cevabını kontrol et
+                  if (reportViewModel.answers[reportViewModel.currentQuestionIndex].isEmpty) {
+                    FeedbackUtils.showToast(context, 'Lütfen soruyu yanıtlayın');
+                    return;
+                  }
+                  
+                  // Son soruysa raporu oluştur, değilse sonraki soruya geç
+                  if (reportViewModel.isLastQuestion) {
+                    _generateReport();
+                  } else {
+                    reportViewModel.nextQuestion();
+                  }
+                },
                 icon: reportViewModel.isLastQuestion ? Icons.done : Icons.arrow_forward,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // Geri sayım sayacı widget'ı
+  Widget _buildCountdownTimer(BuildContext context, ReportViewModel reportViewModel) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.timer_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Soruların Yenilenmesine Kalan Süre:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildCountdownItem(context, reportViewModel.remainingDays, 'Gün'),
+              _buildCountdownItem(context, reportViewModel.remainingHours, 'Saat'),
+              _buildCountdownItem(context, reportViewModel.remainingMinutes, 'Dakika'),
+              _buildCountdownItem(context, reportViewModel.remainingSeconds, 'Saniye'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Geri sayım için tekil öğe
+  Widget _buildCountdownItem(BuildContext context, int value, String label) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              value.toString().padLeft(2, '0'),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Evet/Hayır/Bilmiyorum butonları
+  Widget _buildAnswerButtons(BuildContext context, ReportViewModel reportViewModel) {
+    final currentAnswer = reportViewModel.answers[reportViewModel.currentQuestionIndex];
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildAnswerButton(
+                context: context,
+                text: 'Evet',
+                isSelected: currentAnswer == 'Evet',
+                color: Colors.green,
+                onTap: () => reportViewModel.saveAnswer('Evet'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildAnswerButton(
+                context: context,
+                text: 'Hayır',
+                isSelected: currentAnswer == 'Hayır',
+                color: Colors.red,
+                onTap: () => reportViewModel.saveAnswer('Hayır'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _buildAnswerButton(
+          context: context,
+          text: 'Bilmiyorum',
+          isSelected: currentAnswer == 'Bilmiyorum',
+          color: Colors.orange,
+          onTap: () => reportViewModel.saveAnswer('Bilmiyorum'),
+        ),
+      ],
+    );
+  }
+  
+  // Tekil cevap butonu
+  Widget _buildAnswerButton({
+    required BuildContext context,
+    required String text,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? color.withOpacity(0.2) 
+              : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected 
+                ? color 
+                : Theme.of(context).colorScheme.outline.withOpacity(0.5),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected 
+                ? color 
+                : Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
       ),
     );
   }
@@ -321,7 +460,6 @@ class _ReportViewState extends State<ReportView> {
                             setState(() {
                               _showReportResult = false;
                             });
-                            _answerController.clear();
                           }
                         });
                       } catch (e) {

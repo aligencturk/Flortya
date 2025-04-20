@@ -1188,4 +1188,125 @@ class AiService {
     // En fazla 5 tavsiye döndür
     return tavsiyeler.take(5).toList();
   }
+
+  // İlişki değerlendirme soruları üretme
+  Future<List<String>> generateRelationshipQuestions() async {
+    try {
+      _logger.i('İlişki değerlendirme soruları üretiliyor...');
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki terapistisin. Her hafta kullanıcılara sorulacak 15 adet ilişki değerlendirme sorusu üretmen gerekiyor.
+                
+                Şu kurallara mutlaka uy:
+                1. Sorular net ve doğrudan olmalı. 
+                2. Sorular sadece "Evet", "Hayır" veya "Bilmiyorum" şeklinde cevaplanabilir olmalı.
+                3. Sorular ilişki içindeki güven, iletişim, saygı, destek ve bağlılık gibi kategorilerden dengeli şekilde gelmeli.
+                4. Açık uçlu, yorumlu veya karışık ifadeler içeren sorular olmamalı.
+                5. Her soru ilişkinin kalitesini değerlendirmek için önemli olmalı.
+                
+                Soruları Türkçe olarak doğrudan liste şeklinde döndür. Fazladan açıklama ve yorumlara gerek yok.
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('İlişki soruları API isteği: $_geminiApiUrl');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return _getFallbackRelationshipQuestions();
+        }
+        
+        // Metinden soru listesini çıkar
+        final List<String> questions = _extractQuestionsFromText(aiContent);
+        
+        // Soru sayısı yeterli değilse yedek soruları kullan
+        if (questions.length < 15) {
+          _logger.w('Yeterli soru üretilemedi, yedek sorular kullanılacak');
+          return _getFallbackRelationshipQuestions();
+        }
+        
+        // İlk 15 soruyu al
+        return questions.take(15).toList();
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return _getFallbackRelationshipQuestions();
+      }
+    } catch (e) {
+      _logger.e('İlişki soruları üretme hatası', e);
+      return _getFallbackRelationshipQuestions();
+    }
+  }
+  
+  // Metinden soru listesini çıkarma
+  List<String> _extractQuestionsFromText(String text) {
+    final lines = text.split('\n');
+    final questions = <String>[];
+    
+    for (var line in lines) {
+      // Satırı temizle
+      final trimmedLine = line.trim();
+      
+      // Boş satırları atla
+      if (trimmedLine.isEmpty) continue;
+      
+      // Numaralandırma, maddeler gibi işaretleri kaldır
+      var cleanLine = trimmedLine.replaceAll(RegExp(r'^\d+[\.\)]\s*'), '');
+      cleanLine = cleanLine.replaceAll(RegExp(r'^[-\*]\s*'), '');
+      
+      // Hala içeriği varsa ve soru şeklindeyse listeye ekle
+      if (cleanLine.isNotEmpty && (cleanLine.endsWith('?') || cleanLine.contains('mi') || cleanLine.contains('mı') || cleanLine.contains('mu') || cleanLine.contains('mü'))) {
+        questions.add(cleanLine);
+      }
+    }
+    
+    return questions;
+  }
+  
+  // Yedek ilişki değerlendirme soruları
+  List<String> _getFallbackRelationshipQuestions() {
+    return [
+      'Partnerinize güveniyor musunuz?',
+      'İlişkinizde açık iletişim kurabiliyor musunuz?',
+      'Partneriniz sizi dinlediğini hissediyor musunuz?',
+      'İlişkinizde çıkan sorunları çözebiliyor musunuz?',
+      'Partnerinizle gelecek planları yapıyor musunuz?',
+      'İlişkinizde kendinizi olabildiğinizi düşünüyor musunuz?',
+      'Partneriniz zor zamanlarınızda size destek oluyor mu?',
+      'İlişkinizde duygusal ihtiyaçlarınız karşılanıyor mu?',
+      'Partnerinizle birlikteyken kendinizi değerli hissediyor musunuz?',
+      'İlişkinizde yeterli kaliteli zaman geçiriyor musunuz?',
+      'Partnerinizle fikir ayrılıklarını sağlıklı şekilde tartışabiliyor musunuz?',
+      'İlişkinizde sorumlulukları dengeli paylaşıyor musunuz?',
+      'Partnerinizin sizinle kurduğu yakınlık seviyesi yeterli mi?',
+      'İlişkinizde kendinizi güvende hissediyor musunuz?',
+      'Partnerinizle olan ilişkinizden genel olarak memnun musunuz?'
+    ];
+  }
 } 
