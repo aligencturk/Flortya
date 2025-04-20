@@ -15,6 +15,7 @@ import 'viewmodels/report_viewmodel.dart';
 import 'viewmodels/profile_viewmodel.dart';
 import 'services/logger_service.dart';
 import 'widgets/turkish_keyboard_provider.dart';
+import 'widgets/page_structure.dart';
 import 'controllers/home_controller.dart';
 import 'services/ai_service.dart';
 import 'services/user_service.dart';
@@ -149,6 +150,17 @@ class MyApp extends StatelessWidget {
           ),
           useMaterial3: true,
           fontFamily: 'Nunito',
+          // Tema uzantısı olarak PageStructureTheme ekleniyor
+          extensions: [
+            PageStructureTheme(
+              mainBorderRadius: const BorderRadius.all(Radius.circular(16.0)),
+              pagePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              contentPadding: const EdgeInsets.all(16.0),
+              formPadding: const EdgeInsets.all(16.0),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              spacingSize: 16.0,
+            ),
+          ],
         ),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
