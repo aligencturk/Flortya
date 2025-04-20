@@ -4,9 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/logger_service.dart';
+import '../services/notification_service.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService;
+  final FirebaseFirestore _firestore;
+  final LoggerService _logger = LoggerService();
+  final NotificationService _notificationService = NotificationService();
   
   UserModel? _user;
   bool _isLoading = false;
@@ -23,8 +28,11 @@ class AuthViewModel extends ChangeNotifier {
   User? get currentUser => _authService.currentUser;
 
   // Constructor
-  AuthViewModel({required FirebaseAuth authService, required FirebaseFirestore firestore}) 
-      : _authService = AuthService() {
+  AuthViewModel({
+    required FirebaseAuth authService,
+    required FirebaseFirestore firestore,
+  }) : _authService = AuthService(),
+       _firestore = firestore {
     _initializeUser();
   }
 
@@ -64,6 +72,12 @@ class AuthViewModel extends ChangeNotifier {
         final userData = await _authService.getUserData();
         _user = userData;
         notifyListeners();
+        
+        // FCM token'ı güncelle
+        if (_user != null) {
+          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+        }
+        
         return true;
       }
       _setError('Google ile giriş yapılamadı');
@@ -115,6 +129,12 @@ class AuthViewModel extends ChangeNotifier {
         final userData = await _authService.getUserData();
         _user = userData;
         notifyListeners();
+        
+        // FCM token'ı güncelle
+        if (_user != null) {
+          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+        }
+        
         return true;
       }
       _setError('Apple ile giriş yapılamadı');
@@ -136,6 +156,11 @@ class AuthViewModel extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('hasCompletedOnboarding', false);
       await prefs.remove('user_token');
+      
+      // FCM token'ı kaldır
+      if (_user != null) {
+        await _notificationService.removeFcmTokenOnLogout(_user!.id);
+      }
       
       // Firebase Auth ile çıkış yap
       await _authService.signOut();
@@ -258,6 +283,12 @@ class AuthViewModel extends ChangeNotifier {
         final userData = await _authService.getUserData();
         _user = userData;
         notifyListeners();
+        
+        // FCM token'ı güncelle
+        if (_user != null) {
+          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+        }
+        
         return true;
       }
       
@@ -309,6 +340,12 @@ class AuthViewModel extends ChangeNotifier {
         final userData = await _authService.getUserData();
         _user = userData;
         notifyListeners();
+        
+        // FCM token'ı güncelle
+        if (_user != null) {
+          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+        }
+        
         return true;
       }
       

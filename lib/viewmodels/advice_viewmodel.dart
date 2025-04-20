@@ -5,9 +5,9 @@ import '../models/advice_chat.dart';
 import '../models/chat_message.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
-import '../models/analysis_result_model.dart';
 import '../services/notification_service.dart';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AdviceViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore;
@@ -413,6 +413,23 @@ class AdviceViewModel extends ChangeNotifier {
   Future<void> initializeViewModel() async {
     await fetchDailyAdvice();
     _setupDailyAdviceRefresh();
+  }
+  
+  Future<void> fetchDailyAdvice() async {
+    try {
+      // Kullanıcı bilgisini alma
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        _logger.w('Kullanıcı giriş yapmamış, günlük tavsiye alınamadı');
+        return;
+      }
+      
+      await getDailyAdviceCard(userId);
+      _logger.i('Günlük tavsiye başarıyla alındı');
+    } catch (e) {
+      _logger.e('Günlük tavsiye alınırken hata: $e');
+      _setError('Günlük tavsiye alınırken bir hata oluştu');
+    }
   }
   
   void _setupDailyAdviceRefresh() {

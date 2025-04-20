@@ -15,4 +15,9 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    
+    <!-- Bildirim kanali stilleri -->
+    <style name="DefaultNotificationIcon">
+        <item name="android:icon">@mipmap/ic_launcher</item>
+    </style>
 </resources>

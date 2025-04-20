@@ -14,6 +14,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // Desugaring'i etkinleştir - Java 8+ özellikleri için
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -51,6 +53,9 @@ android {
 }
 
 dependencies {
+    // Java 8+ desugaring desteği
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    
     // Firebase BOM
     implementation(platform("com.google.firebase:firebase-bom:32.7.1"))
     

@@ -85,9 +85,12 @@ class AiService {
   }
 
   // İlişki danışmanı chat fonksiyonu
-  Future<Map<String, dynamic>> getRelationshipAdvice(String question, List<Map<String, String>>? chatHistory) async {
+  Future<Map<String, dynamic>> getRelationshipAdvice(
+    String message, 
+    List<Map<String, dynamic>> chatHistory
+  ) async {
     try {
-      _logger.i('İlişki tavsiyesi alınıyor. Soru: $question');
+      _logger.i('İlişki tavsiyesi alınıyor. Soru: $message');
       
       // Chat geçmişini hazırla
       final contents = <Map<String, dynamic>>[];
@@ -116,16 +119,9 @@ class AiService {
       });
       
       // Chat geçmişini ekle
-      if (chatHistory != null && chatHistory.isNotEmpty) {
+      if (chatHistory.isNotEmpty) {
         for (final message in chatHistory) {
-          contents.add({
-            'role': message['role'] ?? 'user',
-            'parts': [
-              {
-                'text': message['text'] ?? ''
-              }
-            ]
-          });
+          contents.add(message);
         }
       }
       
@@ -134,7 +130,7 @@ class AiService {
         'role': 'user',
         'parts': [
           {
-            'text': question
+            'text': message
           }
         ]
       });
@@ -175,7 +171,7 @@ class AiService {
         // Tavsiye verilerini oluştur
         final advice = {
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'question': question,
+          'question': message,
           'answer': aiContent,
           'timestamp': DateTime.now().toIso8601String(),
           'type': 'chat'

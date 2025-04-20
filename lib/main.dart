@@ -51,6 +51,10 @@ void main() async {
     await notificationService.initialize();
     logger.i('Bildirim servisi başlatıldı');
     
+    // Firebase Cloud Messaging topic aboneliği
+    await notificationService.subscribeToTopic('general');
+    logger.i('Genel bildirim kanalına abone olundu');
+    
     // Tarih formatları için Türkçe desteği
     await initializeDateFormatting('tr_TR');
     

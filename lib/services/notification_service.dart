@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/logger_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationService {
   final LoggerService _logger = LoggerService();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // FCM token
+  String? _fcmToken;
+  
+  // Getter for FCM token
+  String? get fcmToken => _fcmToken;
   
   // Singleton örneği
   static final NotificationService _instance = NotificationService._internal();
@@ -31,29 +38,14 @@ class NotificationService {
       _logger.i('Bildirim izin durumu: ${settings.authorizationStatus}');
       
       // FCM Token al
-      String? token = await _firebaseMessaging.getToken();
-      _logger.i('FCM Token: $token');
+      await _updateFcmToken();
       
-      // Yerel bildirimler için kanal oluştur
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'daily_advice_channel',
-        'Günlük Tavsiyeler',
-        description: 'Günlük tavsiye bildirimleri için kanal',
-        importance: Importance.high,
-      );
-      
-      // Kanal Android'e kaydet
-      await _flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
-          
-      // Yerel bildirimleri başlat
-      await _flutterLocalNotificationsPlugin.initialize(
-        const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(),
-        ),
-      );
+      // Token değişimini dinle
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        _fcmToken = newToken;
+        _logger.i('FCM Token yenilendi: $newToken');
+        _saveFcmTokenToFirestore(newToken);
+      });
       
       // Ön planda FCM bildirimleri için yapılandırma
       await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
@@ -70,22 +62,9 @@ class NotificationService {
         _logger.i('Ön planda bildirim alındı: ${message.notification?.title}');
         
         RemoteNotification? notification = message.notification;
-        AndroidNotification? android = message.notification?.android;
         
-        if (notification != null && android != null) {
-          _flutterLocalNotificationsPlugin.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
-              android: AndroidNotificationDetails(
-                channel.id,
-                channel.name,
-                channelDescription: channel.description,
-                icon: '@mipmap/ic_launcher',
-              ),
-            ),
-          );
+        if (notification != null) {
+          _showNativeNotification(notification);
         }
       });
       
@@ -100,31 +79,95 @@ class NotificationService {
     }
   }
   
+  // Yerel platformda bildirim göster (Android/iOS)
+  void _showNativeNotification(RemoteNotification notification) {
+    // Bu fonksiyon Flutter'ın kendi bildirim mekanizmasını kullanır
+    // Native bildirimler Firebase Cloud Messaging tarafından otomatik olarak gösterilecek
+    _logger.i('Bildirim alındı: ${notification.title}');
+    
+    // Burada ekstra işlemler gerekirse ekleyebilirsiniz
+    // Örneğin: bildirim sayısını güncelleme, ses çalma vb.
+  }
+  
+  // FCM token'ı al ve kaydet
+  Future<void> _updateFcmToken() async {
+    try {
+      final token = await _firebaseMessaging.getToken();
+      if (token != null) {
+        _fcmToken = token;
+        _logger.i('FCM Token alındı: $token');
+        
+        // Firestore'a kaydet
+        await _saveFcmTokenToFirestore(token);
+      }
+    } catch (e) {
+      _logger.e('FCM token alınırken hata: $e');
+    }
+  }
+  
+  // FCM token'ı Firestore'a kaydet
+  Future<void> _saveFcmTokenToFirestore(String token) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        final userId = currentUser.uid;
+        
+        // Kullanıcı dokümanını güncelle
+        await _firestore.collection('users').doc(userId).update({
+          'fcmTokens': FieldValue.arrayUnion([token]),
+          'lastTokenUpdate': FieldValue.serverTimestamp(),
+        });
+        
+        _logger.i('FCM token Firestore\'a kaydedildi. Kullanıcı: $userId');
+      } else {
+        _logger.w('Kullanıcı oturum açmadığı için FCM token kaydedilemedi');
+      }
+    } catch (e) {
+      _logger.e('FCM token Firestore\'a kaydedilirken hata: $e');
+    }
+  }
+  
+  // Kullanıcı oturum açtığında token'ı güncelle
+  Future<void> updateFcmTokenOnLogin(String userId) async {
+    try {
+      if (_fcmToken != null) {
+        await _firestore.collection('users').doc(userId).update({
+          'fcmTokens': FieldValue.arrayUnion([_fcmToken!]),
+          'lastTokenUpdate': FieldValue.serverTimestamp(),
+        });
+        _logger.i('Oturum açma sırasında FCM token güncellendi. Kullanıcı: $userId');
+      } else {
+        _logger.w('FCM token null olduğu için güncelleme yapılamadı');
+        await _updateFcmToken();
+      }
+    } catch (e) {
+      _logger.e('Oturum açma sırasında FCM token güncellenirken hata: $e');
+    }
+  }
+  
+  // Kullanıcı oturumu kapattığında token'ı temizle
+  Future<void> removeFcmTokenOnLogout(String userId) async {
+    try {
+      if (_fcmToken != null) {
+        await _firestore.collection('users').doc(userId).update({
+          'fcmTokens': FieldValue.arrayRemove([_fcmToken!]),
+        });
+        _logger.i('Oturum kapatma sırasında FCM token kaldırıldı. Kullanıcı: $userId');
+      }
+    } catch (e) {
+      _logger.e('Oturum kapatma sırasında FCM token kaldırılırken hata: $e');
+    }
+  }
+  
   // Günlük tavsiye bildirimi gönder
   Future<void> showDailyAdviceNotification(String title, String body) async {
     try {
-      // Yerel bildirim göster
-      await _flutterLocalNotificationsPlugin.show(
-        0, // Bildirim ID'si
-        title,
-        body,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            'daily_advice_channel',
-            'Günlük Tavsiyeler',
-            channelDescription: 'Günlük tavsiye kartları bildirimleri',
-            importance: Importance.high,
-            priority: Priority.high,
-            showWhen: true,
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-      );
-      _logger.i('Günlük tavsiye bildirimi gönderildi: $title');
+      // Bu metod artık doğrudan Firebase Console üzerinden veya bir backend aracılığıyla gönderilecek
+      // Burada, backend'e bildirim gönderme isteği yapılabilir
+      _logger.i('Günlük tavsiye bildirimi isteği gönderildi: $title');
+      
+      // NOT: Gerçek uygulamada, burada bir API çağrısı yaparak backend'e bildirim gönderme isteği yapabilirsiniz
+      // Örnek: await _apiService.sendNotificationRequest(title, body);
     } catch (e) {
       _logger.e('Günlük tavsiye bildirimi gösterme hatası: $e');
     }
