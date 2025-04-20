@@ -311,16 +311,6 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
       ),
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
-        onPressed: () {
-          // Önce viewModel'i temizle
-          messageViewModel.clearCurrentMessage();
-          // Sonra analiz sayfasına git
-          context.push(AppRouter.messageAnalysis);
-        },
-        backgroundColor: const Color(0xFF9D3FFF),
-        child: const Icon(Icons.add, color: Colors.white),
-      ) : null,
     )
     .animate()
     .fadeIn(duration: 300.ms);
