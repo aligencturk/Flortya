@@ -64,6 +64,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
     
+    // ML Kit modülleri - sadece Latin dilleri için
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+    
     // MultiDex desteği
     implementation("androidx.multidex:multidex:2.0.1")
 }
