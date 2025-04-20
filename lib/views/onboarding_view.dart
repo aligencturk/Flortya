@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../app_router.dart';
@@ -35,18 +39,68 @@ class _OnboardingViewState extends State<OnboardingView> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   bool _hasCompletedOnboarding = false;
+  bool _isInitialized = false;
+  bool _isRedirecting = false; // Yeniden yönlendirme durumunu takip et
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _checkOnboardingStatus();
-    
-    // 5 saniye sonra hala onboarding ekranındaysa yardım kılavuzu göster
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted && _currentPage == _onboardingItems.length - 1) {
-        _showHelpDialog();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final bool hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+      final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+      
+      // Kullanıcı zaten giriş yapmışsa veya onboarding'i tamamlamışsa ana sayfaya yönlendir
+      if (isLoggedIn && hasCompletedOnboarding) {
+        setState(() {
+          _isRedirecting = true;
+        });
+        _navigateToHome();
+        return;
       }
-    });
+
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (e) {
+      // Hata durumunda onboarding'i göster
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
+
+  void _navigateToHome() {
+    if (mounted) {
+      // Geçiş yaparken BuildContext'in hazır olduğundan emin olalım
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          try {
+            context.go(AppRouter.home);
+          } catch (e) {
+            debugPrint('Ana sayfaya yönlendirme hatası: $e');
+            // Alternatif yönlendirme yöntemleri
+            try {
+              context.pushReplacement(AppRouter.home);
+            } catch (e2) {
+              debugPrint('İkinci yönlendirme hatası: $e2');
+              
+              // Son çare olarak Navigator kullan
+              try {
+                Navigator.of(context).pushReplacementNamed(AppRouter.home);
+              } catch (e3) {
+                debugPrint('Üçüncü yönlendirme hatası: $e3');
+              }
+            }
+          }
+        }
+      });
+    }
   }
 
   Future<void> _checkOnboardingStatus() async {
@@ -60,51 +114,12 @@ class _OnboardingViewState extends State<OnboardingView> {
   Future<void> _completeOnboarding() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      
-      // Mevcut durumu kontrol et
-      final bool mevcutDurum = prefs.getBool('hasCompletedOnboarding') ?? false;
-      debugPrint('Mevcut onboarding durumu: $mevcutDurum');
-      
-      // Maksimum deneme sayısı
-      const int maksimumDenemeSayisi = 5;
-      bool basarili = false;
-      
-      for (int deneme = 1; deneme <= maksimumDenemeSayisi; deneme++) {
-        debugPrint('Onboarding tamamlama deneme $deneme/$maksimumDenemeSayisi');
-        
-        try {
-          final bool sonuc = await prefs.setBool('hasCompletedOnboarding', true);
-          debugPrint('Deneme $deneme sonucu: $sonuc');
-          
-          // Başarılı kaydedildiyse döngüden çık
-          if (sonuc) {
-            basarili = true;
-            debugPrint('Onboarding başarıyla tamamlandı (deneme $deneme)');
-            break;
-          }
-          
-          // Başarısız olduysa kısa bir süre bekle ve tekrar dene
-          if (deneme < maksimumDenemeSayisi) {
-            await Future.delayed(Duration(milliseconds: 300 * deneme)); // Her denemede bekleme süresini artır
-          }
-        } catch (denemehata) {
-          debugPrint('Deneme $deneme hatası: $denemehata');
-          if (deneme < maksimumDenemeSayisi) {
-            await Future.delayed(Duration(milliseconds: 300 * deneme));
-          }
-        }
-      }
-      
-      // Son durumu kontrol et
-      final bool sonDurum = prefs.getBool('hasCompletedOnboarding') ?? false;
-      debugPrint('Kayıt sonrası onboarding durumu: $sonDurum');
-      
-      if (!basarili) {
-        debugPrint('UYARI: $maksimumDenemeSayisi deneme sonunda onboarding kaydedilemedi!');
-      }
+      await prefs.setBool('hasCompletedOnboarding', true);
+      await prefs.setBool('isLoggedIn', true);
     } catch (e) {
-      debugPrint('Onboarding tamamlama hatası: ${e.runtimeType} - $e');
-      rethrow; // Hatayı yukarıya ilet
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ayarlar kaydedilirken bir hata oluştu: ${e.toString()}')),
+      );
     }
   }
 
@@ -115,19 +130,71 @@ class _OnboardingViewState extends State<OnboardingView> {
   }
 
   // Google ile giriş
-  Future<void> _signInWithGoogle(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    await _completeOnboarding();
-    await authViewModel.signInWithGoogle();
+  Future<void> _handleSignInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authViewModel = AuthViewModel(
+        authService: FirebaseAuth.instance,
+        firestore: FirebaseFirestore.instance,
+      );
+      final user = await authViewModel.signInWithGoogle();
+      
+      if (user) {
+        await _completeOnboarding();
+        _navigateToHome();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google ile giriş başarısız oldu.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google ile giriş yaparken hata: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   // Apple ile giriş
-  Future<void> _signInWithApple(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    await _completeOnboarding();
-    await authViewModel.signInWithApple();
+  Future<void> _handleSignInWithApple() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authViewModel = AuthViewModel(
+        authService: FirebaseAuth.instance,
+        firestore: FirebaseFirestore.instance,
+      );
+      final user = await authViewModel.signInWithApple();
+      
+      if (user) {
+        await _completeOnboarding();
+        _navigateToHome();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple ile giriş başarısız oldu.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Apple ile giriş yaparken hata: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _showHelpDialog() {
@@ -198,6 +265,30 @@ class _OnboardingViewState extends State<OnboardingView> {
 
   @override
   Widget build(BuildContext context) {
+    // Yönlendirme işlemi sırasında beyaz yukleniyor göster
+    if (_isRedirecting) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF9D3FFF),
+          ),
+        ),
+      );
+    }
+    
+    // Sayfa hazır değilse koyu yukleniyor göster
+    if (!_isInitialized) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF121929),
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF9D3FFF),
+          ),
+        ),
+      );
+    }
+    
     final screenHeight = MediaQuery.of(context).size.height;
     final authViewModel = Provider.of<AuthViewModel>(context);
     
@@ -234,6 +325,87 @@ class _OnboardingViewState extends State<OnboardingView> {
                 ),
               ),
             ),
+            
+            // Giriş Butonları (Son sayfada görünecek)
+            if (_currentPage == _onboardingItems.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Google ile Giriş butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: Image.asset(
+                          'assets/icons/google_icon.png',
+                          width: 24,
+                          height: 24,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.g_mobiledata, color: Colors.red, size: 24);
+                          },
+                        ),
+                        label: _isLoading 
+                          ? const SizedBox(
+                              width: 20, 
+                              height: 20, 
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Google ile Giriş Yap'),
+                        onPressed: _isLoading ? null : _handleSignInWithGoogle,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Apple ile Giriş butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.apple, color: Colors.white, size: 24),
+                        label: _isLoading 
+                          ? const SizedBox(
+                              width: 20, 
+                              height: 20, 
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Apple ile Giriş Yap'),
+                        onPressed: _isLoading ? null : _handleSignInWithApple,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             
             // Alt Butonlar (Atla, İleri, Başla)
             Padding(

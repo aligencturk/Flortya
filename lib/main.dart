@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/message_viewmodel.dart';
@@ -77,6 +78,9 @@ void main() async {
     final aiService = AiService();
     final loggerService = LoggerService();
     
+    // Kullanıcı giriş durumunu SharedPreferences'e kaydet
+    await _updateLoginStatusInPrefs();
+    
     runApp(
       MultiProvider(
         providers: [
@@ -122,9 +126,35 @@ void main() async {
         child: MyApp(),
       ),
     );
+    
+    // Firebase Auth durumunu dinle ve değişiklik olduğunda SharedPreferences'i güncelle
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      _updateLoginStatusInPrefs();
+    });
+    
   } catch (e, stackTrace) {
     logger.e('Uygulama başlatma hatası: $e', stackTrace);
     runApp(ErrorApp(error: e.toString()));
+  }
+}
+
+/// Firebase Authentication durumunu SharedPreferences'e kaydeder
+Future<void> _updateLoginStatusInPrefs() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user != null) {
+      // Kullanıcı giriş yapmış
+      await prefs.setBool('isLoggedIn', true);
+    } else {
+      // Kullanıcı çıkış yapmış veya giriş yapmamış
+      await prefs.setBool('isLoggedIn', false);
+    }
+    
+    debugPrint('Kullanıcı giriş durumu güncellendi: ${user != null}');
+  } catch (e) {
+    debugPrint('Giriş durumu kaydetme hatası: $e');
   }
 }
 
