@@ -255,13 +255,46 @@ class ReportViewModel extends ChangeNotifier {
 
   // Raporu sıfırlama
   void resetReport() {
-    _answers = List.filled(_questions.length, '');
-    _currentQuestionIndex = 0;
-    _reportResult = null;
-    _errorMessage = null;
-    _comments = [];
-    _relationshipHistory = null;
-    notifyListeners();
+    try {
+      debugPrint('resetReport çağrıldı');
+      
+      // Mevcut durumu kaydetme
+      final hadData = _answers.any((answer) => answer.isNotEmpty) || 
+                       _reportResult != null || 
+                       _comments.isNotEmpty || 
+                       _relationshipHistory != null;
+      
+      debugPrint('Rapor verileri temizleniyor...');
+      _answers = List.filled(_questions.length, '');
+      _currentQuestionIndex = 0;
+      _reportResult = null;
+      _errorMessage = null;
+      _comments = [];
+      _relationshipHistory = null;
+      
+      if (hadData) {
+        notifyListeners();
+        debugPrint('Rapor verileri başarıyla temizlendi ve UI güncellemesi bildirildi');
+      } else {
+        debugPrint('Temizlenecek rapor verisi yoktu, UI bildirimi yapılmadı');
+      }
+    } catch (e) {
+      debugPrint('Rapor sıfırlama işleminde hata: $e');
+      
+      // Hata olsa da temizlemeye çalış
+      try {
+        _answers = List.filled(_questions.length, '');
+        _currentQuestionIndex = 0;
+        _reportResult = null;
+        _errorMessage = 'Rapor sıfırlanırken hata oluştu: $e';
+        _comments = [];
+        _relationshipHistory = null;
+        notifyListeners();
+        debugPrint('Hata sonrası temizleme tamamlandı');
+      } catch (innerError) {
+        debugPrint('Hata sonrası temizleme işleminde ikinci bir hata: $innerError');
+      }
+    }
   }
 
   // Yükleme durumunu ayarlama

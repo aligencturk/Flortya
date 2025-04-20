@@ -796,14 +796,26 @@ class MessageViewModel extends ChangeNotifier {
 
   // Mevcut mesajı temizleme
   void clearCurrentMessage() {
-    // Eğer zaten null ise gereksiz bildirim yapma
-    if (_currentMessage == null && _currentAnalysisResult == null) {
-      return;
+    try {
+      debugPrint('clearCurrentMessage çağrıldı');
+      
+      // Eğer zaten null ise gereksiz bildirim yapma
+      if (_currentMessage == null && _currentAnalysisResult == null) {
+        debugPrint('Temizlenecek mesaj veya analiz sonucu yok, işlem atlanıyor');
+        return;
+      }
+      
+      debugPrint('Mevcut mesaj ve analiz sonucu temizleniyor');
+      _currentMessage = null;
+      _currentAnalysisResult = null;
+      
+      notifyListeners();
+      debugPrint('Mesaj ve analiz sonucu başarıyla temizlendi');
+    } catch (e) {
+      debugPrint('Mesaj temizleme işlemi sırasında hata: $e');
+      // Hata durumunda yapılacak işlemler
+      _setError('Mesaj temizlenirken beklenmeyen bir hata oluştu: $e');
     }
-    
-    _currentMessage = null;
-    _currentAnalysisResult = null;
-    notifyListeners();
   }
 
   // Yükleme durumunu ayarlama

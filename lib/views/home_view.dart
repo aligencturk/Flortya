@@ -328,81 +328,193 @@ class _HomeViewState extends State<HomeView> {
 
   // Sıfırlama onay diyalogu göster
   void _showResetConfirmationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF352269),
-        title: const Text(
-          'Verileri Sıfırla',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Bu işlem geri alınamaz. Tüm analiz verilerin silinecek. Devam etmek istiyor musun?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Vazgeç',
-              style: TextStyle(color: Colors.white70),
-            ),
+    try {
+      debugPrint('Veri sıfırlama onay diyaloğu gösteriliyor...');
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: const Text(
+            'Verileri Sıfırla',
+            style: TextStyle(color: Colors.white),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent.withOpacity(0.8),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _resetUserData(context);
-            },
-            child: const Text(
-              'Evet, Sıfırla',
-              style: TextStyle(color: Colors.white),
-            ),
+          content: const Text(
+            'Bu işlem geri alınamaz. Tüm analiz verilerin silinecek. Devam etmek istiyor musun?',
+            style: TextStyle(color: Colors.white70),
           ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () {
+                debugPrint('Veri sıfırlama işlemi iptal edildi');
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Vazgeç',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent.withOpacity(0.8),
+              ),
+              onPressed: () {
+                debugPrint('Veri sıfırlama işlemi onaylandı, işlem başlatılıyor...');
+                Navigator.pop(context);
+                
+                // Kısa bir gecikme ekleyerek UI işlemlerinin tamamlanmasını sağla
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (context.mounted) {
+                    _resetUserData(context);
+                  } else {
+                    debugPrint('Context artık geçerli değil, veri sıfırlama işlemi iptal edildi');
+                  }
+                });
+              },
+              child: const Text(
+                'Evet, Sıfırla',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('Veri sıfırlama diyaloğu gösterilirken hata oluştu: $e');
+      // Hata durumunda kullanıcıyı bilgilendir
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Beklenmeyen bir hata oluştu: $e')),
+      );
+    }
   }
   
   // Kullanıcı verilerini sıfırla
   Future<void> _resetUserData(BuildContext context) async {
     try {
-      // Tüm view modelleri ve controlleri al
-      final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
-      final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-      final homeController = Provider.of<HomeController>(context, listen: false);
+      debugPrint('Veri sıfırlama işlemi başlatılıyor...');
       
-      // Yükleme göster
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veriler temizleniyor...')),
-      );
-      
-      // Firestore'daki verileri temizle
-      final result = await profileViewModel.clearUserAnalysisData();
-      
-      if (!result) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veriler temizlenirken bir hata oluştu')),
-        );
+      // Context kontrolü
+      if (!context.mounted) {
+        debugPrint('Context geçerli değil, işlem iptal ediliyor');
         return;
       }
       
-      // Yerel verileri temizle
-      reportViewModel.resetReport();
-      messageViewModel.clearCurrentMessage();
-      homeController.resetAnalizVerileri();
+      // Tüm view modelleri ve controlleri al (null kontrolü ekleyerek)
+      ProfileViewModel? profileViewModel;
+      ReportViewModel? reportViewModel;
+      MessageViewModel? messageViewModel;
+      HomeController? homeController;
+      
+      try {
+        profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+        debugPrint('ProfileViewModel başarıyla alındı');
+      } catch (e) {
+        debugPrint('ProfileViewModel alınırken hata: $e');
+      }
+      
+      try {
+        reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+        debugPrint('ReportViewModel başarıyla alındı');
+      } catch (e) {
+        debugPrint('ReportViewModel alınırken hata: $e');
+      }
+      
+      try {
+        messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+        debugPrint('MessageViewModel başarıyla alındı');
+      } catch (e) {
+        debugPrint('MessageViewModel alınırken hata: $e');
+      }
+      
+      try {
+        homeController = Provider.of<HomeController>(context, listen: false);
+        debugPrint('HomeController başarıyla alındı');
+      } catch (e) {
+        debugPrint('HomeController alınırken hata: $e');
+      }
+      
+      // Hiçbir provider alınamadıysa işlemi iptal et
+      if (profileViewModel == null && reportViewModel == null && 
+          messageViewModel == null && homeController == null) {
+        debugPrint('Hiçbir viewModel alınamadı, işlem iptal ediliyor');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Veriler temizlenirken bir hata oluştu: Provider erişimi başarısız')),
+          );
+        }
+        return;
+      }
+      
+      // Yükleme göster
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Veriler temizleniyor...')),
+        );
+      }
+      
+      // Firestore'daki verileri temizle
+      bool firestoreTemizlendi = false;
+      if (profileViewModel != null) {
+        try {
+          firestoreTemizlendi = await profileViewModel.clearUserAnalysisData();
+          debugPrint('Firestore veri temizleme sonucu: $firestoreTemizlendi');
+        } catch (e) {
+          debugPrint('Firestore veri temizleme hatası: $e');
+        }
+      }
+      
+      if (!firestoreTemizlendi && profileViewModel != null) {
+        debugPrint('Firestore verileri temizlenemedi');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Veritabanı verileri temizlenirken bir hata oluştu')),
+          );
+        }
+        return;
+      }
+      
+      // Yerel verileri temizle (her biri için ayrı try-catch bloğu)
+      if (reportViewModel != null) {
+        try {
+          reportViewModel.resetReport();
+          debugPrint('ReportViewModel sıfırlandı');
+        } catch (e) {
+          debugPrint('ReportViewModel sıfırlama hatası: $e');
+        }
+      }
+      
+      if (messageViewModel != null) {
+        try {
+          messageViewModel.clearCurrentMessage();
+          debugPrint('MessageViewModel sıfırlandı');
+        } catch (e) {
+          debugPrint('MessageViewModel sıfırlama hatası: $e');
+        }
+      }
+      
+      if (homeController != null) {
+        try {
+          homeController.resetAnalizVerileri();
+          debugPrint('HomeController sıfırlandı');
+        } catch (e) {
+          debugPrint('HomeController sıfırlama hatası: $e');
+        }
+      }
       
       // Başarı mesajı göster
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tüm veriler başarıyla temizlendi')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tüm veriler başarıyla temizlendi')),
+        );
+        debugPrint('Veri sıfırlama işlemi başarıyla tamamlandı');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hata: $e')),
-      );
+      debugPrint('Veri sıfırlama işleminde beklenmeyen hata: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e')),
+        );
+      }
     }
   }
 

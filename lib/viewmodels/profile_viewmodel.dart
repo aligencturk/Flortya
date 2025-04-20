@@ -443,56 +443,120 @@ class ProfileViewModel extends ChangeNotifier {
 
   /// Kullanıcıyı silmeden tüm analiz ve rapor verilerini temizler
   Future<bool> clearUserAnalysisData() async {
-    if (_auth.currentUser == null) return false;
+    debugPrint('clearUserAnalysisData çağrıldı');
+    
+    if (_auth.currentUser == null) {
+      debugPrint('Oturum açık değil, veri temizleme işlemi yapılamıyor');
+      return false;
+    }
     
     _setLoading(true);
     try {
       final userId = _auth.currentUser!.uid;
+      debugPrint('Kullanıcı verilerini temizlemeye başlıyor: $userId');
       
       // Batch işlemi başlat
-      final batch = _firestore.batch();
+      WriteBatch? batch;
+      try {
+        batch = _firestore.batch();
+        debugPrint('Batch işlemi oluşturuldu');
+      } catch (e) {
+        debugPrint('Batch oluşturulurken hata: $e');
+        _setError('Batch işlemi oluşturulamadı: $e');
+        return false;
+      }
       
       // Kullanıcının alt koleksiyonlarındaki mesajları temizle
-      final messagesSnapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('messages')
-          .get();
-      
-      for (var doc in messagesSnapshot.docs) {
-        batch.delete(doc.reference);
+      try {
+        debugPrint('Mesajlar sorgulanıyor...');
+        final messagesSnapshot = await _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('messages')
+            .get();
+        
+        debugPrint('Mesaj sayısı: ${messagesSnapshot.docs.length}');
+        for (var doc in messagesSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+      } catch (e) {
+        debugPrint('Mesajlar silinirken hata: $e');
+        // Hata durumunda işleme devam et
       }
       
       // İlişki raporlarını silme
-      final reportsSnapshot = await _firestore
-          .collection('relationship_reports')
-          .where('userId', isEqualTo: userId)
-          .get();
+      try {
+        debugPrint('İlişki raporları sorgulanıyor...');
+        final reportsSnapshot = await _firestore
+            .collection('relationship_reports')
+            .where('userId', isEqualTo: userId)
+            .get();
+        
+        debugPrint('Rapor sayısı: ${reportsSnapshot.docs.length}');
+        for (var doc in reportsSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+      } catch (e) {
+        debugPrint('Raporlar silinirken hata: $e');
+        // Hata durumunda işleme devam et
+      }
       
-      for (var doc in reportsSnapshot.docs) {
-        batch.delete(doc.reference);
+      // Tavsiyeleri silme
+      try {
+        debugPrint('Tavsiyeler sorgulanıyor...');
+        final adviceSnapshot = await _firestore
+            .collection('advice_cards')
+            .where('userId', isEqualTo: userId)
+            .get();
+        
+        debugPrint('Tavsiye sayısı: ${adviceSnapshot.docs.length}');
+        for (var doc in adviceSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+      } catch (e) {
+        debugPrint('Tavsiyeler silinirken hata: $e');
+        // Hata durumunda işleme devam et
+      }
+      
+      // Batch işlemini uygula
+      try {
+        debugPrint('Batch işlemi uygulanıyor...');
+        await batch.commit();
+        debugPrint('Batch işlemi başarıyla uygulandı');
+      } catch (e) {
+        debugPrint('Batch işlemi sırasında hata: $e');
+        // Hata durumunda kullanıcı belgesini güncellemeye devam et
       }
       
       // Analiz sonuçlarını temizle
-      await _firestore.collection('users').doc(userId).update({
-        'sonAnalizSonucu': FieldValue.delete(),
-        'analizGecmisi': [],
-      });
-      
-      // Batch işlemini uygula
-      await batch.commit();
+      try {
+        debugPrint('Kullanıcı belgesindeki analiz sonuçları temizleniyor...');
+        await _firestore.collection('users').doc(userId).update({
+          'sonAnalizSonucu': FieldValue.delete(),
+          'analizGecmisi': [],
+        });
+        debugPrint('Kullanıcı belgesindeki analiz sonuçları temizlendi');
+      } catch (e) {
+        debugPrint('Kullanıcı belgesini güncellerken hata: $e');
+        _setError('Kullanıcı belgesini güncellerken hata oluştu: $e');
+        return false;
+      }
       
       // Kullanıcı nesnesini güncelle
       if (_user != null) {
+        debugPrint('Yerel kullanıcı modeli güncelleniyor...');
         _user = _user!.copyWith(
           sonAnalizSonucu: null,
           analizGecmisi: [],
         );
+        debugPrint('Yerel kullanıcı modeli güncellendi');
       }
       
       notifyListeners();
+      debugPrint('Tüm veriler başarıyla temizlendi');
       return true;
     } catch (e) {
+      debugPrint('Analiz verileri temizlenirken beklenmeyen hata: $e');
       _setError('Analiz verileri temizlenirken hata oluştu: $e');
       return false;
     } finally {

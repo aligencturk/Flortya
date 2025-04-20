@@ -220,11 +220,43 @@ class HomeController extends ChangeNotifier {
 
   /// Tüm analiz verilerini temizler
   void resetAnalizVerileri() {
-    _sonAnalizSonucu = null;
-    _analizGecmisi = [];
-    _kategoriDegisimleri = {};
-    _kisisellestirilmisTavsiyeler = [];
-    notifyListeners();
+    try {
+      debugPrint('resetAnalizVerileri çağrıldı');
+      
+      // Mevcut durumu kaydet
+      final hadAnalysisData = _sonAnalizSonucu != null || _analizGecmisi.isNotEmpty || 
+                               _kategoriDegisimleri.isNotEmpty || _kisisellestirilmisTavsiyeler.isNotEmpty;
+      
+      // Tüm değişkenleri temizle
+      debugPrint('Analiz verileri temizleniyor...');
+      _sonAnalizSonucu = null;
+      _analizGecmisi = [];
+      _kategoriDegisimleri = {};
+      _kisisellestirilmisTavsiyeler = [];
+      
+      // Sadece değişiklik varsa bildirim yapma
+      if (hadAnalysisData) {
+        notifyListeners();
+        debugPrint('Analiz verileri başarıyla temizlendi ve UI güncellemesi bildirildi');
+      } else {
+        debugPrint('Temizlenecek analiz verisi yoktu, UI bildirimi yapılmadı');
+      }
+    } catch (e) {
+      debugPrint('Analiz verileri temizlenirken hata: $e');
+      _setError('Analiz verileri temizlenirken beklenmeyen bir hata oluştu: $e');
+      
+      // Hata olsa da mevcut verileri temizlemeye çalış
+      try {
+        _sonAnalizSonucu = null;
+        _analizGecmisi = [];
+        _kategoriDegisimleri = {};
+        _kisisellestirilmisTavsiyeler = [];
+        notifyListeners();
+        debugPrint('Hata sonrası temizleme tamamlandı');
+      } catch (innerError) {
+        debugPrint('Hata sonrası temizleme işleminde ikinci bir hata: $innerError');
+      }
+    }
   }
 
   // Yükleme durumunu güncelleme

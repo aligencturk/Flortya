@@ -407,94 +407,97 @@ class AiService {
         }
       });
       
-      _logger.d('Gemini API isteği: $_geminiApiUrl');
-      _logger.d('İstek gövdesi: $requestBody');
+      _logger.d('API isteği gönderiliyor: $_geminiApiUrl');
       
-      // Gemini API'ye istek gönderme
+      // HTTP isteği için timeout ekle
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
         },
         body: requestBody,
-      ).timeout(const Duration(seconds: 45), onTimeout: () {
-        throw Exception('API yanıtı 45 saniye içinde alınamadı. İnternet bağlantınızı kontrol edin veya daha kısa bir mesaj deneyin.');
-      });
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _logger.e('Gemini API istek zaman aşımına uğradı');
+          throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
+        },
+      );
       
-      _logger.d('API yanıtı - status: ${response.statusCode}');
-
+      _logger.d('API yanıtı alındı - status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        _logger.d('API yanıt içeriği: ${response.body.substring(0, min(200, response.body.length))}...');
-        
-        // Gemini'nin yanıtını alıyoruz
-        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        
-        if (aiContent == null) {
-          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
-          throw Exception('AI yanıtı alınamadı veya boş bir yanıt alındı. Gemini API yanıtı beklenen formatta değil.');
-        }
-        
-        _logger.d('AI yanıt metni: $aiContent');
-        
-        // AI yanıtını işleme
-        try {
-          final Map<String, dynamic> parsedResponse = _parseAiResponse(aiContent);
-          _logger.d('Ayrıştırılmış yanıt: $parsedResponse');
-          
-          // Analiz sonucunu oluşturma
-          final analysisResult = AnalysisResult(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-            emotion: parsedResponse['duygu'] ?? 'nötr',
-            intent: parsedResponse['niyet'] ?? 'belirsiz',
-            tone: parsedResponse['ton'] ?? 'normal',
-            severity: _parseSeverity(parsedResponse['ciddiyet']),
-            persons: parsedResponse['kişiler'] ?? '',
-            aiResponse: {
-              'mesajYorumu': parsedResponse['mesajYorumu'] ?? parsedResponse['mesaj_yorumu'] ?? '',
-              'cevapOnerileri': _parseStringList(parsedResponse['cevapOnerileri'] ?? parsedResponse['cevap_onerileri'] ?? []),
-            },
-            createdAt: DateTime.now(),
-          );
-          
-          _logger.i('Mesaj analizi tamamlandı');
-          return analysisResult;
-        } catch (e) {
-          _logger.e('Yanıt ayrıştırma hatası', e);
-          
-          // Ayrıştırma hatası durumunda basitleştirilmiş bir sonuç döndür
-          try {
-            return AnalysisResult(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-              emotion: 'belirsiz',
-              intent: 'belirsiz',
-              tone: 'normal',
-              severity: 5,
-              persons: 'Analiz sırasında belirlenemedi',
-              aiResponse: {
-                'mesajYorumu': 'Mesaj analizi yapılırken teknik bir sorun oluştu. Lütfen daha kısa veya daha açık bir mesaj ile tekrar deneyin.',
-                'cevapOnerileri': [
-                  'Mesajınızı daha kısa tutarak tekrar deneyiniz.',
-                  'Daha net ifadeler kullanarak yeniden analiz ettiriniz.',
-                  'Biraz bekleyip tekrar deneyiniz, geçici bir bağlantı sorunu olabilir.'
-                ],
-              },
-              createdAt: DateTime.now(),
-            );
-          } catch (innerError) {
-            // Son çare olarak null döndür
-            _logger.e('Basitleştirilmiş sonuç oluşturulurken hata', innerError);
-            return null;
-          }
-        }
+        // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
+        return _processApiResponse(response.body);
       } else {
-        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return null;
+        _logger.e('API hatası: ${response.statusCode}', response.body);
+        throw Exception('Analiz API hatası: ${response.statusCode}');
       }
     } catch (e) {
       _logger.e('Mesaj analizi hatası', e);
+      rethrow;
+    }
+  }
+
+  // API yanıtını işleme - UI thread'i blokelemeden çalışır
+  AnalysisResult? _processApiResponse(String responseBody) {
+    try {
+      // Uzun JSON işleme
+      final Map<String, dynamic> data = jsonDecode(responseBody);
+      final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+      
+      if (aiContent == null || aiContent.isEmpty) {
+        _logger.e('AI yanıtı boş veya beklenen formatta değil');
+        return null;
+      }
+      
+      // JSON içindeki JSON string'i ayıkla
+      final jsonStart = aiContent.indexOf('{');
+      final jsonEnd = aiContent.lastIndexOf('}') + 1;
+      
+      if (jsonStart == -1 || jsonEnd == 0 || jsonStart >= jsonEnd) {
+        _logger.e('JSON yanıtında geçerli bir JSON formatı bulunamadı', aiContent);
+        
+        // Fallback sonuç döndür, iletişim kurma
+        return AnalysisResult(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+          emotion: 'Belirtilmemiş',
+          intent: 'Belirtilmemiş',
+          tone: 'Belirtilmemiş',
+          severity: 5,
+          persons: 'Belirtilmemiş',
+          aiResponse: {
+            'mesajYorumu': 'Analiz sırasında teknik bir sorun oluştu. Lütfen tekrar deneyiniz.',
+            'cevapOnerileri': ['Mesajı tekrar gönderin veya farklı bir mesaj ile analiz yapın.']
+          },
+          createdAt: DateTime.now(),
+        );
+      }
+      
+      // API yanıtından JSON kısmını ayıkla
+      String jsonStr = aiContent.substring(jsonStart, jsonEnd);
+      
+      // JSON yanıtını işle
+      Map<String, dynamic> analysisJson = jsonDecode(jsonStr);
+      
+      // Analiz sonucunu oluştur
+      final result = AnalysisResult(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+        emotion: analysisJson['duygu'] ?? 'Belirtilmemiş',
+        intent: analysisJson['niyet'] ?? 'Belirtilmemiş',
+        tone: analysisJson['ton'] ?? 'Belirtilmemiş',
+        severity: int.tryParse(analysisJson['ciddiyet']?.toString() ?? '5') ?? 5,
+        persons: analysisJson['kişiler']?.toString() ?? 'Belirtilmemiş',
+        aiResponse: analysisJson,
+        createdAt: DateTime.now(),
+      );
+      
+      _logger.i('Analiz tamamlandı: ${result.emotion}, ${result.intent}, ${result.tone}');
+      return result;
+    } catch (e) {
+      _logger.e('API yanıtı işlenirken hata oluştu', e);
       return null;
     }
   }
@@ -675,71 +678,6 @@ class AiService {
     }
   }
 
-  // AI yanıtını ayrıştırma
-  Map<String, dynamic> _parseAiResponse(String aiContent) {
-    try {
-      _logger.d('AI yanıtı ayrıştırılıyor');
-      // JSON ayrıştırmayı dene
-      return _parseJsonFromText(aiContent);
-    } catch (jsonError) {
-      _logger.w('JSON ayrıştırma hatası: $jsonError, alternatif yöntemler deneniyor...');
-      
-      try {
-        // Bazen AI yanıtı düzgün olmayan kod bloğu içinde JSON içerebilir
-        final jsonPattern = RegExp(r'\{[\s\S]*\}');
-        final jsonMatch = jsonPattern.firstMatch(aiContent);
-        
-        if (jsonMatch != null) {
-          final jsonText = jsonMatch.group(0);
-          if (jsonText != null) {
-            try {
-              return jsonDecode(jsonText);
-            } catch (e) {
-              _logger.w('Eşleşen JSON bloğu ayrıştırılamadı: $e');
-            }
-          }
-        }
-      } catch (e) {
-        _logger.w('Kod bloğu içinde JSON arama hatası: $e');
-      }
-      
-      // Daha agresif bir ayrıştırma yöntemi dene
-      try {
-        // Temizlenmiş bir JSON içeriği çıkarmaya çalış
-        final cleanedContent = aiContent
-            .replaceAll(RegExp(r'```json'), '')
-            .replaceAll(RegExp(r'```'), '')
-            .trim();
-            
-        return jsonDecode(cleanedContent);
-      } catch (e) {
-        _logger.w('Temizlenmiş içerik ayrıştırma hatası: $e');
-      }
-      
-      // Manuel ayrıştırma
-      _logger.i('Manuel alan çıkarma yapılıyor...');
-      
-      // JSON ayrıştırma başarısız olursa, manuel olarak ayrıştırma dene
-      final Map<String, dynamic> fallbackResponse = {
-        'duygu': _extractFieldFromText(aiContent, 'duygu') ?? 'nötr',
-        'niyet': _extractFieldFromText(aiContent, 'niyet') ?? 'belirsiz',
-        'ton': _extractFieldFromText(aiContent, 'ton') ?? 'normal',
-        'ciddiyet': _extractFieldFromText(aiContent, 'ciddiyet') ?? '5',
-        'kişiler': _extractFieldFromText(aiContent, 'kişiler') ?? 'belirsiz',
-        'mesajYorumu': _extractFieldFromText(aiContent, 'mesajYorumu') 
-                    ?? _extractFieldFromText(aiContent, 'mesaj_yorumu') 
-                    ?? _extractFieldFromText(aiContent, 'mesaj yorumu') 
-                    ?? 'Mesaj bilgisi alınamadı.',
-        'cevapOnerileri': _extractArrayFromText(aiContent, 'cevapOnerileri') 
-                        ?? _extractArrayFromText(aiContent, 'cevap_onerileri')
-                        ?? _extractArrayFromText(aiContent, 'cevap önerileri')
-                        ?? ['Yanıtı tekrar gönder', 'Daha net bir mesaj yaz'],
-      };
-      
-      return fallbackResponse;
-    }
-  }
-  
   // Metinden dizi çıkarma
   List<String>? _extractArrayFromText(String text, String fieldName) {
     try {
