@@ -525,6 +525,66 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
 
+  // Danışma cevabı alma
+  Future<String?> getAdvice(String question, String userId) async {
+    _setLoading(true);
+    try {
+      _logger.i('Danışma cevabı alınıyor. Soru: $question');
+      
+      // Soruyu boşluk kontrolü
+      if (question.trim().isEmpty) {
+        _setError('Geçerli bir soru girin');
+        return null;
+      }
+      
+      // Boş bir chat geçmişi oluştur
+      final List<Map<String, dynamic>> emptyHistory = [];
+      
+      // AI'dan cevap al
+      final response = await _aiService.getRelationshipAdvice(question, emptyHistory);
+      
+      if (response.containsKey('error')) {
+        _setError(response['error']);
+        return null;
+      }
+      
+      if (response.containsKey('answer')) {
+        final advice = response['answer'] as String;
+        
+        // Yanıtı Firestore'a kaydet
+        await _saveAdviceToFirestore(question, advice, userId);
+        
+        _logger.i('Danışma cevabı başarıyla alındı');
+        return advice;
+      } else {
+        _setError('Cevap alınamadı');
+        return null;
+      }
+    } catch (e) {
+      _logger.e('Danışma cevabı alınırken hata: $e');
+      _setError('Danışma cevabı alınırken hata oluştu: $e');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Danışma yanıtını Firestore'a kaydet
+  Future<void> _saveAdviceToFirestore(String question, String advice, String userId) async {
+    try {
+      await _firestore.collection('user_advices').add({
+        'userId': userId,
+        'question': question,
+        'advice': advice,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      
+      _logger.i('Danışma yanıtı Firestore\'a kaydedildi');
+    } catch (e) {
+      _logger.e('Danışma yanıtı kaydedilirken hata: $e');
+    }
+  }
+
   @override
   void dispose() {
     _dailyAdviceTimer?.cancel();

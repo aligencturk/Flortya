@@ -13,6 +13,7 @@ import 'views/past_analyses_view.dart';
 import 'views/past_reports_view.dart';
 import 'views/analysis_detail_view.dart';
 import 'views/report_detail_view.dart';
+import 'views/consultation_view.dart';
 
 // Placeholder Widgets for new routes
 class AccountSettingsView extends StatelessWidget {
@@ -1257,6 +1258,7 @@ class AppRouter {
   static const String pastReports = '/past-reports';
   static const String analysisDetail = '/analysis-detail';
   static const String reportDetail = '/report-detail';
+  static const String consultation = '/consultation';
 
   static GoRouter createRouter(AuthViewModel authViewModel) {
     return GoRouter(
@@ -1412,6 +1414,13 @@ class AppRouter {
           path: email_register,
           name: 'email_register',
           builder: (context, state) => const EmailRegisterView(),
+        ),
+        
+        // Danışma sayfası rotası
+        GoRoute(
+          path: consultation,
+          name: 'consultation',
+          builder: (context, state) => const ConsultationView(),
         ),
         
         // Geçmiş analizler ve raporlar için route'lar
