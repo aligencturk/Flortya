@@ -24,31 +24,58 @@ class LoggerService {
 
   // Debug seviyesinde log
   void d(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.d(message, error: error, stackTrace: stackTrace);
+    if (error != null) {
+      _logger.d(message, error: error, stackTrace: stackTrace);
+    } else {
+      _logger.d(message);
+    }
   }
 
   // Info seviyesinde log
   void i(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.i(message, error: error, stackTrace: stackTrace);
+    if (error != null) {
+      _logger.i(message, error: error, stackTrace: stackTrace);
+    } else {
+      _logger.i(message);
+    }
   }
 
   // Warning seviyesinde log
   void w(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.w(message, error: error, stackTrace: stackTrace);
+    if (error != null) {
+      _logger.w(message, error: error, stackTrace: stackTrace);
+    } else {
+      _logger.w(message);
+    }
   }
 
   // Error seviyesinde log
   void e(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.e(message, error: error, stackTrace: stackTrace);
+    if (error is StackTrace) {
+      // Kullanıcı hata yerine StackTrace geçmiş, doğru şekilde düzenliyoruz
+      _logger.e(message, stackTrace: error);
+    } else if (error != null) {
+      _logger.e(message, error: error, stackTrace: stackTrace);
+    } else {
+      _logger.e(message);
+    }
   }
 
   // Çok ayrıntılı seviyede log
   void v(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.v(message, error: error, stackTrace: stackTrace);
+    if (error != null) {
+      _logger.v(message, error: error, stackTrace: stackTrace);
+    } else {
+      _logger.v(message);
+    }
   }
 
   // Kritik seviyede log
   void wtf(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.f(message, error: error, stackTrace: stackTrace);
+    if (error != null) {
+      _logger.f(message, error: error, stackTrace: stackTrace);
+    } else {
+      _logger.f(message);
+    }
   }
 } 

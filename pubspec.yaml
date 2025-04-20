@@ -52,14 +52,13 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # Firebase
-  firebase_core: ^2.32.0
-  firebase_auth: ^4.17.4
-  cloud_firestore: ^4.15.4
-  firebase_app_check: ^0.2.1+14
-  firebase_storage: ^11.6.5
-  firebase_messaging: ^14.7.15
+  firebase_core: ^3.13.0          # iOS SDK 11.10.0 ile uyumlu Core 3.13.0 :contentReference[oaicite:0]{index=0}  
+  firebase_auth: ^5.5.2           # Dart 3 uyumlu en güncel Auth  
+  cloud_firestore: ^5.6.6         # Core 3.x ile uyumlu Firestore  
+  firebase_app_check: ^0.3.2+5     # App Check 0.3.2+5 :contentReference[oaicite:1]{index=1}  
+  firebase_storage: ^12.4.5       # Storage 12.4.5 :contentReference[oaicite:2]{index=2}  
+  firebase_messaging: ^15.2.5      # Messaging 15.2.5 :contentReference[oaicite:3]{index=3}  
   google_sign_in: ^6.2.1
-  
   # Notifications
   
   # State Management
@@ -86,7 +85,7 @@ dependencies:
   # OCR ve Görüntü İşleme - Sadece Latin alfabesi desteği ile
   path_provider: ^2.1.2
   path: ^1.8.3
-  google_mlkit_text_recognition: ^0.11.0
+  google_mlkit_text_recognition: ^0.14.0   # en son 0.14.0 sürümü :contentReference[oaicite:0]{index=0}
   
   # iOS ve macOS için ek destekler
   image_picker_ios: ^0.8.9

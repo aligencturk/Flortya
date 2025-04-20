@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/logger_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
 
 class NotificationService {
   final LoggerService _logger = LoggerService();
@@ -76,6 +77,7 @@ class NotificationService {
       
     } catch (e) {
       _logger.e('Bildirim servisi başlatılırken hata: $e');
+      rethrow; // Hata yeniden fırlatılarak, çağıran kod tarafından yakalanabilir
     }
   }
   
@@ -92,6 +94,26 @@ class NotificationService {
   // FCM token'ı al ve kaydet
   Future<void> _updateFcmToken() async {
     try {
+      // iOS için APNS token kontrolü
+      if (Platform.isIOS) {
+        try {
+          // iOS cihazlarda FCM token almadan önce APNS token kontrolü yapılmalı
+          // APNS token almaya çalış, eğer hata verirse bunu yakala ama uygulamayı durdurma
+          String? apnsToken = await _firebaseMessaging.getAPNSToken();
+          _logger.i('APNS Token: $apnsToken');
+          
+          // APNS token null olabilir (simülatör vb. durumlarda)
+          if (apnsToken == null) {
+            _logger.w('APNS token alınamadı. Uygulama iOS simülatöründe çalışıyor olabilir veya push bildirimleri kullanılamıyor.');
+            return; // APNS token alınamadıysa, FCM token almaya çalışma
+          }
+        } catch (e) {
+          _logger.w('APNS token alınırken hata: $e');
+          return; // APNS token hatası durumunda FCM token almaya çalışma
+        }
+      }
+      
+      // FCM token alma işlemi
       final token = await _firebaseMessaging.getToken();
       if (token != null) {
         _fcmToken = token;
@@ -99,9 +121,12 @@ class NotificationService {
         
         // Firestore'a kaydet
         await _saveFcmTokenToFirestore(token);
+      } else {
+        _logger.w('FCM Token alınamadı (null)');
       }
     } catch (e) {
       _logger.e('FCM token alınırken hata: $e');
+      // Bu hata yeniden fırlatılmıyor, böylece uygulama çalışmaya devam edebilir
     }
   }
   
@@ -175,13 +200,34 @@ class NotificationService {
   
   // FCM konu aboneliği (örn. tüm kullanıcılara bildirim göndermek için)
   Future<void> subscribeToTopic(String topic) async {
-    await _firebaseMessaging.subscribeToTopic(topic);
-    _logger.i('$topic konusuna abone olundu');
+    try {
+      // iOS platformu için FCM token kontrolü
+      if (Platform.isIOS && _fcmToken == null) {
+        _logger.w('FCM token olmadığı için "$topic" konusuna abone olunamadı');
+        return;
+      }
+      
+      await _firebaseMessaging.subscribeToTopic(topic);
+      _logger.i('$topic konusuna abone olundu');
+    } catch (e) {
+      _logger.e('"$topic" konusuna abone olunurken hata: $e');
+      rethrow; // Ana uygulamanın hata yakalayabilmesi için
+    }
   }
   
   Future<void> unsubscribeFromTopic(String topic) async {
-    await _firebaseMessaging.unsubscribeFromTopic(topic);
-    _logger.i('$topic konusundan abonelik kaldırıldı');
+    try {
+      // iOS platformu için FCM token kontrolü
+      if (Platform.isIOS && _fcmToken == null) {
+        _logger.w('FCM token olmadığı için "$topic" konusundan abonelik kaldırılamadı');
+        return;
+      }
+      
+      await _firebaseMessaging.unsubscribeFromTopic(topic);
+      _logger.i('$topic konusundan abonelik kaldırıldı');
+    } catch (e) {
+      _logger.e('"$topic" konusundan abonelik kaldırılırken hata: $e');
+    }
   }
   
   // Bildirim gösterme fonksiyonu - başarı durumu için

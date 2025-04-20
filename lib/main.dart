@@ -48,12 +48,25 @@ void main() async {
     
     // Bildirim servisini başlat
     final notificationService = NotificationService();
-    await notificationService.initialize();
-    logger.i('Bildirim servisi başlatıldı');
     
-    // Firebase Cloud Messaging topic aboneliği
-    await notificationService.subscribeToTopic('general');
-    logger.i('Genel bildirim kanalına abone olundu');
+    // Bildirim servisi başlatma işlemini try-catch içine alıyoruz
+    try {
+      await notificationService.initialize();
+      logger.i('Bildirim servisi başlatıldı');
+      
+      // Firebase Cloud Messaging topic aboneliği
+      // Bu kısmı da try-catch içine alıyoruz
+      try {
+        await notificationService.subscribeToTopic('general');
+        logger.i('Genel bildirim kanalına abone olundu');
+      } catch (e) {
+        // Abone olma hatası uygulama çalışmasını engellemeyecek
+        logger.w('Bildirim kanalına abone olunurken hata: $e, uygulama çalışmaya devam edecek');
+      }
+    } catch (e) {
+      // Bildirim servisi hatası uygulama çalışmasını engellemeyecek
+      logger.w('Bildirim servisi başlatılırken hata: $e, uygulama bildirimler olmadan çalışacak');
+    }
     
     // Tarih formatları için Türkçe desteği
     await initializeDateFormatting('tr_TR');

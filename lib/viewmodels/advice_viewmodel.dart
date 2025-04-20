@@ -37,6 +37,7 @@ class AdviceViewModel extends ChangeNotifier {
   bool get hasCurrentChat => _currentChat != null;
   
   // Son alınan tavsiye tarihi için key
+  // ignore: unused_field
   static const String _lastAdviceDateKey = 'last_advice_date';
 
   Timer? _dailyAdviceTimer;
