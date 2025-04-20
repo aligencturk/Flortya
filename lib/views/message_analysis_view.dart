@@ -930,684 +930,687 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     topRight: Radius.circular(30),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Analiz için mesaj girişi kartı
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Analiz Edilecek Mesaj',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 8),
-                          
-                          // Bilgi ipucu ekle
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF9D3FFF).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 16,
-                                  color: Colors.white.withOpacity(0.8),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    "Metin yazarak veya görsel/sohbet dosyası yükleyerek analiz yapabilirsiniz.",
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.8),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Mesaj girişi
-                          Container(
-                            height: 150,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: TextFormField(
-                              controller: _messageController,
-                              focusNode: _messageFocusNode,
-                              maxLines: null,
-                              expands: true,
-                              style: const TextStyle(color: Colors.white),
-                              keyboardType: TextInputType.multiline,
-                              textCapitalization: TextCapitalization.sentences,
-                              textInputAction: TextInputAction.newline,
-                              enableInteractiveSelection: true,
-                              onChanged: (value) {
-                                // Bu satırı değiştirmeyin - sadece Dart'ın 
-                                // Türkçe karakterleri kabul ettiğinden emin oluyoruz
-                                final containsTurkish = value.contains(RegExp(r'[ğüşöçıĞÜŞÖÇİ]'));
-                                if (containsTurkish) {
-                                  debugPrint('Türkçe karakter algılandı: $value');
-                                }
-                                
-                                // Metin girişinde eğer değer boş değilse ve dosya yüklü değilse
-                                // mesaj tipi panelini kapat
-                                if (value.trim().isNotEmpty && 
-                                    _selectedImage == null && 
-                                    _selectedChatFile == null && 
-                                    _chatFileContent == null) {
-                                  setState(() {
-                                    _isMessageTypeExpanded = false;
-                                  });
-                                } else if (value.trim().isEmpty && 
-                                    _selectedImage == null && 
-                                    _selectedChatFile == null && 
-                                    _chatFileContent == null) {
-                                  // Metin boşalırsa ve dosya da yoksa paneli tekrar aç
-                                  setState(() {
-                                    _isMessageTypeExpanded = true;
-                                  });
-                                }
-                              },
-                              decoration: const InputDecoration(
-                                hintText: 'Analiz etmek istediğiniz mesajı girin...',
-                                hintStyle: TextStyle(color: Colors.white60),
-                                border: InputBorder.none,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Analiz için mesaj girişi kartı
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Analiz Edilecek Mesaj',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
                               ),
                             ),
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Yasal uyarı notu
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: Row(
-                              children: [
-                                const Text(
-                                  "ℹ️",
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    "Not: Uygulamada sunulan içerikler yol gösterici niteliktedir, bağlayıcı değildir.",
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
+                            
+                            const SizedBox(height: 8),
+                            
+                            // Bilgi ipucu ekle
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9D3FFF).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: Colors.white.withOpacity(0.8),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "Metin yazarak veya görsel/sohbet dosyası yükleyerek analiz yapabilirsiniz.",
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.8),
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Mesaj Tipi Seçimi - Açılır/Kapanır Panel
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF9D3FFF).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Başlık ve açma/kapama ikonu
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _isMessageTypeExpanded = !_isMessageTypeExpanded;
-                                    });
-                                  },
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.category_outlined,
-                                        color: Colors.white.withOpacity(0.9),
-                                        size: 22,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        'Mesaj Tipi Seç',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      // Açma/kapama ikonu
-                                      Icon(
-                                        _isMessageTypeExpanded 
-                                            ? Icons.keyboard_arrow_up 
-                                            : Icons.keyboard_arrow_down,
-                                        color: Colors.white.withOpacity(0.9),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                
-                                // Panel içeriği (Açılır/Kapanır)
-                                AnimatedCrossFade(
-                                  duration: const Duration(milliseconds: 300),
-                                  crossFadeState: _isMessageTypeExpanded
-                                      ? CrossFadeState.showFirst
-                                      : CrossFadeState.showSecond,
-                                  firstChild: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(height: 12),
-                                      
-                                      // Seçenekler satırı - Metin seçeneği kaldırıldı, sadece 2 seçenek var
-                                      Row(
-                                        children: [
-                                          // Görsel seçeneği
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  if (_selectedMessageType == MessageType.image) {
-                                                    _selectedMessageType = MessageType.none;
-                                                  } else {
-                                                    _selectedMessageType = MessageType.image;
-                                                    _selectedChatFile = null;
-                                                    _chatFileContent = null;
-                                                    // Mesaj tipi seçildikten sonra otomatik olarak paneli kapat
-                                                    _isMessageTypeExpanded = false;
-                                                  }
-                                                });
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  color: _selectedMessageType == MessageType.image
-                                                      ? const Color(0xFF9D3FFF)
-                                                      : Colors.white.withOpacity(0.05),
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: _selectedMessageType == MessageType.image
-                                                        ? Colors.white.withOpacity(0.5)
-                                                        : Colors.white.withOpacity(0.2),
-                                                  ),
-                                                ),
-                                                child: Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.photo_camera,
-                                                      color: Colors.white.withOpacity(0.9),
-                                                      size: 20,
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      'Görsel',
-                                                      style: TextStyle(
-                                                        color: Colors.white.withOpacity(0.9),
-                                                        fontWeight: _selectedMessageType == MessageType.image
-                                                            ? FontWeight.bold
-                                                            : FontWeight.normal,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          
-                                          const SizedBox(width: 8),
-                                          
-                                          // Sohbet dosyası seçeneği
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  if (_selectedMessageType == MessageType.chatFile) {
-                                                    _selectedMessageType = MessageType.none;
-                                                  } else {
-                                                    _selectedMessageType = MessageType.chatFile;
-                                                    _selectedImage = null;
-                                                    _extractedText = null;
-                                                    // Mesaj tipi seçildikten sonra otomatik olarak paneli kapat
-                                                    _isMessageTypeExpanded = false;
-                                                  }
-                                                });
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  color: _selectedMessageType == MessageType.chatFile
-                                                      ? const Color(0xFF9D3FFF)
-                                                      : Colors.white.withOpacity(0.05),
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: _selectedMessageType == MessageType.chatFile
-                                                        ? Colors.white.withOpacity(0.5)
-                                                        : Colors.white.withOpacity(0.2),
-                                                  ),
-                                                ),
-                                                child: Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.chat_outlined,
-                                                      color: Colors.white.withOpacity(0.9),
-                                                      size: 20,
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      'Sohbet',
-                                                      style: TextStyle(
-                                                        color: Colors.white.withOpacity(0.9),
-                                                        fontWeight: _selectedMessageType == MessageType.chatFile
-                                                            ? FontWeight.bold
-                                                            : FontWeight.normal,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  secondChild: const SizedBox.shrink(), // Kapalı durumda boş alan
-                                ),
-                              ],
-                            ),
-                          ),
-                          
-                          // Seçilen mesaj tipine göre dosya yükleme alanları
-                          if (_selectedMessageType == MessageType.image) ...[
+                            
                             const SizedBox(height: 16),
-                            if (_selectedImage == null) ...[
-                              GestureDetector(
-                                onTap: _isProcessingFile ? null : _pickImage,
-                                child: Container(
-                                  height: 100,
-                                  width: double.infinity,
+                            
+                            // Mesaj girişi
+                            Container(
+                              height: 150,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: TextFormField(
+                                controller: _messageController,
+                                focusNode: _messageFocusNode,
+                                maxLines: null,
+                                expands: true,
+                                style: const TextStyle(color: Colors.white),
+                                keyboardType: TextInputType.multiline,
+                                textCapitalization: TextCapitalization.sentences,
+                                textInputAction: TextInputAction.newline,
+                                enableInteractiveSelection: true,
+                                onChanged: (value) {
+                                  // Bu satırı değiştirmeyin - sadece Dart'ın 
+                                  // Türkçe karakterleri kabul ettiğinden emin oluyoruz
+                                  final containsTurkish = value.contains(RegExp(r'[ğüşöçıĞÜŞÖÇİ]'));
+                                  if (containsTurkish) {
+                                    debugPrint('Türkçe karakter algılandı: $value');
+                                  }
+                                  
+                                  // Metin girişinde eğer değer boş değilse ve dosya yüklü değilse
+                                  // mesaj tipi panelini kapat
+                                  if (value.trim().isNotEmpty && 
+                                      _selectedImage == null && 
+                                      _selectedChatFile == null && 
+                                      _chatFileContent == null) {
+                                    setState(() {
+                                      _isMessageTypeExpanded = false;
+                                    });
+                                  } else if (value.trim().isEmpty && 
+                                      _selectedImage == null && 
+                                      _selectedChatFile == null && 
+                                      _chatFileContent == null) {
+                                    // Metin boşalırsa ve dosya da yoksa paneli tekrar aç
+                                    setState(() {
+                                      _isMessageTypeExpanded = true;
+                                    });
+                                  }
+                                },
+                                decoration: const InputDecoration(
+                                  hintText: 'Analiz etmek istediğiniz mesajı girin...',
+                                  hintStyle: TextStyle(color: Colors.white60),
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 20),
+                            
+                            // Yasal uyarı notu
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    "ℹ️",
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "Not: Uygulamada sunulan içerikler yol gösterici niteliktedir, bağlayıcı değildir.",
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Mesaj Tipi Seçimi - Açılır/Kapanır Panel
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Başlık ve açma/kapama ikonu
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _isMessageTypeExpanded = !_isMessageTypeExpanded;
+                                      });
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.category_outlined,
+                                          color: Colors.white.withOpacity(0.9),
+                                          size: 22,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Mesaj Tipi Seç',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        // Açma/kapama ikonu
+                                        Icon(
+                                          _isMessageTypeExpanded 
+                                              ? Icons.keyboard_arrow_up 
+                                              : Icons.keyboard_arrow_down,
+                                          color: Colors.white.withOpacity(0.9),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  // Panel içeriği (Açılır/Kapanır)
+                                  AnimatedCrossFade(
+                                    duration: const Duration(milliseconds: 300),
+                                    crossFadeState: _isMessageTypeExpanded
+                                        ? CrossFadeState.showFirst
+                                        : CrossFadeState.showSecond,
+                                    firstChild: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 12),
+                                        
+                                        // Seçenekler satırı - Metin seçeneği kaldırıldı, sadece 2 seçenek var
+                                        Row(
+                                          children: [
+                                            // Görsel seçeneği
+                                            Expanded(
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    if (_selectedMessageType == MessageType.image) {
+                                                      _selectedMessageType = MessageType.none;
+                                                    } else {
+                                                      _selectedMessageType = MessageType.image;
+                                                      _selectedChatFile = null;
+                                                      _chatFileContent = null;
+                                                      // Mesaj tipi seçildikten sonra otomatik olarak paneli kapat
+                                                      _isMessageTypeExpanded = false;
+                                                    }
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: _selectedMessageType == MessageType.image
+                                                        ? const Color(0xFF9D3FFF)
+                                                        : Colors.white.withOpacity(0.05),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: _selectedMessageType == MessageType.image
+                                                          ? Colors.white.withOpacity(0.5)
+                                                          : Colors.white.withOpacity(0.2),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.photo_camera,
+                                                        color: Colors.white.withOpacity(0.9),
+                                                        size: 20,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        'Görsel',
+                                                        style: TextStyle(
+                                                          color: Colors.white.withOpacity(0.9),
+                                                          fontWeight: _selectedMessageType == MessageType.image
+                                                              ? FontWeight.bold
+                                                              : FontWeight.normal,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            
+                                            const SizedBox(width: 8),
+                                            
+                                            // Sohbet dosyası seçeneği
+                                            Expanded(
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    if (_selectedMessageType == MessageType.chatFile) {
+                                                      _selectedMessageType = MessageType.none;
+                                                    } else {
+                                                      _selectedMessageType = MessageType.chatFile;
+                                                      _selectedImage = null;
+                                                      _extractedText = null;
+                                                      // Mesaj tipi seçildikten sonra otomatik olarak paneli kapat
+                                                      _isMessageTypeExpanded = false;
+                                                    }
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: _selectedMessageType == MessageType.chatFile
+                                                        ? const Color(0xFF9D3FFF)
+                                                        : Colors.white.withOpacity(0.05),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: _selectedMessageType == MessageType.chatFile
+                                                          ? Colors.white.withOpacity(0.5)
+                                                          : Colors.white.withOpacity(0.2),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.chat_outlined,
+                                                        color: Colors.white.withOpacity(0.9),
+                                                        size: 20,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        'Sohbet',
+                                                        style: TextStyle(
+                                                          color: Colors.white.withOpacity(0.9),
+                                                          fontWeight: _selectedMessageType == MessageType.chatFile
+                                                              ? FontWeight.bold
+                                                              : FontWeight.normal,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    secondChild: const SizedBox.shrink(), // Kapalı durumda boş alan
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            // Seçilen mesaj tipine göre dosya yükleme alanları
+                            if (_selectedMessageType == MessageType.image) ...[
+                              const SizedBox(height: 16),
+                              if (_selectedImage == null) ...[
+                                GestureDetector(
+                                  onTap: _isProcessingFile ? null : _pickImage,
+                                  child: Container(
+                                    height: 100,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                    ),
+                                    child: _isProcessingFile
+                                        ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
+                                        : Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.add_photo_alternate,
+                                                color: Colors.white.withOpacity(0.7),
+                                                size: 40,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              const Text(
+                                                'Görsel seçmek için tıklayın',
+                                                style: TextStyle(color: Colors.white70),
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ] else ...[
+                                // Yüklenen görsel bilgi alanı
+                                Container(
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.05),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                                   ),
-                                  child: _isProcessingFile
-                                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
-                                      : Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.add_photo_alternate,
-                                              color: Colors.white.withOpacity(0.7),
-                                              size: 40,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            const Text(
-                                              'Görsel seçmek için tıklayın',
-                                              style: TextStyle(color: Colors.white70),
-                                            ),
-                                          ],
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, color: Color(0xFF9D3FFF), size: 24),
+                                      const SizedBox(width: 12),
+                                      const Expanded(
+                                        child: Text(
+                                          'Görsel yüklendi ve analize hazır',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close, color: Colors.white70),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedImage = null;
+                                            _extractedText = null;
+                                            // Dosya kaldırıldığında paneli tekrar aç
+                                            _isMessageTypeExpanded = true;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ] else ...[
-                              // Yüklenen görsel bilgi alanı
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                                ),
-                                child: Row(
+                              ],
+                            ],
+                            
+                            if (_selectedMessageType == MessageType.chatFile) ...[
+                              const SizedBox(height: 16),
+                              if (_selectedChatFile == null && _chatFileContent == null) ...[
+                                Row(
                                   children: [
-                                    const Icon(Icons.check_circle, color: Color(0xFF9D3FFF), size: 24),
-                                    const SizedBox(width: 12),
-                                    const Expanded(
-                                      child: Text(
-                                        'Görsel yüklendi ve analize hazır',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                                    // Dosya Seçme Butonu
+                                    Expanded(
+                                      flex: 1,
+                                      child: GestureDetector(
+                                        onTap: _isProcessingFile ? null : _pickChatFile,
+                                        child: Container(
+                                          height: 100,
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.05),
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                          ),
+                                          child: _isProcessingFile
+                                            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
+                                            : Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.upload_file,
+                                                  color: Colors.white.withOpacity(0.7),
+                                                  size: 30,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                const Text(
+                                                  'Dosya Seç (.txt)',
+                                                  style: TextStyle(color: Colors.white70),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
                                         ),
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close, color: Colors.white70),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedImage = null;
-                                          _extractedText = null;
-                                          // Dosya kaldırıldığında paneli tekrar aç
-                                          _isMessageTypeExpanded = true;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                          
-                          if (_selectedMessageType == MessageType.chatFile) ...[
-                            const SizedBox(height: 16),
-                            if (_selectedChatFile == null && _chatFileContent == null) ...[
-                              Row(
-                                children: [
-                                  // Dosya Seçme Butonu
-                                  Expanded(
-                                    flex: 1,
-                                    child: GestureDetector(
-                                      onTap: _isProcessingFile ? null : _pickChatFile,
-                                      child: Container(
-                                        height: 100,
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                                        ),
-                                        child: _isProcessingFile
-                                          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
-                                          : Column(
+                                    const SizedBox(width: 8),
+                                    // Metin Giriş Butonu
+                                    Expanded(
+                                      flex: 1,
+                                      child: GestureDetector(
+                                        onTap: _isProcessingFile ? null : _createChatFileFromText,
+                                        child: Container(
+                                          height: 100,
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.05),
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                                          ),
+                                          child: Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
                                               Icon(
-                                                Icons.upload_file,
+                                                Icons.edit_document,
                                                 color: Colors.white.withOpacity(0.7),
                                                 size: 30,
                                               ),
                                               const SizedBox(height: 8),
                                               const Text(
-                                                'Dosya Seç (.txt)',
+                                                'Metin Olarak Gir',
                                                 style: TextStyle(color: Colors.white70),
                                                 textAlign: TextAlign.center,
                                               ),
                                             ],
                                           ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Metin Giriş Butonu
-                                  Expanded(
-                                    flex: 1,
-                                    child: GestureDetector(
-                                      onTap: _isProcessingFile ? null : _createChatFileFromText,
-                                      child: Container(
-                                        height: 100,
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                                        ),
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.edit_document,
-                                              color: Colors.white.withOpacity(0.7),
-                                              size: 30,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            const Text(
-                                              'Metin Olarak Gir',
-                                              style: TextStyle(color: Colors.white70),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ] else ...[
-                              // Yüklenen sohbet dosyası bilgi alanı
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.check_circle, color: Color(0xFF9D3FFF), size: 24),
-                                    const SizedBox(width: 12),
-                                    const Expanded(
-                                      child: Text(
-                                        'Sohbet içeriği yüklendi ve analize hazır',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close, color: Colors.white70),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedChatFile = null;
-                                          _chatFileContent = null;
-                                          // Dosya kaldırıldığında paneli tekrar aç
-                                          _isMessageTypeExpanded = true;
-                                        });
-                                      },
                                     ),
                                   ],
                                 ),
-                              ),
-                              
-                              // Sohbet önizleme alanı
-                              if (_chatFileContent != null) ...[
-                                const SizedBox(height: 8),
+                              ] else ...[
+                                // Yüklenen sohbet dosyası bilgi alanı
                                 Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                                   ),
-                                  constraints: const BoxConstraints(maxHeight: 100),
-                                  child: SingleChildScrollView(
-                                    child: Text(
-                                      (() {
-                                        final content = _chatFileContent;
-                                        if (content == null) return '';
-                                        return content.length > 500
-                                            ? '${content.substring(0, 500)}...'
-                                            : content;
-                                      })(),
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ],
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Analiz Et butonu
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: ElevatedButton(
-                              onPressed: (_isProcessingFile || !_isAnalyzeButtonEnabled()) 
-                                ? null 
-                                : _sendMessage,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF9D3FFF),
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor: Colors.grey,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              child: _isProcessingFile
-                                  ? const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 3,
-                                          ),
-                                        ),
-                                        SizedBox(width: 10),
-                                        Text(
-                                          'Analiz Yapılıyor...',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, color: Color(0xFF9D3FFF), size: 24),
+                                      const SizedBox(width: 12),
+                                      const Expanded(
+                                        child: Text(
+                                          'Sohbet içeriği yüklendi ve analize hazır',
                                           style: TextStyle(
-                                            fontSize: 16,
+                                            color: Colors.white,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ],
-                                    )
-                                  : const Text(
-                                      'Analiz Et',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
                                       ),
-                                    ),
-                            ),
-                          ),
-                          
-                          // Analiz et butonu altındaki not
-                          if (!_isProcessingFile && !_showDetailedAnalysis)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text(
-                                'Metni girin veya dosya yükleyin, ardından analiz için tıklayın',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Analiz sonucu veya analiz bekleniyor göstergesi
-                    Expanded(
-                      child: messageViewModel.isLoading || _isProcessingFile
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
-                                    strokeWidth: 3.0,
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text(
-                                    'Mesajınız analiz ediliyor...',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'Yapay zeka modelimiz mesajınızı inceliyor.\nLütfen bekleyin...',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : messageViewModel.currentAnalysisResult != null && _showDetailedAnalysis
-                              ? _buildAnalysisResult(context, messageViewModel)
-                              : Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.message_outlined,
-                                        size: 64,
-                                        color: const Color(0xFF9D3FFF).withOpacity(0.3),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Henüz analiz yapılmadı',
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.7),
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Mesajınızı girin ve "Analiz Et" butonuna tıklayın',
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.5),
-                                          fontSize: 14,
-                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close, color: Colors.white70),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedChatFile = null;
+                                            _chatFileContent = null;
+                                            // Dosya kaldırıldığında paneli tekrar aç
+                                            _isMessageTypeExpanded = true;
+                                          });
+                                        },
                                       ),
                                     ],
                                   ),
                                 ),
-                    ),
-                  ],
+                                
+                                // Sohbet önizleme alanı
+                                if (_chatFileContent != null) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    constraints: const BoxConstraints(maxHeight: 100),
+                                    child: SingleChildScrollView(
+                                      child: Text(
+                                        (() {
+                                          final content = _chatFileContent;
+                                          if (content == null) return '';
+                                          return content.length > 500
+                                              ? '${content.substring(0, 500)}...'
+                                              : content;
+                                        })(),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ],
+                            
+                            const SizedBox(height: 20),
+                            
+                            // Analiz Et butonu
+                            SizedBox(
+                              width: double.infinity,
+                              height: 54,
+                              child: ElevatedButton(
+                                onPressed: (_isProcessingFile || !_isAnalyzeButtonEnabled()) 
+                                  ? null 
+                                  : _sendMessage,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF9D3FFF),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: _isProcessingFile
+                                    ? const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 3,
+                                            ),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text(
+                                            'Analiz Yapılıyor...',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : const Text(
+                                        'Analiz Et',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            
+                            // Analiz et butonu altındaki not
+                            if (!_isProcessingFile && !_showDetailedAnalysis)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Text(
+                                  'Metni girin veya dosya yükleyin, ardından analiz için tıklayın',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Analiz sonucu veya analiz bekleniyor göstergesi
+                      Container(
+                        height: 300, // Sabit bir yükseklik belirle
+                        child: messageViewModel.isLoading || _isProcessingFile
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                                      strokeWidth: 3.0,
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'Mesajınız analiz ediliyor...',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        'Yapay zeka modelimiz mesajınızı inceliyor.\nLütfen bekleyin...',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.8),
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : messageViewModel.currentAnalysisResult != null && _showDetailedAnalysis
+                                ? _buildAnalysisResult(context, messageViewModel)
+                                : Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.message_outlined,
+                                          size: 64,
+                                          color: const Color(0xFF9D3FFF).withOpacity(0.3),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Henüz analiz yapılmadı',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.7),
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Mesajınızı girin ve "Analiz Et" butonuna tıklayın',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.5),
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
