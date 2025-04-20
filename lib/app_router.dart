@@ -752,6 +752,128 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                 
                 const SizedBox(height: 20),
                 
+                // Ayırıcı çizgi ve "veya" yazısı
+                Row(
+                  children: const [
+                    Expanded(
+                      child: Divider(
+                        color: Colors.white30,
+                        thickness: 1,
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'veya',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Divider(
+                        color: Colors.white30,
+                        thickness: 1,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Google ile giriş butonu
+                ElevatedButton(
+                  onPressed: authViewModel.isLoading
+                    ? null
+                    : () async {
+                        final success = await authViewModel.signInWithGoogle();
+                        if (success && context.mounted) {
+                          context.go(AppRouter.home);
+                        }
+                      },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
+                  child: authViewModel.isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/images/google_logo.png',
+                            height: 24,
+                            width: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Google ile Giriş Yap',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Apple ile giriş butonu
+                ElevatedButton(
+                  onPressed: authViewModel.isLoading
+                    ? null
+                    : () async {
+                        final success = await authViewModel.signInWithApple();
+                        if (success && context.mounted) {
+                          context.go(AppRouter.home);
+                        }
+                      },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: authViewModel.isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.apple, size: 24),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Apple ile Giriş Yap',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                ),
+                
+                const SizedBox(height: 20),
+                
                 // Kayıt Ol yönlendirmesi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
