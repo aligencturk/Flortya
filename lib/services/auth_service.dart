@@ -196,4 +196,99 @@ class AuthService {
       return false;
     }
   }
+
+  // E-posta ve şifre ile kayıt olma
+  Future<UserCredential?> signUpWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    try {
+      _logger.i('E-posta ile kayıt işlemi başlatılıyor: $email');
+      
+      // Firebase Auth ile yeni hesap oluştur
+      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Kullanıcı adını ayarla
+      await userCredential.user!.updateDisplayName(displayName);
+      
+      // Kullanıcı verilerini Firestore'a kaydet
+      await _updateUserData(userCredential.user!);
+      
+      _logger.i('E-posta ile kayıt başarılı: ${userCredential.user?.uid}');
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'Bu e-posta adresi zaten kullanımda.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Geçersiz e-posta adresi.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Şifre çok zayıf.';
+          break;
+        default:
+          errorMessage = 'Kayıt sırasında bir hata oluştu: ${e.message}';
+      }
+      
+      _logger.e('E-posta kayıt hatası: $errorMessage', e);
+      rethrow;
+    } catch (e) {
+      _logger.e('E-posta kayıt hatası: ${e.toString()}', e);
+      rethrow;
+    }
+  }
+  
+  // E-posta ve şifre ile giriş yapma
+  Future<UserCredential?> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      _logger.i('E-posta ile giriş yapılıyor: $email');
+      
+      // Firebase Auth ile giriş yap
+      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Kullanıcı verilerini güncelle
+      await _updateUserData(userCredential.user!);
+      
+      _logger.i('E-posta ile giriş başarılı: ${userCredential.user?.uid}');
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'Bu e-posta adresine sahip bir kullanıcı bulunamadı.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Şifre yanlış.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Geçersiz e-posta adresi.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Bu kullanıcı hesabı devre dışı bırakıldı.';
+          break;
+        default:
+          errorMessage = 'Giriş sırasında bir hata oluştu: ${e.message}';
+      }
+      
+      _logger.e('E-posta giriş hatası: $errorMessage', e);
+      rethrow;
+    } catch (e) {
+      _logger.e('E-posta giriş hatası: ${e.toString()}', e);
+      rethrow;
+    }
+  }
 } 

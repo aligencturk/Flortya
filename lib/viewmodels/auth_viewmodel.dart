@@ -236,4 +236,111 @@ class AuthViewModel extends ChangeNotifier {
     debugPrint(error);
     notifyListeners();
   }
+  
+  // E-posta ve şifre ile kayıt olma
+  Future<bool> signUpWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    _setLoading(true);
+    _clearError();
+    
+    try {
+      final userCredential = await _authService.signUpWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+      
+      if (userCredential != null) {
+        // Kullanıcı verilerini al
+        final userData = await _authService.getUserData();
+        _user = userData;
+        notifyListeners();
+        return true;
+      }
+      
+      _setError('E-posta ile kayıt başarısız oldu');
+      return false;
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'Bu e-posta adresi zaten kullanımda.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Geçersiz e-posta adresi.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Şifre çok zayıf.';
+          break;
+        default:
+          errorMessage = 'Kayıt sırasında bir hata oluştu: ${e.message}';
+      }
+      
+      _setError(errorMessage);
+      return false;
+    } catch (e) {
+      _setError('E-posta ile kayıt hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // E-posta ve şifre ile giriş yapma
+  Future<bool> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    _setLoading(true);
+    _clearError();
+    
+    try {
+      final userCredential = await _authService.signInWithEmail(
+        email: email,
+        password: password,
+      );
+      
+      if (userCredential != null) {
+        // Kullanıcı verilerini al
+        final userData = await _authService.getUserData();
+        _user = userData;
+        notifyListeners();
+        return true;
+      }
+      
+      _setError('E-posta ile giriş başarısız oldu');
+      return false;
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'Bu e-posta adresine sahip bir kullanıcı bulunamadı.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Şifre yanlış.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Geçersiz e-posta adresi.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Bu kullanıcı hesabı devre dışı bırakıldı.';
+          break;
+        default:
+          errorMessage = 'Giriş sırasında bir hata oluştu: ${e.message}';
+      }
+      
+      _setError(errorMessage);
+      return false;
+    } catch (e) {
+      _setError('E-posta ile giriş hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
 } 
