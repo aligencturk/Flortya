@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.my_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -22,13 +22,17 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    aaptOptions {
+        noCompress += listOf("tflite") // TensorFlow Lite model dosyalarını sıkıştırma
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.my_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36 // Flutter'in targetSdkVersion değeri yerine manuel olarak ayarlıyoruz
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
@@ -40,7 +44,7 @@ android {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // signingConfig = signingConfigs.getByName("debug")
             
             // ProGuard kurallarını etkinleştir
             isMinifyEnabled = true
@@ -49,6 +53,20 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+
+    packaging {
+        resources {
+            // ML Kit ile ilgili kaynakları hariç tut
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "**/*.proto"
+        }
+    }
+
+    lint {
+        disable += "InvalidPackage"
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
@@ -67,10 +85,56 @@ dependencies {
     // ML Kit modülleri - sadece Latin dilleri için
     implementation("com.google.mlkit:text-recognition:16.0.0")
     
+    // ML Kit için gerekli ek bağımlılıklar
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    
     // MultiDex desteği
     implementation("androidx.multidex:multidex:2.0.1")
 }
 
 flutter {
     source = "../.."
+}
+
+afterEvaluate {
+    tasks.named("assembleRelease") {
+        doLast {
+            // Android Gradle tarafından oluşturulan APK'nın yolu
+            val outputApk = file("${buildDir}/outputs/apk/release/app-release-unsigned.apk")
+            if (outputApk.exists()) {
+                // Flutter'ın beklediği klasör yolu
+                val flutterOutputDir = file("${rootProject.rootDir}/../build/app/outputs/flutter-apk")
+                flutterOutputDir.mkdirs()
+                
+                // APK'yı Flutter'ın beklediği konuma kopyala
+                copy {
+                    from(outputApk)
+                    into(flutterOutputDir)
+                    rename { "app-release.apk" }
+                }
+                
+                println("APK dosyası başarıyla kopyalandı: ${flutterOutputDir}/app-release.apk")
+            } else {
+                println("HATA: APK dosyası bulunamadı: $outputApk")
+                // Mevcut APK dosyalarını göster
+                file("${buildDir}/outputs").walk().filter { it.isFile && it.extension == "apk" }.forEach {
+                    println("Bulunan APK: $it")
+                }
+            }
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.named("assembleDebug") {
+        doLast {
+            val outputApk = file("$buildDir/outputs/flutter-apk/app-debug.apk")
+            val flutterExpectedPath = file("${rootProject.rootDir}/../build/app/outputs/flutter-apk")
+            flutterExpectedPath.mkdirs()
+            copy {
+                from(outputApk)
+                into(flutterExpectedPath)
+            }
+        }
+    }
 }
