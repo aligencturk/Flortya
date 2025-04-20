@@ -11,6 +11,7 @@ import '../viewmodels/message_viewmodel.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../services/input_service.dart';  // Türkçe karakter desteği için
 import '../services/ocr_service.dart';
+import '../utils/feedback_utils.dart';
 
 // Mesaj tipi enum'u - sınıf dışında tanımlanmalı
 enum MessageType { text, image, chatFile, none }
@@ -94,27 +95,17 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     super.dispose();
   }
 
-  // Mesaj yükleme - iyileştirildi
+  // Mesajları yükle
   Future<void> _loadMessages() async {
-    if (!mounted) return;
-    
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-    
-    // Mesajlar zaten yüklenmişse çık
-    if (messageViewModel.messages.isNotEmpty) {
-      debugPrint('Mesajlar zaten yüklenmiş (${messageViewModel.messages.length} adet)');
-      return;
-    }
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     // Kullanıcı kontrolü
     if (authViewModel.user == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mesajlarınızı yüklemek için lütfen giriş yapın'),
-          backgroundColor: Colors.red,
-        ),
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Mesajlarınızı yüklemek için lütfen giriş yapın'
       );
       return;
     }
@@ -128,20 +119,16 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       debugPrint('Mesaj yükleme tamamlandı. Mesaj sayısı: ${messageViewModel.messages.length}');
       
       if (messageViewModel.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Mesajlar yüklenirken hata: ${messageViewModel.errorMessage}'),
-            backgroundColor: Colors.red,
-          ),
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Mesajlar yüklenirken hata: ${messageViewModel.errorMessage}'
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Mesajlar yüklenirken beklenmeyen hata: $e'),
-          backgroundColor: Colors.red,
-        ),
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Mesajlar yüklenirken beklenmeyen hata: $e'
       );
     }
   }
@@ -227,21 +214,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           }
           
           // Kullanıcıya sadece resmin yüklendiği bilgisini ver, içeriği gösterme
-          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text('Görsel başarıyla yüklendi. Şimdi açıklama ekleyebilir veya direkt analiz edebilirsiniz.'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
+          FeedbackUtils.showSuccessFeedback(
+            context,
+            'Görsel başarıyla yüklendi. Şimdi açıklama ekleyebilir veya direkt analiz edebilirsiniz.',
+            duration: const Duration(seconds: 3),
           );
         } catch (e) {
           if (!mounted) return;
@@ -253,12 +229,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           });
           
           // Hata durumunda kullanıcıya bilgi ver
-          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Görüntü yüklendi ancak metin çıkarılamadı. Yine de analiz için kullanabilirsiniz.'),
-              backgroundColor: Colors.orange,
-            ),
+          FeedbackUtils.showWarningFeedback(
+            context,
+            'Görüntü yüklendi ancak metin çıkarılamadı. Yine de analiz için kullanabilirsiniz.',
           );
         }
       } else {
@@ -275,12 +248,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         _isProcessingFile = false;
       });
       
-      ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Görüntü seçme hatası: $e'),
-          backgroundColor: Colors.red,
-        ),
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Görüntü seçme hatası: $e'
       );
     }
   }
@@ -343,12 +313,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       final hasPermission = await _checkAndRequestPermissions();
       if (!hasPermission) {
         if (mounted) {
-          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Dosya izinleri verilmedi. Lütfen ayarlardan izin verin.'),
-              backgroundColor: Colors.red,
-            ),
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Dosya izinleri verilmedi. Lütfen ayarlardan izin verin.'
           );
           setState(() {
             _isProcessingFile = false;
@@ -409,21 +376,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             _isMessageTypeExpanded = false; // Dosya yüklendiğinde paneli kapat
           });
           
-          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text('Dosya başarıyla yüklendi. Şimdi analiz edebilirsiniz.'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
+          FeedbackUtils.showSuccessFeedback(
+            context,
+            'Dosya başarıyla yüklendi. Şimdi analiz edebilirsiniz.',
+            duration: Duration(seconds: 3),
           );
         } catch (readError) {
           debugPrint('Dosya okuma hatası: $readError');
@@ -434,12 +390,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               _chatFileContent = null;
             });
             
-            ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Dosya okunamadı: ${readError.toString().substring(0, min(50, readError.toString().length))}...'),
-                backgroundColor: Colors.red,
-              ),
+            FeedbackUtils.showErrorFeedback(
+              context, 
+              'Dosya okunamadı: ${readError.toString().substring(0, min(50, readError.toString().length))}...'
             );
           }
         }
@@ -452,12 +405,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             _chatFileContent = null;
           });
           
-          ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Dosya seçilemedi: ${pickError.toString().substring(0, min(50, pickError.toString().length))}...'),
-              backgroundColor: Colors.red,
-            ),
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Dosya seçilemedi: ${pickError.toString().substring(0, min(50, pickError.toString().length))}...'
           );
         }
       }
@@ -470,12 +420,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           _chatFileContent = null;
         });
         
-        ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('İşlem sırasında bir hata oluştu: ${e.toString().substring(0, min(50, e.toString().length))}...'),
-            backgroundColor: Colors.red,
-          ),
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'İşlem sırasında bir hata oluştu: ${e.toString().substring(0, min(50, e.toString().length))}...'
         );
       }
     }
@@ -580,22 +527,16 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     });
                     
                     // Önce SnackBar'ları temizle
-                    ScaffoldMessenger.of(context).clearSnackBars();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sohbet içeriği başarıyla eklendi'),
-                        backgroundColor: Colors.green,
-                      ),
+                    FeedbackUtils.showSuccessFeedback(
+                      context,
+                      'Sohbet içeriği başarıyla eklendi',
                     );
                   }
                 } else {
                   // Önce SnackBar'ları temizle
-                  ScaffoldMessenger.of(context).clearSnackBars();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Lütfen sohbet metni girin'),
-                      backgroundColor: Colors.red,
-                    ),
+                  FeedbackUtils.showErrorFeedback(
+                    context, 
+                    'Lütfen sohbet metni girin'
                   );
                 }
               },
@@ -622,18 +563,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     if (!hasContent || _isProcessingFile) {
       // Mevcut SnackBar'ları temizle ve yeni bir SnackBar göster
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(child: Text('Lütfen bir mesaj girin, görsel veya sohbet dosyası seçin')),
-            ],
-          ),
-          backgroundColor: Colors.amber,
-        ),
+      FeedbackUtils.showWarningFeedback(
+        context,
+        'Lütfen bir mesaj girin, görsel veya sohbet dosyası seçin'
       );
       return;
     }
@@ -694,12 +626,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     // Boş mesaj kontrolü
     if (messageContent.trim().isEmpty && _selectedImage == null && _selectedChatFile == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'),
-            backgroundColor: Colors.red,
-          ),
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Lütfen bir mesaj yazın veya bir görsel veya sohbet dosyası seçin'
         );
       }
       return;
@@ -710,12 +639,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     if (authViewModel.user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mesaj analizi için giriş yapmanız gerekiyor'),
-            backgroundColor: Colors.red,
-          ),
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Mesaj analizi için giriş yapmanız gerekiyor'
         );
       }
       return;
@@ -753,13 +679,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           // Görsel yüklenmese bile analize devam edebiliriz
           debugPrint('Görsel yüklenirken hata: $imageError');
           if (mounted) {
-            ScaffoldMessenger.of(context).clearSnackBars(); // Mevcut SnackBar'ları temizle
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Görsel yüklenemedi, ancak analiz devam edecek: ${imageError.toString().substring(0, min(50, imageError.toString().length))}...'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 3),
-              ),
+            FeedbackUtils.showWarningFeedback(
+              context, 
+              'Görsel yüklenemedi, ancak analiz devam edecek: ${imageError.toString().substring(0, min(50, imageError.toString().length))}...'
             );
           }
         }
@@ -808,6 +730,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       debugPrint('ViewModel sonrası analiz sonucu: ${messageViewModel.hasAnalysisResult}');
       debugPrint('ViewModel sonrası mesaj: ${messageViewModel.hasCurrentMessage}');
       
+      // Analiz tamamlandı, navigasyon için controller'a haber ver
+      FeedbackUtils.showSuccessFeedback(context, 'Analiz tamamlandı! Sonuçlar gösteriliyor...');
+      
     } catch (e) {
       debugPrint('HATA - Mesaj analizi sırasında: $e');
       String errorMessage = 'Mesaj analizi sırasında hata oluştu';
@@ -847,24 +772,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         });
         
         // Önce diğer SnackBar'ları temizle
-        ScaffoldMessenger.of(context).clearSnackBars();
-        
-        // Sonra yeni SnackBar göster
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Tekrar Dene',
-              textColor: Colors.white,
-              onPressed: () {
-                if (messageViewModel.currentMessage != null) {
-                  _analyzeMessage(messageContent);
-                }
-              },
-            ),
-          ),
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          errorMessage
         );
       }
     }

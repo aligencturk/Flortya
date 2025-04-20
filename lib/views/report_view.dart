@@ -7,6 +7,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../widgets/custom_button.dart';
 import '../services/input_service.dart';
+import '../utils/feedback_utils.dart';
 
 class ReportView extends StatefulWidget {
   const ReportView({super.key});
@@ -53,9 +54,7 @@ class _ReportViewState extends State<ReportView> {
     final answer = _answerController.text.trim();
     
     if (answer.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen soruyu yanıtlayın')),
-      );
+      FeedbackUtils.showToast(context, 'Lütfen soruyu yanıtlayın');
       return;
     }
     
@@ -121,9 +120,7 @@ class _ReportViewState extends State<ReportView> {
     final comment = _commentController.text.trim();
     
     if (comment.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen yorum yazın')),
-      );
+      FeedbackUtils.showToast(context, 'Lütfen yorum yazın');
       return;
     }
     
@@ -133,9 +130,7 @@ class _ReportViewState extends State<ReportView> {
     }
     
     // Gönderildi bildirimi
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Yorumunuz gönderildi')),
-    );
+    FeedbackUtils.showSuccessFeedback(context, 'Yorumunuz gönderildi');
     
     _commentController.clear();
     setState(() {
@@ -331,9 +326,7 @@ class _ReportViewState extends State<ReportView> {
                         });
                       } catch (e) {
                         // Herhangi bir hata durumunda kullanıcıyı bilgilendir
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Test başlatılırken bir hata oluştu: $e')),
-                        );
+                        FeedbackUtils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
                       }
                     },
                     type: ButtonType.outline,
@@ -614,9 +607,7 @@ class _ReportViewState extends State<ReportView> {
                   onPressed: () {
                     // Puanı kaydet ve diyalogu kapat
                     Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Değerlendirmeniz için teşekkürler!')),
-                    );
+                    FeedbackUtils.showToast(context, 'Değerlendirmeniz için teşekkürler!');
                   },
                 ),
               ),

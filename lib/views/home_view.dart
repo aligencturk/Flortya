@@ -13,6 +13,7 @@ import '../viewmodels/advice_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
+import '../utils/feedback_utils.dart';
 
 // Grafik Çizici Sınıf
 class ChartPainter extends CustomPainter {
@@ -3422,6 +3423,67 @@ class _HomeViewState extends State<HomeView> {
           ),
         );
       },
+    );
+  }
+
+  // Kullanıcı verilerini temizle
+  Future<void> _clearUserData(BuildContext context) async {
+    try {
+      // Tüm view modelleri ve controlleri al
+      final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+      final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      
+      // İşlem onayını al
+      final shouldContinue = await FeedbackUtils.showConfirmationDialog(
+        context,
+        title: 'Veriler Silinecek',
+        message: 'Tüm analiz verileriniz silinecek. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
+      );
+      
+      if (!shouldContinue) return;
+      
+      // Toast bildirim göster
+      FeedbackUtils.showToast(context, 'Veriler temizleniyor...');
+      
+      // Firestore'daki verileri temizle
+      final result = await profileViewModel.clearUserAnalysisData();
+      
+      if (!result) {
+        FeedbackUtils.showErrorFeedback(context, 'Veriler temizlenirken bir hata oluştu');
+        return;
+      }
+      
+      // Yerel verileri temizle
+      reportViewModel.resetReport();
+      messageViewModel.clearCurrentMessage();
+      homeController.resetAnalizVerileri();
+      
+      // Başarı mesajı göster
+      FeedbackUtils.showSuccessFeedback(context, 'Tüm veriler başarıyla temizlendi');
+    } catch (e) {
+      FeedbackUtils.showErrorFeedback(context, 'Hata: $e');
+    }
+  }
+
+  // Bildirim ayarlarını kaydet
+  Future<void> _saveNotificationSettings() async {
+    try {
+      // Ayarlar kaydedildiğinde geri bildirim göster
+      Navigator.of(context).pop(); // Ayarlar dialogunu kapat
+      FeedbackUtils.showToast(context, 'Bildirim ayarları kaydedildi');
+    } catch (e) {
+      FeedbackUtils.showErrorFeedback(context, 'Ayarlar kaydedilirken hata oluştu');
+    }
+  }
+
+  // Şifre değiştirme (henüz uygulanmamış)
+  void _changePassword() {
+    FeedbackUtils.showInfoDialog(
+      context,
+      title: 'Yakında',
+      message: 'Şifre değiştirme özelliği yakında eklenecek.',
     );
   }
 } 

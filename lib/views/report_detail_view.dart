@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/past_report_model.dart';
 import '../viewmodels/past_reports_viewmodel.dart';
+import '../utils/feedback_utils.dart';
 
 class ReportDetailView extends StatefulWidget {
   final String reportId;
@@ -37,11 +38,15 @@ class _ReportDetailViewState extends State<ReportDetailView> {
       _report = _viewModel.getReportById(widget.reportId);
       setState(() {});
     } catch (e) {
-      // Rapor bulunamadı
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Rapor bulunamadı: $e')),
-      );
-      context.go('/past-reports');
+      // Rapor bulunamadı - Dialog ile bildir
+      FeedbackUtils.showInfoDialog(
+        context,
+        title: 'Rapor Bulunamadı',
+        message: 'İstediğiniz rapor bulunamadı: $e',
+        buttonText: 'Geri Dön',
+      ).then((_) {
+        context.go('/past-reports');
+      });
     }
   }
   

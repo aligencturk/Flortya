@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
+import '../utils/feedback_utils.dart';
 
 class GoogleSignInButton extends StatelessWidget {
   final VoidCallback? onSuccess;
@@ -76,13 +77,13 @@ class GoogleSignInButton extends StatelessWidget {
 
       if (success && onSuccess != null) {
         onSuccess!();
+      } else if (!success) {
+        FeedbackUtils.showErrorFeedback(context, 'Google ile giriş yapılamadı. Lütfen tekrar deneyin.');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Google ile giriş yapılırken bir hata oluştu: $e'),
-          backgroundColor: Colors.red,
-        ),
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Google ile giriş yapılırken bir hata oluştu: $e',
       );
     }
   }
