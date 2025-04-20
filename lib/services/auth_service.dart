@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,11 +8,23 @@ import 'logger_service.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-    serverClientId: '850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com', // Web client ID
-  );
+  late final GoogleSignIn _googleSignIn;
   final LoggerService _logger = LoggerService();
+  
+  AuthService() {
+    // Platforma özgü Google Sign In yapılandırması
+    if (Platform.isIOS) {
+      _googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+        // iOS için clientID belirtmeyin, otomatik olarak bulacaktır
+      );
+    } else {
+      _googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+        serverClientId: '850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com', // Web client ID
+      );
+    }
+  }
 
   // Mevcut kullanıcıyı almak
   User? get currentUser => _auth.currentUser;
@@ -24,6 +37,8 @@ class AuthService {
     try {
       // Google oturum açma akışını başlat
       _logger.i('Google oturum açma akışı başlatılıyor...');
+      
+      // Google Sign In işlemleri
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {

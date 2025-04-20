@@ -69,12 +69,21 @@ class GoogleSignInButton extends StatelessWidget {
   }
 
   Future<void> _handleGoogleSignIn(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    try {
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
 
-    final success = await authViewModel.signInWithGoogle();
+      final success = await authViewModel.signInWithGoogle();
 
-    if (success && onSuccess != null) {
-      onSuccess!();
+      if (success && onSuccess != null) {
+        onSuccess!();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google ile giriş yapılırken bir hata oluştu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }
