@@ -57,7 +57,11 @@ dependencies:
   cloud_firestore: 5.6.6
   firebase_app_check: 0.3.2+5
   firebase_storage: 12.4.5
+  firebase_messaging: ^14.7.15
   google_sign_in: ^6.2.1
+  
+  # Notifications
+  flutter_local_notifications: ^16.3.1+1
   
   # State Management
   provider: ^6.1.2
@@ -80,7 +84,7 @@ dependencies:
   flutter_native_splash: ^2.4.6
   flutter_keyboard_visibility: ^6.0.0
   
-  # OCR ve Görüntü İşleme
+  # OCR ve Görüntü İşleme - Sadece Latin alfabesi desteği ile
   path_provider: ^2.1.2
   path: ^1.8.3
   google_mlkit_text_recognition: ^0.11.0

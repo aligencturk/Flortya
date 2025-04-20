@@ -21,6 +21,7 @@ import 'services/user_service.dart';
 import 'viewmodels/past_analyses_viewmodel.dart';
 import 'viewmodels/past_reports_viewmodel.dart';
 import 'package:flutter/services.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,8 +46,18 @@ void main() async {
     );
     logger.i('Firebase App Check aktifleştirildi');
     
+    // Bildirim servisini başlat
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+    logger.i('Bildirim servisi başlatıldı');
+    
     // Tarih formatları için Türkçe desteği
     await initializeDateFormatting('tr_TR');
+    
+    // Servis örnekleri
+    final firestore = FirebaseFirestore.instance;
+    final aiService = AiService();
+    final loggerService = LoggerService();
     
     runApp(
       MultiProvider(
@@ -54,7 +65,7 @@ void main() async {
           ChangeNotifierProvider<AuthViewModel>(
             create: (_) => AuthViewModel(
               authService: FirebaseAuth.instance,
-              firestore: FirebaseFirestore.instance,
+              firestore: firestore,
             ),
           ),
           ChangeNotifierProvider<MessageViewModel>(
@@ -67,12 +78,17 @@ void main() async {
             create: (_) => ReportViewModel(),
           ),
           ChangeNotifierProvider<AdviceViewModel>(
-            create: (_) => AdviceViewModel(),
+            create: (_) => AdviceViewModel(
+              firestore: firestore,
+              aiService: aiService,
+              logger: loggerService,
+              notificationService: notificationService,
+            ),
           ),
           ChangeNotifierProvider<HomeController>(
             create: (_) => HomeController(
               userService: UserService(),
-              aiService: AiService(),
+              aiService: aiService,
             ),
           ),
           ChangeNotifierProvider<PastAnalysesViewModel>(

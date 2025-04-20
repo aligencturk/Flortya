@@ -1,13 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import '../models/advice_chat.dart';
+import '../models/chat_message.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../models/analysis_result_model.dart';
+import '../services/notification_service.dart';
+import 'dart:async';
 
 class AdviceViewModel extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AiService _aiService = AiService();
-  final LoggerService _logger = LoggerService();
+  final FirebaseFirestore _firestore;
+  final AiService _aiService;
+  final LoggerService _logger;
+  final NotificationService _notificationService;
   
   Map<String, dynamic>? _adviceCard;
   bool _isLoading = false;
@@ -32,6 +38,19 @@ class AdviceViewModel extends ChangeNotifier {
   
   // Son alınan tavsiye tarihi için key
   static const String _lastAdviceDateKey = 'last_advice_date';
+
+  Timer? _dailyAdviceTimer;
+
+  // Constructor
+  AdviceViewModel({
+    required FirebaseFirestore firestore,
+    required AiService aiService,
+    required LoggerService logger,
+    required NotificationService notificationService,
+  }) : _firestore = firestore,
+       _aiService = aiService,
+       _logger = logger,
+       _notificationService = notificationService;
 
   // Günlük tavsiye kartını alma
   Future<void> getDailyAdviceCard(String userId) async {
@@ -389,5 +408,108 @@ class AdviceViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> initializeViewModel() async {
+    await fetchDailyAdvice();
+    _setupDailyAdviceRefresh();
+  }
+  
+  void _setupDailyAdviceRefresh() {
+    // Mevcut Timer'ı iptal et
+    _dailyAdviceTimer?.cancel();
+    
+    // Bugün için saat 10:00'u belirle
+    final now = DateTime.now();
+    final tenAM = DateTime(now.year, now.month, now.day, 10, 0);
+    
+    // Eğer saat 10:00'u geçtiyse, yarın için ayarla
+    Duration timeUntilTenAM;
+    if (now.isAfter(tenAM)) {
+      final tomorrow = now.add(const Duration(days: 1));
+      final tomorrowTenAM = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 10, 0);
+      timeUntilTenAM = tomorrowTenAM.difference(now);
+    } else {
+      timeUntilTenAM = tenAM.difference(now);
+    }
+    
+    _logger.i('Günlük tavsiye yenileme zamanı: ${timeUntilTenAM.inHours} saat ${timeUntilTenAM.inMinutes % 60} dakika sonra');
+    
+    // Timer'ı ayarla
+    _dailyAdviceTimer = Timer(timeUntilTenAM, () {
+      _refreshDailyAdvice();
+    });
+  }
+  
+  Future<void> _refreshDailyAdvice() async {
+    _logger.i('Günlük tavsiye kartları yenileniyor...');
+    await fetchDailyAdvice();
+    
+    // Bildirim gönder
+    _notificationService.showDailyAdviceNotification(
+      'Yeni Günlük Tavsiyeler',
+      'Bugün için yeni tavsiye kartlarınız hazır!'
+    );
+    
+    // Bir sonraki gün için timer'ı yeniden ayarla
+    _setupDailyAdviceRefresh();
+  }
+
+  // Zamanlayıcıyı başlat
+  void startDailyAdviceTimer(String userId) {
+    // Önce varsa eski timer'ı temizle
+    _dailyAdviceTimer?.cancel();
+    
+    // Her gün saat 10:00'da çalışacak bir zamanlayıcı oluştur
+    _logger.i('Günlük tavsiye kartı zamanlayıcısı başlatılıyor');
+    
+    // Sonraki saat 10:00'u hesapla
+    final now = DateTime.now();
+    final today10AM = DateTime(now.year, now.month, now.day, 10, 0);
+    
+    // Eğer saat 10:00'u geçmişsek, yarının saat 10:00'unu hedefle
+    final nextRefreshTime = now.isAfter(today10AM) 
+        ? today10AM.add(const Duration(days: 1)) 
+        : today10AM;
+    
+    // İlk tetikleme için gereken süreyi hesapla
+    final initialDelay = nextRefreshTime.difference(now);
+    
+    _logger.i('Sonraki tavsiye kartı yenilemesi: ${nextRefreshTime.toString()}');
+    
+    // İlk tetikleme için bir kerelik zamanlayıcı
+    _dailyAdviceTimer = Timer(initialDelay, () {
+      // İlk çalışmadan sonra günlük olarak tekrarla
+      refreshDailyAdviceCard(userId);
+      
+      // Günlük tekrarlanan zamanlayıcı
+      _dailyAdviceTimer = Timer.periodic(const Duration(days: 1), (_) {
+        refreshDailyAdviceCard(userId);
+      });
+    });
+  }
+  
+  // Günlük tavsiye kartını yenile
+  Future<void> refreshDailyAdviceCard(String userId) async {
+    _logger.i('Otomatik günlük tavsiye kartı yenileniyor');
+    try {
+      await getDailyAdviceCard(userId);
+      
+      // Bildirim gönder
+      _notificationService.showDailyAdviceNotification(
+        'Günlük Tavsiye Hazır!', 
+        'Bugünkü tavsiye kartın hazır. Görmek için tıkla!'
+      );
+      
+      _logger.i('Günlük tavsiye kartı başarıyla yenilendi');
+    } catch (e) {
+      _logger.e('Otomatik tavsiye kartı yenilenirken hata: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _dailyAdviceTimer?.cancel();
+    super.dispose();
   }
 }

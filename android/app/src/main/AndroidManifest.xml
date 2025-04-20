@@ -18,7 +18,7 @@
     
     <application
         android:label="my_app"
-        android:name="${applicationName}"
+        android:name=".MainApplication"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"> <!-- HTTP bağlantıları için -->
         <activity

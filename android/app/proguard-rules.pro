@@ -1,0 +1,5 @@
+-keep class com.google.mlkit.vision.text.latin.** { *; }
+-keep class com.google.android.gms.vision.** { *; }
+-keep class com.google.mlkit.vision.common.** { *; }
+-keep class com.google.mlkit.vision.text.** { *; }
+-keep class com.google.mlkit.common.** { *; } 
