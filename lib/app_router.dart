@@ -224,7 +224,7 @@ class LoginView extends StatelessWidget {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.google, size: 24),
+                            const Icon(Icons.facebook, size: 24),
                             const SizedBox(width: 12),
                             const Text(
                               'Google ile Giriş Yap',
