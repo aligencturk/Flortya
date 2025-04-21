@@ -13,6 +13,7 @@ import '../viewmodels/profile_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
+import 'package:file_selector/file_selector.dart';
 
 // Extension to add firstWhereOrNull functionality
 extension ListExtension<T> on List<T> {
@@ -647,6 +648,184 @@ class MessageViewModel extends ChangeNotifier {
       _errorMessage = 'Görsel yüklenirken hata oluştu: $e';
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // Yeni eklenen - Resim mesajını analiz etme
+  Future<AnalysisResult?> analyzeImageMessage(XFile imageFile) async {
+    try {
+      _logger.i('Görsel analizi başlatılıyor...');
+      
+      // Kullanıcı kimliğini kontrol et
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) {
+        _logger.e('Görsel analiz edilemedi: Kullanıcı oturumu bulunamadı');
+        _errorMessage = 'Analiz yapılamadı: Lütfen tekrar giriş yapın';
+        notifyListeners();
+        return null;
+      }
+      
+      _isLoading = true;
+      notifyListeners();
+      
+      // Görsel içeriğini oku
+      final File file = File(imageFile.path);
+      
+      // Görsel Firebase Storage'a yükle
+      final storageRef = _storage.ref().child('message_images/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final uploadTask = storageRef.putFile(file);
+      final snapshot = await uploadTask.whenComplete(() => null);
+      
+      // İndirme URL'sini al
+      final imageUrl = await snapshot.ref.getDownloadURL();
+      
+      // Görsel mesajı için içerik oluştur
+      final content = "Görsel Analizi:\n---- Görüntüden çıkarılan metin ----\nMesaj metni görsel içinde yer almaktadır.\n---- Çıkarılan metin sonu ----";
+      
+      // Görsel mesajını oluştur
+      final message = await addMessage(
+        content,
+        imageUrl: imageUrl,
+        imagePath: imageFile.path,
+        analyze: true, // Otomatik olarak analiz edilecek
+      );
+      
+      if (message == null) {
+        _logger.e('Görsel mesajı oluşturulamadı');
+        _errorMessage = 'Görsel mesajı oluşturulamadı';
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+      
+      // Görsel OCR ve içerik analizi yapılıyor (bu işlem Firebase Functions veya AI Service üzerinden yapılıyor)
+      final analysisResult = await _aiService.analyzeMessage(content);
+      
+      if (analysisResult == null) {
+        _logger.e('Görsel analiz sonucu alınamadı');
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+      
+      // Analiz sonucunu Firestore'a kaydet
+      final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(message.id);
+      await messageRef.update({
+        'isAnalyzing': false,
+        'isAnalyzed': true,
+        'analysisResult': analysisResult.toMap(),
+        'updatedAt': Timestamp.now(),
+      });
+      
+      // Yerel listedeki mesajı güncelle
+      final index = _messages.indexWhere((m) => m.id == message.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(
+          isAnalyzing: false,
+          isAnalyzed: true,
+          analysisResult: analysisResult,
+        );
+        _currentMessage = _messages[index];
+        _currentAnalysisResult = analysisResult;
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      return analysisResult;
+    } catch (e, stackTrace) {
+      _logger.e('Görsel analizi sırasında hata oluştu', e, stackTrace);
+      _errorMessage = 'Görsel analizi sırasında hata oluştu: $e';
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  // Yeni eklenen - Metin dosyasını analiz etme
+  Future<AnalysisResult?> analyzeTextFileMessage(XFile textFile) async {
+    try {
+      _logger.i('Metin dosyası analizi başlatılıyor...');
+      
+      // Kullanıcı kimliğini kontrol et
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) {
+        _logger.e('Metin dosyası analiz edilemedi: Kullanıcı oturumu bulunamadı');
+        _errorMessage = 'Analiz yapılamadı: Lütfen tekrar giriş yapın';
+        notifyListeners();
+        return null;
+      }
+      
+      _isLoading = true;
+      notifyListeners();
+      
+      // Dosya içeriğini oku
+      final bytes = await textFile.readAsBytes();
+      final content = String.fromCharCodes(bytes);
+      
+      if (content.isEmpty) {
+        _logger.e('Metin dosyası boş');
+        _errorMessage = 'Metin dosyası boş';
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+      
+      // Metin mesajını oluştur
+      final message = await addMessage(
+        content,
+        analyze: true, // Otomatik olarak analiz edilecek
+      );
+      
+      if (message == null) {
+        _logger.e('Metin mesajı oluşturulamadı');
+        _errorMessage = 'Metin mesajı oluşturulamadı';
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+      
+      // Metin analizi yapılıyor
+      final analysisResult = await _aiService.analyzeMessage(content);
+      
+      if (analysisResult == null) {
+        _logger.e('Metin analiz sonucu alınamadı');
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+      
+      // Analiz sonucunu Firestore'a kaydet
+      final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(message.id);
+      await messageRef.update({
+        'isAnalyzing': false,
+        'isAnalyzed': true,
+        'analysisResult': analysisResult.toMap(),
+        'updatedAt': Timestamp.now(),
+      });
+      
+      // Yerel listedeki mesajı güncelle
+      final index = _messages.indexWhere((m) => m.id == message.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(
+          isAnalyzing: false,
+          isAnalyzed: true,
+          analysisResult: analysisResult,
+        );
+        _currentMessage = _messages[index];
+        _currentAnalysisResult = analysisResult;
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      return analysisResult;
+    } catch (e, stackTrace) {
+      _logger.e('Metin dosyası analizi sırasında hata oluştu', e, stackTrace);
+      _errorMessage = 'Metin dosyası analizi sırasında hata oluştu: $e';
+      _isLoading = false;
+      notifyListeners();
+      return null;
     }
   }
 

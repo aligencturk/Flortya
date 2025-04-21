@@ -14,6 +14,7 @@ import 'views/past_reports_view.dart';
 import 'views/analysis_detail_view.dart';
 import 'views/report_detail_view.dart';
 import 'views/consultation_view.dart';
+import 'utils/utils.dart';
 
 // Placeholder Widgets for new routes
 class AccountSettingsView extends StatelessWidget {
@@ -1265,6 +1266,7 @@ class AppRouter {
       initialLocation: onboarding,
       debugLogDiagnostics: true,
       refreshListenable: authViewModel,
+      navigatorKey: Utils.navigatorKey,
       redirect: (context, state) async {
         final bool isLoggedIn = authViewModel.isLoggedIn;
         final bool isInitialized = authViewModel.isInitialized;

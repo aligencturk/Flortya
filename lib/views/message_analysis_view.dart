@@ -7,11 +7,14 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../utils/feedback_utils.dart';
 import '../models/message.dart';
+import '../utils/utils.dart';
+import '../app_router.dart';
 
 // Mesaj sınıfı için extension
 extension MessageExtension on Message {
@@ -377,29 +380,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     const SizedBox(height: 20),
                     
                     // Yükleme kartları
-                    Row(
-                      children: [
-                        // Görsel Yükleme Kartı
-                        Expanded(
-                          child: _buildUploadCard(
-                            icon: Icons.image_outlined,
-                            title: 'Görsel Yükle',
-                            subtitle: 'Ekran görüntüsü veya mesaj fotoğrafı yükleyin',
-                            onTap: () => _pickImage(context),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Metin Dosyası Yükleme Kartı
-                        Expanded(
-                          child: _buildUploadCard(
-                            icon: Icons.text_snippet_outlined,
-                            title: 'Metin Yükle',
-                            subtitle: '.txt dosyası yükleyin',
-                            onTap: () => _pickTextFile(context),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildUploadCards(),
                     
                     const SizedBox(height: 20),
                     
@@ -433,220 +414,328 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
   
-  // Yükleme kartı oluşturucu
-  Widget _buildUploadCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      color: Colors.white.withOpacity(0.07),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildUploadCards() {
+    final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          const Text(
+            'Mesaj Analizi İçin Kaynak Seçin',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
             children: [
-              Icon(
-                icon,
-                size: 40,
-                color: const Color(0xFF9D3FFF),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              Expanded(
+                child: _buildUploadCard(
+                  title: 'Görsel Yükle',
+                  subtitle: 'Ekran görüntüsü yükle',
+                  icon: Icons.image_outlined,
+                  onTap: _pickImage,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 12,
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildUploadCard(
+                  title: 'Metin Yükle',
+                  subtitle: '.txt dosyası yükle',
+                  icon: Icons.description_outlined,
+                  onTap: _pickTextFile,
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Yükle kartı widget'ı
+  Widget _buildUploadCard({
+    required String title, 
+    required String subtitle, 
+    required IconData icon, 
+    required VoidCallback onTap
+  }) {
+    return SizedBox(
+      height: 150, // Sabit yükseklik belirle
+      child: Card(
+        color: const Color(0xFF352269),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF9D3FFF), width: 1),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: Colors.white.withOpacity(0.9),
+                  size: 32,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
   
-  // Görsel seçme işlemi
-  Future<void> _pickImage(BuildContext context) async {
+  Future<void> _pickImage() async {
+    final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    if (authViewModel.user == null) {
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Lütfen önce giriş yapın'
+      );
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
     try {
-      // XFile tipinde görsel seçme
-      final XTypeGroup typeGroup = XTypeGroup(
+      // XTypeGroup ile resim dosya tipleri tanımlama
+      final XTypeGroup imageTypeGroup = XTypeGroup(
         label: 'Görseller',
-        extensions: ['jpg', 'jpeg', 'png'],
+        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+        mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+        uniformTypeIdentifiers: ['public.image'],
       );
       
-      final XFile? image = await openFile(
-        acceptedTypeGroups: [typeGroup],
+      // file_selector ile dosya seçimi
+      final XFile? pickedFile = await openFile(
+        acceptedTypeGroups: [imageTypeGroup],
       );
       
-      if (image == null) {
-        // Kullanıcı dosya seçmedi
-        return;
-      }
+      setState(() => _isLoading = false);
       
-      // Dosyanın boyutunu kontrol etme
-      final fileStat = await File(image.path).stat();
-      final fileSize = fileStat.size / (1024 * 1024); // MB cinsinden
-      
-      if (fileSize > 5) {
-        // Dosya çok büyük
-        if (!mounted) return;
-        FeedbackUtils.showWarningFeedback(
-          context, 
-          'Dosya boyutu çok büyük. Lütfen 5 MB\'den küçük bir görsel seçin.'
-        );
-        return;
-      }
-      
-      // Mesaj model'ine görsel yükleme işlemi
-      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      
-      if (authViewModel.user == null) {
-        if (!mounted) return;
+      // Kullanıcı dosya seçmediyse
+      if (pickedFile == null) {
+        debugPrint('_pickImage: Görsel seçilmedi');
         FeedbackUtils.showErrorFeedback(
           context, 
-          'Görsel yüklemek için lütfen giriş yapın'
+          'Görsel seçilmedi'
         );
         return;
       }
       
-      setState(() {
-        _isLoading = true;
-      });
+      debugPrint('_pickImage: Seçilen görsel yolu: ${pickedFile.path}');
       
-      // Görsel işleme ve analiz için yeni bir mesaj oluştur
-      final newMessage = await messageViewModel.addMessage(
-        'Görsel analizi', 
-        imageUrl: null, 
-        imagePath: null,
-        analyze: false, // İlk aşamada analiz etmiyoruz
-      );
-      
-      if (newMessage != null) {
-        // Görseli yükle
-        await messageViewModel.uploadMessageImage(newMessage.id, File(image.path));
+      // Dosya erişimi ve boyut kontrolü
+      try {
+        final File file = File(pickedFile.path);
+        final bool fileExists = await file.exists();
         
-        // Görseli analiz et
-        await messageViewModel.analyzeMessage(newMessage.id);
+        if (!fileExists) {
+          debugPrint('_pickImage: Seçilen dosya bulunamadı: ${pickedFile.path}');
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Seçilen görsel dosyasına erişilemiyor'
+          );
+          return;
+        }
         
-        if (!mounted) return;
-        FeedbackUtils.showSuccessFeedback(
-          context, 
-          'Görsel yüklendi ve analiz edildi'
-        );
-      } else {
-        if (!mounted) return;
+        final int fileSize = await file.length();
+        if (fileSize > 10 * 1024 * 1024) {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Dosya boyutu 10MB\'dan küçük olmalıdır'
+          );
+          return;
+        }
+      } catch (fileError) {
+        debugPrint('_pickImage: Dosya kontrol hatası: $fileError');
         FeedbackUtils.showErrorFeedback(
           context, 
-          'Görsel yüklenirken bir hata oluştu'
+          'Görsel dosyası kontrol edilirken hata oluştu: $fileError'
+        );
+        return;
+      }
+      
+      setState(() => _isLoading = true);
+      
+      try {
+        // Görsel için yeni bir mesaj oluştur
+        await viewModel.addMessage(
+          'Görsel analizi',
+          analyze: false,
+          imageUrl: null,
+          imagePath: pickedFile.path,
+        );
+        
+        // Görsel OCR ile analiz et
+        final result = await viewModel.analyzeImageMessage(pickedFile);
+        
+        setState(() => _isLoading = false);
+        
+        if (result != null) {
+          FeedbackUtils.showSuccessFeedback(
+            context, 
+            'Görsel başarıyla analiz edildi'
+          );
+        } else {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Görsel analiz edilirken bir hata oluştu'
+          );
+        }
+      } catch (analysisError) {
+        setState(() => _isLoading = false);
+        debugPrint('_pickImage analiz hatası: $analysisError');
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Görsel analiz işlemi sırasında hata: $analysisError'
         );
       }
     } catch (e) {
-      if (!mounted) return;
+      setState(() => _isLoading = false);
+      debugPrint('_pickImage genel hata: $e');
       FeedbackUtils.showErrorFeedback(
         context, 
-        'Görsel seçilirken bir hata oluştu: $e'
+        'Görsel seçme işlemi sırasında hata: $e'
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
   
-  // Metin dosyası seçme işlemi
-  Future<void> _pickTextFile(BuildContext context) async {
-    try {
-      // XFile tipinde metin dosyası seçme
-      final XTypeGroup typeGroup = XTypeGroup(
-        label: 'Metin Dosyaları',
-        extensions: ['txt'],
-      );
-      
-      final XFile? textFile = await openFile(
-        acceptedTypeGroups: [typeGroup],
-      );
-      
-      if (textFile == null) {
-        // Kullanıcı dosya seçmedi
-        return;
-      }
-      
-      // Dosya içeriğini okuma
-      final String content = await textFile.readAsString();
-      
-      if (content.isEmpty) {
-        if (!mounted) return;
-        FeedbackUtils.showWarningFeedback(
-          context, 
-          'Seçtiğiniz dosya boş. Lütfen içerik olan bir dosya seçin.'
-        );
-        return;
-      }
-      
-      // Mesaj model'ine metin dosyası yükleme işlemi
-      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      
-      if (authViewModel.user == null) {
-        if (!mounted) return;
-        FeedbackUtils.showErrorFeedback(
-          context, 
-          'Metin dosyası yüklemek için lütfen giriş yapın'
-        );
-        return;
-      }
-      
-      setState(() {
-        _isLoading = true;
-      });
-      
-      // Mesaj ekleme
-      await messageViewModel.addMessage(
-        content, 
-        imageUrl: null,
-        imagePath: null,
-        analyze: true,
-      );
-      
-      if (!mounted) return;
-      FeedbackUtils.showSuccessFeedback(
-        context, 
-        'Metin dosyası içeriği yüklendi ve analiz edilecek'
-      );
-      
-    } catch (e) {
-      if (!mounted) return;
+  Future<void> _pickTextFile() async {
+    final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    if (authViewModel.user == null) {
       FeedbackUtils.showErrorFeedback(
         context, 
-        'Metin dosyası okunurken bir hata oluştu: $e'
+        'Lütfen önce giriş yapın'
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      // XTypeGroup ile metin dosya tipleri tanımlama
+      final XTypeGroup textTypeGroup = XTypeGroup(
+        label: 'Metin dosyaları',
+        extensions: ['txt'],
+        mimeTypes: ['text/plain'],
+        uniformTypeIdentifiers: ['public.plain-text'],
+      );
+      
+      // file_selector ile dosya seçimi
+      final XFile? pickedFile = await openFile(
+        acceptedTypeGroups: [textTypeGroup],
+      );
+      
+      setState(() => _isLoading = false);
+      
+      // Kullanıcı dosya seçmediyse
+      if (pickedFile == null) {
+        debugPrint('_pickTextFile: Metin dosyası seçilmedi');
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Metin dosyası seçilmedi'
+        );
+        return;
       }
+      
+      debugPrint('_pickTextFile: Seçilen dosya yolu: ${pickedFile.path}');
+      
+      // Dosya erişimi ve boyut kontrolü
+      try {
+        final File file = File(pickedFile.path);
+        final bool fileExists = await file.exists();
+        
+        if (!fileExists) {
+          debugPrint('_pickTextFile: Seçilen dosya bulunamadı: ${pickedFile.path}');
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Seçilen metin dosyasına erişilemiyor'
+          );
+          return;
+        }
+        
+        final int fileSize = await file.length();
+        if (fileSize > 5 * 1024 * 1024) {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Dosya boyutu 5MB\'dan küçük olmalıdır'
+          );
+          return;
+        }
+      } catch (fileError) {
+        debugPrint('_pickTextFile: Dosya kontrol hatası: $fileError');
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Metin dosyası kontrol edilirken hata oluştu: $fileError'
+        );
+        return;
+      }
+      
+      setState(() => _isLoading = true);
+      
+      try {
+        // Metin dosyasını analiz et
+        final result = await viewModel.analyzeTextFileMessage(pickedFile);
+        
+        setState(() => _isLoading = false);
+        
+        if (result != null) {
+          FeedbackUtils.showSuccessFeedback(
+            context, 
+            'Metin başarıyla analiz edildi'
+          );
+        } else {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Metin analiz edilirken bir hata oluştu'
+          );
+        }
+      } catch (analysisError) {
+        setState(() => _isLoading = false);
+        debugPrint('_pickTextFile analiz hatası: $analysisError');
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Metin analiz işlemi sırasında hata: $analysisError'
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint('_pickTextFile genel hata: $e');
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Metin dosyası seçme işlemi sırasında hata: $e'
+      );
     }
   }
   

@@ -24,6 +24,7 @@ import 'viewmodels/past_analyses_viewmodel.dart';
 import 'viewmodels/past_reports_viewmodel.dart';
 import 'package:flutter/services.dart';
 import 'services/notification_service.dart';
+import 'utils/utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
