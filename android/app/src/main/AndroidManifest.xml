@@ -8,8 +8,6 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <!-- Harici depolama okuma izni (Firebase Storage için) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <!-- Harici depolama yazma izni (Firebase Storage için) -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <!-- Kamera izni (gerekirse) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Kamera donanımının gerekli olmadığını belirt -->
