@@ -6,8 +6,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Wifi bağlantısını kontrol etme izni -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
-    <!-- Harici depolama okuma izni (Firebase Storage için) -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <!-- Kamera izni (gerekirse) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Kamera donanımının gerekli olmadığını belirt -->
@@ -15,7 +13,6 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <!-- Bildirimler için izinler -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
