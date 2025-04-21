@@ -523,7 +523,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       return;
     }
     
-    setState(() => _isLoading = true);
+    // Analiz durumu takibi için yeni değişken
+    bool isProcessing = false;
+    setState(() {
+      isProcessing = true;
+      _isLoading = true;
+    });
     
     try {
       // XTypeGroup ile resim dosya tipleri tanımlama
@@ -539,7 +544,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         acceptedTypeGroups: [imageTypeGroup],
       );
       
-      setState(() => _isLoading = false);
+      // Loading durumunu güncelle - dosya seçimi tamamlandı
+      setState(() {
+        isProcessing = false;
+        _isLoading = false;
+      });
       
       // Kullanıcı dosya seçmediyse
       if (pickedFile == null) {
@@ -553,7 +562,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       debugPrint('_pickImage: Seçilen görsel yolu: ${pickedFile.path}');
       
-      // Dosya erişimi ve boyut kontrolü
+      // Loading state'ini güncelle - analiz başlıyor
+      setState(() {
+        isProcessing = true;
+        _isLoading = true;
+      });
+      
+      // Dosya geçerlilik kontrolü
       try {
         final File file = File(pickedFile.path);
         final bool fileExists = await file.exists();
@@ -564,6 +579,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             context, 
             'Seçilen görsel dosyasına erişilemiyor'
           );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
           return;
         }
         
@@ -573,6 +592,24 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             context, 
             'Dosya boyutu 10MB\'dan küçük olmalıdır'
           );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // Dosya uzantısını kontrol et
+        final String extension = pickedFile.path.split('.').last.toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension)) {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Desteklenmeyen dosya formatı. Lütfen bir görsel seçin.'
+          );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
           return;
         }
       } catch (fileError) {
@@ -581,51 +618,60 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           context, 
           'Görsel dosyası kontrol edilirken hata oluştu: $fileError'
         );
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+        });
         return;
       }
       
-      setState(() => _isLoading = true);
+      // Önceki analiz işlemlerini sıfırla
+      viewModel.resetCurrentAnalysis();
       
-      try {
-        // Görsel için yeni bir mesaj oluştur
-        await viewModel.addMessage(
-          'Görsel analizi',
-          analyze: false,
-          imageUrl: null,
-          imagePath: pickedFile.path,
+      // XFile'ı File'a dönüştür
+      final File imageFile = File(pickedFile.path);
+      
+      // Görsel OCR ve analiz işlemi başlatılıyor
+      final bool result = await viewModel.analyzeImageMessage(imageFile);
+      
+      // Analiz tamamlandı - tüm State'leri temizle
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+        });
+      }
+      
+      if (result) {
+        FeedbackUtils.showSuccessFeedback(
+          context, 
+          'Görsel başarıyla analiz edildi'
         );
         
-        // Görsel OCR ile analiz et
-        final result = await viewModel.analyzeImageMessage(pickedFile);
-        
-        setState(() => _isLoading = false);
-        
-        if (result != null) {
-          FeedbackUtils.showSuccessFeedback(
-            context, 
-            'Görsel başarıyla analiz edildi'
-          );
-        } else {
-          FeedbackUtils.showErrorFeedback(
-            context, 
-            'Görsel analiz edilirken bir hata oluştu'
-          );
+        // Belirli bir süre sonra mesaj listesini yenile
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          await _loadMessages();
         }
-      } catch (analysisError) {
-        setState(() => _isLoading = false);
-        debugPrint('_pickImage analiz hatası: $analysisError');
+      } else {
         FeedbackUtils.showErrorFeedback(
           context, 
-          'Görsel analiz işlemi sırasında hata: $analysisError'
+          'Görsel analiz edilirken bir hata oluştu'
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      debugPrint('_pickImage genel hata: $e');
-      FeedbackUtils.showErrorFeedback(
-        context, 
-        'Görsel seçme işlemi sırasında hata: $e'
-      );
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+        });
+        
+        debugPrint('_pickImage genel hata: $e');
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Görsel seçme işlemi sırasında hata: $e'
+        );
+      }
     }
   }
   
@@ -641,7 +687,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       return;
     }
     
-    setState(() => _isLoading = true);
+    // Analiz durumu takibi
+    bool isProcessing = false;
+    setState(() {
+      isProcessing = true;
+      _isLoading = true;
+    });
     
     try {
       // XTypeGroup ile metin dosya tipleri tanımlama
@@ -657,7 +708,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         acceptedTypeGroups: [textTypeGroup],
       );
       
-      setState(() => _isLoading = false);
+      // Loading durumunu güncelle - dosya seçimi tamamlandı
+      setState(() {
+        isProcessing = false;
+        _isLoading = false;
+      });
       
       // Kullanıcı dosya seçmediyse
       if (pickedFile == null) {
@@ -671,7 +726,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       debugPrint('_pickTextFile: Seçilen dosya yolu: ${pickedFile.path}');
       
-      // Dosya erişimi ve boyut kontrolü
+      // Loading state'ini güncelle - analiz başlıyor
+      setState(() {
+        isProcessing = true;
+        _isLoading = true;
+      });
+      
+      // Dosya geçerlilik kontrolü
       try {
         final File file = File(pickedFile.path);
         final bool fileExists = await file.exists();
@@ -682,6 +743,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             context, 
             'Seçilen metin dosyasına erişilemiyor'
           );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
           return;
         }
         
@@ -691,6 +756,38 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             context, 
             'Dosya boyutu 5MB\'dan küçük olmalıdır'
           );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // Dosya uzantısını kontrol et
+        final String extension = pickedFile.path.split('.').last.toLowerCase();
+        if (extension != 'txt') {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Desteklenmeyen dosya formatı. Lütfen bir .txt dosyası seçin.'
+          );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // Dosya içeriğini oku ve kontrol et (opsiyonel)
+        final String content = await file.readAsString();
+        if (content.trim().isEmpty) {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Seçilen metin dosyası boş'
+          );
+          setState(() {
+            isProcessing = false;
+            _isLoading = false;
+          });
           return;
         }
       } catch (fileError) {
@@ -699,43 +796,57 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           context, 
           'Metin dosyası kontrol edilirken hata oluştu: $fileError'
         );
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+        });
         return;
       }
       
-      setState(() => _isLoading = true);
+      // Önceki analiz işlemlerini sıfırla
+      viewModel.resetCurrentAnalysis();
       
-      try {
-        // Metin dosyasını analiz et
-        final result = await viewModel.analyzeTextFileMessage(pickedFile);
+      // Metin dosyası analiz işlemi başlatılıyor
+      final result = await viewModel.analyzeTextFileMessage(pickedFile);
+      
+      // Analiz tamamlandı - state'leri temizle
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+        });
+      }
+      
+      if (result != null) {
+        FeedbackUtils.showSuccessFeedback(
+          context, 
+          'Metin başarıyla analiz edildi'
+        );
         
-        setState(() => _isLoading = false);
-        
-        if (result != null) {
-          FeedbackUtils.showSuccessFeedback(
-            context, 
-            'Metin başarıyla analiz edildi'
-          );
-        } else {
-          FeedbackUtils.showErrorFeedback(
-            context, 
-            'Metin analiz edilirken bir hata oluştu'
-          );
+        // Belirli bir süre sonra mesaj listesini yenile
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          await _loadMessages();
         }
-      } catch (analysisError) {
-        setState(() => _isLoading = false);
-        debugPrint('_pickTextFile analiz hatası: $analysisError');
+      } else {
         FeedbackUtils.showErrorFeedback(
           context, 
-          'Metin analiz işlemi sırasında hata: $analysisError'
+          'Metin analiz edilirken bir hata oluştu'
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      debugPrint('_pickTextFile genel hata: $e');
-      FeedbackUtils.showErrorFeedback(
-        context, 
-        'Metin dosyası seçme işlemi sırasında hata: $e'
-      );
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+        });
+        
+        debugPrint('_pickTextFile genel hata: $e');
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Metin dosyası seçme işlemi sırasında hata: $e'
+        );
+      }
     }
   }
   

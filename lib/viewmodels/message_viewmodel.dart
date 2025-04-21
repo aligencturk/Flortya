@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/message.dart';
-import '../models/analysis_result_model.dart';
+import '../models/analysis_result_model.dart' as analysis;
 import '../models/user_model.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
@@ -14,6 +14,10 @@ import '../controllers/home_controller.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
 import 'package:file_selector/file_selector.dart';
+import '../services/ocr_service.dart';
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 
 // Extension to add firstWhereOrNull functionality
 extension ListExtension<T> on List<T> {
@@ -39,14 +43,14 @@ class MessageViewModel extends ChangeNotifier {
   
   List<Message> _messages = [];
   Message? _currentMessage;
-  AnalysisResult? _currentAnalysisResult;
+  analysis.AnalysisResult? _currentAnalysisResult;
   bool _isLoading = false;
   String? _errorMessage;
 
   // Getters
   List<Message> get messages => _messages;
   Message? get currentMessage => _currentMessage;
-  AnalysisResult? get currentAnalysisResult => _currentAnalysisResult;
+  analysis.AnalysisResult? get currentAnalysisResult => _currentAnalysisResult;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasCurrentMessage => _currentMessage != null;
@@ -55,7 +59,7 @@ class MessageViewModel extends ChangeNotifier {
 
   // Mesajları yükleme işlemi
   Future<void> loadMessages(String userId) async {
-    // İlk yükleme denemesi zaten yapıldıysa veya şu anda yükleniyorsa tekrar yapma
+    // İlk yükleme denemesi zaten yapıldıysa veya şu anda yükleniyorsa tekrar yükleme atlanıyor.
     if (_isFirstLoadCompleted || _isLoading) {
       _logger.i('İlk yükleme denemesi yapıldı veya zaten yükleniyor, tekrar yükleme atlanıyor.');
       return;
@@ -526,7 +530,7 @@ class MessageViewModel extends ChangeNotifier {
   }
 
   // Analiz sonucunu kullanıcı profiline kaydetme
-  Future<void> _updateUserProfileWithAnalysis(String userId, AnalysisResult analysisResult) async {
+  Future<void> _updateUserProfileWithAnalysis(String userId, analysis.AnalysisResult analysisResult) async {
     try {
       _logger.i('Analiz sonucu kullanıcı profiline kaydediliyor: $userId');
       
@@ -651,99 +655,197 @@ class MessageViewModel extends ChangeNotifier {
     }
   }
 
-  // Yeni eklenen - Resim mesajını analiz etme
-  Future<AnalysisResult?> analyzeImageMessage(XFile imageFile) async {
+  // Resim mesajını analiz etme
+  Future<bool> analyzeImageMessage(File imageFile, {String receiverId = '', String messageType = 'image', String? replyMessageId, String? otherUserId}) async {
     try {
       _logger.i('Görsel analizi başlatılıyor...');
-      
-      // Kullanıcı kimliğini kontrol et
-      final userId = _authService.currentUser?.uid;
-      if (userId == null) {
-        _logger.e('Görsel analiz edilemedi: Kullanıcı oturumu bulunamadı');
-        _errorMessage = 'Analiz yapılamadı: Lütfen tekrar giriş yapın';
-        notifyListeners();
-        return null;
-      }
-      
       _isLoading = true;
+      _errorMessage = null;
       notifyListeners();
       
-      // Görsel içeriğini oku
-      final File file = File(imageFile.path);
-      
-      // Görsel Firebase Storage'a yükle
-      final storageRef = _storage.ref().child('message_images/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      final uploadTask = storageRef.putFile(file);
-      final snapshot = await uploadTask.whenComplete(() => null);
-      
-      // İndirme URL'sini al
-      final imageUrl = await snapshot.ref.getDownloadURL();
-      
-      // Görsel mesajı için içerik oluştur
-      final content = "Görsel Analizi:\n---- Görüntüden çıkarılan metin ----\nMesaj metni görsel içinde yer almaktadır.\n---- Çıkarılan metin sonu ----";
-      
-      // Görsel mesajını oluştur
-      final message = await addMessage(
-        content,
-        imageUrl: imageUrl,
-        imagePath: imageFile.path,
-        analyze: true, // Otomatik olarak analiz edilecek
-      );
-      
-      if (message == null) {
-        _logger.e('Görsel mesajı oluşturulamadı');
-        _errorMessage = 'Görsel mesajı oluşturulamadı';
+      // Kullanıcı kimlik kontrolü
+      final String? userId = _authService.currentUser?.uid;
+      if (userId == null) {
+        _logger.e('Kullanıcı giriş yapmamış, görsel analizi yapılamıyor');
+        _errorMessage = 'Lütfen önce giriş yapınız';
         _isLoading = false;
         notifyListeners();
-        return null;
+        return false;
       }
       
-      // Görsel OCR ve içerik analizi yapılıyor (bu işlem Firebase Functions veya AI Service üzerinden yapılıyor)
-      final analysisResult = await _aiService.analyzeMessage(content);
-      
-      if (analysisResult == null) {
-        _logger.e('Görsel analiz sonucu alınamadı');
+      // Dosya kontrolü
+      if (!await imageFile.exists()) {
+        _logger.e('Görsel dosyası bulunamadı: ${imageFile.path}');
+        _errorMessage = 'Görsel dosyası bulunamadı';
         _isLoading = false;
         notifyListeners();
-        return null;
+        return false;
       }
       
-      // Analiz sonucunu Firestore'a kaydet
-      final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(message.id);
-      await messageRef.update({
-        'isAnalyzing': false,
-        'isAnalyzed': true,
-        'analysisResult': analysisResult.toMap(),
-        'updatedAt': Timestamp.now(),
-      });
+      // Dosya bilgilerini logla
+      final fileStats = await imageFile.stat();
+      _logger.i('Görsel analizi başlatıldı: ${imageFile.path}');
+      _logger.i('Görsel boyutu: ${(fileStats.size / 1024).toStringAsFixed(2)} KB');
       
-      // Yerel listedeki mesajı güncelle
-      final index = _messages.indexWhere((m) => m.id == message.id);
-      if (index != -1) {
-        _messages[index] = _messages[index].copyWith(
-          isAnalyzing: false,
-          isAnalyzed: true,
-          analysisResult: analysisResult,
-        );
-        _currentMessage = _messages[index];
-        _currentAnalysisResult = analysisResult;
+      // OCR servisi örneği oluştur
+      final OCRService ocrService = OCRService();
+      
+      // OCR ile metin çıkarma işlemi
+      _logger.i('OCR işlemi başlatılıyor...');
+      String? extractedText = await ocrService.extractTextFromImage(imageFile);
+      
+      if (extractedText == null || extractedText.isEmpty) {
+        _logger.e('OCR servisi metin çıkaramadı');
+        extractedText = "---- Görüntüden çıkarılan metin ----\n[Görüntüden metin çıkarılamadı]\n---- Çıkarılan metin sonu ----";
       }
       
+      _logger.i('OCR işlemi tamamlandı, çıkarılan metin uzunluğu: ${extractedText.length} karakter');
+      _logger.i('OCR sonucu (ilk 100 karakter): ${extractedText.length > 100 ? extractedText.substring(0, 100) + '...' : extractedText}');
+      
+      // Firebase Storage'a görsel yükleme
+      _logger.i('Görsel Firebase Storage\'a yükleniyor...');
+      final String imageUrl = await _storage.ref().child('messages/${DateTime.now().millisecondsSinceEpoch}.jpg').putFile(imageFile).then((taskSnapshot) => taskSnapshot.ref.getDownloadURL());
+      _logger.i('Görsel yüklendi: $imageUrl');
+      
+      // Rastgele mesaj ID oluştur
+      final String messageId = 'msg_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(10000)}';
+      
+      final Timestamp timestamp = Timestamp.now();
+      
+      // Mesaj oluşturma
+      final Map<String, dynamic> messageData = {
+        'id': messageId,
+        'content': extractedText,
+        'imageUrl': imageUrl,
+        'timestamp': timestamp,
+        'sentAt': timestamp,
+        'userId': userId,
+        'sentByUser': true,
+        'isAnalyzed': false,
+        'isAnalyzing': true,
+        'receiverId': receiverId,
+        'messageType': messageType,
+        'replyMessageId': replyMessageId,
+      };
+      
+      // Firestore'a mesajı ekleme
+      _logger.i('Mesaj Firestore\'a ekleniyor...');
+      DocumentReference docRef = await _firestore.collection('users').doc(userId).collection('messages').add(messageData);
+      _logger.i('Mesaj Firestore\'a eklendi: ${docRef.id}');
+      
+      // Mesaj nesnesini oluştur
+      Message message = Message.fromMap(messageData, docId: docRef.id);
+      
+      // Yerel listeye ekle
+      _messages.add(message);
+      _currentMessage = message;
+      notifyListeners();
+      
+      // AI analizi için içerik hazırlama
+      String aiAnalysisContent = '';
+      if (extractedText.isNotEmpty) {
+        _logger.i('AI analizi için içerik hazırlanıyor...');
+        
+        // Çıkarılan metni analiz et
+        aiAnalysisContent = 'Görüntüden çıkarılan metin: $extractedText\n\n';
+        
+        _logger.i('AI analizi için içerik hazırlandı, uzunluk: ${aiAnalysisContent.length} karakter');
+        _logger.d('AI analizi için içerik (ilk 100 karakter): ${aiAnalysisContent.length > 100 ? aiAnalysisContent.substring(0, 100) + '...' : aiAnalysisContent}');
+        
+        // Görsel analizinden çıkarılan metni ilet 
+        analysis.AnalysisResult? analysisResult = await _aiService.analyzeMessage(aiAnalysisContent);
+        
+        if (analysisResult != null) {
+          _logger.i('AI mesaj analizi tamamlandı, sonuç alındı');
+          
+          // Analiz sonucunu Firestore'a kaydet
+          await docRef.update({
+            'analysisResult': analysisResult.toMap(),
+            'isAnalyzing': false,
+            'isAnalyzed': true,
+            'updatedAt': Timestamp.now(),
+          });
+          
+          // Yerel listedeki mesajı güncelle
+          final index = _messages.indexWhere((m) => m.id == docRef.id);
+          if (index != -1) {
+            _messages[index] = _messages[index].copyWith(
+              isAnalyzing: false,
+              isAnalyzed: true,
+              analysisResult: analysisResult,
+            );
+            _currentMessage = _messages[index];
+            _currentAnalysisResult = analysisResult;
+          }
+          
+          _logger.i('Analiz sonucu Firestore\'a kaydedildi');
+          return true;
+        } else {
+          _logger.w('AI mesaj analizi sonuç döndürmedi');
+          
+          // Analiz başarısız olduğunda güncelleme yap
+          await docRef.update({
+            'isAnalyzing': false,
+            'isAnalyzed': true,
+            'errorMessage': 'Analiz sonucu alınamadı',
+            'updatedAt': Timestamp.now(),
+          });
+          
+          // Yerel listedeki mesajı güncelle
+          final index = _messages.indexWhere((m) => m.id == docRef.id);
+          if (index != -1) {
+            _messages[index] = _messages[index].copyWith(
+              isAnalyzing: false,
+              isAnalyzed: true,
+              errorMessage: 'Analiz sonucu alınamadı',
+            );
+            _currentMessage = _messages[index];
+          }
+          return false;
+        }
+      } else {
+        _logger.w('OCR ile metin çıkarılamadı, AI analizi yapılamadı');
+        
+        // OCR başarısız olduğunda güncelleme yap
+        await docRef.update({
+          'isAnalyzing': false,
+          'isAnalyzed': true,
+          'errorMessage': 'Görüntüden metin çıkarılamadı',
+          'updatedAt': Timestamp.now(),
+        });
+        
+        // Yerel listedeki mesajı güncelle
+        final index = _messages.indexWhere((m) => m.id == docRef.id);
+        if (index != -1) {
+          _messages[index] = _messages[index].copyWith(
+            isAnalyzing: false,
+            isAnalyzed: true,
+            errorMessage: 'Görüntüden metin çıkarılamadı',
+          );
+          _currentMessage = _messages[index];
+        }
+        return false;
+      }
+      
+      // İşlem tamamlandı
       _isLoading = false;
+      _errorMessage = null;
       notifyListeners();
       
-      return analysisResult;
+      _logger.i('Görsel analizi tamamlandı');
+      
     } catch (e, stackTrace) {
-      _logger.e('Görsel analizi sırasında hata oluştu', e, stackTrace);
-      _errorMessage = 'Görsel analizi sırasında hata oluştu: $e';
+      _logger.e('Görsel analizi sırasında hata oluştu: $e');
+      _logger.e('Stack trace: $stackTrace');
+      _errorMessage = 'Görsel analizi sırasında hata: $e';
       _isLoading = false;
       notifyListeners();
-      return null;
+      return false;
     }
   }
 
   // Yeni eklenen - Metin dosyasını analiz etme
-  Future<AnalysisResult?> analyzeTextFileMessage(XFile textFile) async {
+  Future<analysis.AnalysisResult?> analyzeTextFileMessage(XFile textFile) async {
     try {
       _logger.i('Metin dosyası analizi başlatılıyor...');
       
@@ -830,7 +932,7 @@ class MessageViewModel extends ChangeNotifier {
   }
 
   // Mesaj analiz sonucunu alma
-  Future<AnalysisResult?> getAnalysisResult(String messageId) async {
+  Future<analysis.AnalysisResult?> getAnalysisResult(String messageId) async {
     // ID boş kontrolü ekle
     if (messageId.isEmpty) {
       _errorMessage = 'Geçersiz mesaj ID';
@@ -881,7 +983,7 @@ class MessageViewModel extends ChangeNotifier {
           .get();
       
       if (doc.exists) {
-        // Doküman verilerini al ve ID değerini ekle
+        // Doküman verilerini al ve ID değerini ekleyerek mesaj oluştur
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         // Document ID'yi map'e ekle
         data['id'] = doc.id;
@@ -1089,5 +1191,13 @@ class MessageViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  // Mevcut analiz işlemlerini sıfırla
+  void resetCurrentAnalysis() {
+    _logger.i('Mevcut analiz durumu sıfırlanıyor');
+    _currentMessage = null;
+    _currentAnalysisResult = null;
+    notifyListeners();
   }
 } 
