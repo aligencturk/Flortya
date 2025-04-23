@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../models/message.dart';
 import '../models/analysis_result_model.dart' as analysis;
 import '../models/user_model.dart';
+import '../models/analysis_type.dart'; // Analysis tipi için import
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
@@ -577,19 +578,19 @@ class MessageViewModel extends ChangeNotifier {
         if (context != null && context.mounted) {
           try {
             final homeController = Provider.of<HomeController>(context, listen: false);
-            await homeController.analizSonucuIleGuncelle(analizSonucu);
-            _logger.i('Ana sayfa başarıyla güncellendi');
+            await homeController.anaSayfayiGuncelle(); // HomeController'ın mevcut metodunu kullan
+            _logger.i('Ana sayfa yeni analiz sonucuyla güncellendi');
           } catch (e) {
-            _logger.e('HomeController ile güncelleme hatası: $e');
+            _logger.w('HomeController ile güncelleme hatası: $e');
           }
         } else {
           _logger.w('Context null veya artık geçerli değil');
         }
       } catch (e) {
-        _logger.e('Ana sayfa güncellenirken hata oluştu', e);
+        _logger.w('Ana sayfa güncellenirken hata oluştu: $e');
       }
     } catch (e) {
-      _logger.e('Kullanıcı profili güncellenirken hata oluştu', e);
+      _logger.w('Kullanıcı profili güncellenirken hata oluştu', e);
     }
   }
 
@@ -1341,4 +1342,68 @@ class MessageViewModel extends ChangeNotifier {
     _currentAnalysisResult = null;
     notifyListeners();
   }
-} 
+
+  // Analiz sonucunu kullanıcı profiline kaydetme (dışarıdan erişilebilir)
+  Future<void> updateUserProfileWithAnalysis(String userId, analysis.AnalysisResult analysisResult, AnalysisType analysisType) async {
+    try {
+      _logger.i('${analysisType.name} analiz sonucu kullanıcı profiline kaydediliyor: $userId');
+      
+      // İlişki puanı ve kategori puanlarını hesapla
+      final Map<String, dynamic> analizVerileri = {
+        'mesajIcerigi': analysisType == AnalysisType.consultation ? analysisResult.aiResponse['mesaj'] ?? '' : _currentMessage?.content ?? '',
+        'duygu': analysisResult.emotion,
+        'niyet': analysisResult.intent,
+        'ton': analysisResult.tone,
+        'mesajYorumu': analysisResult.aiResponse['mesajYorumu'] ?? '',
+      };
+      
+      // Kullanıcı profilini çek
+      DocumentReference userRef = _firestore.collection('users').doc(userId);
+      DocumentSnapshot<Map<String, dynamic>> userDoc = await userRef.get() as DocumentSnapshot<Map<String, dynamic>>;
+      
+      // Kullanıcı modeli yoksa oluştur
+      if (!userDoc.exists) {
+        _logger.w('Kullanıcı belgesi bulunamadı, analiz kaydedilemedi: $userId');
+        return;
+      }
+      
+      // Kullanıcı modelini oluştur
+      UserModel userModel = UserModel.fromFirestore(userDoc);
+      
+      // Analiz hizmeti ile ilişki durumunu analiz et
+      final analizSonucu = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
+      
+      // Kullanıcı modelini güncelle
+      final UserModel guncelKullanici = userModel.analizSonucuEkle(analizSonucu);
+      
+      // Firestore'a kaydet
+      await userRef.update({
+        'sonAnalizSonucu': analizSonucu.toMap(),
+        'analizGecmisi': FieldValue.arrayUnion([analizSonucu.toMap()]),
+      });
+      
+      _logger.i('Kullanıcı profili başarıyla güncellendi. İlişki puanı: ${analizSonucu.iliskiPuani}');
+      
+      // Ana sayfayı güncelle - HomeController ile güvenli bir şekilde
+      try {
+        // Null-aware operatör kullanarak context değerine erişiyoruz
+        final context = _profileViewModel?.context;
+        if (context != null && context.mounted) {
+          try {
+            final homeController = Provider.of<HomeController>(context, listen: false);
+            await homeController.anaSayfayiGuncelle(); // HomeController'ın mevcut metodunu kullan
+            _logger.i('Ana sayfa yeni analiz sonucuyla güncellendi');
+          } catch (e) {
+            _logger.w('HomeController ile güncelleme hatası: $e');
+          }
+        } else {
+          _logger.w('Context null veya artık geçerli değil');
+        }
+      } catch (e) {
+        _logger.w('Ana sayfa güncellenirken hata oluştu: $e');
+      }
+    } catch (e) {
+      _logger.w('Analiz sonucu kullanıcı profiline kaydedilirken hata oluştu', e);
+    }
+  }
+}

@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -15,6 +16,7 @@ import '../utils/feedback_utils.dart';
 import '../models/message.dart';
 import '../utils/utils.dart';
 import '../app_router.dart';
+import '../controllers/home_controller.dart';
 
 // Mesaj sınıfı için extension
 extension MessageExtension on Message {
@@ -32,7 +34,6 @@ class MessageAnalysisView extends StatefulWidget {
 }
 
 class _MessageAnalysisViewState extends State<MessageAnalysisView> {
-  static bool _messagesLoaded = false; // Sınıf seviyesinde tanımlandı
   bool _isLoading = false;
   bool _forceEmptyState = false; // Veri sıfırlaması sonrası boş durum gösterimi için flag
   bool _showDetailedAnalysisResult = false; // Analiz detaylarını gösterme durumu
@@ -48,17 +49,52 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       
-      // Eğer daha önce mesajlar yüklenmediyse yükle
+      // Mesajları yükle
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
       
-      if (!_messagesLoaded && authViewModel.user != null) {
-        debugPrint('initState - İlk kez mesaj yükleniyor - User ID: ${authViewModel.user!.id}');
-        _loadMessages();
-        _messagesLoaded = true; // Statik flag'i güncelle
+      if (authViewModel.user != null) {
+        _checkAndLoadMessages(authViewModel.user!.id);
       } else {
-        debugPrint('initState - Mesajlar daha önce yüklenmiş, tekrar yükleme atlanıyor');
+        debugPrint('initState - Kullanıcı oturum açmamış, mesaj yükleme atlanıyor');
       }
     });
+  }
+
+  // SharedPreferences kullanarak mesaj yükleme durumunu kontrol et
+  Future<void> _checkAndLoadMessages(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final messagesLoaded = prefs.getBool('messages_loaded_$userId') ?? false;
+    
+    if (!messagesLoaded) {
+      debugPrint('İlk kez mesaj yükleniyor - User ID: $userId');
+      await _loadMessages();
+      
+      // Yükleme durumunu kaydet
+      await prefs.setBool('messages_loaded_$userId', true);
+    } else {
+      debugPrint('Mesajlar daha önce yüklenmiş, tekrar yükleme atlanıyor');
+      
+      // Analiz sonrası ana sayfa verilerini güncelle
+      _updateHomeController();
+    }
+  }
+
+  // Ana sayfa controller'ını güncelle
+  void _updateHomeController() {
+    try {
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      
+      // Eğer mesaj analizi varsa, ana sayfayı güncelle
+      if (messageViewModel.messages.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          homeController.anaSayfayiGuncelle();
+          debugPrint('Ana sayfa verileri güncellendi');
+        });
+      }
+    } catch (e) {
+      debugPrint('Ana sayfa güncellenirken hata: $e');
+    }
   }
 
   // Mesajları yükle
@@ -84,7 +120,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
     
     try {
-      debugPrint('Tek seferlik yükleme başlıyor...');
+      debugPrint('Mesaj yükleme başlıyor...');
       await messageViewModel.loadMessages(authViewModel.user!.id);
       
       if (!mounted) return;
@@ -102,6 +138,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       setState(() {
         _forceEmptyState = false;
       });
+      
+      // Ana sayfa verilerini güncelle
+      _updateHomeController();
+      
     } catch (e) {
       if (!mounted) return;
       FeedbackUtils.showErrorFeedback(
@@ -142,8 +182,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Tüm verileri sıfırla
       await messageViewModel.clearAllData(authViewModel.user!.id);
       
-      // Statik flag sıfırla, sonraki girişte yeniden yükleme yapılsın
-      _messagesLoaded = false;
+      // Yükleme durumunu sıfırla
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('messages_loaded_${authViewModel.user!.id}', false);
       
       // ViewState'i zorla boş durum göstermeye ayarla
       setState(() {
@@ -161,6 +202,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       // UI'daki değişikliklerin hemen yansıması için explicit notifyListeners() çağrısı
       messageViewModel.resetCurrentAnalysis();
+      
+      // Ana sayfa verilerini sıfırla
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      homeController.resetAnalizVerileri();
       
     } catch (e) {
       if (!mounted) return;
@@ -715,6 +760,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           await _loadMessages();
+          
+          // Ana sayfa verilerini güncelle
+          final homeController = Provider.of<HomeController>(context, listen: false);
+          homeController.anaSayfayiGuncelle();
         }
       } else {
         FeedbackUtils.showErrorFeedback(
@@ -891,6 +940,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           await _loadMessages();
+          
+          // Ana sayfa verilerini güncelle
+          final homeController = Provider.of<HomeController>(context, listen: false);
+          homeController.anaSayfayiGuncelle();
         }
       } else {
         FeedbackUtils.showErrorFeedback(
@@ -1615,6 +1668,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Mesaj analizlerini sıfırla
       await messageViewModel.clearMessageAnalysisData(authViewModel.user!.id);
       
+      // Yükleme durumunu sıfırla
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('messages_loaded_${authViewModel.user!.id}', false);
+      
       // ViewState'i sıfırla
       setState(() {
         _forceEmptyState = true;
@@ -1634,6 +1691,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       // Verileri yenile
       await _loadMessages();
+      
+      // Ana sayfa verilerini güncelle
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      homeController.anaSayfayiGuncelle();
       
     } catch (e) {
       if (!mounted) return;
@@ -1672,6 +1733,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         'İlişki değerlendirme verileriniz başarıyla silindi'
       );
       
+      // Ana sayfa verilerini güncelle
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      homeController.anaSayfayiGuncelle();
+      
     } catch (e) {
       if (!mounted) return;
       FeedbackUtils.showErrorFeedback(
@@ -1708,6 +1773,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         context, 
         'Danışma verileriniz başarıyla silindi'
       );
+      
+      // Ana sayfa verilerini güncelle
+      final homeController = Provider.of<HomeController>(context, listen: false);
+      homeController.anaSayfayiGuncelle();
       
     } catch (e) {
       if (!mounted) return;

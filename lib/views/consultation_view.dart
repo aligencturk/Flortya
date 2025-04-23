@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart'; // Danışma işlemleri için viewmodel
+import '../viewmodels/message_viewmodel.dart'; // Mesaj analizi için gerekli viewmodel
 import '../utils/feedback_utils.dart';
+import '../models/analysis_result_model.dart'; // AnalysisResult modeli
+import '../models/analysis_type.dart'; // Analiz türleri
 
 class ConsultationView extends StatefulWidget {
   const ConsultationView({super.key});
@@ -22,6 +26,7 @@ class _ConsultationViewState extends State<ConsultationView> {
   bool _isLoading = false;
   bool _hasConsulted = false;
   String? _aiResponse;
+  AnalysisResult? _analysisResult; // Analiz sonucunu tutacak değişken
   
   @override
   void dispose() {
@@ -44,10 +49,14 @@ class _ConsultationViewState extends State<ConsultationView> {
     
     setState(() {
       _isLoading = true;
+      _hasConsulted = false;
+      _aiResponse = null;
+      _analysisResult = null;
     });
     
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
     // Kullanıcı kontrolü
     if (authViewModel.user == null) {
@@ -77,9 +86,38 @@ class _ConsultationViewState extends State<ConsultationView> {
           'Danışma cevabı alınırken hata: ${adviceViewModel.errorMessage}'
         );
       } else if (response != null) {
+        // AI yanıtını işle
+        final analysisData = _processAIResponse(response, query);
+        
+        // Analiz sonucunu oluştur
+        final analysisResult = AnalysisResult(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          messageId: 'consultation_${DateTime.now().millisecondsSinceEpoch}',
+          emotion: '', // Danışma analizi için duygu boş bırakılıyor
+          intent: analysisData['niyet'] ?? 'Danışma analizi',
+          tone: 'Bilgilendirici',
+          severity: 5,
+          persons: '',
+          aiResponse: {
+            'niyet': analysisData['niyet'] ?? '',
+            'tavsiyeler': analysisData['tavsiyeler'] ?? [],
+            'messageComment': analysisData['özet'] ?? '',
+            'messageType': 'consultation',
+          },
+          createdAt: DateTime.now(),
+        );
+        
+        // Veritabanına konsültasyon sonucunu kaydet - isteğe bağlı
+        await _saveConsultationResult(
+          authViewModel.user!.id, 
+          query, 
+          analysisResult
+        );
+        
         setState(() {
           _aiResponse = response;
           _hasConsulted = true;
+          _analysisResult = analysisResult;
         });
         
         // Scroll'u aşağı kaydır
@@ -105,6 +143,97 @@ class _ConsultationViewState extends State<ConsultationView> {
           _isLoading = false;
         });
       }
+    }
+  }
+  
+  // AI yanıtını işleme
+  Map<String, dynamic> _processAIResponse(String response, String originalQuery) {
+    Map<String, dynamic> result = {
+      'niyet': '',
+      'tavsiyeler': <String>[],
+      'özet': '',
+    };
+    
+    try {
+      // Basit metin işleme ile yanıtı analiz et
+      // NOT: Bu kısım yapay zeka yanıtının formatına göre özelleştirilmelidir
+      final paragraphs = response.split('\n\n').where((p) => p.trim().isNotEmpty).toList();
+      
+      if (paragraphs.isEmpty) {
+        result['özet'] = response;
+        return result;
+      }
+      
+      // İlk paragrafı niyet olarak al
+      if (paragraphs.isNotEmpty) {
+        result['niyet'] = paragraphs.first.trim();
+      }
+      
+      // Diğer paragrafları tavsiyeler olarak al
+      if (paragraphs.length > 1) {
+        List<String> tavsiyeler = [];
+        
+        // Maddeler halinde yanıt verilmişse
+        if (paragraphs.any((p) => p.contains('- '))) {
+          for (var p in paragraphs.skip(1)) {
+            final items = p.split('\n- ');
+            for (var item in items) {
+              final cleanItem = item.replaceAll('- ', '').trim();
+              if (cleanItem.isNotEmpty) {
+                tavsiyeler.add(cleanItem);
+              }
+            }
+          }
+        } else {
+          // Maddeler yoksa, paragrafları kullan
+          tavsiyeler = paragraphs.skip(1).map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+        }
+        
+        // Tavsiye sayısını 5 ile sınırla
+        result['tavsiyeler'] = tavsiyeler.take(5).toList();
+      }
+      
+      // Özet
+      result['özet'] = "${result['niyet']}\n\n${(result['tavsiyeler'] as List).join('\n')}";
+      
+      return result;
+    } catch (e) {
+      debugPrint('AI yanıtı işlenirken hata: $e');
+      result['özet'] = response;
+      return result;
+    }
+  }
+
+  // Konsültasyon sonucunu veritabanına kaydetme
+  Future<void> _saveConsultationResult(String userId, String question, AnalysisResult analysisResult) async {
+    try {
+      // Firestore referansı
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      
+      // Kullanıcının consultation_results koleksiyonuna kaydet
+      await firestore
+          .collection('users')
+          .doc(userId)
+          .collection('consultation_results')
+          .add({
+            'question': question,
+            'messageId': analysisResult.messageId,
+            'intent': analysisResult.intent,
+            'tone': analysisResult.tone,
+            'severity': analysisResult.severity,
+            'aiResponse': analysisResult.aiResponse,
+            'createdAt': Timestamp.fromDate(analysisResult.createdAt),
+          });
+      
+      // Kullanıcı profilini güncellemek için MessageViewModel'i kullan
+      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      // updateUserProfileWithAnalysis metodunu çağır
+      await messageViewModel.updateUserProfileWithAnalysis(userId, analysisResult, AnalysisType.consultation);
+      
+      debugPrint('Danışma sonucu veritabanına kaydedildi ve kullanıcı profili güncellendi');
+    } catch (e) {
+      debugPrint('Danışma sonucu kaydedilirken hata: $e');
+      // Hatayı yut, kullanıcıya gösterme (opsiyonel)
     }
   }
   
@@ -434,26 +563,28 @@ class _ConsultationViewState extends State<ConsultationView> {
                                     maxLines: 5,
                                     maxLength: 500,
                                     decoration: InputDecoration(
-                                      hintText: 'Örn: Partnerim mesajlarımı okumuyor ama yanıt vermiyor, ne yapmalıyım?',
-                                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                      hintText: 'Örn: Partnerimle aramız biraz gergin. Nasıl yaklaşmalıyım?',
+                                      hintStyle: TextStyle(
+                                        color: Colors.white.withOpacity(0.4),
+                                        fontSize: 12,
+                                      ),
                                       fillColor: Colors.white.withOpacity(0.05),
                                       filled: true,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                      ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                        borderSide: BorderSide(
+                                          color: Colors.white.withOpacity(0.1),
+                                        ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: const Color(0xFF9D3FFF).withOpacity(0.5)),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF9D3FFF),
+                                        ),
                                       ),
-                                      counterStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 16),
                                   SizedBox(
                                     width: double.infinity,
                                     height: 48,
@@ -462,9 +593,9 @@ class _ConsultationViewState extends State<ConsultationView> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF9D3FFF),
                                         foregroundColor: Colors.white,
-                                        disabledBackgroundColor: const Color(0xFF9D3FFF).withOpacity(0.4),
+                                        disabledBackgroundColor: const Color(0xFF9D3FFF).withOpacity(0.5),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
                                       child: _isLoading
@@ -473,17 +604,10 @@ class _ConsultationViewState extends State<ConsultationView> {
                                               height: 24,
                                               child: CircularProgressIndicator(
                                                 color: Colors.white,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.0,
                                               ),
                                             )
-                                          : const Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(Icons.psychology, size: 18),
-                                                SizedBox(width: 8),
-                                                Text('Danış'),
-                                              ],
-                                            ),
+                                          : const Text('Danış'),
                                     ),
                                   ),
                                 ],
@@ -492,21 +616,16 @@ class _ConsultationViewState extends State<ConsultationView> {
                             
                             const SizedBox(height: 24),
                             
-                            // AI Cevabı - Danışma sonucu
-                            if (_hasConsulted && _aiResponse != null) ...[
-                              Text(
-                                'Değerlendirme',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
+                            // Analiz sonucu
+                            if (_hasConsulted && _analysisResult != null)
+                              _buildAnalysisResult(),
+                            
+                            // AI yanıtı
+                            if (_hasConsulted && _aiResponse != null && _analysisResult == null)
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF9D3FFF).withOpacity(0.1),
+                                  color: Colors.white.withOpacity(0.05),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                                 ),
@@ -514,64 +633,42 @@ class _ConsultationViewState extends State<ConsultationView> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Container(
-                                          margin: const EdgeInsets.only(top: 2),
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFF9D3FFF).withOpacity(0.2),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(
-                                            Icons.psychology,
-                                            color: Colors.white,
-                                            size: 18,
+                                          child: Icon(
+                                            Icons.psychology_outlined,
+                                            color: Colors.white.withOpacity(0.9),
+                                            size: 20,
                                           ),
                                         ),
                                         const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            _aiResponse!,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 15,
-                                              height: 1.5,
-                                            ),
+                                        Text(
+                                          'Danışma Yanıtı',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.9),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
                                           ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 16),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton.icon(
-                                          onPressed: () {
-                                            setState(() {
-                                              _consultationController.clear();
-                                              _aiResponse = null;
-                                              _hasConsulted = false;
-                                            });
-                                            _consultationFocusNode.requestFocus();
-                                          },
-                                          icon: const Icon(Icons.refresh, size: 16),
-                                          label: const Text('Yeni Danışma'),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: Colors.white,
-                                          ),
-                                        ),
-                                      ],
+                                    Text(
+                                      _aiResponse!,
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 14,
+                                        height: 1.5,
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.2, end: 0),
-                            ],
-                            
-                            if (!_hasConsulted) ...[
-                              const SizedBox(height: 36),
-                              _buildSuggestedQuestions(),
-                            ],
+                              ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
                           ],
                         ),
                       ),
@@ -586,125 +683,198 @@ class _ConsultationViewState extends State<ConsultationView> {
     );
   }
   
-  // Örnek sorular widget'ı
-  Widget _buildSuggestedQuestions() {
-    final List<Map<String, dynamic>> suggestions = [
-      {
-        'icon': Icons.question_answer_outlined,
-        'title': 'Mesaj Cevapları',
-        'questions': [
-          'Partnerim mesajlarıma geç yanıt veriyor, ne yapmalıyım?',
-          'Partnerim mesajlarımı görmezden geliyor, bu ne anlama gelir?',
-        ],
-      },
-      {
-        'icon': Icons.favorite_border,
-        'title': 'İlişki Sorunları',
-        'questions': [
-          'Partnerimle iletişim sorunları yaşıyorum, nasıl düzeltebilirim?',
-          'İlişkimizde güven sorunu var, ne yapabilirim?',
-        ],
-      },
-      {
-        'icon': Icons.mood_bad_outlined,
-        'title': 'Duygusal Konular',
-        'questions': [
-          'Partnerim duygularını paylaşmıyor, nasıl açılmasını sağlayabilirim?',
-          'Sürekli kıskançlık hissediyorum, bu duyguyla nasıl başa çıkabilirim?',
-        ],
-      },
-    ];
+  // Analiz sonucu widget'ı
+  Widget _buildAnalysisResult() {
+    if (_analysisResult == null) return const SizedBox.shrink();
+    
+    // AnalysisResult model'inden veri çıkarma
+    final niyetYorumu = _analysisResult!.intent;
+    final List<String> tavsiyeler = _analysisResult!.aiResponse['tavsiyeler'] != null 
+        ? List<String>.from(_analysisResult!.aiResponse['tavsiyeler'])
+        : [];
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Danışabileceğiniz Örnek Konular',
+        const Text(
+          'Analiz Sonucu',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 18,
           ),
         ),
-        const SizedBox(height: 16),
-        ...suggestions.map((category) => _buildSuggestionCategory(category)),
-      ],
-    ).animate().fadeIn(duration: 800.ms);
-  }
-  
-  // Öneri kategorisi widget'ı
-  Widget _buildSuggestionCategory(Map<String, dynamic> category) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        const SizedBox(height: 12),
+        
+        // Niyet Yorumu
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                category['icon'] as IconData,
-                color: Colors.white70,
-                size: 18,
+              // Başlık
+              const Row(
+                children: [
+                  Icon(Icons.psychology, color: Colors.white70, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Niyet',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                category['title'] as String,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              const SizedBox(height: 8),
+              // İçerik
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  niyetYorumu,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ...List<String>.from(category['questions']).map(
-            (question) => _buildQuestionChip(question),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  // Soru önerisi widget'ı
-  Widget _buildQuestionChip(String question) {
-    return GestureDetector(
-      onTap: () {
-        _consultationController.text = question;
-        _consultationFocusNode.requestFocus();
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white24),
         ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.arrow_right_alt,
-              color: Color(0xFF9D3FFF),
-              size: 16,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                question,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 13,
+        
+        const SizedBox(height: 16),
+        
+        // Tavsiyeler
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Başlık
+              const Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Tavsiyeler',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // İçerik
+              Column(
+                children: tavsiyeler.isEmpty
+                    ? [
+                        Text(
+                          'Tavsiye bulunamadı',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 14,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        )
+                      ]
+                    : [
+                        ...tavsiyeler.map((tavsiye) => _buildAdviceItem(tavsiye))
+                      ],
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 24),
+        
+        // Yasal uyarı notu
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: Row(
+            children: [
+              const Text(
+                "ℹ️",
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Not: Bu içerikler yol gösterici niteliktedir ve profesyonel danışmanlık hizmeti yerine geçmez.",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ],
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
+  }
+  
+  // Tavsiye öğesi widget'ı
+  Widget _buildAdviceItem(String advice) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF9D3FFF),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              Icons.check,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              advice,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
