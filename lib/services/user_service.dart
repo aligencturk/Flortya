@@ -96,4 +96,30 @@ class UserService {
       return false;
     }
   }
+
+  /// Firebase Auth kullanıcısını al
+  User? getCurrentAuthUser() {
+    return _auth.currentUser;
+  }
+  
+  /// Kullanıcının analiz verilerini sıfırla
+  Future<bool> resetUserAnalysisData(String userId) async {
+    try {
+      // Kullanıcı belgesini güncelle ve analiz verilerini temizle
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .update({
+        'sonAnalizSonucu': null,
+        'analizGecmisi': [],
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      print('Kullanıcı analiz verileri Firestore\'dan temizlendi');
+      return true;
+    } catch (e) {
+      print('Kullanıcı analiz verileri temizlenirken hata oluştu: $e');
+      return false;
+    }
+  }
 } 

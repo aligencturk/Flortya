@@ -34,10 +34,15 @@ class MessageAnalysisView extends StatefulWidget {
 class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   static bool _messagesLoaded = false; // Sınıf seviyesinde tanımlandı
   bool _isLoading = false;
+  bool _forceEmptyState = false; // Veri sıfırlaması sonrası boş durum gösterimi için flag
+  bool _showDetailedAnalysisResult = false; // Analiz detaylarını gösterme durumu
   
   @override
   void initState() {
     super.initState();
+    
+    // Analiz sonucunu sıfırla - sayfa tekrar açıldığında görünmemesi için
+    _showDetailedAnalysisResult = false;
     
     // Bir kez çağırma garantisi
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -92,6 +97,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           'Mesajlar yüklenirken hata: ${messageViewModel.errorMessage}'
         );
       }
+      
+      // Reset flag after loading messages
+      setState(() {
+        _forceEmptyState = false;
+      });
     } catch (e) {
       if (!mounted) return;
       FeedbackUtils.showErrorFeedback(
@@ -104,6 +114,63 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  // Tüm verileri sıfırla
+  Future<void> _resetAllData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    if (authViewModel.user == null) {
+      if (!mounted) return;
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Verilerinizi sıfırlamak için lütfen giriş yapın'
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    try {
+      // Tüm verileri sıfırla
+      await messageViewModel.clearAllData(authViewModel.user!.id);
+      
+      // Statik flag sıfırla, sonraki girişte yeniden yükleme yapılsın
+      _messagesLoaded = false;
+      
+      // ViewState'i zorla boş durum göstermeye ayarla
+      setState(() {
+        _forceEmptyState = true;
+        _isLoading = false;
+      });
+      
+      if (!mounted) return;
+      
+      // Başarı mesajı göster
+      FeedbackUtils.showSuccessFeedback(
+        context, 
+        'Tüm analiz verileriniz başarıyla silindi'
+      );
+      
+      // UI'daki değişikliklerin hemen yansıması için explicit notifyListeners() çağrısı
+      messageViewModel.resetCurrentAnalysis();
+      
+    } catch (e) {
+      if (!mounted) return;
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Veriler sıfırlanırken hata: $e'
+      );
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -291,6 +358,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     ),
                   ),
                   const Spacer(),
+                  // Reset veriler butonu
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    onPressed: () {
+                      _showResetDialog(context);
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.info_outline, color: Colors.white),
                     onPressed: () {
@@ -384,25 +458,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     
                     const SizedBox(height: 20),
                     
-                    // Başlık
-                    Text(
-                      'Son Analizleriniz',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Analiz sonuçları listesi
+                    // Analiz sonuçları bölümü
                     Expanded(
                       child: _isLoading
                         ? Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
-                        : messageViewModel.messages.isEmpty
+                        : _forceEmptyState || messageViewModel.messages.isEmpty
                           ? _buildEmptyState()
-                          : _buildAnalysisList(messageViewModel),
+                          : _buildCurrentAnalysisResult(messageViewModel),
                     ),
                   ],
                 ),
@@ -639,6 +701,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         setState(() {
           isProcessing = false;
           _isLoading = false;
+          _showDetailedAnalysisResult = result; // Analiz başarılıysa detayları göster
         });
       }
       
@@ -814,6 +877,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         setState(() {
           isProcessing = false;
           _isLoading = false;
+          _showDetailedAnalysisResult = result != null; // Analiz başarılıysa detayları göster
         });
       }
       
@@ -887,96 +951,413 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
   
-  // Analiz sonuçları listesi
-  Widget _buildAnalysisList(MessageViewModel viewModel) {
-    return ListView.builder(
-      itemCount: viewModel.messages.length,
-      itemBuilder: (context, index) {
-        final message = viewModel.messages[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          color: Colors.white.withOpacity(0.05),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: InkWell(
-            onTap: () {
-              // Analiz detayına git
-              _showAnalysisDetails(context, viewModel, message);
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+  // Sadece en son analiz sonucunu göster
+  Widget _buildCurrentAnalysisResult(MessageViewModel viewModel) {
+    // Son mesajı al (varsa)
+    if (viewModel.messages.isEmpty || _forceEmptyState || !_showDetailedAnalysisResult) {
+      return _buildEmptyState();
+    }
+    
+    // En son analiz edilen mesajı bul
+    final lastAnalyzedMessage = viewModel.messages
+        .where((message) => message.isAnalyzed)
+        .toList()
+        ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+        
+    if (lastAnalyzedMessage.isEmpty) {
+      return _buildEmptyState();
+    }
+    
+    // Son analiz sonucunu göster
+    final latestMessage = lastAnalyzedMessage.first;
+    
+    // Analiz sonucu yoksa boş durum göster
+    if (latestMessage.analysisResult == null) {
+      return _buildEmptyState();
+    }
+    
+    // Analiz sonucu verileri
+    final analysisResult = latestMessage.analysisResult!;
+    final duygu = analysisResult.emotion;
+    final niyet = analysisResult.intent;
+    final mesajYorumu = analysisResult.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
+    final List<String> cevapOnerileri = List<String>.from(analysisResult.aiResponse['cevapOnerileri'] ?? []);
+    
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Analiz Sonucu',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Analiz edilen mesaj içeriği
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              color: Colors.white.withOpacity(0.05),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tarih ve durum
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          latestMessage.formattedCreatedAt,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Analiz Edildi',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 8),
+                    
+                    // Mesaj içeriği
+                    Text(
+                      latestMessage.content.length > 100
+                          ? '${latestMessage.content.substring(0, 100)}...'
+                          : latestMessage.content,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Duygu Çözümlemesi
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tarih ve durum
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Başlık
+                  const Row(
                     children: [
+                      Icon(Icons.mood, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
                       Text(
-                        message.formattedCreatedAt,
+                        'Duygu Çözümlemesi',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 12,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: message.analysisResult != null
-                              ? const Color(0xFF9D3FFF).withOpacity(0.2)
-                              : Colors.orange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          message.analysisResult != null ? 'Analiz Edildi' : 'Bekliyor',
-                          style: TextStyle(
-                            color: message.analysisResult != null
-                                ? Colors.white
-                                : Colors.orange,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 8),
-                  
-                  // Mesaj önizlemesi
-                  Text(
-                    message.content.length > 100
-                        ? '${message.content.substring(0, 100)}...'
-                        : message.content,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
+                  // İçerik
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      duygu,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // Analiz kategorileri
-                  if (message.analysisResult != null) ...[
-                    const Divider(color: Colors.white24),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildCategoryChip('Duygu', message.analysisResult!.emotion),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('Niyet', message.analysisResult!.intent),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
-          ),
-        ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
-      },
+            
+            const SizedBox(height: 16),
+            
+            // Niyet Yorumu
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.psychology, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Niyet Yorumu',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // İçerik
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      mesajYorumu,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Cevap Önerileri
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
+                  const Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Cevap Önerileri',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // İçerik
+                  Column(
+                    children: cevapOnerileri.isEmpty
+                        ? [
+                            Text(
+                              'Cevap önerisi bulunamadı',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                          ]
+                        : [
+                            ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri))
+                          ],
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Butonlar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.push('/consultation');
+                  },
+                  icon: const Icon(Icons.chat_outlined, size: 16),
+                  label: const Text('Danışmak İstiyorum'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9D3FFF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.push(AppRouter.pastAnalyses);
+                  },
+                  icon: const Icon(Icons.history, size: 16),
+                  label: const Text('Geçmiş Analizler'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Colors.white30),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Yasal uyarı notu
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    "ℹ️",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Not: Uygulamada sunulan içerikler yol gösterici niteliktedir, bağlayıcı değildir.",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
     );
+  }
+  
+  // Mesaj detayı widget'ı (yeni analiz yapılmadığında kullanılacak)
+  Widget _buildMessageCard(Message message, MessageViewModel viewModel) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: Colors.white.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Tarih ve durum
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  message.formattedCreatedAt,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: message.analysisResult != null
+                        ? const Color(0xFF9D3FFF).withOpacity(0.2)
+                        : Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    message.analysisResult != null ? 'Analiz Edildi' : 'Bekliyor',
+                    style: TextStyle(
+                      color: message.analysisResult != null
+                          ? Colors.white
+                          : Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // Mesaj önizlemesi
+            Text(
+              message.content.length > 100
+                  ? '${message.content.substring(0, 100)}...'
+                  : message.content,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Analiz kategorileri
+            if (message.analysisResult != null) ...[
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildCategoryChip('Duygu', message.analysisResult!.emotion),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip('Niyet', message.analysisResult!.intent),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
   }
   
   // Kategori chip'i
@@ -1008,270 +1389,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-  
-  // Analiz detaylarını göster
-  void _showAnalysisDetails(BuildContext context, MessageViewModel viewModel, dynamic message) {
-    if (message.analysisResult == null) {
-      FeedbackUtils.showWarningFeedback(
-        context, 
-        'Bu mesaj henüz analiz edilmemiş'
-      );
-      return;
-    }
-    
-    final analysisResult = message.analysisResult;
-    final duygu = analysisResult.emotion;
-    final niyet = analysisResult.intent;
-    final mesajYorumu = analysisResult.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
-    final List<String> cevapOnerileri = List<String>.from(analysisResult.aiResponse['cevapOnerileri'] ?? []);
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF352269),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        maxChildSize: 0.95,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Başlık
-                Row(
-                  children: [
-                    const Icon(Icons.analytics, color: Colors.white, size: 24),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Analiz Sonucu',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // Duygu Çözümlemesi
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Başlık
-                      const Row(
-                        children: [
-                          Icon(Icons.mood, color: Colors.white70, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Duygu Çözümlemesi',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      // İçerik
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          duygu,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Niyet Yorumu
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Başlık
-                      const Row(
-                        children: [
-                          Icon(Icons.psychology, color: Colors.white70, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Niyet Yorumu',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      // İçerik
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          mesajYorumu,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Cevap Önerileri
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Başlık
-                      const Row(
-                        children: [
-                          Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Cevap Önerileri',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // İçerik
-                      Column(
-                        children: cevapOnerileri.isEmpty
-                            ? [
-                                Text(
-                                  'Cevap önerisi bulunamadı',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.7),
-                                    fontSize: 14,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                )
-                              ]
-                            : [
-                                ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri))
-                              ],
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Danışma butonu
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context); // Önce mevcut bottom sheet'i kapat
-                      context.push('/consultation'); // Danışma sayfasına git
-                    },
-                    icon: const Icon(Icons.chat_outlined),
-                    label: const Text('Şimdi Danışmak İstiyorum'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9D3FFF),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Yasal uyarı notu
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        "ℹ️",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          "Not: Uygulamada sunulan içerikler yol gösterici niteliktedir, bağlayıcı değildir.",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -1317,5 +1434,290 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         ],
       ),
     );
+  }
+
+  // Veri sıfırlama diyaloğunu göster
+  void _showResetDialog(BuildContext context) {
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    if (authViewModel.user == null) {
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Verilerinizi sıfırlamak için lütfen giriş yapın'
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Verileri Sıfırla',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Divider(color: Colors.white.withOpacity(0.2), thickness: 1),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildResetOption(
+                  context,
+                  title: 'Sadece Mesaj Analizlerini Sıfırla',
+                  description: 'Sadece görsel ve metin analizi sonuçlarını siler. Mesajların kendisi ve diğer veriler korunur.',
+                  icon: Icons.analytics_outlined,
+                  iconColor: Colors.blue,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _resetMessageAnalysisData();
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildResetOption(
+                  context,
+                  title: 'Sadece İlişki Değerlendirmelerini Sıfırla',
+                  description: 'Sadece ilişki değerlendirmelerini siler. Mesajlar, analizler ve diğer veriler korunur.',
+                  icon: Icons.people_outline,
+                  iconColor: Colors.green,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _resetRelationshipData();
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildResetOption(
+                  context,
+                  title: 'Sadece Danışma Verilerini Sıfırla',
+                  description: 'Sadece danışma geçmişini siler. Mesajlar, analizler ve diğer veriler korunur.',
+                  icon: Icons.question_answer_outlined,
+                  iconColor: Colors.amber,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _resetConsultationData();
+                  },
+                ),
+                const SizedBox(height: 16),
+                Divider(color: Colors.white.withOpacity(0.2), thickness: 1),
+                const SizedBox(height: 16),
+                _buildResetOption(
+                  context,
+                  title: 'TÜM VERİLERİ SIFIRLA',
+                  description: 'Tüm analizler, mesajlar, değerlendirmeler ve danışmalar silinir. Sadece kullanıcı bilgileriniz korunur.',
+                  icon: Icons.delete_forever_outlined,
+                  iconColor: Colors.red,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _resetAllData();
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Vazgeç'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Sıfırlama seçeneği widget'ı
+  Widget _buildResetOption(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Sadece mesaj analizlerini sıfırla
+  Future<void> _resetMessageAnalysisData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    try {
+      // Mesaj analizlerini sıfırla
+      await messageViewModel.clearMessageAnalysisData(authViewModel.user!.id);
+      
+      // ViewState'i sıfırla
+      setState(() {
+        _forceEmptyState = true;
+        _isLoading = false;
+      });
+      
+      if (!mounted) return;
+      
+      // Başarı mesajı göster
+      FeedbackUtils.showSuccessFeedback(
+        context, 
+        'Mesaj analizi verileriniz başarıyla silindi'
+      );
+      
+      // UI güncellemesi için
+      messageViewModel.resetCurrentAnalysis();
+      
+      // Verileri yenile
+      await _loadMessages();
+      
+    } catch (e) {
+      if (!mounted) return;
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Veriler sıfırlanırken hata: $e'
+      );
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Sadece ilişki değerlendirmelerini sıfırla
+  Future<void> _resetRelationshipData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    try {
+      // İlişki değerlendirmelerini sıfırla
+      await messageViewModel.clearRelationshipEvaluationData(authViewModel.user!.id);
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (!mounted) return;
+      
+      // Başarı mesajı göster
+      FeedbackUtils.showSuccessFeedback(
+        context, 
+        'İlişki değerlendirme verileriniz başarıyla silindi'
+      );
+      
+    } catch (e) {
+      if (!mounted) return;
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Veriler sıfırlanırken hata: $e'
+      );
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Sadece danışma verilerini sıfırla
+  Future<void> _resetConsultationData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    
+    try {
+      // Danışma verilerini sıfırla
+      await messageViewModel.clearConsultationData(authViewModel.user!.id);
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (!mounted) return;
+      
+      // Başarı mesajı göster
+      FeedbackUtils.showSuccessFeedback(
+        context, 
+        'Danışma verileriniz başarıyla silindi'
+      );
+      
+    } catch (e) {
+      if (!mounted) return;
+      FeedbackUtils.showErrorFeedback(
+        context, 
+        'Veriler sıfırlanırken hata: $e'
+      );
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 } 

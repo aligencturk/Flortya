@@ -546,7 +546,7 @@ class _HomeViewState extends State<HomeView> {
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
                     onPressed: () {
-                      _showSettingsDialog(context);
+                      context.push('/settings');
                     },
                   ),
                 ],
@@ -1218,7 +1218,7 @@ class _HomeViewState extends State<HomeView> {
                     IconButton(
                       icon: const Icon(Icons.settings_outlined, color: Colors.white),
                       onPressed: () {
-                        _showSettingsDialog(context);
+                        context.push('/settings');
                       },
                     ),
                   ],
@@ -1477,7 +1477,7 @@ class _HomeViewState extends State<HomeView> {
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
                   onPressed: () {
-                    _showSettingsDialog(context);
+                    context.push('/settings');
                   },
                 ),
               ],
@@ -1815,7 +1815,7 @@ class _HomeViewState extends State<HomeView> {
                 IconButton(
                     icon: const Icon(Icons.settings_outlined, color: Colors.white),
                   onPressed: () {
-                    _showSettingsDialog(context);
+                    context.push('/settings');
                   },
                 ),
               ],

@@ -93,18 +93,69 @@ class PastAnalysesViewModel extends ChangeNotifier {
     return _analyses.where((analysis) => analysis.messageId == messageId).toList();
   }
   
-  // Tüm analiz verilerini silme (verileri sıfırla için)
-  Future<void> clearAllAnalyses(String userId) async {
+  // Merkezi veri silme fonksiyonu - Tüm analiz tiplerini siler
+  Future<void> clearAllAnalysisData(String userId) async {
     _setLoading(true);
     try {
-      // Burada verileri temizleme işlemi yapılacak
-      // Not: Gerçek silme işlemi MessageViewModel içinde yapılacak
+      // Kullanıcının mesajlarını al
+      final userRef = _firestore.collection('users').doc(userId);
+      final messagesSnapshot = await userRef.collection('messages').get();
+      
+      // Batch işlemi başlat
+      WriteBatch batch = _firestore.batch();
+      
+      // 1. Mesajlardaki analiz sonuçlarını sil
+      for (final messageDoc in messagesSnapshot.docs) {
+        final messageData = messageDoc.data();
+        final Message message = Message.fromMap(messageData, docId: messageDoc.id);
+        
+        // Eğer mesaj analiz edilmişse
+        if (message.isAnalyzed && message.analysisResult != null) {
+          final messageRef = userRef.collection('messages').doc(messageDoc.id);
+          
+          // Analiz sonuçlarını sil, diğer mesaj verilerini koru
+          batch.update(messageRef, {
+            'isAnalyzed': false,
+            'analysisResult': null,
+          });
+        }
+      }
+      
+      // 2. Metin dosyası analizlerini sil
+      final textAnalysesSnapshot = await userRef.collection('text_analyses').get();
+      for (final textDoc in textAnalysesSnapshot.docs) {
+        batch.delete(textDoc.reference);
+      }
+      
+      // 3. Görsel analizlerini sil
+      final imageAnalysesSnapshot = await userRef.collection('image_analyses').get();
+      for (final imageDoc in imageAnalysesSnapshot.docs) {
+        batch.delete(imageDoc.reference);
+      }
+      
+      // 4. Danışma sonuçlarını sil
+      final consultationSnapshot = await userRef.collection('consultations').get();
+      for (final consultDoc in consultationSnapshot.docs) {
+        batch.delete(consultDoc.reference);
+      }
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      // Yerel verileri temizle
       _analyses = [];
       notifyListeners();
+      
+      debugPrint('Tüm analiz tipleri başarıyla silindi');
     } catch (e) {
       _setError('Analizler silinirken hata oluştu: $e');
     } finally {
       _setLoading(false);
     }
+  }
+  
+  // Tüm analiz verilerini silme (verileri sıfırla için)
+  Future<void> clearAllAnalyses(String userId) async {
+    return clearAllAnalysisData(userId);
   }
 } 

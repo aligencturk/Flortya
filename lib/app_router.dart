@@ -14,6 +14,7 @@ import 'views/past_reports_view.dart';
 import 'views/analysis_detail_view.dart';
 import 'views/report_detail_view.dart';
 import 'views/consultation_view.dart';
+import 'views/settings_view.dart';
 import 'utils/utils.dart';
 
 // Placeholder Widgets for new routes
@@ -1254,6 +1255,7 @@ class AppRouter {
   static const String notificationSettings = '/notification-settings';
   static const String privacySettings = '/privacy-settings';
   static const String helpSupport = '/help-support';
+  static const String settings = '/settings';
   // Geçmiş analizler ve raporlar için route sabitleri
   static const String pastAnalyses = '/past-analyses';
   static const String pastReports = '/past-reports';
@@ -1393,6 +1395,11 @@ class AppRouter {
           path: helpSupport,
           name: 'helpSupport',
           builder: (context, state) => const HelpSupportView(),
+        ),
+        GoRoute(
+          path: settings,
+          name: 'settings',
+          builder: (context, state) => const SettingsView(),
         ),
         GoRoute(
           path: login,

@@ -219,7 +219,7 @@ class HomeController extends ChangeNotifier {
   }
 
   /// Tüm analiz verilerini temizler
-  void resetAnalizVerileri() {
+  Future<void> resetAnalizVerileri() async {
     try {
       debugPrint('resetAnalizVerileri çağrıldı');
       
@@ -233,6 +233,14 @@ class HomeController extends ChangeNotifier {
       _analizGecmisi = [];
       _kategoriDegisimleri = {};
       _kisisellestirilmisTavsiyeler = [];
+      
+      // Firestore'da kullanıcının analiz verilerini de temizle
+      final currentUser = _userService.getCurrentAuthUser();
+      if (currentUser != null) {
+        // Veritabanı temizliği servisler/viewmodel'lar tarafından yapılacak
+        // Burada sadece UI verilerini temizliyoruz
+        debugPrint('UI analiz verileri temizlendi');
+      }
       
       // Sadece değişiklik varsa bildirim yapma
       if (hadAnalysisData) {
@@ -256,6 +264,24 @@ class HomeController extends ChangeNotifier {
       } catch (innerError) {
         debugPrint('Hata sonrası temizleme işleminde ikinci bir hata: $innerError');
       }
+    }
+  }
+  
+  /// İlişki verilerini temizler
+  Future<void> resetRelationshipData() async {
+    try {
+      debugPrint('resetRelationshipData çağrıldı');
+      
+      // Verileri temizle - UI tarafındaki işlemler
+      // İlişki veri temizliği servisler/viewmodel'lar tarafından yapılacak
+      
+      // Ana sayfayı güncelle - verilerin güncel halini yansıtmak için
+      await anaSayfayiGuncelle();
+      
+      debugPrint('İlişki verileri UI tarafından temizlendi');
+    } catch (e) {
+      debugPrint('İlişki verileri temizlenirken hata: $e');
+      _setError('İlişki verileri temizlenirken hata oluştu: $e');
     }
   }
 

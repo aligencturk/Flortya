@@ -1131,66 +1131,207 @@ class MessageViewModel extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
       
-      final userRef = _firestore.collection('users').doc(userId);
-      final messagesRef = userRef.collection('messages');
-      
-      // Tüm mesajları getir
-      final messageSnapshot = await messagesRef.get();
-      
-      // Batch işlemi başlat
-      WriteBatch batch = _firestore.batch();
-      
-      // Her bir mesajı batch'e ekle
-      for (var doc in messageSnapshot.docs) {
-        batch.delete(doc.reference);
-        
-        // Eğer mesaja ait analiz sonucu varsa, analiz sonucunu da sil
-        try {
-          final analysisRef = _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('message_analyses')
-            .where('messageId', isEqualTo: doc.id);
-          
-          final analysisSnapshot = await analysisRef.get();
-          for (var analysisDoc in analysisSnapshot.docs) {
-            batch.delete(analysisDoc.reference);
-          }
-        } catch (e) {
-          debugPrint('Analiz silme hatası: $e');
-        }
-      }
-      
-      // Batch işlemini uygula
-      await batch.commit();
+      // Tüm veri türlerini temizle
+      await _clearMessageAnalysisData(userId);
+      await _clearRelationshipEvaluationData(userId);
+      await _clearConsultationData(userId);
       
       // Yerel listeyi temizle
       _messages.clear();
       _currentMessage = null;
       _currentAnalysisResult = null;
       
-      // Geçmiş analizler için de temizleme işlemi
-      // Not: Bu kısım sadece yerel olarak temizleniyor, PastAnalysesViewModel'de
-      // clearAllAnalyses metodu da çağrılmalı
-      final pastAnalysesViewModel = _profileViewModel?.context != null
-          ? Provider.of<PastAnalysesViewModel>(_profileViewModel!.context!, listen: false)
-          : null;
+      _isLoading = false;
+      notifyListeners();
       
-      if (pastAnalysesViewModel != null) {
-        await pastAnalysesViewModel.clearAllAnalyses(userId);
+      _logger.i('Tüm veriler başarıyla silindi');
+      
+    } catch (e) {
+      _logger.e('Veri silme hatası', e);
+      _errorMessage = 'Veriler silinirken bir hata oluştu: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Sadece mesaj analizlerini silme
+  Future<void> clearMessageAnalysisData(String userId) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      await _clearMessageAnalysisData(userId);
+      
+      // Yerel mesaj analizi verilerini temizle
+      _currentAnalysisResult = null;
+      
+      // Mesajlardan analiz sonuçlarını temizle (ancak mesajların kendisini silme)
+      for (var i = 0; i < _messages.length; i++) {
+        if (_messages[i].analysisResult != null) {
+          _messages[i] = _messages[i].copyWith(
+            analysisResult: null,
+            isAnalyzed: false,
+            isAnalyzing: false
+          );
+        }
+      }
+      
+      if (_currentMessage?.analysisResult != null) {
+        _currentMessage = _currentMessage?.copyWith(
+          analysisResult: null,
+          isAnalyzed: false,
+          isAnalyzing: false
+        );
       }
       
       _isLoading = false;
       notifyListeners();
       
-      _logger.i('Tüm mesajlar başarıyla silindi');
+      _logger.i('Mesaj analizi verileri başarıyla silindi');
       
     } catch (e) {
-      _logger.e('Tüm mesajları silme hatası', e);
-      _errorMessage = 'Mesajlar silinirken bir hata oluştu: $e';
+      _logger.e('Mesaj analizi verilerini silme hatası', e);
+      _errorMessage = 'Mesaj analizi verileri silinirken bir hata oluştu: $e';
       _isLoading = false;
       notifyListeners();
     }
+  }
+  
+  // Sadece ilişki değerlendirmelerini silme
+  Future<void> clearRelationshipEvaluationData(String userId) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      await _clearRelationshipEvaluationData(userId);
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      _logger.i('İlişki değerlendirme verileri başarıyla silindi');
+      
+    } catch (e) {
+      _logger.e('İlişki değerlendirme verilerini silme hatası', e);
+      _errorMessage = 'İlişki değerlendirme verileri silinirken bir hata oluştu: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  // Sadece danışma verilerini silme
+  Future<void> clearConsultationData(String userId) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      await _clearConsultationData(userId);
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      _logger.i('Danışma verileri başarıyla silindi');
+      
+    } catch (e) {
+      _logger.e('Danışma verilerini silme hatası', e);
+      _errorMessage = 'Danışma verileri silinirken bir hata oluştu: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  // İç kullanım için mesaj analizi temizleme
+  Future<void> _clearMessageAnalysisData(String userId) async {
+    final userRef = _firestore.collection('users').doc(userId);
+    
+    // Mesajlardaki analiz sonuçlarını temizleme
+    final messagesRef = userRef.collection('messages');
+    final messageSnapshot = await messagesRef.where('isAnalyzed', isEqualTo: true).get();
+    
+    // Batch işlemi başlat
+    WriteBatch batch = _firestore.batch();
+    
+    // Her bir mesajı güncelle
+    for (var doc in messageSnapshot.docs) {
+      batch.update(doc.reference, {
+        'analysisResult': null,
+        'isAnalyzed': false,
+        'isAnalyzing': false,
+        'updatedAt': Timestamp.now(),
+      });
+    }
+    
+    // Ayrıca message_analyses koleksiyonunu temizle
+    final analysesRef = userRef.collection('message_analyses');
+    final analysesSnapshot = await analysesRef.get();
+    
+    for (var doc in analysesSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
+    // Batch işlemini uygula
+    await batch.commit();
+    
+    // Geçmiş analizler için de temizleme işlemi
+    final pastAnalysesViewModel = _profileViewModel?.context != null
+        ? Provider.of<PastAnalysesViewModel>(_profileViewModel!.context!, listen: false)
+        : null;
+    
+    if (pastAnalysesViewModel != null) {
+      await pastAnalysesViewModel.clearAllAnalyses(userId);
+    }
+  }
+  
+  // İç kullanım için ilişki değerlendirme temizleme
+  Future<void> _clearRelationshipEvaluationData(String userId) async {
+    final userRef = _firestore.collection('users').doc(userId);
+    
+    // İlişki değerlendirme koleksiyonu
+    final evaluationsRef = userRef.collection('relationship_evaluations');
+    final evaluationsSnapshot = await evaluationsRef.get();
+    
+    // Batch işlemi başlat
+    WriteBatch batch = _firestore.batch();
+    
+    // Her bir değerlendirmeyi sil
+    for (var doc in evaluationsSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
+    // Batch işlemini uygula
+    await batch.commit();
+    
+    // Profil ViewModel'de ilişki değerlendirme verilerini temizle
+    // Not: Profil ViewModel'de clearRelationshipEvaluations metodu olmayabilir
+    // Bu nedenle bu kısmı şimdilik kaldırıyoruz
+    /* 
+    final profileViewModel = _profileViewModel?.context != null
+        ? Provider.of<ProfileViewModel>(_profileViewModel!.context!, listen: false)
+        : null;
+    
+    if (profileViewModel != null) {
+      profileViewModel.clearRelationshipEvaluations();
+    }
+    */
+  }
+  
+  // İç kullanım için danışma verileri temizleme
+  Future<void> _clearConsultationData(String userId) async {
+    final userRef = _firestore.collection('users').doc(userId);
+    
+    // Danışma koleksiyonu
+    final consultationsRef = userRef.collection('consultations');
+    final consultationsSnapshot = await consultationsRef.get();
+    
+    // Batch işlemi başlat
+    WriteBatch batch = _firestore.batch();
+    
+    // Her bir danışmayı sil
+    for (var doc in consultationsSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
+    // Batch işlemini uygula
+    await batch.commit();
   }
 
   // Mevcut analiz işlemlerini sıfırla
