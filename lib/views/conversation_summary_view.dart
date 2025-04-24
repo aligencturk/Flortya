@@ -303,6 +303,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
   bool _isAnalyzing = false;
   String _errorMessage = '';
   List<Map<String, String>> _summaryData = [];
+  bool _isTxtFile = false; // .txt dosyası olup olmadığını takip etmek için
   
   Future<void> _selectFile() async {
     try {
@@ -321,6 +322,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
           _fileContent = '';
           _errorMessage = '';
           _summaryData = [];
+          _isTxtFile = true; // .txt dosyası seçildiğini işaretle
         });
         
         // Dosya içeriğini oku
@@ -493,8 +495,8 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                 
                 const SizedBox(height: 24),
                 
-                // Dosya içeriği önizleme
-                if (_selectedFile != null) ...[
+                // Dosya içeriği önizleme ve Analiz Başlat butonu
+                if (_selectedFile != null && _fileContent.isNotEmpty && _summaryData.isEmpty) ...[
                   Card(
                     elevation: 4,
                     color: Colors.white.withOpacity(0.9),
@@ -542,7 +544,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                   
                   const SizedBox(height: 24),
                   
-                  // Analiz Başlat Butonu - Sadece .txt dosyası yüklendiğinde görünür
+                  // Analiz Başlat Butonu
                   ElevatedButton.icon(
                     onPressed: _isAnalyzing ? null : _analyzeChatContent,
                     style: ElevatedButton.styleFrom(
@@ -572,6 +574,76 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+                
+                // Spotify Wrapped tarzı analiz sonuçları butonu - SADECE .txt analizi yapıldığında gösterilir
+                if (_summaryData.isNotEmpty && _isTxtFile) ...[
+                  const SizedBox(height: 24),
+                  
+                  Card(
+                    elevation: 8,
+                    color: const Color(0xFF9D3FFF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: InkWell(
+                      onTap: _showSummaryView,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.auto_awesome,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Konuşma Wrapped',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Spotify Wrapped tarzı analiz sonuçlarını görmek için tıklayın!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'Göster',
+                                style: TextStyle(
+                                  color: Color(0xFF9D3FFF),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

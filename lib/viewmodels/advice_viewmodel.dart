@@ -594,6 +594,18 @@ class AdviceViewModel extends ChangeNotifier {
         _setQuoteError(quoteData['error']);
         return;
       }
+
+      // Gelen veride gerekli alanların varlığını kontrol et
+      if (!quoteData.containsKey('title') || !quoteData.containsKey('content') || !quoteData.containsKey('source') ||
+          quoteData['title'] == null || quoteData['content'] == null || quoteData['source'] == null ||
+          (quoteData['title'].toString().trim().isEmpty) || 
+          (quoteData['content'].toString().trim().isEmpty) || 
+          (quoteData['source'].toString().trim().isEmpty)) {
+        final String errorMessage = 'AI servisinden gelen alıntı verisi eksik veya geçersiz (boşluk olabilir).';
+        _logger.w('$errorMessage Gelen Veri: $quoteData');
+        _setQuoteError(errorMessage);
+        return;
+      }
       
       // Kullanıcı ID'si ekle
       quoteData['userId'] = userId;

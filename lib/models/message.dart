@@ -1,5 +1,12 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'analysis_result_model.dart';
+
+enum AnalysisSource {
+  text,
+  image,
+  // İleride gerekirse başka kaynaklar eklenebilir (örn: consultation)
+}
 
 class Message {
   final String id;
@@ -14,6 +21,7 @@ class Message {
   final String userId;
   final String? errorMessage;
   final bool isAnalyzing;
+  final AnalysisSource? analysisSource;
 
   Message({
     required this.id,
@@ -28,6 +36,7 @@ class Message {
     required this.userId,
     this.errorMessage,
     this.isAnalyzing = false,
+    this.analysisSource,
   });
 
   Message copyWith({
@@ -43,6 +52,7 @@ class Message {
     String? userId,
     String? errorMessage,
     bool? isAnalyzing,
+    AnalysisSource? analysisSource,
   }) {
     return Message(
       id: id ?? this.id,
@@ -57,6 +67,7 @@ class Message {
       userId: userId ?? this.userId,
       errorMessage: errorMessage ?? this.errorMessage,
       isAnalyzing: isAnalyzing ?? this.isAnalyzing,
+      analysisSource: analysisSource ?? this.analysisSource,
     );
   }
 
@@ -73,6 +84,7 @@ class Message {
       'userId': userId,
       'errorMessage': errorMessage,
       'isAnalyzing': isAnalyzing,
+      'analysisSource': analysisSource?.name,
     };
   }
 
@@ -89,7 +101,6 @@ class Message {
       print('UYARI: Message.fromMap - Boş ID oluşturuldu. DocID: $docId, Map ID: ${map['id']}');
     }
     
-    // Timestamp veya sentAt'ten DateTime oluştur
     DateTime convertToDateTime(dynamic value) {
       if (value == null) return DateTime.now();
       if (value is Timestamp) return value.toDate();
@@ -99,9 +110,19 @@ class Message {
     
     final timestamp = map['timestamp'] as Timestamp?;
     final sentAtData = map['sentAt'];
-    final sentAt = sentAtData != null ? convertToDateTime(sentAtData) : 
-                   timestamp != null ? timestamp.toDate() : 
+    final sentAt = sentAtData != null ? convertToDateTime(sentAtData) :
+                   timestamp != null ? timestamp.toDate() :
                    DateTime.now();
+
+    AnalysisSource? source;
+    if (map['analysisSource'] is String) {
+      try {
+        source = AnalysisSource.values.byName(map['analysisSource']);
+      } catch (e) {
+        print('UYARI: Message.fromMap - Geçersiz AnalysisSource değeri: ${map['analysisSource']}');
+        source = null;
+      }
+    }
 
     return Message(
       id: messageId,
@@ -118,11 +139,12 @@ class Message {
       userId: map['userId'] ?? '',
       errorMessage: map['errorMessage'],
       isAnalyzing: map['isAnalyzing'] ?? false,
+      analysisSource: source,
     );
   }
 
   @override
   String toString() {
-    return 'Message(id: $id, content: $content, sentAt: $sentAt, isAnalyzed: $isAnalyzed)';
+    return 'Message(id: $id, content: ${content.substring(0, min(content.length, 20))}..., sentAt: $sentAt, isAnalyzed: $isAnalyzed, analysisSource: $analysisSource)';
   }
 } 

@@ -60,8 +60,13 @@ class MessageViewModel extends ChangeNotifier {
   
   // Aktif mesajın txt dosyası analizi olup olmadığını kontrol eden getter
   bool get isTxtAnalysis {
-    // TEST AMAÇLI - HER DURUMDA BUTONU GÖSTER
-    return true;
+    // TEST AMAÇLI - HER DURUMDA BUTONU GÖSTER - KALDIRILDI
+    // return true;
+
+    // --> GÜNCELLENECEK KOD BAŞLANGICI
+    // _currentMessage null ise veya analysisSource text değilse false döner.
+    return _currentMessage?.analysisSource == AnalysisSource.text;
+    // <-- GÜNCELLENECEK KOD SONU
 
     /* Orijinal kod:
     if (_currentMessage == null || _currentMessage!.content.isEmpty) {
@@ -499,6 +504,7 @@ class MessageViewModel extends ChangeNotifier {
           isAnalyzed: true,
           analysisResult: analysisResult,
           errorMessage: null,
+          analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
         );
         _currentMessage = _messages[index];
         // Geçerli analiz sonucunu da güncelle
@@ -792,6 +798,7 @@ class MessageViewModel extends ChangeNotifier {
               isAnalyzing: false,
               isAnalyzed: true,
               analysisResult: analysisResult,
+              analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
             );
             _currentMessage = _messages[index];
             _currentAnalysisResult = analysisResult;
@@ -817,6 +824,7 @@ class MessageViewModel extends ChangeNotifier {
               isAnalyzing: false,
               isAnalyzed: true,
               errorMessage: 'Analiz sonucu alınamadı',
+              analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
             );
             _currentMessage = _messages[index];
           }
@@ -840,6 +848,7 @@ class MessageViewModel extends ChangeNotifier {
             isAnalyzing: false,
             isAnalyzed: true,
             errorMessage: 'Görüntüden metin çıkarılamadı',
+            analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
           );
           _currentMessage = _messages[index];
         }
@@ -932,6 +941,7 @@ class MessageViewModel extends ChangeNotifier {
           isAnalyzing: false,
           isAnalyzed: true,
           analysisResult: analysisResult,
+          analysisSource: AnalysisSource.text, // Analiz kaynağını ayarla
         );
         _currentMessage = _messages[index];
         _currentAnalysisResult = analysisResult;

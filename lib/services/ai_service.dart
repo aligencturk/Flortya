@@ -1409,11 +1409,26 @@ class AiService {
           // JSON yanıtını ayrıştırma (içindeki JSON'ı çıkar)
           String jsonString = aiContent;
           
-          // Eğer yanıtta ```json veya ``` gibi kod blokları varsa temizle
-          final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
-          final match = codeBlockRegex.firstMatch(jsonString);
-          if (match != null && match.groupCount >= 1) {
-            jsonString = match.group(1) ?? jsonString;
+          // Güvenlik: Ham yanıtı logla (özellikle hata ayıklama için)
+          _logger.d('AI Ham Yanıtı (Alıntı): $aiContent'); 
+          
+          // JSON bloğunu metin içinden daha sağlam bir şekilde bulmaya çalış
+          final jsonStartIndex = jsonString.indexOf('{');
+          final jsonEndIndex = jsonString.lastIndexOf('}') + 1;
+
+          if (jsonStartIndex != -1 && jsonEndIndex > jsonStartIndex) {
+            jsonString = jsonString.substring(jsonStartIndex, jsonEndIndex);
+          } else {
+            // Alternatif olarak kod bloğu temizlemeyi dene (önceki yöntem)
+            final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+            final match = codeBlockRegex.firstMatch(aiContent); // aiContent üzerinde çalıştır
+            if (match != null && match.groupCount >= 1) {
+              jsonString = match.group(1) ?? aiContent; // Hata durumunda orijinali kullan
+            } else {
+              // JSON formatı bulunamadıysa hata ver
+              _logger.e('AI yanıtında geçerli JSON formatı bulunamadı.', aiContent);
+              return {'error': 'Alıntı verisi işlenemedi (Format Hatası)'};
+            }
           }
           
           Map<String, dynamic> quoteData = jsonDecode(jsonString);
@@ -1440,8 +1455,9 @@ class AiService {
           
           _logger.i('Tavsiye kartı başarıyla alındı: ${quoteData['title']}');
           return quoteData;
-        } catch (e) {
-          _logger.e('JSON ayrıştırma hatası', e);
+        } catch (e, stackTrace) { // StackTrace ekle
+          _logger.e('JSON ayrıştırma hatası', e, stackTrace); // StackTrace'i logla
+          _logger.e('Ayrıştırılamayan Ham Yanıt: $aiContent'); // Hata durumunda ham yanıtı logla
           return {'error': 'Tavsiye verisi işlenemedi'};
         }
       } else {

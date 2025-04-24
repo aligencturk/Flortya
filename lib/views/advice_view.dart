@@ -132,11 +132,11 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.refresh, size: 48, color: Color(0xFF9D3FFF)),
+                const Icon(Icons.error_outline, size: 48, color: Colors.white70),
                 const SizedBox(height: 16),
-                Text(
-                  viewModel.quoteErrorMessage ?? 'Tavsiye yükleniyor. Lütfen bekleyin.',
-                  style: const TextStyle(
+                const Text(
+                  'Alıntı şu anda getirilemiyor.\\nLütfen daha sonra tekrar deneyin.',
+                  style: TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
                   ),
