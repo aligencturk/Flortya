@@ -15,6 +15,7 @@ import 'views/analysis_detail_view.dart';
 import 'views/report_detail_view.dart';
 import 'views/consultation_view.dart';
 import 'views/settings_view.dart';
+import 'views/conversation_summary_view.dart';
 import 'utils/utils.dart';
 
 // Placeholder Widgets for new routes
@@ -1262,6 +1263,8 @@ class AppRouter {
   static const String analysisDetail = '/analysis-detail';
   static const String reportDetail = '/report-detail';
   static const String consultation = '/consultation';
+  // Konuşma özeti rotası
+  static const String konusmaSummary = '/konusma-summary';
 
   static GoRouter createRouter(AuthViewModel authViewModel) {
     return GoRouter(
@@ -1438,11 +1441,13 @@ class AppRouter {
           name: 'pastAnalyses',
           builder: (context, state) => const PastAnalysesView(),
         ),
+        
         GoRoute(
           path: pastReports,
           name: 'pastReports',
           builder: (context, state) => const PastReportsView(),
         ),
+        
         GoRoute(
           path: '$analysisDetail/:id',
           name: 'analysisDetail',
@@ -1451,12 +1456,23 @@ class AppRouter {
             return AnalysisDetailView(analysisId: analysisId);
           },
         ),
+        
         GoRoute(
           path: '$reportDetail/:id',
           name: 'reportDetail',
           builder: (context, state) {
             final reportId = state.pathParameters['id'] ?? '';
             return ReportDetailView(reportId: reportId);
+          },
+        ),
+        
+        // Konuşma özeti sayfası
+        GoRoute(
+          path: konusmaSummary,
+          name: 'konusmaSummary',
+          builder: (context, state) {
+            final summaryData = state.extra as List<Map<String, String>>? ?? [];
+            return KonusmaSummaryView(summaryData: summaryData);
           },
         ),
       ],

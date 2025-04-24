@@ -1453,4 +1453,447 @@ class AiService {
       return {'error': 'Beklenmeyen bir hata oluştu'};
     }
   }
+
+  // Tavsiye kartı için rastgele bir öneri alın
+  Future<Map<String, dynamic>> getRandomAdviceCard() async {
+    try {
+      _logger.i('Rastgele tavsiye kartı alınıyor...');
+      
+      final List<String> categories = [
+        'İletişim',
+        'Dinleme',
+        'Empati',
+        'Anlayış',
+        'Güven',
+        'Yakınlık',
+        'Saygı',
+        'Destek',
+        'Sabır',
+        'Kabul'
+      ];
+      
+      // Rastgele kategori seçimi
+      final random = Random();
+      final category = categories[random.nextInt(categories.length)];
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki terapistisin. "$category" kategorisinde bir ilişki tavsiye kartı oluştur. 
+                
+                Yanıtını şu formatta ver:
+                {
+                  "title": "Kısa, çarpıcı ve emoji içeren bir başlık (en fazla 50 karakter)",
+                  "description": "Bir paragraf açıklama (en fazla 200 karakter)",
+                  "action": "Yapılabilecek spesifik bir eylem (en fazla 100 karakter)",
+                  "category": "$category"
+                }
+                
+                Yanıtın sadece bu JSON formatında olmalı, başka açıklama yapmana gerek yok.
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': 1024
+        }
+      });
+      
+      _logger.d('Tavsiye kartı API isteği: $_geminiApiUrl');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return {
+            'title': 'Tavsiye Kartı',
+            'description': 'Bir tavsiye kartı alınamadı. Lütfen daha sonra tekrar deneyiniz.',
+            'action': 'Tekrar deneyin',
+            'category': category
+          };
+        }
+        
+        try {
+          // JSON formatındaki metni düzelt
+          final String formattedText = aiContent.trim();
+          final startIndex = formattedText.indexOf('{');
+          final endIndex = formattedText.lastIndexOf('}') + 1;
+          
+          if (startIndex != -1 && endIndex > startIndex) {
+            final String jsonText = formattedText.substring(startIndex, endIndex);
+            final Map<String, dynamic> adviceCard = jsonDecode(jsonText);
+            
+            // Gerekli alanları kontrol et ve varsayılan değerlerle doldur
+            adviceCard['title'] ??= 'Tavsiye Kartı';
+            adviceCard['description'] ??= 'İlişkinizi geliştirmek için bir adım atın.';
+            adviceCard['action'] ??= 'Bugün partnerin ile konuş';
+            adviceCard['category'] ??= category;
+            
+            // Kart ID'si ekle
+            adviceCard['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+            adviceCard['timestamp'] = DateTime.now().toIso8601String();
+            
+            _logger.i('Tavsiye kartı başarıyla alındı');
+            return adviceCard;
+          } else {
+            _logger.e('AI yanıtı geçerli bir JSON formatında değil', formattedText);
+            return {
+              'title': 'Tavsiye Kartı',
+              'description': 'Bir tavsiye kartı alınamadı. Lütfen daha sonra tekrar deneyiniz.',
+              'action': 'Tekrar deneyin',
+              'category': category
+            };
+          }
+        } catch (parseError) {
+          _logger.e('JSON ayrıştırma hatası', parseError);
+          return {
+            'title': 'Tavsiye Kartı',
+            'description': 'Bir tavsiye kartı alınamadı. Lütfen daha sonra tekrar deneyiniz.',
+            'action': 'Tekrar deneyin',
+            'category': category
+          };
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return {
+          'title': 'Tavsiye Kartı',
+          'description': 'Bir tavsiye kartı alınamadı. Lütfen daha sonra tekrar deneyiniz.',
+          'action': 'Tekrar deneyin',
+          'category': category
+        };
+      }
+    } catch (e) {
+      _logger.e('Tavsiye kartı hatası', e);
+      return {
+        'title': 'Tavsiye Kartı',
+        'description': 'Bir tavsiye kartı alınamadı. Lütfen daha sonra tekrar deneyiniz.',
+        'action': 'Tekrar deneyin',
+        'category': 'Genel'
+      };
+    }
+  }
+  
+  // .txt dosyası içeriğine ve analiz sonucuna göre konuşma özeti alır
+  Future<List<Map<String, String>>> getConversationSummary(
+    String messageContent, 
+    Map<String, dynamic> analysisResult
+  ) async {
+    try {
+      _logger.i('Konuşma özeti için istek yapılıyor...');
+      
+      // Mesaj içeriğini kontrol et
+      if (messageContent.trim().isEmpty) {
+        _logger.w('Konuşma özeti için boş mesaj içeriği');
+        return [];
+      }
+      
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        _logger.e('Gemini API anahtarı bulunamadı');
+        throw Exception('API anahtarı eksik veya geçersiz');
+      }
+      
+      // Mesaj uzunluğunu kontrol et ve gerekirse kırp
+      String contentToAnalyze = messageContent;
+      if (messageContent.length > 15000) {
+        _logger.w('Mesaj içeriği çok uzun, kırpılıyor...');
+        contentToAnalyze = messageContent.substring(0, 15000) + "...";
+      }
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki analisti olarak şu metin dosyasının içeriğini inceleyip konuşma özeti çıkaracaksın:
+                
+                ```
+                ${contentToAnalyze}
+                ```
+                
+                Bu metin dosyasındaki konuşmalara dayanarak konuşmanın çarpıcı özelliklerini içeren bir özet çıkar.
+                Yanıtın tam olarak şu formatta olmalı:
+                
+                [
+                  {
+                    "title": "❤️ En Çok 'Seni Seviyorum' Diyen",
+                    "comment": "Partnerin bunu 14 kez söylemiş, sen sadece 5. Romantizm farkı ortada!"
+                  },
+                  {
+                    "title": "⏰ Kim Daha Geç Cevap Veriyor?",
+                    "comment": "Sen ortalama 3dk, partnerin 12dk'da cevap veriyor. Ufak bir sabır testi olabilir 😅"
+                  }
+                ]
+                
+                En az 4, en fazla 6 farklı özellik belirt. Her özellik için:
+                1. title: Emoji ile başlayan, ilgi çekici, kısa başlık (maks 50 karakter)
+                2. comment: Tespitle ilgili neşeli ve samimi bir yorum (maks 150 karakter)
+                
+                ÇIKTI SADECE BU JSON FORMATINDA OLMALI, EK AÇIKLAMA EKLEME!
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': 2048,
+          'topP': 0.9
+        }
+      });
+      
+      _logger.d('Konuşma özeti API isteği gönderiliyor');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null || aiContent.isEmpty) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil');
+          return [];
+        }
+        
+        try {
+          // JSON formatını düzelt
+          String jsonText = aiContent.trim();
+          
+          // JSON metnini ayıkla (başka metinler içerebilir)
+          final startIndex = jsonText.indexOf('[');
+          final endIndex = jsonText.lastIndexOf(']') + 1;
+          
+          if (startIndex == -1 || endIndex <= startIndex) {
+            _logger.e('Geçerli JSON formatı bulunamadı', jsonText);
+            return [];
+          }
+          
+          jsonText = jsonText.substring(startIndex, endIndex);
+          
+          // JSON'ı ayrıştır
+          final List<dynamic> parsedData = jsonDecode(jsonText);
+          
+          // String: String formatına dönüştür
+          final List<Map<String, String>> summaryData = parsedData.map((item) {
+            return {
+              'title': item['title'] as String? ?? '',
+              'comment': item['comment'] as String? ?? ''
+            };
+          }).toList();
+          
+          _logger.i('Konuşma özeti başarıyla alındı: ${summaryData.length} öğe');
+          return summaryData;
+        } catch (parseError) {
+          _logger.e('JSON ayrıştırma hatası', parseError);
+          return [];
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      _logger.e('Konuşma özeti hatası', e);
+      return [];
+    }
+  }
+
+  /// Sohbet verisini Spotify Wrapped tarzında analiz eder ve özet sonuçlar oluşturur
+  Future<List<Map<String, String>>> analizSohbetVerisi(String sohbetMetni) async {
+    try {
+      _logger.i('Sohbet analizi başlatılıyor...');
+      
+      // Sohbet içeriğini kontrol etme
+      if (sohbetMetni.trim().isEmpty) {
+        _logger.w('Boş sohbet içeriği, analiz yapılamıyor');
+        return [];
+      }
+      
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
+        throw Exception('API anahtarı eksik veya geçersiz');
+      }
+      
+      // Mesajın uzunluğunu kontrol et
+      if (sohbetMetni.length > 15000) {
+        _logger.w('Sohbet içeriği çok uzun (${sohbetMetni.length} karakter). Kısaltılıyor...');
+        sohbetMetni = "${sohbetMetni.substring(0, 15000)}...";
+      }
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen bir ilişki analisti olarak çalışıyorsun. Aşağıdaki sohbet verisi iki kişi arasında geçen yazışmalardır.
+                
+                Bu yazışmayı analiz ederek aşağıdaki 5 kategoriye uygun şekilde başlık ve istatistiğe dayalı eğlenceli yorumlar oluştur.
+                
+                📝 Kurallar:
+                - Her başlığa karşılık 1 kısa yorum ver.
+                - Yorumlar mizahi, hafif ironik, ama veriye dayalı olmalı.
+                - İçerikte sayı, karşılaştırma, oran gibi bilgiler olmalı.
+                - Maksimum 1-2 cümlelik kısa yorum yaz.
+                - Sadece JSON formatında cevap ver.
+                
+                🎯 5 Sabit Kategori:
+                1. 🏆 En Uzun Konuşma (Hangi gün ya da zaman diliminde en uzun konuşma yapılmış)
+                2. ❤️ En Çok "Seni Seviyorum" Diyen (Kim daha çok söylemiş, kaç kez söylemiş)
+                3. ⏰ En Geç Cevap Veren (Ortalama cevap sürelerini karşılaştır)
+                4. 😶 Cevapsız Mesajlar (Kaç mesaj cevapsız kalmış, kimden kime)
+                5. 💬 Kim Daha Çok Yazmış? (Toplam mesaj sayısı ve oranlar)
+                
+                İncelenecek sohbet:
+                ```
+                ${sohbetMetni}
+                ```
+                
+                Lütfen analiz sonuçlarını aşağıdaki formatta yanıtla:
+                [
+                  {
+                    "title": "🏆 En Uzun Konuşma",
+                    "comment": "8 Nisan'da toplam 213 mesajla rekor kırıldı. Parmaklar yorulmuş olabilir!"
+                  },
+                  {
+                    "title": "❤️ En Çok 'Seni Seviyorum' Diyen",
+                    "comment": "Partnerin 14 kez 'Seni Seviyorum' demiş, sen 5. Romantik denge biraz kaymış 😅"
+                  },
+                  ve diğer kategoriler...
+                ]
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens,
+          'topP': 0.9
+        }
+      });
+      
+      _logger.d('Sohbet analizi API isteği gönderiliyor');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _logger.e('Gemini API istek zaman aşımına uğradı');
+          throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
+        },
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null || aiContent.isEmpty) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil');
+          return _getVarsayilanSohbetOzeti();
+        }
+        
+        try {
+          // JSON formatını düzelt
+          String jsonText = aiContent.trim();
+          
+          // JSON metnini ayıkla (başka metinler içerebilir)
+          final startIndex = jsonText.indexOf('[');
+          final endIndex = jsonText.lastIndexOf(']') + 1;
+          
+          if (startIndex == -1 || endIndex <= startIndex) {
+            _logger.e('Geçerli JSON formatı bulunamadı', jsonText);
+            return _getVarsayilanSohbetOzeti();
+          }
+          
+          jsonText = jsonText.substring(startIndex, endIndex);
+          
+          // JSON'ı ayrıştır
+          final List<dynamic> parsedData = jsonDecode(jsonText);
+          
+          // String: String formatına dönüştür
+          final List<Map<String, String>> ozet = parsedData.map((item) {
+            return {
+              'title': item['title'] as String? ?? '',
+              'comment': item['comment'] as String? ?? ''
+            };
+          }).toList();
+          
+          _logger.i('Sohbet özeti başarıyla alındı: ${ozet.length} öğe');
+          return ozet;
+        } catch (parseError) {
+          _logger.e('JSON ayrıştırma hatası', parseError);
+          return _getVarsayilanSohbetOzeti();
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return _getVarsayilanSohbetOzeti();
+      }
+    } catch (e) {
+      _logger.e('Sohbet analizi hatası', e);
+      return _getVarsayilanSohbetOzeti();
+    }
+  }
+  
+  // Varsayılan sohbet özeti
+  List<Map<String, String>> _getVarsayilanSohbetOzeti() {
+    return [
+      {
+        'title': '🏆 En Uzun Konuşma',
+        'comment': 'Analiz sırasında bir sorun oluştu, lütfen tekrar deneyin.'
+      },
+      {
+        'title': '❤️ En Çok "Seni Seviyorum" Diyen',
+        'comment': 'Analiz sırasında bir sorun oluştu, lütfen tekrar deneyin.'
+      },
+      {
+        'title': '⏰ En Geç Cevap Veren',
+        'comment': 'Analiz sırasında bir sorun oluştu, lütfen tekrar deneyin.'
+      },
+      {
+        'title': '😶 Cevapsız Mesajlar',
+        'comment': 'Analiz sırasında bir sorun oluştu, lütfen tekrar deneyin.'
+      },
+      {
+        'title': '💬 Kim Daha Çok Yazmış?',
+        'comment': 'Analiz sırasında bir sorun oluştu, lütfen tekrar deneyin.'
+      }
+    ];
+  }
 } 

@@ -57,6 +57,24 @@ class MessageViewModel extends ChangeNotifier {
   bool get hasCurrentMessage => _currentMessage != null;
   bool get hasAnalysisResult => _currentAnalysisResult != null;
   bool get isFirstLoadCompleted => _isFirstLoadCompleted;
+  
+  // Aktif mesajın txt dosyası analizi olup olmadığını kontrol eden getter
+  bool get isTxtAnalysis {
+    // TEST AMAÇLI - HER DURUMDA BUTONU GÖSTER
+    return true;
+
+    /* Orijinal kod:
+    if (_currentMessage == null || _currentMessage!.content.isEmpty) {
+      return false;
+    }
+    
+    // TXT dosyası analizi kontrolü
+    final String content = _currentMessage!.content.toLowerCase();
+    return content.contains('.txt') || 
+           content.contains('metin dosyası') || 
+           content.contains('txt dosya');
+    */
+  }
 
   // Mesajları yükleme işlemi
   Future<void> loadMessages(String userId) async {

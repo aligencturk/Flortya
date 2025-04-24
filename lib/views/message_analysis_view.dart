@@ -9,14 +9,16 @@ import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../viewmodels/auth_viewmodel.dart';
-import '../viewmodels/message_viewmodel.dart';
+import 'package:flutter/services.dart';
 import '../utils/feedback_utils.dart';
+import '../services/ai_service.dart';
 import '../models/message.dart';
-import '../utils/utils.dart';
 import '../app_router.dart';
+import '../viewmodels/message_viewmodel.dart';
+import '../views/conversation_summary_view.dart';
+import '../viewmodels/auth_viewmodel.dart';
 import '../controllers/home_controller.dart';
+import '../utils/utils.dart';
 
 // Mesaj sınıfı için extension
 extension MessageExtension on Message {
@@ -1064,48 +1066,122 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tarih ve durum
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          latestMessage.formattedCreatedAt,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 12,
-                          ),
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          color: Colors.white.withOpacity(0.7),
+                          size: 18,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF9D3FFF).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Analiz Edildi',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Mesaj İçeriği',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                       ],
                     ),
-                    
                     const SizedBox(height: 8),
-                    
-                    // Mesaj içeriği
                     Text(
-                      latestMessage.content.length > 100
-                          ? '${latestMessage.content.substring(0, 100)}...'
+                      latestMessage.content.length > 150
+                          ? '${latestMessage.content.substring(0, 150)}...'
                           : latestMessage.content,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withOpacity(0.9),
                         fontSize: 14,
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            
+            // .txt dosyası analizi için Konuşma Özeti butonu
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Center(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    // UI'da yükleme durumunu göster
+                    setState(() {
+                      _isLoading = true;
+                    });
+                    
+                    try {
+                      // Mevcut analiz sonucunu kontrol et
+                      if (latestMessage.analysisResult == null) {
+                        throw Exception('Analiz sonucu bulunamadı');
+                      }
+                      
+                      // AI servisini al
+                      final aiService = AiService();
+                      
+                      // Mesaj içeriğini kullanarak Spotify Wrapped tarzı sohbet analizi yap
+                      final summaryData = await aiService.analizSohbetVerisi(
+                        latestMessage.content
+                      );
+                      
+                      if (summaryData.isEmpty) {
+                        throw Exception('Konuşma özeti alınamadı');
+                      }
+                      
+                      // Yükleme durumunu kapat
+                      setState(() {
+                        _isLoading = false;
+                      });
+                      
+                      // Konuşma özeti sayfasına git
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => KonusmaSummaryView(
+                              summaryData: summaryData,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Hata durumunda yükleme göstergesini kapat
+                      setState(() {
+                        _isLoading = false;
+                      });
+                      
+                      // Hata mesajı göster
+                      if (mounted) {
+                        FeedbackUtils.showErrorFeedback(
+                          context, 
+                          'Spotify Wrapped analizi alınırken hata oluştu: $e'
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.auto_awesome,
+                    size: 22,
+                  ),
+                  label: const Text(
+                    "✨ Spotify Wrapped Analizi",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1DB954), // Spotify yeşili
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
                 ),
               ),
             ),
