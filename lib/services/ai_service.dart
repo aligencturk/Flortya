@@ -603,50 +603,66 @@ class AiService {
   // Günlük tavsiye kartı alma
   Future<Map<String, dynamic>> getDailyAdviceCard(String userId) async {
     try {
-      // Gerçek ilişki koçu alıntısı almak için Gemini API'ye istek gönderme
+      _logger.i('Günlük ilişki tavsiyesi alınıyor...');
+      
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
+        return {'error': 'API anahtarı eksik veya geçersiz. Ayarlar bölümünden yapılandırınız.'};
+      }
+      
+      // Gemini API'ye istek gönderme
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Sen profesyonel bir ilişki uzmanısın. Kullanıcılara ilişkiler, duygusal gelişim ve 
+                kişisel büyüme konularında günlük faydalı tavsiyeler veriyorsun.
+                
+                Günlük, etkili ve uygulanabilir bir ilişki tavsiyesi oluştur. Bu tavsiye:
+                
+                1. Net bir başlığa sahip olmalı (örnek: "Bağlanma", "Kendini İfade Etme", "Güven Oluşturma")
+                2. İlişkiler, duygusal sağlık veya kişisel gelişim konusunda olmalı
+                3. Bilimsel psikoloji ve ilişki araştırmalarına dayanmalı
+                4. Basit, uygulanabilir ve özgün olmalı
+                5. Samimi bir dille yazılmalı
+                6. Kısa paragraflar halinde oluşturulmalı
+                7. Kişisel hikaye barındırmamalı, doğrudan tavsiye içermeli
+                
+                Yanıtı şu JSON formatında oluştur:
+                {
+                  "title": "Tavsiye başlığı",
+                  "content": "Tavsiye içeriği, birden fazla paragraf olabilir",
+                  "category": "ilişkiler/duygusal_sağlık/kişisel_gelişim/iletişim",
+                  "source": "Bilimsel geçerliliği olan kaynağın adı veya araştırmacı"
+                }
+                
+                Sadece JSON döndür, başka bir şey yazma.
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('Günlük tavsiye API isteği: $_geminiApiUrl');
+      
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'contents': [
-            {
-              'role': 'user',
-              'parts': [
-                {
-                  'text': '''
-                  Senin görevin, gerçek bir ilişki uzmanı veya ilişki koçunun kitabından, röportajından veya konuşmasından GERÇEK bir alıntı bulmak.
-
-                  Aşağıdaki kurallara kesinlikle uy:
-                  1. Alıntı GERÇEK ve BİREBİR olmalı - parafraz yapmayın, değiştirmeyin, kendiniz oluşturmayın.
-                  2. Alıntı tanınmış bir ilişki uzmanına (örn: Brene Brown, John Gray, Gary Chapman, Aret Vartanyan, Cem Keçe, Doğan Cüceloğlu) ait olmalı.
-                  3. Alıntıyı nereden aldığını açıkça belirtmelisin.
-                  4. Alıntıya uygun tek kelimelik ETKİLEYİCİ bir başlık belirle (Dürüstlük!, Bağlanma!, Cesaret! gibi).
-                  5. Hiçbir şekilde yorum eklemeyeceksin.
-
-                  YANITI ŞU FORMATTA VER:
-                  {
-                    "title": "TEK KELİMELİK ETKİLEYİCİ BAŞLIK!",
-                    "content": "Alıntı metni",
-                    "category": "İlgili kategori (iletişim, güven, empati, vb.)",
-                    "source": "Uzman adı - Kaynak adı"
-                  }
-                  
-                  Eğer gerçek bir alıntı BULAMAZSAN, şu JSON'ı döndür: {"error": "Alıntı bulunamadı"}
-                  
-                  Asla kendi oluşturduğun bir tavsiye verme! Sadece gerçek alıntılar!
-                  '''
-                }
-              ]
-            }
-          ],
-          'generationConfig': {
-            'temperature': 0.8,
-            'maxOutputTokens': _geminiMaxTokens
-          }
-        }),
+        body: requestBody,
       );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
@@ -654,56 +670,52 @@ class AiService {
         
         if (aiContent == null) {
           _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
-          return {'error': 'Tavsiye kartı oluşturulamadı'};
+          return {'error': 'Tavsiye alınamadı'};
         }
         
-        // JSON yanıtı ayrıştırma
+        _logger.d('AI yanıt metni: $aiContent');
+        
+        // JSON metni temizleme ve parse etme
+        String jsonText = aiContent;
+        
+        // Gereksiz bloklardan temizle
+        if (jsonText.contains('```json')) {
+          jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+        } else if (jsonText.contains('```')) {
+          jsonText = jsonText.split('```')[1].split('```')[0].trim();
+        }
+        
         try {
-          // JSON yanıtını ayrıştırma (içindeki JSON'ı çıkar)
-          String jsonString = aiContent;
+          // JSON'ı ayrıştır
+          final Map<String, dynamic> advice = jsonDecode(jsonText);
           
-          // Eğer yanıtta ```json veya ``` gibi kod blokları varsa temizle
-          final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
-          final match = codeBlockRegex.firstMatch(jsonString);
-          if (match != null && match.groupCount >= 1) {
-            jsonString = match.group(1) ?? jsonString;
+          // Gerekli alanları kontrol et
+          if (!advice.containsKey('title') || !advice.containsKey('content')) {
+            _logger.e('Eksik JSON alanları', advice);
+            return {'error': 'Tavsiye formatı geçersiz'};
           }
           
-          Map<String, dynamic> quoteData = jsonDecode(jsonString);
-          
-          // Yanıtta error alanı varsa hata dön
-          if (quoteData.containsKey('error')) {
-            _logger.w('Alıntı bulunamadı - API yanıtı: ${quoteData['error']}');
-            return {'error': 'Alıntı bulunamadı'};
+          // Kaynak alanı yoksa varsayılan değer
+          if (!advice.containsKey('source') || advice['source'] == null || advice['source'].toString().trim().isEmpty) {
+            advice['source'] = 'Yapay Zeka Asistanı';
           }
           
-          // Gerekli alanların varlığını ve doğruluğunu kontrol et
-          if (!quoteData.containsKey('title') || 
-              !quoteData.containsKey('content') || 
-              !quoteData.containsKey('source') ||
-              quoteData['title'].toString().isEmpty ||
-              quoteData['content'].toString().isEmpty ||
-              quoteData['source'].toString().isEmpty) {
-            _logger.e('Alıntı verisi eksik alanlar içeriyor', quoteData);
-            return {'error': 'Alıntı verisi eksik'};
-          }
+          // Zaman damgası ekle
+          advice['timestamp'] = DateTime.now().toIso8601String();
           
-          // Timestamp ekle
-          quoteData['timestamp'] = DateTime.now().toIso8601String();
-          
-          _logger.i('Tavsiye kartı başarıyla alındı: ${quoteData['title']}');
-          return quoteData;
-        } catch (e) {
-          _logger.e('JSON ayrıştırma hatası', e);
-          return {'error': 'Tavsiye verisi işlenemedi'};
+          _logger.i('Günlük tavsiye başarıyla oluşturuldu. Başlık: ${advice['title']} - Kaynak: ${advice['source']}');
+          return advice;
+        } catch (jsonError) {
+          _logger.e('JSON ayrıştırma hatası', jsonError);
+          return {'error': 'Tavsiye formatı geçersiz: $jsonError'};
         }
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return {'error': 'Tavsiye kartı oluşturulamadı'};
+        return {'error': 'Tavsiye alınırken hata oluştu. Lütfen tekrar deneyiniz.'};
       }
     } catch (e) {
-      _logger.e('Tavsiye kartı oluşturma hatası', e);
-      return {'error': 'Bir hata oluştu'};
+      _logger.e('Günlük tavsiye hatası', e);
+      return {'error': 'Beklenmeyen bir hata oluştu'};
     }
   }
 

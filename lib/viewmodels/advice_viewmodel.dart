@@ -127,8 +127,16 @@ class AdviceViewModel extends ChangeNotifier {
         return;
       }
       
+      // Kaynak bilgisini ekle - eğer yoksa varsayılan değer
+      if (!advice.containsKey('source') || advice['source'] == null) {
+        advice['source'] = 'Yapay Zeka Asistanı';
+      }
+      
       // Kullanıcı ID'si ekle
       advice['userId'] = userId;
+      
+      // Tarih bilgisi ekle
+      advice['timestamp'] = Timestamp.now();
       
       // Firestore'a kaydet
       final docRef = await _firestore.collection('advice_cards').add(advice);
@@ -139,7 +147,7 @@ class AdviceViewModel extends ChangeNotifier {
       // Güncel tavsiyeyi ayarla
       _adviceCard = advice;
       
-      _logger.i('Yeni tavsiye kartı alındı.');
+      _logger.i('Yeni tavsiye kartı alındı. Kaynak: ${advice['source']}');
       notifyListeners();
     } catch (e) {
       _setError('Tavsiye kartı alınırken hata oluştu: $e');
