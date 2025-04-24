@@ -494,7 +494,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                 const SizedBox(height: 24),
                 
                 // Dosya içeriği önizleme
-                if (_fileContent.isNotEmpty) ...[
+                if (_selectedFile != null) ...[
                   Card(
                     elevation: 4,
                     color: Colors.white.withOpacity(0.9),
@@ -542,7 +542,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                   
                   const SizedBox(height: 24),
                   
-                  // Analiz Başlat Butonu
+                  // Analiz Başlat Butonu - Sadece .txt dosyası yüklendiğinde görünür
                   ElevatedButton.icon(
                     onPressed: _isAnalyzing ? null : _analyzeChatContent,
                     style: ElevatedButton.styleFrom(
