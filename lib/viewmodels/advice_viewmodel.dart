@@ -441,24 +441,17 @@ class AdviceViewModel extends ChangeNotifier {
     // Mevcut Timer'ı iptal et
     _dailyAdviceTimer?.cancel();
     
-    // Bugün için saat 10:00'u belirle
+    // Gece yarısından 1 dakika sonrası için tarih belirle (00:01)
     final now = DateTime.now();
-    final tenAM = DateTime(now.year, now.month, now.day, 10, 0);
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1, 0, 1);
     
-    // Eğer saat 10:00'u geçtiyse, yarın için ayarla
-    Duration timeUntilTenAM;
-    if (now.isAfter(tenAM)) {
-      final tomorrow = now.add(const Duration(days: 1));
-      final tomorrowTenAM = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 10, 0);
-      timeUntilTenAM = tomorrowTenAM.difference(now);
-    } else {
-      timeUntilTenAM = tenAM.difference(now);
-    }
+    // Bir sonraki yenilemeye kadar olan süreyi hesapla
+    final timeUntilRefresh = nextMidnight.difference(now);
     
-    _logger.i('Günlük tavsiye yenileme zamanı: ${timeUntilTenAM.inHours} saat ${timeUntilTenAM.inMinutes % 60} dakika sonra');
+    _logger.i('Günlük tavsiye otomatik yenileme zamanı: ${nextMidnight.toString()} (${timeUntilRefresh.inHours} saat ${timeUntilRefresh.inMinutes % 60} dakika sonra)');
     
     // Timer'ı ayarla
-    _dailyAdviceTimer = Timer(timeUntilTenAM, () {
+    _dailyAdviceTimer = Timer(timeUntilRefresh, () {
       _refreshDailyAdvice();
     });
   }
@@ -482,29 +475,24 @@ class AdviceViewModel extends ChangeNotifier {
     // Önce varsa eski timer'ı temizle
     _dailyAdviceTimer?.cancel();
     
-    // Her gün saat 10:00'da çalışacak bir zamanlayıcı oluştur
+    // Her gün gece yarısından 1 dakika sonra (00:01) çalışacak zamanlayıcı
     _logger.i('Günlük tavsiye kartı zamanlayıcısı başlatılıyor');
     
-    // Sonraki saat 10:00'u hesapla
+    // Gece yarısından 1 dakika sonrası için tarih belirle
     final now = DateTime.now();
-    final today10AM = DateTime(now.year, now.month, now.day, 10, 0);
-    
-    // Eğer saat 10:00'u geçmişsek, yarının saat 10:00'unu hedefle
-    final nextRefreshTime = now.isAfter(today10AM) 
-        ? today10AM.add(const Duration(days: 1)) 
-        : today10AM;
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1, 0, 1);
     
     // İlk tetikleme için gereken süreyi hesapla
-    final initialDelay = nextRefreshTime.difference(now);
+    final initialDelay = nextMidnight.difference(now);
     
-    _logger.i('Sonraki tavsiye kartı yenilemesi: ${nextRefreshTime.toString()}');
+    _logger.i('Sonraki otomatik tavsiye yenilemesi: ${nextMidnight.toString()}');
     
     // İlk tetikleme için bir kerelik zamanlayıcı
     _dailyAdviceTimer = Timer(initialDelay, () {
       // İlk çalışmadan sonra günlük olarak tekrarla
       refreshDailyAdviceCard(userId);
       
-      // Günlük tekrarlanan zamanlayıcı
+      // Günlük tekrarlanan zamanlayıcı - her gün gece yarısından 1 dakika sonra
       _dailyAdviceTimer = Timer.periodic(const Duration(days: 1), (_) {
         refreshDailyAdviceCard(userId);
       });
@@ -602,9 +590,8 @@ class AdviceViewModel extends ChangeNotifier {
       final quoteData = await _aiService.getDailyRelationshipQuote();
       
       if (quoteData.containsKey('error')) {
-        _logger.w('Alıntı alınırken hata: ${quoteData['error']}. Varsayılan alıntı gösterilecek.');
-        // Hata durumunda varsayılan alıntı göster
-        _setDefaultQuote();
+        _logger.w('Alıntı alınırken hata: ${quoteData['error']}');
+        _setQuoteError(quoteData['error']);
         return;
       }
       
@@ -641,22 +628,10 @@ class AdviceViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _logger.e('İlişki koçu alıntısı alınırken hata oluştu: $e');
-      // Hata durumunda varsayılan alıntı göster
-      _setDefaultQuote();
+      _setQuoteError('İlişki koçu alıntısı alınırken hata oluştu: $e');
     } finally {
       _setLoadingQuote(false);
     }
-  }
-  
-  // Varsayılan ilişki koçu alıntısı oluştur
-  void _setDefaultQuote() {
-    _dailyQuote = RelationshipQuote(
-      title: "Bağlanma",
-      content: "Birçok ilişkinin bozulmasının sebebi, tarafların birbirini değiştirmeye çalışmasıdır. Oysa yapılması gereken, karşımızdakini olduğu gibi kabul etmek ve anlamaya çalışmaktır.",
-      source: "Doğan Cüceloğlu - Gerçek Özgürlük",
-      timestamp: DateTime.now(),
-    );
-    notifyListeners();
   }
   
   // Yeni ilişki koçu alıntısı alma
@@ -668,9 +643,8 @@ class AdviceViewModel extends ChangeNotifier {
       final quoteData = await _aiService.getDailyRelationshipQuote();
       
       if (quoteData.containsKey('error')) {
-        _logger.w('Alıntı alınırken hata: ${quoteData['error']}. Varsayılan alıntı gösterilecek.');
-        // Hata durumunda varsayılan alıntı göster
-        _setDefaultQuote();
+        _logger.w('Alıntı alınırken hata: ${quoteData['error']}');
+        _setQuoteError(quoteData['error']);
         return;
       }
       
@@ -690,8 +664,7 @@ class AdviceViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _logger.e('İlişki koçu alıntısı alınırken hata oluştu: $e');
-      // Hata durumunda varsayılan alıntı göster
-      _setDefaultQuote();
+      _setQuoteError('İlişki koçu alıntısı alınırken hata oluştu: $e');
     } finally {
       _setLoadingQuote(false);
     }

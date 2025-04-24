@@ -43,9 +43,13 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
       });
       
       try {
-        // Kullanıcı giriş yapmışsa verileri yükle
+        // Kullanıcı giriş yapmışsa verileri yükle ve zamanlayıcıyı başlat
         if (authViewModel.currentUser != null) {
+          // Tavsiye ve alıntı yükle
           await adviceViewModel.fetchDailyAdviceAndQuote();
+          
+          // Otomatik yenileme zamanlayıcısını başlat
+          adviceViewModel.startDailyAdviceTimer(authViewModel.currentUser!.uid);
         }
         
         setState(() {
@@ -127,50 +131,15 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.format_quote, size: 48, color: Colors.grey),
+                const Icon(Icons.refresh, size: 48, color: Color(0xFF9D3FFF)),
                 const SizedBox(height: 16),
-                const Text(
-                  'Bugünün tavsiyesi şu an getirilemiyor. Lütfen daha sonra tekrar deneyin.',
-                  style: TextStyle(
+                Text(
+                  viewModel.quoteErrorMessage ?? 'Tavsiye yükleniyor. Lütfen bekleyin.',
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Consumer<AuthViewModel>(
-                  builder: (context, authViewModel, child) {
-                    return Column(
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (authViewModel.currentUser != null) {
-                              await viewModel.fetchDailyAdviceAndQuote();
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF9D3FFF),
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Tekrar Dene'),
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (authViewModel.currentUser != null) {
-                              final userId = authViewModel.currentUser!.uid;
-                              await viewModel.refreshRelationshipQuote(userId);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4CAF50),
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Yeni Alıntı Al'),
-                        ),
-                      ],
-                    );
-                  },
                 ),
               ],
             ),
