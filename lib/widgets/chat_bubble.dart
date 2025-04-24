@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../constants/colors.dart';
 import '../constants/text_styles.dart';
+import '../utils/loading_indicator.dart';
 
 class ChatBubble extends StatelessWidget {
   final Message message;
@@ -78,11 +79,9 @@ class ChatBubble extends StatelessWidget {
                         width: double.infinity,
                         color: Colors.grey[200],
                         child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
+                          child: YuklemeAnimasyonu(
+                            boyut: 45.0,
+                            renk: Colors.pinkAccent,
                           ),
                         ),
                       );

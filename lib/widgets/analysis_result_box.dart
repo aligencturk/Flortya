@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/analysis_result_model.dart';
+import '../utils/loading_indicator.dart';
 
 class AnalysisResultBox extends StatelessWidget {
   final AnalysisResult result;
@@ -267,11 +268,20 @@ class AnalysisResultBox extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: severity / 10,
-            backgroundColor: theme.colorScheme.surfaceVariant,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ClipRRect(
             borderRadius: BorderRadius.circular(4),
+            child: Container(
+              height: 8,
+              width: double.infinity,
+              color: theme.colorScheme.surfaceVariant,
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: severity / 10,
+                child: Container(
+                  color: color,
+                ),
+              ),
+            ),
           ),
         ],
       ),

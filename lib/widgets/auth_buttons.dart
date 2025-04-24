@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../utils/feedback_utils.dart';
+import '../utils/loading_indicator.dart';
 
 class GoogleSignInButton extends StatelessWidget {
   final VoidCallback? onSuccess;
@@ -37,11 +38,9 @@ class GoogleSignInButton extends StatelessWidget {
           ? SizedBox(
               height: 24,
               width: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  colorScheme.primary,
-                ),
+              child: YuklemeAnimasyonu(
+                boyut: 24.0,
+                renk: colorScheme.primary,
               ),
             )
           : Row(
@@ -121,9 +120,9 @@ class AppleSignInButton extends StatelessWidget {
           ? SizedBox(
               height: 24,
               width: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              child: YuklemeAnimasyonu(
+                boyut: 24.0,
+                renk: Colors.white,
               ),
             )
           : Row(

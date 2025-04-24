@@ -6,9 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../app_router.dart';
+import '../utils/loading_indicator.dart';
 
 class OnboardingView extends StatefulWidget {
   const OnboardingView({super.key});
@@ -270,8 +272,8 @@ class _OnboardingViewState extends State<OnboardingView> {
       return Scaffold(
         backgroundColor: Colors.white,
         body: const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF9D3FFF),
+          child: YuklemeAnimasyonu(
+            renk: Color(0xFF9D3FFF),
           ),
         ),
       );
@@ -282,8 +284,8 @@ class _OnboardingViewState extends State<OnboardingView> {
       return Scaffold(
         backgroundColor: const Color(0xFF121929),
         body: const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF9D3FFF),
+          child: YuklemeAnimasyonu(
+            renk: Color(0xFF9D3FFF),
           ),
         ),
       );
@@ -349,9 +351,9 @@ class _OnboardingViewState extends State<OnboardingView> {
                           ? const SizedBox(
                               width: 20, 
                               height: 20, 
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                              child: YuklemeAnimasyonu(
+                                boyut: 20.0,
+                                renk: Colors.white,
                               ),
                             )
                           : const Text('Google ile Giriş Yap'),
@@ -382,9 +384,9 @@ class _OnboardingViewState extends State<OnboardingView> {
                           ? const SizedBox(
                               width: 20, 
                               height: 20, 
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                              child: YuklemeAnimasyonu(
+                                boyut: 20.0,
+                                renk: Colors.white,
                               ),
                             )
                           : const Text('Apple ile Giriş Yap'),

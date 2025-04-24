@@ -7,6 +7,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
 import '../models/past_analysis_model.dart';
 import 'analysis_detail_view.dart';
+import '../utils/loading_indicator.dart';
 
 class PastAnalysesView extends StatefulWidget {
   const PastAnalysesView({super.key});
@@ -75,7 +76,7 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
                   builder: (context, viewModel, _) {
                     if (viewModel.isLoading) {
                       return const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                        child: YuklemeAnimasyonu(renk: Colors.white),
                       );
                     }
                     

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'loading_indicator.dart';
 
 /// Uygulama genelinde standart bildirim yöntemlerini sağlayan yardımcı sınıf
 class FeedbackUtils {
@@ -181,8 +182,9 @@ class FeedbackUtils {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                const YuklemeAnimasyonu(
+                  renk: Colors.white,
+                  boyut: 40.0,
                 ),
                 const SizedBox(height: 20),
                 Text(

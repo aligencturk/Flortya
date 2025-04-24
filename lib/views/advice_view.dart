@@ -7,6 +7,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import '../services/input_service.dart';
 import '../services/logger_service.dart';
+import '../utils/loading_indicator.dart';
 
 class AdviceView extends StatefulWidget {
   const AdviceView({super.key});
@@ -121,7 +122,7 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
       builder: (context, viewModel, child) {
         if (_isLoading || viewModel.isLoading) {
           return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF9D3FFF)),
+            child: YuklemeAnimasyonu(renk: Color(0xFF9D3FFF)),
           );
         }
 

@@ -14,6 +14,7 @@ import '../viewmodels/report_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
 import '../utils/feedback_utils.dart';
+import '../utils/loading_indicator.dart';
 
 // Grafik Çizici Sınıf
 class ChartPainter extends CustomPainter {
@@ -918,11 +919,20 @@ class _HomeViewState extends State<HomeView> {
             ],
           ),
           const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: value,
-            backgroundColor: Colors.white.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ClipRRect(
             borderRadius: BorderRadius.circular(4),
+            child: Container(
+              height: 8,
+              width: double.infinity,
+              color: Colors.white.withOpacity(0.2),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: value,
+                child: Container(
+                  color: color,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1505,8 +1515,8 @@ class _HomeViewState extends State<HomeView> {
                       builder: (context, adviceViewModel, child) {
                         if (adviceViewModel.isLoading) {
                           return const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
+                            child: YuklemeAnimasyonu(
+                              renk: Colors.white,
                             ),
                           );
                         }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../models/past_report_model.dart';
 import '../viewmodels/past_reports_viewmodel.dart';
 import '../utils/feedback_utils.dart';
+import '../utils/loading_indicator.dart';
 
 class ReportDetailView extends StatefulWidget {
   final String reportId;
@@ -60,7 +61,7 @@ class _ReportDetailViewState extends State<ReportDetailView> {
           foregroundColor: Colors.white,
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child: YuklemeAnimasyonu(),
         ),
       );
     }

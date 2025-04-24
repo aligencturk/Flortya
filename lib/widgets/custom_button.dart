@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:my_app/utils/loading_indicator.dart';
 
 enum ButtonType { primary, secondary, outline, text }
 
@@ -93,11 +94,11 @@ class CustomButton extends StatelessWidget {
       children: [
         if (isLoading)
           SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(textColor),
+            width: 25,
+            height: 25,
+            child: YuklemeAnimasyonu(
+              boyut: 25.0,
+              renk: textColor,
             ),
           )
         else ...[

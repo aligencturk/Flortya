@@ -19,6 +19,7 @@ import '../views/conversation_summary_view.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../utils/utils.dart';
+import '../utils/loading_indicator.dart';
 
 // Mesaj sınıfı için extension
 extension MessageExtension on Message {
@@ -508,7 +509,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     // Analiz sonuçları bölümü
                     Expanded(
                       child: _isLoading
-                        ? Center(child: CircularProgressIndicator(color: Color(0xFF9D3FFF)))
+                        ? Center(child: YuklemeAnimasyonu(renk: Color(0xFF9D3FFF)))
                         : _forceEmptyState || messageViewModel.messages.isEmpty
                           ? _buildEmptyState()
                           : _buildCurrentAnalysisResult(messageViewModel),

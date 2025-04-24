@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
@@ -17,6 +18,7 @@ import 'views/consultation_view.dart';
 import 'views/settings_view.dart';
 import 'views/conversation_summary_view.dart';
 import 'utils/utils.dart';
+import 'utils/loading_indicator.dart';
 
 // Placeholder Widgets for new routes
 class AccountSettingsView extends StatelessWidget {
@@ -223,7 +225,10 @@ class LoginView extends StatelessWidget {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: YuklemeAnimasyonu(
+                            boyut: 24.0,
+                            renk: Colors.black87,
+                          ),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -265,9 +270,9 @@ class LoginView extends StatelessWidget {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          child: YuklemeAnimasyonu(
+                            boyut: 24.0,
+                            renk: Colors.white,
                           ),
                         )
                       : Row(
@@ -424,7 +429,10 @@ class RegisterView extends StatelessWidget {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: YuklemeAnimasyonu(
+                            boyut: 24.0,
+                            renk: Colors.black87,
+                          ),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -470,9 +478,9 @@ class RegisterView extends StatelessWidget {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          child: YuklemeAnimasyonu(
+                            boyut: 24.0,
+                            renk: Colors.white,
                           ),
                         )
                       : Row(
@@ -736,9 +744,9 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                     ? const SizedBox(
                         height: 24,
                         width: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        child: YuklemeAnimasyonu(
+                          boyut: 24.0,
+                          renk: Colors.white,
                         ),
                       )
                     : const Text(
@@ -805,7 +813,10 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                     ? const SizedBox(
                         height: 24,
                         width: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: YuklemeAnimasyonu(
+                          boyut: 24.0,
+                          renk: Colors.black87,
+                        ),
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -851,9 +862,9 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                     ? const SizedBox(
                         height: 24,
                         width: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        child: YuklemeAnimasyonu(
+                          boyut: 24.0,
+                          renk: Colors.white,
                         ),
                       )
                     : Row(
@@ -1176,9 +1187,9 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          child: YuklemeAnimasyonu(
+                            boyut: 24.0,
+                            renk: Colors.white,
                           ),
                         )
                       : const Text(

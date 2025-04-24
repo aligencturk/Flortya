@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/past_analysis_model.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
+import '../utils/loading_indicator.dart';
 
 class AnalysisDetailView extends StatefulWidget {
   final String analysisId;
@@ -50,12 +51,12 @@ class _AnalysisDetailViewState extends State<AnalysisDetailView> {
     if (_analysis == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Detaylar Yükleniyor'),
-          backgroundColor: const Color(0xFF4A2A80),
+          title: const Text('Analiz Yükleniyor'),
+          backgroundColor: Colors.deepPurple,
           foregroundColor: Colors.white,
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child: YuklemeAnimasyonu(),
         ),
       );
     }
@@ -170,11 +171,9 @@ class _AnalysisDetailViewState extends State<AnalysisDetailView> {
                                 return SizedBox(
                                   height: 200,
                                   child: Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
+                                    child: YuklemeAnimasyonu(
+                                      boyut: 18.0,
+                                      renk: Colors.deepPurple,
                                     ),
                                   ),
                                 );

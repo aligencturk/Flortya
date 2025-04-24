@@ -53,8 +53,8 @@ dependencies:
   
   # Firebase
   firebase_core: ^3.13.0          # iOS SDK 11.10.0 ile uyumlu Core 3.13.0 :contentReference[oaicite:0]{index=0}  
-  firebase_auth: ^5.5.2           # Dart 3 uyumlu en güncel Auth  
-  cloud_firestore: ^5.6.6         # Core 3.x ile uyumlu Firestore  
+  firebase_auth: ^5.5.2           # Dart 3 uyumlu en güncel Auth  
+  cloud_firestore: ^5.6.6         # Core 3.x ile uyumlu Firestore  
   firebase_app_check: ^0.3.2+5     # App Check 0.3.2+5 :contentReference[oaicite:1]{index=1}  
   firebase_storage: ^12.4.5       # Storage 12.4.5 :contentReference[oaicite:2]{index=2}  
   firebase_messaging: ^15.2.5      # Messaging 15.2.5 :contentReference[oaicite:3]{index=3}  
@@ -81,6 +81,7 @@ dependencies:
   image_picker: ^1.0.7
   flutter_native_splash: ^2.4.6
   flutter_keyboard_visibility: ^6.0.0
+  flutter_spinkit: ^5.2.0
   
   # OCR ve Görüntü İşleme - Sadece Latin alfabesi desteği ile
   path_provider: ^2.1.2

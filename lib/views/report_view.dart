@@ -8,6 +8,7 @@ import '../viewmodels/report_viewmodel.dart';
 import '../widgets/custom_button.dart';
 import '../services/input_service.dart';
 import '../utils/feedback_utils.dart';
+import '../utils/loading_indicator.dart';
 
 class ReportView extends StatefulWidget {
   const ReportView({super.key});
@@ -117,7 +118,7 @@ class _ReportViewState extends State<ReportView> {
         ),
       ),
       body: reportViewModel.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const YuklemeAnimasyonu()
           : _showReportResult || reportViewModel.hasReport
               ? _buildReportResult(context, reportViewModel)
               : _buildQuestionForm(context, reportViewModel),
@@ -145,12 +146,20 @@ class _ReportViewState extends State<ReportView> {
           const SizedBox(height: 24),
           
           // İlerleme göstergesi
-          LinearProgressIndicator(
-            value: currentQuestionNumber / totalQuestions,
-            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-            color: Theme.of(context).colorScheme.primary,
+          ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            minHeight: 8,
+            child: Container(
+              height: 8,
+              width: double.infinity,
+              color: Theme.of(context).colorScheme.surfaceVariant,
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: currentQuestionNumber / totalQuestions,
+                child: Container(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
           ),
           
           const SizedBox(height: 8),

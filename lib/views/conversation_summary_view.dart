@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
+import '../utils/loading_indicator.dart';
 
 class KonusmaSummaryView extends StatefulWidget {
   final List<Map<String, String>> summaryData;
@@ -560,9 +561,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
+                            child: YuklemeAnimasyonu(
+                              renk: Colors.white,
+                              boyut: 20.0,
                             ),
                           )
                         : const Icon(Icons.analytics),

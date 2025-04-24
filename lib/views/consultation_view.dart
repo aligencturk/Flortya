@@ -10,6 +10,7 @@ import '../viewmodels/message_viewmodel.dart'; // Mesaj analizi için gerekli vi
 import '../utils/feedback_utils.dart';
 import '../models/analysis_result_model.dart'; // AnalysisResult modeli
 import '../models/analysis_type.dart'; // Analiz türleri
+import '../utils/loading_indicator.dart';
 
 class ConsultationView extends StatefulWidget {
   const ConsultationView({super.key});
@@ -599,12 +600,9 @@ class _ConsultationViewState extends State<ConsultationView> {
                                         ),
                                       ),
                                       child: _isLoading
-                                          ? const SizedBox(
-                                              width: 24,
-                                              height: 24,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                                strokeWidth: 2.0,
+                                          ? Center(
+                                              child: YuklemeAnimasyonu(
+                                                renk: Colors.pinkAccent,
                                               ),
                                             )
                                           : const Text('Danış'),
