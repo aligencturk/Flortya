@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/advice_chat.dart';
 import '../models/chat_message.dart';
+import '../models/relationship_quote.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
@@ -24,6 +25,11 @@ class AdviceViewModel extends ChangeNotifier {
   AdviceChat? _currentChat;
   List<ChatMessage> _currentMessages = [];
 
+  // Koç alıntısı ile ilgili özellikler
+  RelationshipQuote? _dailyQuote;
+  bool _isLoadingQuote = false;
+  String? _quoteErrorMessage;
+  
   // Getters
   Map<String, dynamic>? get adviceCard => _adviceCard;
   bool get isLoading => _isLoading;
@@ -42,6 +48,12 @@ class AdviceViewModel extends ChangeNotifier {
 
   Timer? _dailyAdviceTimer;
 
+  // Getters
+  RelationshipQuote? get dailyQuote => _dailyQuote;
+  bool get isLoadingQuote => _isLoadingQuote;
+  String? get quoteErrorMessage => _quoteErrorMessage;
+  bool get hasQuote => _dailyQuote != null;
+  
   // Constructor
   AdviceViewModel({
     required FirebaseFirestore firestore,
@@ -57,28 +69,7 @@ class AdviceViewModel extends ChangeNotifier {
   Future<void> getDailyAdviceCard(String userId) async {
     _setLoading(true);
     try {
-      // Önce bugün alınmış bir kart var mı diye kontrol et
-      final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day);
-      
-      final QuerySnapshot existingSnapshot = await _firestore
-          .collection('advice_cards')
-          .where('userId', isEqualTo: userId)
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .get();
-      
-      // Bugün alınmış bir kart varsa, onu göster
-      if (existingSnapshot.docs.isNotEmpty) {
-        _adviceCard = existingSnapshot.docs.first.data() as Map<String, dynamic>;
-        _adviceCard!['id'] = existingSnapshot.docs.first.id;
-        _logger.i('Mevcut günlük tavsiye kartı bulundu.');
-        notifyListeners();
-        return;
-      }
-      
-      // Yeni tavsiye kartı al
+      // Her zaman yeni tavsiye kartı al, cache mekanizmasını atlıyoruz
       _logger.i('Yeni günlük tavsiye kartı alınıyor.');
       final advice = await _aiService.getDailyAdviceCard(userId);
       
@@ -89,7 +80,25 @@ class AdviceViewModel extends ChangeNotifier {
       
       // Kullanıcı ID'si ekle
       advice['userId'] = userId;
-      // Firestore'a kaydet
+      
+      // Önce bugün alınmış kartları temizle
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      
+      final QuerySnapshot existingSnapshot = await _firestore
+          .collection('advice_cards')
+          .where('userId', isEqualTo: userId)
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .get();
+      
+      // Eski kayıtları sil
+      final batch = _firestore.batch();
+      for (final doc in existingSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      
+      // Yeni kaydı ekle
       final docRef = await _firestore.collection('advice_cards').add(advice);
       // ID'yi ekle
       advice['id'] = docRef.id;
@@ -105,21 +114,12 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
   
-  // Premium kullanıcılar için yeni tavsiye alma
-  Future<void> getDailyAdvice(String userId, {bool isPremium = false, bool force = false}) async {
-    // Premium kontrolünü daha katı yapıyoruz
-    if (!isPremium) {
-      // _setError çağrısını kaldırıyoruz, sadece loglama yapıp çıkıyoruz.
-      // _setError('Bu özellik sadece premium kullanıcılar için kullanılabilir.');
-      _logger.w('Premium olmayan kullanıcı tavsiye yenileme denemesi: $userId');
-      // Hata durumunda mevcut tavsiye kartını silmiyoruz, böylece ekranda görünmeye devam eder
-      return;
-    }
-    
+  // Yeni tavsiye alma
+  Future<void> getDailyAdvice(String userId, {bool force = false}) async {
     _setLoading(true);
     try {
       // Yeni tavsiye kartı al
-      _logger.i('Premium kullanıcı için yeni tavsiye kartı alınıyor.');
+      _logger.i('Kullanıcı için yeni tavsiye kartı alınıyor.');
       final advice = await _aiService.getDailyAdviceCard(userId);
       
       if (advice.containsKey('error')) {
@@ -139,7 +139,7 @@ class AdviceViewModel extends ChangeNotifier {
       // Güncel tavsiyeyi ayarla
       _adviceCard = advice;
       
-      _logger.i('Yeni premium tavsiye kartı alındı.');
+      _logger.i('Yeni tavsiye kartı alındı.');
       notifyListeners();
     } catch (e) {
       _setError('Tavsiye kartı alınırken hata oluştu: $e');
@@ -412,24 +412,28 @@ class AdviceViewModel extends ChangeNotifier {
   }
 
   Future<void> initializeViewModel() async {
-    await fetchDailyAdvice();
+    await fetchDailyAdviceAndQuote();
     _setupDailyAdviceRefresh();
   }
   
-  Future<void> fetchDailyAdvice() async {
+  Future<void> fetchDailyAdviceAndQuote() async {
     try {
       // Kullanıcı bilgisini alma
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) {
-        _logger.w('Kullanıcı giriş yapmamış, günlük tavsiye alınamadı');
+        _logger.w('Kullanıcı giriş yapmamış, günlük veriler alınamadı');
         return;
       }
       
-      await getDailyAdviceCard(userId);
-      _logger.i('Günlük tavsiye başarıyla alındı');
+      // Hem tavsiye kartını hem de ilişki koçu alıntısını getir (paralel)
+      await Future.wait([
+        getDailyAdviceCard(userId),
+        getDailyRelationshipQuote(userId)
+      ]);
+      
+      _logger.i('Günlük tavsiye ve ilişki koçu alıntısı başarıyla alındı');
     } catch (e) {
-      _logger.e('Günlük tavsiye alınırken hata: $e');
-      _setError('Günlük tavsiye alınırken bir hata oluştu');
+      _logger.e('Günlük veriler alınırken hata: $e');
     }
   }
   
@@ -461,7 +465,7 @@ class AdviceViewModel extends ChangeNotifier {
   
   Future<void> _refreshDailyAdvice() async {
     _logger.i('Günlük tavsiye kartları yenileniyor...');
-    await fetchDailyAdvice();
+    await fetchDailyAdviceAndQuote();
     
     // Bildirim gönder
     _notificationService.showDailyAdviceNotification(
@@ -509,19 +513,23 @@ class AdviceViewModel extends ChangeNotifier {
   
   // Günlük tavsiye kartını yenile
   Future<void> refreshDailyAdviceCard(String userId) async {
-    _logger.i('Otomatik günlük tavsiye kartı yenileniyor');
+    _logger.i('Otomatik günlük tavsiye kartı ve alıntı yenileniyor');
     try {
-      await getDailyAdviceCard(userId);
+      // Hem tavsiye kartını hem de ilişki koçu alıntısını yenile
+      await Future.wait([
+        getDailyAdviceCard(userId),
+        getDailyRelationshipQuote(userId)
+      ]);
       
       // Bildirim gönder
       _notificationService.showDailyAdviceNotification(
         'Günlük Tavsiye Hazır!', 
-        'Bugünkü tavsiye kartın hazır. Görmek için tıkla!'
+        'Bugünkü tavsiye ve alıntın hazır. Görmek için tıkla!'
       );
       
-      _logger.i('Günlük tavsiye kartı başarıyla yenilendi');
+      _logger.i('Günlük tavsiye ve alıntı başarıyla yenilendi');
     } catch (e) {
-      _logger.e('Otomatik tavsiye kartı yenilenirken hata: $e');
+      _logger.e('Otomatik tavsiye yenilenirken hata: $e');
     }
   }
 
@@ -582,6 +590,182 @@ class AdviceViewModel extends ChangeNotifier {
       _logger.i('Danışma yanıtı Firestore\'a kaydedildi');
     } catch (e) {
       _logger.e('Danışma yanıtı kaydedilirken hata: $e');
+    }
+  }
+
+  // Günlük ilişki koçu alıntısını getir
+  Future<void> getDailyRelationshipQuote(String userId) async {
+    _setLoadingQuote(true);
+    try {
+      // Her zaman yeni alıntı al, cache mekanizmasını atlıyoruz
+      _logger.i('Yeni günlük ilişki koçu alıntısı alınıyor.');
+      final quoteData = await _aiService.getDailyRelationshipQuote();
+      
+      if (quoteData.containsKey('error')) {
+        _logger.w('Alıntı alınırken hata: ${quoteData['error']}. Varsayılan alıntı gösterilecek.');
+        // Hata durumunda varsayılan alıntı göster
+        _setDefaultQuote();
+        return;
+      }
+      
+      // Kullanıcı ID'si ekle
+      quoteData['userId'] = userId;
+      
+      // Önce bugün alınmış alıntıları temizle
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      
+      final QuerySnapshot existingSnapshot = await _firestore
+          .collection('relationship_quotes')
+          .where('userId', isEqualTo: userId)
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .get();
+      
+      // Eski kayıtları sil
+      final batch = _firestore.batch();
+      for (final doc in existingSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      
+      // Yeni kaydı ekle
+      final docRef = await _firestore.collection('relationship_quotes').add(quoteData);
+      
+      // ID'yi ekle
+      quoteData['id'] = docRef.id;
+      
+      // Alıntıyı oluştur
+      _dailyQuote = RelationshipQuote.fromFirestore(quoteData);
+      
+      _logger.i('Yeni günlük ilişki koçu alıntısı alındı.');
+      notifyListeners();
+    } catch (e) {
+      _logger.e('İlişki koçu alıntısı alınırken hata oluştu: $e');
+      // Hata durumunda varsayılan alıntı göster
+      _setDefaultQuote();
+    } finally {
+      _setLoadingQuote(false);
+    }
+  }
+  
+  // Varsayılan ilişki koçu alıntısı oluştur
+  void _setDefaultQuote() {
+    _dailyQuote = RelationshipQuote(
+      title: "Bağlanma",
+      content: "Birçok ilişkinin bozulmasının sebebi, tarafların birbirini değiştirmeye çalışmasıdır. Oysa yapılması gereken, karşımızdakini olduğu gibi kabul etmek ve anlamaya çalışmaktır.",
+      source: "Doğan Cüceloğlu - Gerçek Özgürlük",
+      timestamp: DateTime.now(),
+    );
+    notifyListeners();
+  }
+  
+  // Yeni ilişki koçu alıntısı alma
+  Future<void> refreshRelationshipQuote(String userId) async {
+    _setLoadingQuote(true);
+    try {
+      // Yeni alıntı al
+      _logger.i('Kullanıcı için yeni ilişki koçu alıntısı alınıyor.');
+      final quoteData = await _aiService.getDailyRelationshipQuote();
+      
+      if (quoteData.containsKey('error')) {
+        _logger.w('Alıntı alınırken hata: ${quoteData['error']}. Varsayılan alıntı gösterilecek.');
+        // Hata durumunda varsayılan alıntı göster
+        _setDefaultQuote();
+        return;
+      }
+      
+      // Kullanıcı ID'si ekle
+      quoteData['userId'] = userId;
+      
+      // Firestore'a kaydet
+      final docRef = await _firestore.collection('relationship_quotes').add(quoteData);
+      
+      // ID'yi ekle
+      quoteData['id'] = docRef.id;
+      
+      // Alıntıyı oluştur
+      _dailyQuote = RelationshipQuote.fromFirestore(quoteData);
+      
+      _logger.i('Yeni ilişki koçu alıntısı alındı.');
+      notifyListeners();
+    } catch (e) {
+      _logger.e('İlişki koçu alıntısı alınırken hata oluştu: $e');
+      // Hata durumunda varsayılan alıntı göster
+      _setDefaultQuote();
+    } finally {
+      _setLoadingQuote(false);
+    }
+  }
+  
+  // Alıntı yükleme durumunu ayarlama
+  void _setLoadingQuote(bool loading) {
+    _isLoadingQuote = loading;
+    notifyListeners();
+  }
+
+  // Alıntı hata mesajını ayarlama
+  void _setQuoteError(String error) {
+    _quoteErrorMessage = error;
+    _logger.e('İlişki koçu alıntısı hatası: $error');
+    notifyListeners();
+  }
+
+  // Alıntı hata mesajını temizleme
+  void clearQuoteError() {
+    _quoteErrorMessage = null;
+    notifyListeners();
+  }
+
+  // Veritabanında mevcut günlük tavsiyeleri ve ilişki koçu alıntılarını temizle
+  Future<void> clearDailyData(String userId) async {
+    _setLoading(true);
+    _setLoadingQuote(true);
+    try {
+      _logger.i('Veritabanındaki tüm tavsiye ve alıntı verileri temizleniyor...');
+      
+      // Advice Cards temizleme - tüm kayıtları sil
+      final QuerySnapshot adviceSnapshot = await _firestore
+          .collection('advice_cards')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      // Relationship Quotes temizleme - tüm kayıtları sil
+      final QuerySnapshot quoteSnapshot = await _firestore
+          .collection('relationship_quotes')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      // Batch yazma işlemi
+      final batch = _firestore.batch();
+      
+      // Advice Cards silme
+      for (final doc in adviceSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Relationship Quotes silme
+      for (final doc in quoteSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      // Yerel değişkenleri temizle
+      _adviceCard = null;
+      _dailyQuote = null;
+      
+      _logger.i('Veritabanı başarıyla temizlendi. Silinen kayıt sayısı: ${adviceSnapshot.docs.length + quoteSnapshot.docs.length}');
+      notifyListeners();
+      
+      // Yeni verileri yükle
+      await fetchDailyAdviceAndQuote();
+    } catch (e) {
+      _logger.e('Veritabanı temizlenirken hata: $e');
+      _setError('Veriler temizlenirken bir hata oluştu: $e');
+    } finally {
+      _setLoading(false);
+      _setLoadingQuote(false);
     }
   }
 

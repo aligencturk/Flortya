@@ -215,19 +215,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
   
-  // Tavsiyeyi yenile (premium kullanıcı için)
-  Future<void> _refreshDailyAdvice() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
-    
-    if (authViewModel.user != null) {
-      await adviceViewModel.getDailyAdvice(
-        authViewModel.user!.id,
-        isPremium: authViewModel.isPremium,
-        force: true,
-      );
-    }
-  }
+  // Tavsiyeyi yenile (premium kullanıcı için) fonksiyonu kaldırıldı
 
   @override
   Widget build(BuildContext context) {
@@ -692,8 +680,8 @@ class _HomeViewState extends State<HomeView> {
                                           homeController.analizGecmisi[homeController.analizGecmisi.length - 2].iliskiPuani
                                       ),
                                     ],
-                                ),
-                                const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 16),
                                   SizedBox(
                                     height: 60,
                                     width: double.infinity,
@@ -813,12 +801,12 @@ class _HomeViewState extends State<HomeView> {
                             ),
                             const SizedBox(height: 16),
                             const Text(
-                              'Henüz analiz yapılmamış',
+                              'Bugünün tavsiyesi şu an getirilemiyor. Lütfen daha sonra tekrar deneyin.',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                                color: Colors.white70,
                                 fontSize: 16,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -1504,60 +1492,7 @@ class _HomeViewState extends State<HomeView> {
                       ),
                       const Spacer(),
                       
-                      // Kalan tavsiye sayısı
-                      const Text(
-                        'Kalan:\n1/1',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                      const SizedBox(width: 16),
-                      
-                      // Yenile butonu
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade700,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            // Premium kontrolü
-                            final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-                            if (!authViewModel.isPremium) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Bu özellik sadece premium kullanıcılar için kullanılabilir.'),
-                                  duration: Duration(seconds: 3),
-                                ),
-                              );
-                              return;
-                            }
-                            _refreshDailyAdvice();
-                          },
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Yenile',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      // Kalan tavsiye sayısı ve Yenile butonu kaldırıldı
                     ],
                   ),
                   
@@ -1616,11 +1551,12 @@ class _HomeViewState extends State<HomeView> {
                         if (advice == null) {
                           return const Center(
                             child: Text(
-                              'Henüz tavsiye bulunmuyor',
+                              'Bugünün tavsiyesi şu an getirilemiyor. Lütfen daha sonra tekrar deneyin.',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 16,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           );
                         }
@@ -1685,86 +1621,7 @@ class _HomeViewState extends State<HomeView> {
                               
                               const SizedBox(height: 16),
                               
-                              // Premium buton - En alta sabitlendi
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF352269),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    // Sol kısım - Premium'a Geç
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF9D3FFF),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: const Icon(
-                                                Icons.diamond,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            const Text(
-                                              'Premium\'a Geç',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        const Text(
-                                          'Sınırsız AI tavsiyesi al',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    
-                                    const Spacer(),
-                                    
-                                    // Sağ kısım - Yükselt butonu
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF9D3FFF),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.diamond,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Yükselt',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              // Premium butonu kaldırıldı
                             ],
                           ),
                         );

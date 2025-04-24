@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
 import '../models/user_model.dart';
+import '../models/relationship_quote.dart';
 import 'logger_service.dart';
 
 class AiService {
@@ -602,7 +603,7 @@ class AiService {
   // Günlük tavsiye kartı alma
   Future<Map<String, dynamic>> getDailyAdviceCard(String userId) async {
     try {
-      // Gemini API'ye istek gönderme
+      // Gerçek ilişki koçu alıntısı almak için Gemini API'ye istek gönderme
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
         headers: {
@@ -615,32 +616,33 @@ class AiService {
               'parts': [
                 {
                   'text': '''
-                  Sen bir ilişki koçusun. Bir ilişkiyi güçlendirmek için günlük bir tavsiye kartı oluştur.
-                  
-                  Tavsiyeyi şu JSON formatında hazırla:
+                  Senin görevin, gerçek bir ilişki uzmanı veya ilişki koçunun kitabından, röportajından veya konuşmasından GERÇEK bir alıntı bulmak.
+
+                  Aşağıdaki kurallara kesinlikle uy:
+                  1. Alıntı GERÇEK ve BİREBİR olmalı - parafraz yapmayın, değiştirmeyin, kendiniz oluşturmayın.
+                  2. Alıntı tanınmış bir ilişki uzmanına (örn: Brene Brown, John Gray, Gary Chapman, Aret Vartanyan, Cem Keçe, Doğan Cüceloğlu) ait olmalı.
+                  3. Alıntıyı nereden aldığını açıkça belirtmelisin.
+                  4. Alıntıya uygun tek kelimelik ETKİLEYİCİ bir başlık belirle (Dürüstlük!, Bağlanma!, Cesaret! gibi).
+                  5. Hiçbir şekilde yorum eklemeyeceksin.
+
+                  YANITI ŞU FORMATTA VER:
                   {
-                    "title": "TEK KELİMELİK, ETKİLEYİCİ ve VURGULU bir başlık olmalı. Basit fiil veya isimler yerine (Konuşmak, Özür, Zaman gibi) daha dikkat çekici ve motive edici kelimeler kullan (Dürüstlük!, Açıklık!, Samimiyet!, Bağlan!, Keşfet!, Cesaret!, Yenilen!)",
-                    "content": "Tavsiye içeriği - nasıl uygulanacağıyla ilgili detaylı açıklama",
-                    "category": "tavsiye kategorisi (iletişim, duygusal bağ, aktiviteler, vb.)"
+                    "title": "TEK KELİMELİK ETKİLEYİCİ BAŞLIK!",
+                    "content": "Alıntı metni",
+                    "category": "İlgili kategori (iletişim, güven, empati, vb.)",
+                    "source": "Uzman adı - Kaynak adı"
                   }
                   
-                  Önemli: Başlık sadece TEK KELİME olmalı, ancak basit değil ETKİLEYİCİ ve VURGULU olmalı.
+                  Eğer gerçek bir alıntı BULAMAZSAN, şu JSON'ı döndür: {"error": "Alıntı bulunamadı"}
                   
-                  ÖNEMLİ - İŞTE UYGUN BAŞLIK ÖRNEKLERİ:
-                  - "Dürüstlük!" (Daha etkili, "Konuşmak" yerine)
-                  - "Bağlan!" (Daha etkili, "Temas" yerine)
-                  - "Dinle!" (Daha etkili, "Dinlemek" yerine)
-                  - "Açıklık!" (Daha etkili, "Açık olmak" yerine)
-                  - "Samimi!" (Daha etkili, "Samimiyet" yerine)
-                  - "Cesaret!" (Daha etkili, "Cesur olmak" yerine)
-                  - "Değerli!" (Daha etkili, "Değer vermek" yerine)
+                  Asla kendi oluşturduğun bir tavsiye verme! Sadece gerçek alıntılar!
                   '''
                 }
               ]
             }
           ],
           'generationConfig': {
-            'temperature': 0.9,
+            'temperature': 0.8,
             'maxOutputTokens': _geminiMaxTokens
           }
         }),
@@ -657,16 +659,43 @@ class AiService {
         
         // JSON yanıtı ayrıştırma
         try {
-          Map<String, dynamic> jsonResponse = _parseJsonFromText(aiContent);
-          jsonResponse['created_at'] = DateTime.now().toIso8601String();
-          return jsonResponse;
+          // JSON yanıtını ayrıştırma (içindeki JSON'ı çıkar)
+          String jsonString = aiContent;
+          
+          // Eğer yanıtta ```json veya ``` gibi kod blokları varsa temizle
+          final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+          final match = codeBlockRegex.firstMatch(jsonString);
+          if (match != null && match.groupCount >= 1) {
+            jsonString = match.group(1) ?? jsonString;
+          }
+          
+          Map<String, dynamic> quoteData = jsonDecode(jsonString);
+          
+          // Yanıtta error alanı varsa hata dön
+          if (quoteData.containsKey('error')) {
+            _logger.w('Alıntı bulunamadı - API yanıtı: ${quoteData['error']}');
+            return {'error': 'Alıntı bulunamadı'};
+          }
+          
+          // Gerekli alanların varlığını ve doğruluğunu kontrol et
+          if (!quoteData.containsKey('title') || 
+              !quoteData.containsKey('content') || 
+              !quoteData.containsKey('source') ||
+              quoteData['title'].toString().isEmpty ||
+              quoteData['content'].toString().isEmpty ||
+              quoteData['source'].toString().isEmpty) {
+            _logger.e('Alıntı verisi eksik alanlar içeriyor', quoteData);
+            return {'error': 'Alıntı verisi eksik'};
+          }
+          
+          // Timestamp ekle
+          quoteData['timestamp'] = DateTime.now().toIso8601String();
+          
+          _logger.i('Tavsiye kartı başarıyla alındı: ${quoteData['title']}');
+          return quoteData;
         } catch (e) {
           _logger.e('JSON ayrıştırma hatası', e);
-          return {
-            'title': _extractAdviceTitle(aiContent),
-            'content': aiContent,
-            'created_at': DateTime.now().toIso8601String(),
-          };
+          return {'error': 'Tavsiye verisi işlenemedi'};
         }
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
@@ -1308,5 +1337,120 @@ class AiService {
       'İlişkinizde kendinizi güvende hissediyor musunuz?',
       'Partnerinizle olan ilişkinizden genel olarak memnun musunuz?'
     ];
+  }
+
+  // Günlük ilişki koçu alıntısı getirme
+  Future<Map<String, dynamic>> getDailyRelationshipQuote() async {
+    try {
+      _logger.i('Günlük ilişki koçu alıntısı getiriliyor...');
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': '''
+                Senin görevin, gerçek bir ilişki uzmanı veya ilişki koçunun kitabından, röportajından veya konuşmasından GERÇEK bir alıntı bulmak.
+
+                Aşağıdaki kurallara kesinlikle uy:
+                1. Alıntı GERÇEK ve BİREBİR olmalı - parafraz yapma, değiştirme, kendin oluşturma.
+                2. Alıntı tanınmış bir ilişki uzmanına (örn: Brene Brown, John Gray, Gary Chapman, Aret Vartanyan, Cem Keçe, Doğan Cüceloğlu) ait olmalı.
+                3. Alıntıyı nereden aldığını açıkça belirtmelisin.
+                4. Alıntıya uygun tek kelimelik ETKİLEYİCİ bir başlık belirle (Dürüstlük, Anlayış, Sessizlik gibi).
+                5. Hiçbir şekilde yorum ekleme, ton değiştirme.
+
+                YANITI ŞU FORMATTA VER:
+                {
+                  "title": "TEK KELİMELİK BAŞLIK",
+                  "content": "Alıntı metni (koçun aynen söylediği veya yazdığı biçimde)",
+                  "source": "Kişi adı - Kitap/konuşma/TV programı adı"
+                }
+                
+                Eğer gerçek bir alıntı BULAMAZSAN, şu JSON'ı döndür: {"error": "Alıntı bulunamadı"}
+                
+                Asla kendi oluşturduğun bir tavsiye verme! Sadece var olan kaynaklardan birebir aktarma yap!
+                '''
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.8,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('İlişki koçu alıntısı API isteği gönderiliyor');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return {'error': 'Alıntı bulunamadı'};
+        }
+        
+        _logger.d('AI yanıt metni: $aiContent');
+        
+        // JSON yanıtını ayrıştırma
+        try {
+          // JSON yanıtını ayrıştırma (içindeki JSON'ı çıkar)
+          String jsonString = aiContent;
+          
+          // Eğer yanıtta ```json veya ``` gibi kod blokları varsa temizle
+          final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+          final match = codeBlockRegex.firstMatch(jsonString);
+          if (match != null && match.groupCount >= 1) {
+            jsonString = match.group(1) ?? jsonString;
+          }
+          
+          Map<String, dynamic> quoteData = jsonDecode(jsonString);
+          
+          // Yanıtta error alanı varsa hata dön
+          if (quoteData.containsKey('error')) {
+            _logger.w('Alıntı bulunamadı - API yanıtı: ${quoteData['error']}');
+            return {'error': 'Alıntı bulunamadı'};
+          }
+          
+          // Gerekli alanların varlığını ve doğruluğunu kontrol et
+          if (!quoteData.containsKey('title') || 
+              !quoteData.containsKey('content') || 
+              !quoteData.containsKey('source') ||
+              quoteData['title'].toString().isEmpty ||
+              quoteData['content'].toString().isEmpty ||
+              quoteData['source'].toString().isEmpty) {
+            _logger.e('Alıntı verisi eksik alanlar içeriyor', quoteData);
+            return {'error': 'Alıntı verisi eksik'};
+          }
+          
+          // Timestamp ekle
+          quoteData['timestamp'] = DateTime.now().toIso8601String();
+          
+          _logger.i('Tavsiye kartı başarıyla alındı: ${quoteData['title']}');
+          return quoteData;
+        } catch (e) {
+          _logger.e('JSON ayrıştırma hatası', e);
+          return {'error': 'Tavsiye verisi işlenemedi'};
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return {'error': 'Alıntı alınırken hata oluştu'};
+      }
+    } catch (e) {
+      _logger.e('İlişki koçu alıntısı hatası', e);
+      return {'error': 'Beklenmeyen bir hata oluştu'};
+    }
   }
 } 
