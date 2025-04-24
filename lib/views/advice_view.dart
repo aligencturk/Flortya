@@ -51,6 +51,13 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
           
           // Otomatik yenileme zamanlayıcısını başlat
           adviceViewModel.startDailyAdviceTimer(authViewModel.currentUser!.uid);
+          
+          // Eğer alıntı yoksa, bir daha deneme yap
+          if (!adviceViewModel.hasQuote) {
+            _logger.i('İlk denemede alıntı alınamadı, tekrar deneniyor...');
+            await Future.delayed(const Duration(seconds: 2));
+            await adviceViewModel.getDailyRelationshipQuote(authViewModel.currentUser!.uid);
+          }
         }
         
         setState(() {
@@ -126,7 +133,7 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
           );
         }
 
-        // İlişki koçu alıntısını almak için buton göster
+        // İlişki koçu alıntısını alamadıysak
         if (!viewModel.hasQuote) {
           return Center(
             child: Column(
@@ -135,12 +142,33 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
                 const Icon(Icons.error_outline, size: 48, color: Colors.white70),
                 const SizedBox(height: 16),
                 const Text(
-                  'Alıntı şu anda getirilemiyor.\\nLütfen daha sonra tekrar deneyin.',
+                  'Bugünün tavsiyesi şu an getirilemiyor.\nSistem her gün otomatik olarak yeniden deneyecektir.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    setState(() => _isLoading = true);
+                    try {
+                      final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+                      if (userId != null) {
+                        await viewModel.getDailyRelationshipQuote(userId);
+                      }
+                    } finally {
+                      setState(() => _isLoading = false);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9D3FFF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Şimdi Yenile'),
                 ),
               ],
             ),
@@ -149,6 +177,7 @@ class _AdviceViewState extends State<AdviceView> with SingleTickerProviderStateM
         
         // İlişki koçu alıntısı varsa göster
         final quote = viewModel.dailyQuote!;
+        
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(

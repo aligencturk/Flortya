@@ -425,15 +425,40 @@ class AdviceViewModel extends ChangeNotifier {
         return;
       }
       
+      _logger.i('Günlük tavsiye ve ilişki koçu alıntısı yükleme başlatılıyor...');
+      
+      // Yükleme durumlarını güncelle (bildirimleri tetiklemek için)
+      _setLoading(true);
+      _setLoadingQuote(true);
+      
       // Hem tavsiye kartını hem de ilişki koçu alıntısını getir (paralel)
       await Future.wait([
         getDailyAdviceCard(userId),
         getDailyRelationshipQuote(userId)
       ]);
       
+      // Alıntı alınamadıysa tekrar dene
+      if (!hasQuote) {
+        _logger.i('İlişki koçu alıntısı alınamadı, tekrar deneniyor...');
+        await Future.delayed(const Duration(seconds: 3));
+        await getDailyRelationshipQuote(userId);
+      }
+      
       _logger.i('Günlük tavsiye ve ilişki koçu alıntısı başarıyla alındı');
+      
+      // Alıntı hala alınamadıysa, kullanıcıya bilgilendirme yap
+      if (!hasQuote) {
+        _logger.w('İlişki koçu alıntısı alınamadı, kullanıcıya bilgilendirme yapılıyor');
+        _notificationService.showLocalNotification(
+          'Tavsiye Verisi Hazırlanıyor',
+          'Günlük tavsiyeler hazırlanırken bir gecikme olabilir. Lütfen daha sonra kontrol ediniz.'
+        );
+      }
     } catch (e) {
       _logger.e('Günlük veriler alınırken hata: $e');
+    } finally {
+      _setLoading(false);
+      _setLoadingQuote(false);
     }
   }
   
@@ -585,13 +610,34 @@ class AdviceViewModel extends ChangeNotifier {
   Future<void> getDailyRelationshipQuote(String userId) async {
     _setLoadingQuote(true);
     try {
-      // Her zaman yeni alıntı al, cache mekanizmasını atlıyoruz
       _logger.i('Yeni günlük ilişki koçu alıntısı alınıyor.');
-      final quoteData = await _aiService.getDailyRelationshipQuote();
       
-      if (quoteData.containsKey('error')) {
-        _logger.w('Alıntı alınırken hata: ${quoteData['error']}');
-        _setQuoteError(quoteData['error']);
+      // 3 kez deneme yap, her denemede 3 saniye bekle
+      Map<String, dynamic>? quoteData;
+      int maxAttempts = 3;
+      
+      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        _logger.i('İlişki koçu alıntısı alma denemesi: $attempt');
+        quoteData = await _aiService.getDailyRelationshipQuote();
+        
+        // Başarılı ise döngüden çık
+        if (!quoteData.containsKey('error')) {
+          _logger.i('Alıntı başarıyla alındı, denemede: $attempt');
+          break;
+        }
+        
+        // Son deneme değilse bekle ve tekrar dene
+        if (attempt < maxAttempts) {
+          _logger.w('Deneme $attempt başarısız: ${quoteData['error']}. Tekrar deneniyor...');
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
+      
+      // Tüm denemeler sonucunda hala hata varsa
+      if (quoteData == null || quoteData.containsKey('error')) {
+        _logger.w('Alıntı alınırken hata: ${quoteData?['error'] ?? 'Bilinmeyen hata'}');
+        _setQuoteError(quoteData?['error'] ?? 'Alıntı alınamadı');
+        _dailyQuote = null;
         return;
       }
 
@@ -604,6 +650,7 @@ class AdviceViewModel extends ChangeNotifier {
         final String errorMessage = 'AI servisinden gelen alıntı verisi eksik veya geçersiz (boşluk olabilir).';
         _logger.w('$errorMessage Gelen Veri: $quoteData');
         _setQuoteError(errorMessage);
+        _dailyQuote = null;
         return;
       }
       
@@ -641,6 +688,7 @@ class AdviceViewModel extends ChangeNotifier {
     } catch (e) {
       _logger.e('İlişki koçu alıntısı alınırken hata oluştu: $e');
       _setQuoteError('İlişki koçu alıntısı alınırken hata oluştu: $e');
+      _dailyQuote = null;
     } finally {
       _setLoadingQuote(false);
     }
@@ -657,6 +705,20 @@ class AdviceViewModel extends ChangeNotifier {
       if (quoteData.containsKey('error')) {
         _logger.w('Alıntı alınırken hata: ${quoteData['error']}');
         _setQuoteError(quoteData['error']);
+        _dailyQuote = null;
+        return;
+      }
+
+      // Gelen veride gerekli alanların varlığını kontrol et (refresh için de ekleyelim)
+      if (!quoteData.containsKey('title') || !quoteData.containsKey('content') || !quoteData.containsKey('source') ||
+          quoteData['title'] == null || quoteData['content'] == null || quoteData['source'] == null ||
+          (quoteData['title'].toString().trim().isEmpty) || 
+          (quoteData['content'].toString().trim().isEmpty) || 
+          (quoteData['source'].toString().trim().isEmpty)) {
+        final String errorMessage = 'AI servisinden gelen yenilenmiş alıntı verisi eksik veya geçersiz.';
+        _logger.w('$errorMessage Gelen Veri: $quoteData');
+        _setQuoteError(errorMessage);
+        _dailyQuote = null;
         return;
       }
       
@@ -677,6 +739,7 @@ class AdviceViewModel extends ChangeNotifier {
     } catch (e) {
       _logger.e('İlişki koçu alıntısı alınırken hata oluştu: $e');
       _setQuoteError('İlişki koçu alıntısı alınırken hata oluştu: $e');
+      _dailyQuote = null;
     } finally {
       _setLoadingQuote(false);
     }

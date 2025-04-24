@@ -198,6 +198,31 @@ class NotificationService {
     }
   }
   
+  // Yerel bildirim göster (bildirim izni olmayan durumlar için)
+  Future<void> showLocalNotification(String title, String body) async {
+    try {
+      _logger.i('Yerel bildirim gösteriliyor: $title - $body');
+      
+      // Bu sadece bir log kaydı olarak kalacak, gerçek bir yerel bildirim göstermek için
+      // flutter_local_notifications gibi bir paket kullanmak gerekir.
+      
+      // Şu anda Firestore üzerinden kaydediyoruz, kullanıcı uygulama açtığında görmesi için
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await _firestore.collection('user_notifications').add({
+          'userId': currentUser.uid,
+          'title': title,
+          'body': body,
+          'read': false,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        _logger.i('Yerel bildirim Firestore\'a kaydedildi');
+      }
+    } catch (e) {
+      _logger.e('Yerel bildirim gösterme hatası: $e');
+    }
+  }
+  
   // FCM konu aboneliği (örn. tüm kullanıcılara bildirim göndermek için)
   Future<void> subscribeToTopic(String topic) async {
     try {

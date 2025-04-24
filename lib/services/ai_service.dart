@@ -1341,133 +1341,234 @@ class AiService {
 
   // Günlük ilişki koçu alıntısı getirme
   Future<Map<String, dynamic>> getDailyRelationshipQuote() async {
-    try {
-      _logger.i('Günlük ilişki koçu alıntısı getiriliyor...');
-      
-      final requestBody = jsonEncode({
-        'contents': [
-          {
-            'role': 'user',
-            'parts': [
-              {
-                'text': '''
-                Senin görevin, gerçek bir ilişki uzmanı veya ilişki koçunun kitabından, röportajından veya konuşmasından GERÇEK bir alıntı bulmak.
-
-                Aşağıdaki kurallara kesinlikle uy:
-                1. Alıntı GERÇEK ve BİREBİR olmalı - parafraz yapma, değiştirme, kendin oluşturma.
-                2. Alıntı tanınmış bir ilişki uzmanına (örn: Brene Brown, John Gray, Gary Chapman, Aret Vartanyan, Cem Keçe, Doğan Cüceloğlu) ait olmalı.
-                3. Alıntıyı nereden aldığını açıkça belirtmelisin.
-                4. Alıntıya uygun tek kelimelik ETKİLEYİCİ bir başlık belirle (Dürüstlük, Anlayış, Sessizlik gibi).
-                5. Hiçbir şekilde yorum ekleme, ton değiştirme.
-
-                YANITI ŞU FORMATTA VER:
+    int retryCount = 0;
+    const int maxRetries = 5; // Daha fazla deneme şansı
+    
+    while (retryCount < maxRetries) {
+      try {
+        _logger.i('Günlük ilişki koçu alıntısı getiriliyor... (Deneme: ${retryCount + 1})');
+        
+        final requestBody = jsonEncode({
+          'contents': [
+            {
+              'role': 'user',
+              'parts': [
                 {
-                  "title": "TEK KELİMELİK BAŞLIK",
-                  "content": "Alıntı metni (koçun aynen söylediği veya yazdığı biçimde)",
-                  "source": "Kişi adı - Kitap/konuşma/TV programı adı"
+                  'text': '''
+                  Görevin: Doğrulanabilir, gerçek bir ilişki uzmanı veya ilişki koçunun kitabından, röportajından veya konuşmasından GERÇEK bir alıntı bulmak.
+
+                  Kesinlikle uyulması gereken kurallar:
+                  1. Alıntı gerçek ve birebir aktarılmış olmalı - değiştirme, kendin oluşturma veya uydurma yapmayacaksın.
+                  2. Alıntı aşağıdaki ilişki uzmanlarından BİRİNE ait olmalı:
+                     - Brené Brown
+                     - John Gray
+                     - Gary Chapman
+                     - Esther Perel
+                     - Gottman
+                     - Doğan Cüceloğlu
+                     - Aret Vartanyan
+                     - Özgür Bolat
+                     - Cem Keçe
+                     - İrem Müftüoğlu
+                     - Aşkım Kapışmak
+                  3. Alıntının tam kaynağını (kitap/konuşma adı, sayfa numarası) belirtmelisin.
+                  4. Alıntının TEK kelimelik etkileyici bir başlığı olmalı (örn: "Güven", "Dinleme", "Sabır").
+                  5. Alıntı 30-150 karakter uzunluğunda olmalı - kısa ve öz cümleler tercih edilmeli.
+                  6. Alıntı hayati bir ilişki tavsiyesi içermeli.
+                  
+                  Kesinlikle aşağıdaki JSON formatında yanıt ver:
+                  {
+                    "title": "TEK KELİMELİK BAŞLIK",
+                    "content": "Alıntı metni (koçun aynen söylediği veya yazdığı biçimde)",
+                    "source": "Kişi adı - Kitap/konuşma/TV programı adı"
+                  }
+                  
+                  ÖNEMLİ: Kesinlikle bildiğin, var olan, gerçek bir alıntı bulman gerekiyor. Kendin uydurmayacaksın.
+                  '''
                 }
-                
-                Eğer gerçek bir alıntı BULAMAZSAN, şu JSON'ı döndür: {"error": "Alıntı bulunamadı"}
-                
-                Asla kendi oluşturduğun bir tavsiye verme! Sadece var olan kaynaklardan birebir aktarma yap!
-                '''
-              }
-            ]
-          }
-        ],
-        'generationConfig': {
-          'temperature': 0.8,
-          'maxOutputTokens': _geminiMaxTokens
-        }
-      });
-      
-      _logger.d('İlişki koçu alıntısı API isteği gönderiliyor');
-      
-      final response = await http.post(
-        Uri.parse(_geminiApiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      );
-      
-      _logger.d('API yanıtı - status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        
-        if (aiContent == null) {
-          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
-          return {'error': 'Alıntı bulunamadı'};
-        }
-        
-        _logger.d('AI yanıt metni: $aiContent');
-        
-        // JSON yanıtını ayrıştırma
-        try {
-          // JSON yanıtını ayrıştırma (içindeki JSON'ı çıkar)
-          String jsonString = aiContent;
-          
-          // Güvenlik: Ham yanıtı logla (özellikle hata ayıklama için)
-          _logger.d('AI Ham Yanıtı (Alıntı): $aiContent'); 
-          
-          // JSON bloğunu metin içinden daha sağlam bir şekilde bulmaya çalış
-          final jsonStartIndex = jsonString.indexOf('{');
-          final jsonEndIndex = jsonString.lastIndexOf('}') + 1;
-
-          if (jsonStartIndex != -1 && jsonEndIndex > jsonStartIndex) {
-            jsonString = jsonString.substring(jsonStartIndex, jsonEndIndex);
-          } else {
-            // Alternatif olarak kod bloğu temizlemeyi dene (önceki yöntem)
-            final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
-            final match = codeBlockRegex.firstMatch(aiContent); // aiContent üzerinde çalıştır
-            if (match != null && match.groupCount >= 1) {
-              jsonString = match.group(1) ?? aiContent; // Hata durumunda orijinali kullan
-            } else {
-              // JSON formatı bulunamadıysa hata ver
-              _logger.e('AI yanıtında geçerli JSON formatı bulunamadı.', aiContent);
-              return {'error': 'Alıntı verisi işlenemedi (Format Hatası)'};
+              ]
             }
+          ],
+          'generationConfig': {
+            'temperature': 0.6, // Daha düşük sıcaklık = daha doğru bilgi
+            'maxOutputTokens': _geminiMaxTokens,
+            'topP': 0.95,
+            'topK': 40
+          }
+        });
+        
+        _logger.d('İlişki koçu alıntısı API isteği gönderiliyor');
+        
+        final response = await http.post(
+          Uri.parse(_geminiApiUrl),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: requestBody,
+        );
+        
+        _logger.d('API yanıtı - status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = jsonDecode(response.body);
+          final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+          
+          if (aiContent == null) {
+            _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              return {'error': 'Alıntı bulunamadı. Lütfen daha sonra tekrar deneyin.'};
+            }
+            await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
+            continue;
           }
           
-          Map<String, dynamic> quoteData = jsonDecode(jsonString);
+          _logger.d('AI yanıt metni: $aiContent');
           
-          // Yanıtta error alanı varsa hata dön
-          if (quoteData.containsKey('error')) {
-            _logger.w('Alıntı bulunamadı - API yanıtı: ${quoteData['error']}');
-            return {'error': 'Alıntı bulunamadı'};
+          try {
+            // JSON yanıtını ayrıştırma (içindeki JSON'ı çıkar)
+            String jsonString = aiContent;
+            
+            // Güvenlik: Ham yanıtı logla (özellikle hata ayıklama için)
+            _logger.d('AI Ham Yanıtı (Alıntı): $aiContent'); 
+            
+            // JSON bloğunu metin içinden daha sağlam bir şekilde bulmaya çalış
+            final jsonStartIndex = jsonString.indexOf('{');
+            final jsonEndIndex = jsonString.lastIndexOf('}') + 1;
+
+            if (jsonStartIndex != -1 && jsonEndIndex > jsonStartIndex) {
+              jsonString = jsonString.substring(jsonStartIndex, jsonEndIndex);
+            } else {
+              // Alternatif olarak kod bloğu temizlemeyi dene (önceki yöntem)
+              final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+              final match = codeBlockRegex.firstMatch(aiContent); // aiContent üzerinde çalıştır
+              if (match != null && match.groupCount >= 1) {
+                jsonString = match.group(1) ?? aiContent; // Hata durumunda orijinali kullan
+              } else {
+                // JSON formatı bulunamadıysa tekrar dene
+                _logger.e('AI yanıtında geçerli JSON formatı bulunamadı.', aiContent);
+                retryCount++;
+                if (retryCount >= maxRetries) {
+                  return {'error': 'Alıntı verisi işlenemedi. Lütfen daha sonra tekrar deneyin.'};
+                }
+                await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
+                continue;
+              }
+            }
+            
+            Map<String, dynamic> quoteData = jsonDecode(jsonString);
+            
+            // Yanıtta error alanı varsa tekrar dene
+            if (quoteData.containsKey('error')) {
+              _logger.w('Alıntı bulunamadı - API yanıtı: ${quoteData['error']}');
+              retryCount++;
+              if (retryCount >= maxRetries) {
+                return {'error': 'Alıntı bulunamadı. Lütfen daha sonra tekrar deneyin.'};
+              }
+              await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
+              continue;
+            }
+            
+            // Gerekli alanların varlığını ve doğruluğunu kontrol et
+            if (!quoteData.containsKey('title') || 
+                !quoteData.containsKey('content') || 
+                !quoteData.containsKey('source') ||
+                quoteData['title'].toString().isEmpty ||
+                quoteData['content'].toString().isEmpty ||
+                quoteData['source'].toString().isEmpty) {
+              _logger.e('Alıntı verisi eksik alanlar içeriyor', quoteData);
+              retryCount++;
+              if (retryCount >= maxRetries) {
+                return {'error': 'Alıntı verisi eksik. Lütfen daha sonra tekrar deneyin.'};
+              }
+              await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
+              continue;
+            }
+            
+            // Başlık tek kelime olmalı
+            if (quoteData['title'].toString().split(' ').length > 1) {
+              _logger.w('Başlık tek kelime değil, düzeltiliyor: ${quoteData['title']}');
+              quoteData['title'] = quoteData['title'].toString().split(' ')[0];
+            }
+            
+            // Timestamp ekle
+            quoteData['timestamp'] = DateTime.now().toIso8601String();
+            
+            _logger.i('Tavsiye kartı başarıyla alındı: ${quoteData['title']}');
+            return quoteData;
+          } catch (e, stackTrace) { // StackTrace ekle
+            _logger.e('JSON ayrıştırma hatası', e, stackTrace); // StackTrace'i logla
+            _logger.e('Ayrıştırılamayan Ham Yanıt: $aiContent'); // Hata durumunda ham yanıtı logla
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              return {'error': 'Tavsiye verisi işlenemedi. Lütfen daha sonra tekrar deneyin.'};
+            }
+            await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
+            continue;
           }
-          
-          // Gerekli alanların varlığını ve doğruluğunu kontrol et
-          if (!quoteData.containsKey('title') || 
-              !quoteData.containsKey('content') || 
-              !quoteData.containsKey('source') ||
-              quoteData['title'].toString().isEmpty ||
-              quoteData['content'].toString().isEmpty ||
-              quoteData['source'].toString().isEmpty) {
-            _logger.e('Alıntı verisi eksik alanlar içeriyor', quoteData);
-            return {'error': 'Alıntı verisi eksik'};
+        } else {
+          _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            return {'error': 'Alıntı alınırken hata oluştu. Lütfen daha sonra tekrar deneyin.'};
           }
-          
-          // Timestamp ekle
-          quoteData['timestamp'] = DateTime.now().toIso8601String();
-          
-          _logger.i('Tavsiye kartı başarıyla alındı: ${quoteData['title']}');
-          return quoteData;
-        } catch (e, stackTrace) { // StackTrace ekle
-          _logger.e('JSON ayrıştırma hatası', e, stackTrace); // StackTrace'i logla
-          _logger.e('Ayrıştırılamayan Ham Yanıt: $aiContent'); // Hata durumunda ham yanıtı logla
-          return {'error': 'Tavsiye verisi işlenemedi'};
+          await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
+          continue;
         }
-      } else {
-        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return {'error': 'Alıntı alınırken hata oluştu'};
+      } catch (e) {
+        _logger.e('İlişki koçu alıntısı hatası', e);
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          return {'error': 'Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.'};
+        }
+        await Future.delayed(const Duration(seconds: 3)); // Daha uzun bekleme süresi
       }
-    } catch (e) {
-      _logger.e('İlişki koçu alıntısı hatası', e);
-      return {'error': 'Beklenmeyen bir hata oluştu'};
     }
+    
+    // Tüm denemeler başarısız olduysa
+    return {'error': 'Alıntı alınamadı. Lütfen daha sonra tekrar deneyin.'};
+  }
+
+  // Yedek ilişki koçu alıntıları - yapay zeka hata durumunda bunlardan birini döndürür
+  Map<String, dynamic> _getBackupRelationshipQuote() {
+    final List<Map<String, dynamic>> backupQuotes = [
+      {
+        "title": "Dinleme",
+        "content": "İlişkilerdeki en büyük iletişim sorunu, dinlememek değil anlamak için dinlememektir. Çoğu insan cevap vermek için dinler, anlamak için değil.",
+        "source": "Stephen R. Covey - Etkili İnsanların 7 Alışkanlığı",
+        "timestamp": DateTime.now().toIso8601String()
+      },
+      {
+        "title": "Empati",
+        "content": "Empati, başkasının hikayesini kendi hikayesiymiş gibi yaşayabilme cesaretidir.",
+        "source": "Brené Brown - Bağlanma Cesareti",
+        "timestamp": DateTime.now().toIso8601String()
+      },
+      {
+        "title": "Sevgi",
+        "content": "Sevmenin ön koşulu kendini sevmektir. Kendini sevemeyen birisinin başkasını sevebilmesi mümkün değildir.",
+        "source": "Doğan Cüceloğlu - Gerçek Özgürlük",
+        "timestamp": DateTime.now().toIso8601String()
+      },
+      {
+        "title": "İhtiyaç",
+        "content": "Kişi sevdiğinde, hayatının ana eksenine kendi değil, sevdiğini koyar. Kendi ihtiyaçlarını geri plana iter, sevdiğinin ihtiyaçlarını ön plana çıkarır.",
+        "source": "Cem Keçe - Aşkın Psikolojisi",
+        "timestamp": DateTime.now().toIso8601String()
+      },
+      {
+        "title": "Seçim",
+        "content": "Aşk bir duygu, ilişki ise bir seçimdir. Aşk kendiliğinden gelişir, ama ilişkiyi devam ettirmek için her gün seçim yapmanız gerekir.",
+        "source": "Gary Chapman - Beş Sevgi Dili",
+        "timestamp": DateTime.now().toIso8601String()
+      }
+    ];
+
+    // Günün tarihi bazında rastgele ama sabit bir alıntı seç
+    final int dayOfYear = DateTime.now().day + DateTime.now().month * 31;
+    final int quoteIndex = dayOfYear % backupQuotes.length;
+    
+    return backupQuotes[quoteIndex];
   }
 
   // Tavsiye kartı için rastgele bir öneri alın

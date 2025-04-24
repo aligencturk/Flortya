@@ -1510,7 +1510,11 @@ class _HomeViewState extends State<HomeView> {
                   
                   // Tavsiye kartı
                   Container(
-                    height: 500, // Bir yükseklik belirle, yoksa Expanded içindeki hata devam edebilir
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.5,
+                      minHeight: 300,
+                    ),
+                    margin: const EdgeInsets.symmetric(vertical: 10),
                     child: Consumer<AdviceViewModel>(
                       builder: (context, adviceViewModel, child) {
                         if (adviceViewModel.isLoading) {
@@ -1576,6 +1580,7 @@ class _HomeViewState extends State<HomeView> {
                         final category = advice['category'] ?? 'genel';
                         
                         return Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: const Color(0xFF6C5DD3),
@@ -1615,9 +1620,10 @@ class _HomeViewState extends State<HomeView> {
                               
                               const SizedBox(height: 16),
                               
-                              // Tavsiye metni - Daha fazla alan kullanacak şekilde düzenlendi
+                              // Tavsiye metni - Daha iyi scrolling için
                               Expanded(
                                 child: SingleChildScrollView(
+                                  physics: const BouncingScrollPhysics(),
                                   child: Text(
                                     content,
                                     style: const TextStyle(
