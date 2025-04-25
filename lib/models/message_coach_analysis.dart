@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:math';
 
 class MesajKocuAnalizi {
   final String? iliskiTipi;
@@ -68,18 +69,26 @@ class MesajKocuAnalizi {
       etkiMap = {'nötr': 100};
     }
 
-    // Zorunlu alanların varlığını kontrol et
-    String? analiz = json['analiz'] ?? json['mesajYorumu'];
-    if (analiz == null) {
-      throw Exception('Analiz sonucu bulunamadı');
-    }
+    // Zorunlu alanların varlığını kontrol et ve eşleştir
+    // 1. Anlık tavsiye - mesajYorumu veya instantAdvice alanlarında olabilir
+    String? mesajYorumu = json['mesajYorumu'];
+    String? anlikTavsiye = json['anlikTavsiye'] ?? json['instantAdvice'] ?? mesajYorumu;
     
-    String? anlikTavsiye = json['anlikTavsiye'] ?? json['instantAdvice'] ?? json['mesajYorumu'];
+    // 2. Analiz sonucu - analiz, mesajYorumu, veya karsiTarafYorumu alanlarından biri olabilir
+    String analiz = json['analiz'] ?? mesajYorumu ?? json['karsiTarafYorumu'] ?? 'Analiz sonucu bulunamadı';
+    
+    // 3. Diğer alanlar için eşleştirmeler
     String? yenidenYazim = json['yenidenYazim'] ?? json['rewrite'];
     String? strateji = json['strateji'] ?? json['strategy'];
     String? karsiTarafYorumu = json['karsiTarafYorumu'] ?? json['counterpartOpinion'];
     String? gucluYonler = json['gucluYonler'] ?? json['strongPoints'];
     String? iliskiTipi = json['iliskiTipi'] ?? json['relationshipType'];
+
+    // Log ile alanların nasıl doldurulduğunu kontrol et
+    print('📊 MesajKocuAnalizi - Etki: ${etkiMap.keys.join(', ')}');
+    print('📝 MesajKocuAnalizi - Anlık Tavsiye: ${anlikTavsiye?.substring(0, min(30, anlikTavsiye?.length ?? 0))}...');
+    print('📝 MesajKocuAnalizi - Yeniden Yazım: ${yenidenYazim != null ? "Var" : "Yok"}');
+    print('👀 MesajKocuAnalizi - Karşı Taraf Yorumu: ${karsiTarafYorumu != null ? "Var" : "Yok"}');
 
     return MesajKocuAnalizi(
       iliskiTipi: iliskiTipi,

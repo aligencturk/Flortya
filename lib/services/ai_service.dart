@@ -787,30 +787,39 @@ class AiService {
                 {
                   'text': '''Sen profesyonel bir mesaj koçusun. Kullanıcının sana gönderdiği mesajlaşma içeriğini analiz ederek aşağıdaki bilgileri içeren bir JSON oluşturmalısın:
                   
-                  1. Mesaj etki yüzdeleri - Mesajlaşmanın duygusal etkisini yüzdelik dilimlerle analiz et (örn. %56 sempatik, %30 kararsız, %14 endişeli). Yüzdelerin toplamı 100 olmalı.
-                  2. Anlık tavsiye - Kullanıcıya hemen yapması gereken eylem (yazmalı mı, beklemeli mi, farklı bir yaklaşım mı göstermeli).
-                  3. Yeniden yazım önerisi - Eğer mesajlar kullanıcıya aitse, daha etkili nasıl yazabileceğini göster.
-                  4. Karşı taraf yorumu - Karşı tarafın mesajlaşma tarzı (kısa kesiyor mu, ilgisiz mi, flörtöz mü, soğuk mu?).
-                  5. Strateji önerisi - İlişki dinamiğini iyileştirmek için izlenmesi gereken yol.
+                  1. 💬 **Mesaj Etkisi Değerlendirmesi**  
+                  → Yazılan son mesajın insani etkisi nedir?  
+                  Örn: "%72 samimi, %20 çekingen, %8 belirsiz"
+
+                  2. 🧭 **Anlık Tavsiye**  
+                  → Kullanıcı bu noktada ne yapmalı?  
+                  Örn: "Şu an karşı taraf cevap vermedi, beklemek daha iyi olur."  
+                  Örn: "Cümle biraz direkt oldu, yumuşatabilirsin."
+
+                  3. ✍️ **Yeniden Yazım Önerisi**  
+                  → Eğer uygunsa, aynı duyguyu daha etkili aktaracak bir öneri cümlesi ver.  
+                  Örn: "Seni düşündüm bir anda." yerine → "Az önce seni hatırladım, gülümsedim :)"
+
+                  4. 🔍 **Duygu / Niyet Analizi**  
+                  → Karşı tarafın şu ana kadarki mesajlarında nasıl bir tutum var?  
+                  Örn: "Pasif, kısa cevaplar veriyor. İlgisiz olabilir ya da çekingen."
+
+                  Kurallar:
+                  - Yazışma bağlamını anlamalısın: flört, iş, arkadaşlık olabilir.
+                  - Gereksiz uzatma yapma, yönlendirmeleri kısa ve net ver.
+                  - Kullanıcıya akıl ver değil, koçluk yap: karar onun ama veri sende.
                   
                   Yanıtını aşağıdaki JSON formatında ver:
                   {
                     "effect": {
-                      "sempatik": 56,
-                      "kararsız": 30,
-                      "endişeli": 14
+                      "samimi": 70,
+                      "çekingen": 20,
+                      "belirsiz": 10
                     },
-                    "instantAdvice": "Açık ve net bir şekilde duygularını ifade et. Karşı tarafın cevabını beklemeden önce düşüncelerini tamamla.",
-                    "rewrite": "Merhaba, seninle konuşmak istediğim bir konu var. Müsait olduğunda bana haber verebilir misin?",
-                    "counterpartOpinion": "Karşı taraf kısa ve öz cevaplar veriyor, detaylara girmiyor.",
-                    "strategy": "Daha spesifik sorular sor ve karşı tarafı konuşmaya dahil et.",
-                    "analiz": "Mesaj analizi tamamlandı",
-                    "öneriler": ["İletişimi geliştir", "Açık ol", "Dinlemeye önem ver"],
-                    "gucluYonler": "Açık iletişim",
-                    "anlikTavsiye": "Açık ve net bir şekilde duygularını ifade et.",
-                    "yenidenYazim": "Merhaba, seninle konuşmak istediğim bir konu var.",
-                    "karsiTarafYorumu": "Karşı taraf kısa ve öz cevaplar veriyor.",
-                    "strateji": "Daha spesifik sorular sor."
+                    "mesajYorumu": "Anlık tavsiye burada yer almalı",
+                    "yenidenYazim": "Yeniden yazım önerisi burada yer almalı (eğer gerekiyorsa)",
+                    "karsiTarafYorumu": "Karşı tarafın tutumuna dair analiz burada yer almalı",
+                    "öneriler": ["Öneri 1", "Öneri 2", "Öneri 3"]
                   }
                   
                   SADECE JSON FORMATINDA CEVAP VER, BAŞKA BİR ŞEY YAZMA. YUKARIDAKİ ALANLARIN TAMAMINI DOLDUR.
@@ -823,7 +832,7 @@ class AiService {
             }
           ],
           'generationConfig': {
-            'temperature': 0.4,
+            'temperature': 0.6,
             'topP': 0.95,
             'topK': 40,
             'maxOutputTokens': _geminiMaxTokens
@@ -842,7 +851,21 @@ class AiService {
             jsonResponse['candidates'][0]['content']['parts'].isNotEmpty) {
           
           final text = jsonResponse['candidates'][0]['content']['parts'][0]['text'];
-          return jsonDecode(text);
+          try {
+            final parsedJson = jsonDecode(text);
+            _logger.i('🟢 AI Yanıtı Başarıyla Alındı: ${parsedJson.keys}');
+            return parsedJson;
+          } catch (e) {
+            _logger.e('JSON parse hatası: $e');
+            // API yanıtı JSON olmayabilir, bu durumda elle dönüştür
+            return {
+              "effect": {"nötr": 100},
+              "mesajYorumu": "API yanıtı JSON formatında değildi. Lütfen tekrar deneyin.",
+              "yenidenYazim": null,
+              "karsiTarafYorumu": null,
+              "öneriler": ["İletişimi geliştir", "Açık ol", "Dinlemeye önem ver"]
+            };
+          }
         } else {
           return {'error': 'API yanıtı beklenen formatta değil'};
         }
@@ -852,7 +875,13 @@ class AiService {
       }
     } catch (e) {
       _logger.e('Mesaj analizi hatası: $e');
-      return {'error': 'Mesaj analizi hatası: $e'};
+      return {
+        "effect": {"nötr": 100},
+        "mesajYorumu": "Mesaj analiz edilirken bir hata oluştu: $e",
+        "yenidenYazim": null,
+        "karsiTarafYorumu": null,
+        "öneriler": ["İletişimi geliştir", "Açık ol", "Dinlemeye önem ver"]
+      };
     }
   }
 

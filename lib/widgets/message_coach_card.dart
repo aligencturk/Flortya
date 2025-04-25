@@ -6,10 +6,152 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../models/message_coach_analysis.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:image_picker/image_picker.dart';
+import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/message_viewmodel.dart';
 
-class MesajKocuCard extends StatelessWidget {
+class MesajKocuCard extends StatefulWidget {
   const MesajKocuCard({Key? key}) : super(key: key);
 
+  @override
+  _MesajKocuCardState createState() => _MesajKocuCardState();
+}
+
+class _MesajKocuCardState extends State<MesajKocuCard> {
+  final TextEditingController _messageController = TextEditingController();
+  bool _isTextInputVisible = false;
+  final ImagePicker _picker = ImagePicker();
+  final List<File> _selectedImages = [];
+  
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+  
+  // Görsel seçme fonksiyonu
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        imageQuality: 85,
+      );
+
+      if (images.isNotEmpty) {
+        setState(() {
+          for (var image in images) {
+            _selectedImages.add(File(image.path));
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Görseller seçilirken bir hata oluştu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  // Analiz yap fonksiyonu
+  void _analyzeMessage(AdviceViewModel viewModel) {
+    print("🟡 Butona basıldı - Analiz Et butonuna tıklandı");
+    
+    final String messageText = _messageController.text.trim();
+    
+    if (messageText.isEmpty && _selectedImages.isEmpty) {
+      print("❌ Analiz hatası: Mesaj ve görsel boş");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen bir mesaj girin veya görsel yükleyin'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // Kullanıcı ID'si kontrolü
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final userId = authViewModel.currentUser?.uid;
+    if (userId == null) {
+      print("❌ Analiz hatası: Kullanıcı oturum açmamış");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Oturum açmanız gerekiyor'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    if (messageText.isNotEmpty) {
+      print("🔍 Metin analizi başlatılıyor: ${messageText.substring(0, min(20, messageText.length))}...");
+      // Metin mesajı analizi
+      viewModel.analyzeMesaj(messageText, userId);
+      
+      // İşlem tamamlandığında giriş alanını temizle
+      setState(() {
+        _isTextInputVisible = false;
+        _messageController.clear();
+      });
+    } else if (_selectedImages.isNotEmpty) {
+      print("🖼️ Görsel analizi başlatılıyor: ${_selectedImages.first.path}");
+      
+      // Görsel OCR analizi için ViewModel'deki metodu çağırıyoruz
+      viewModel.forceStartAnalysis(); // Analiz başladığını bildir
+      
+      // Analiz için kullanacağımız görsel kopyasını saklayalım
+      // Böylece setState ile temizlenmeden önce kopyasını alabiliriz
+      final File imageToAnalyze = _selectedImages.first;
+      
+      // Erken referans almak için MessageViewModel'i burada alalım
+      final MessageViewModel messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+      
+      // İşlem tamamlandığında görselleri temizle (UI'dan kaldır)
+      setState(() {
+        _selectedImages.clear();
+      });
+      
+      // Dart'ın isolate özelliğini kullanarak asenkron işlemi başlat
+      Future(() async {
+        try {
+          print("📤 Görsel analiz edilmek üzere gönderiliyor...");
+          
+          // Görselden metin çıkarma ve analiz işlemini başlat
+          final result = await messageViewModel.analyzeImageMessage(imageToAnalyze, otherUserId: userId);
+          
+          // Analiz durumunu kontrol et
+          if (!mounted) {
+            print("❌ Widget artık aktif değil, işlem iptal edildi");
+            return; // Widget artık mevcut değilse işlemi sonlandır
+          }
+          
+          // Analiz sonucunu elde et
+          final analysisResult = messageViewModel.currentAnalysisResult;
+          
+          if (result && analysisResult != null) {
+            print("✅ Görsel analizi başarılı: ${analysisResult.id}");
+            
+            // AdviceViewModel'e analiz sonucunu aktar (Mesaj Koçu UI'ında görüntülemek için)
+            viewModel.setAnalysisResultFromMessage(analysisResult);
+          } else {
+            print("❌ Görsel analizi başarısız");
+            viewModel.setError("Görsel analizi yapılamadı: ${messageViewModel.errorMessage ?? 'Bilinmeyen hata'}");
+          }
+        } catch (e) {
+          print("❌ Görsel analizi sırasında hata: $e");
+          if (mounted) { // Widget hala aktifse hata durumunu bildir
+            viewModel.setError("Görsel analizi sırasında hata: $e");
+          }
+        } finally {
+          if (mounted) { // Widget hala aktifse durumu temizle
+            viewModel.forceStopAnalysis(); // Analiz durumunu sıfırla
+          }
+        }
+      });
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     // AdviceViewModel'i dinleyerek durumları güncelleyelim
@@ -184,6 +326,8 @@ class MesajKocuCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
+          
+          // Tek bir giriş alanı
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -193,79 +337,101 @@ class MesajKocuCard extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Text(
-                  'Analiz yapmak için mesajını yaz veya görsel yükle.',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    height: 1.4,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Text input button
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Mesaj Analizi'),
-                              content: TextField(
-                                maxLines: 8,
-                                decoration: const InputDecoration(
-                                  hintText: 'Analiz edilecek mesajı buraya yazın...',
+                // Görsel seçilmişse göster
+                if (_selectedImages.isNotEmpty)
+                  Container(
+                    height: 100,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _selectedImages.length,
+                      itemBuilder: (context, index) {
+                        return Stack(
+                          alignment: Alignment.topRight,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.all(4),
+                              width: 80,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  _selectedImages[index],
+                                  fit: BoxFit.cover,
+                                  height: 80,
+                                  width: 80,
                                 ),
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('İptal'),
-                                ),
-                                FilledButton(
-                                  onPressed: () {
-                                    // Analiz işlemi
-                                    Navigator.pop(context);
-                                  },
-                                  child: const Text('Analiz Et'),
-                                ),
-                              ],
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.text_fields),
-                        label: const Text('Metin Gir'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9D3FFF),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedImages.removeAt(index);
+                                });
+                              },
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                
+                // Metin girişi kutusu
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Görsel yükleme ikonu
+                      IconButton(
+                        icon: const Icon(Icons.photo, color: Colors.white70),
+                        onPressed: _pickImages,
+                        tooltip: 'Görsel Yükle',
+                      ),
+                      // Metin alanı
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          minLines: 1,
+                          maxLines: 5,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Analiz edilecek mesajı buraya yazın...',
+                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Image upload button
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          // Görsel yükleme işlemi
-                        },
-                        icon: const Icon(Icons.photo_camera),
-                        label: const Text('Görsel Yükle'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                    ],
+                  ),
+                ),
+                
+                // Analiz et butonu
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _analyzeMessage(adviceViewModel),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                  ],
+                    child: const Text('Analiz Et'),
+                  ),
                 ),
               ],
             ),
@@ -331,16 +497,22 @@ class MesajKocuCard extends StatelessWidget {
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.start,
          children: [
-           // Duygusal Etki Bölümü
+           // 1. MESAJ ETKİSİ DEĞERLENDİRMESİ
            const Padding(
              padding: EdgeInsets.only(bottom: 8),
-             child: Text(
-               'Duygusal Etki',
-               style: TextStyle(
-                 color: Colors.white,
-                 fontWeight: FontWeight.bold,
-                 fontSize: 16,
-               ),
+             child: Row(
+               children: [
+                 Icon(Icons.analytics_outlined, color: Color(0xFF9D3FFF), size: 18),
+                 SizedBox(width: 6),
+                 Text(
+                   '1. Mesaj Etkisi Değerlendirmesi',
+                   style: TextStyle(
+                     color: Colors.white,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 16,
+                   ),
+                 ),
+               ],
              ),
            ),
            
@@ -354,22 +526,28 @@ class MesajKocuCard extends StatelessWidget {
              child: _buildEtkiYuzdeleri(analiz.etki),
            ),
            
-           const SizedBox(height: 16),
+           const SizedBox(height: 20),
            
-           // Tavsiye Bölümü
+           // 2. ANLIK TAVSİYE
            if (analiz.anlikTavsiye != null && analiz.anlikTavsiye!.isNotEmpty)
              Column(
                crossAxisAlignment: CrossAxisAlignment.start,
                children: [
                  const Padding(
                    padding: EdgeInsets.only(bottom: 8),
-                   child: Text(
-                     'Koçun Tavsiyesi',
-                     style: TextStyle(
-                       color: Colors.white,
-                       fontWeight: FontWeight.bold,
-                       fontSize: 16,
-                     ),
+                   child: Row(
+                     children: [
+                       Icon(Icons.lightbulb_outline, color: Color(0xFF9D3FFF), size: 18),
+                       SizedBox(width: 6),
+                       Text(
+                         '2. Anlık Tavsiye',
+                         style: TextStyle(
+                           color: Colors.white,
+                           fontWeight: FontWeight.bold,
+                           fontSize: 16,
+                         ),
+                       ),
+                     ],
                    ),
                  ),
                  Container(
@@ -391,22 +569,28 @@ class MesajKocuCard extends StatelessWidget {
                ],
              ),
            
-           const SizedBox(height: 16),
+           const SizedBox(height: 20),
            
-           // Yeniden Yazılmış Hali
+           // 3. YENİDEN YAZIM ÖNERİSİ
            if (analiz.yenidenYazim != null && analiz.yenidenYazim!.isNotEmpty)
              Column(
                crossAxisAlignment: CrossAxisAlignment.start,
                children: [
                  const Padding(
                    padding: EdgeInsets.only(bottom: 8),
-                   child: Text(
-                     'Alternatif İfadeler',
-                     style: TextStyle(
-                       color: Colors.white,
-                       fontWeight: FontWeight.bold,
-                       fontSize: 16,
-                     ),
+                   child: Row(
+                     children: [
+                       Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
+                       SizedBox(width: 6),
+                       Text(
+                         '3. Yeniden Yazım Önerisi',
+                         style: TextStyle(
+                           color: Colors.white,
+                           fontWeight: FontWeight.bold,
+                           fontSize: 16,
+                         ),
+                       ),
+                     ],
                    ),
                  ),
                  Container(
@@ -418,6 +602,49 @@ class MesajKocuCard extends StatelessWidget {
                    ),
                    child: Text(
                      analiz.yenidenYazim!,
+                     style: const TextStyle(
+                       color: Colors.white,
+                       fontSize: 14,
+                       height: 1.4,
+                     ),
+                   ),
+                 ),
+               ],
+             ),
+             
+           const SizedBox(height: 20),
+           
+           // 4. DUYGU/NİYET ANALİZİ
+           if (analiz.karsiTarafYorumu != null && analiz.karsiTarafYorumu!.isNotEmpty)
+             Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 const Padding(
+                   padding: EdgeInsets.only(bottom: 8),
+                   child: Row(
+                     children: [
+                       Icon(Icons.psychology_outlined, color: Color(0xFF9D3FFF), size: 18),
+                       SizedBox(width: 6),
+                       Text(
+                         '4. Duygu / Niyet Analizi',
+                         style: TextStyle(
+                           color: Colors.white,
+                           fontWeight: FontWeight.bold,
+                           fontSize: 16,
+                         ),
+                       ),
+                     ],
+                   ),
+                 ),
+                 Container(
+                   width: double.infinity,
+                   padding: const EdgeInsets.all(12),
+                   decoration: BoxDecoration(
+                     color: Colors.white.withOpacity(0.1),
+                     borderRadius: BorderRadius.circular(12),
+                   ),
+                   child: Text(
+                     analiz.karsiTarafYorumu!,
                      style: const TextStyle(
                        color: Colors.white,
                        fontSize: 14,

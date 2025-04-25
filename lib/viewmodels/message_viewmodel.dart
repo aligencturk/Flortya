@@ -688,6 +688,7 @@ class MessageViewModel extends ChangeNotifier {
       _logger.i('Görsel analizi başlatılıyor...');
       _isLoading = true;
       _errorMessage = null;
+      _currentAnalysisResult = null; // Eski analiz sonucunu temizle
       notifyListeners();
       
       // Kullanıcı kimlik kontrolü
@@ -807,6 +808,11 @@ class MessageViewModel extends ChangeNotifier {
           }
           
           _logger.i('Analiz sonucu Firestore\'a kaydedildi');
+          
+          // Analiz tamamlandı durumunu bildir
+          _isLoading = false;
+          notifyListeners();
+          
           return true;
         } else {
           _logger.w('AI mesaj analizi sonuç döndürmedi');
@@ -830,6 +836,12 @@ class MessageViewModel extends ChangeNotifier {
             );
             _currentMessage = _messages[index];
           }
+          
+          // Hata durumunu bildir
+          _isLoading = false;
+          _errorMessage = 'Analiz sonucu alınamadı';
+          notifyListeners();
+          
           return false;
         }
       } else {
@@ -854,16 +866,14 @@ class MessageViewModel extends ChangeNotifier {
           );
           _currentMessage = _messages[index];
         }
+        
+        // Hata durumunu bildir
+        _isLoading = false;
+        _errorMessage = 'Görüntüden metin çıkarılamadı';
+        notifyListeners();
+        
         return false;
       }
-      
-      // İşlem tamamlandı
-      _isLoading = false;
-      _errorMessage = null;
-      notifyListeners();
-      
-      _logger.i('Görsel analizi tamamlandı');
-      
     } catch (e, stackTrace) {
       _logger.e('Görsel analizi sırasında hata oluştu: $e');
       _logger.e('Stack trace: $stackTrace');

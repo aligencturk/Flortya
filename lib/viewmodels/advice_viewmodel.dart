@@ -480,4 +480,37 @@ class AdviceViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+  
+  // MessageViewModel'den gelen analiz sonucunu ayarla
+  void setAnalysisResultFromMessage(dynamic analysisResult) {
+    try {
+      print('🔄 MessageViewModel analiz sonucu işleniyor...');
+      
+      // AnalysisResult'tan MesajKocuAnalizi oluştur
+      final mesajAnalizi = _convertAnalysisToMesajKocu(analysisResult);
+      
+      // Mesaj analiz sonucunu ayarla
+      _mesajAnalizi = mesajAnalizi;
+      _isLoading = false;
+      _isAnalyzing = false;
+      _errorMessage = null;
+      
+      // UI'a bildir
+      notifyListeners();
+      
+      print('✅ Mesaj analizi yüklendi: ${_mesajAnalizi?.anlikTavsiye?.substring(0, min(30, _mesajAnalizi?.anlikTavsiye?.length ?? 0))}...');
+    } catch (e) {
+      print('❌ Analiz sonucu dönüştürme hatası: $e');
+      setError('Analiz sonucu işlenirken hata oluştu: $e');
+    }
+  }
+  
+  // Hata mesajını ayarla
+  void setError(String message) {
+    _errorMessage = message;
+    _isLoading = false;
+    _isAnalyzing = false;
+    notifyListeners();
+    print('❌ Hata ayarlandı: $message');
+  }
 }
