@@ -9,6 +9,7 @@ import '../utils/loading_indicator.dart';
 import '../widgets/message_coach_card.dart';
 import '../utils/feedback_utils.dart';
 import '../models/message_coach_analysis.dart';
+import 'dart:async';
 
 class AdviceView extends StatefulWidget {
   const AdviceView({Key? key}) : super(key: key);
@@ -19,15 +20,23 @@ class AdviceView extends StatefulWidget {
 
 class _AdviceViewState extends State<AdviceView> {
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
   bool _isLoading = false;
   bool _imageMode = false;
   List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
   final _logger = LoggerService();
+  Timer? _analysisTimer;
 
   @override
   void initState() {
     super.initState();
+    
+    // Mesaj alanındaki odak değişikliğini dinle
+    _messageFocusNode.addListener(_onFocusChange);
+    
+    // Metin değişikliğini dinle
+    _messageController.addListener(_onTextChange);
     
     // Sayfa her açıldığında verileri yükle
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -59,7 +68,33 @@ class _AdviceViewState extends State<AdviceView> {
   @override
   void dispose() {
     _messageController.dispose();
+    _messageFocusNode.removeListener(_onFocusChange);
+    _messageFocusNode.dispose();
+    _analysisTimer?.cancel();
     super.dispose();
+  }
+
+  // Metin değiştiğinde çağrılır
+  void _onTextChange() {
+    // Önceki zamanlayıcıyı iptal et
+    _analysisTimer?.cancel();
+    
+    final text = _messageController.text.trim();
+    if (text.isNotEmpty) {
+      // Kullanıcı yazımı bitirdiğinde otomatik analiz için 2 saniye bekle
+      _analysisTimer = Timer(const Duration(seconds: 2), () {
+        _analyzeMessage();
+      });
+    }
+  }
+  
+  // Odak değiştiğinde çağrılır
+  void _onFocusChange() {
+    // Odak mesaj alanından çıktıysa ve içerik varsa analiz yap
+    if (!_messageFocusNode.hasFocus && _messageController.text.trim().isNotEmpty) {
+      _analysisTimer?.cancel(); // Eğer zamanlayıcı çalışıyorsa iptal et
+      _analyzeMessage();
+    }
   }
 
   // Görsel seçme (çoklu)
@@ -256,83 +291,37 @@ class _AdviceViewState extends State<AdviceView> {
                 
                 const SizedBox(height: 24),
                 
-                // Kalan ücretsiz analiz sayısı
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Kalan Ücretsiz Analiz:',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '${MesajKocuAnalizi.ucretlizAnalizSayisi - viewModel.ucretlizAnalizSayisi}/${MesajKocuAnalizi.ucretlizAnalizSayisi}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: 1 - (viewModel.ucretlizAnalizSayisi / MesajKocuAnalizi.ucretlizAnalizSayisi),
-                          backgroundColor: Colors.white.withOpacity(0.1),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            viewModel.analizHakkiVar ? const Color(0xFF9D3FFF) : Colors.red,
-                          ),
-                          minHeight: 8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 24),
-                
                 // Mesaj girişi veya görsel yükleme
                 _imageMode ? _buildImageUploadSection() : _buildMessageInputSection(),
                 
                 const SizedBox(height: 24),
                 
-                // Analiz butonu
-                SizedBox(
+                // Otomatik analiz bilgisi
+                Container(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: viewModel.analizHakkiVar ? _analyzeMessage : null,
-                    icon: const Icon(Icons.psychology_alt),
-                    label: const Text(
-                      'Analiz Et',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9D3FFF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.white.withOpacity(0.7),
+                        size: 18,
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9D3FFF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Mesaj girişinden sonra analiz otomatik olarak yapılacaktır.',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
-                      disabledBackgroundColor: Colors.grey[800],
-                      disabledForegroundColor: Colors.grey[400],
-                    ),
+                    ],
                   ),
                 ),
                 
@@ -422,6 +411,7 @@ class _AdviceViewState extends State<AdviceView> {
           const SizedBox(height: 12),
           TextField(
             controller: _messageController,
+            focusNode: _messageFocusNode,
             style: TextStyle(color: Colors.white.withOpacity(0.9)),
             maxLines: 8,
             decoration: InputDecoration(
@@ -438,6 +428,8 @@ class _AdviceViewState extends State<AdviceView> {
                 borderSide: BorderSide(color: const Color(0xFF9D3FFF), width: 2),
               ),
               contentPadding: const EdgeInsets.all(16),
+              helperText: 'Metni girdiğinizde analiz otomatik olarak yapılacaktır',
+              helperStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
             ),
           ),
         ],

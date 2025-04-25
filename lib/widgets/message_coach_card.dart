@@ -20,6 +20,7 @@ class MesajKocuCard extends StatefulWidget {
 class _MesajKocuCardState extends State<MesajKocuCard> {
   final TextEditingController _mesajController = TextEditingController();
   bool _isExpanded = false;
+  File? _selectedImage; // Seçilen resim dosyası
 
   @override
   void dispose() {
@@ -127,39 +128,22 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                 ),
               ),
             
-            // Analiz sonuçları (analiz sonucu varsa göster)
-            if (adviceViewModel.hasAnalizi) ...[
-              _buildAnalizSonucu(adviceViewModel.mesajAnalizi!),
-              
+            // Sade rehber metni (her zaman göster - sonuçlar yokken)
+            if (!adviceViewModel.hasAnalizi) ... [
               const SizedBox(height: 16),
-              
-              // Yeni analiz butonu
-              SizedBox(
+              Container(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    _mesajController.clear();
-                    final viewModel = Provider.of<AdviceViewModel>(context, listen: false);
-                    setState(() {
-                      _isExpanded = false;
-                    });
-                    // Analiz sonucunu temizle
-                    viewModel.analyzeMesaj('', ''); // Boş analiz için
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white24,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Yeni Analiz',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Mesaj Koçu, yazdığın mesajların duygusal etkisini analiz eder, karşı tarafın olası yaklaşımını değerlendirir ve sana daha etkili iletişim önerileri sunar.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    height: 1.4,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -170,206 +154,141 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
     ).animate().fade(duration: 300.ms).slideY(begin: 0.2, end: 0, duration: 300.ms, curve: Curves.easeOutQuad);
   }
 
-  Widget _buildAnalizSonucu(MesajKocuAnalizi analiz) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Mesaj Etki Yüzdeleri
-        _buildSectionTitle('Mesaj Etki Yüzdeleri', Icons.analytics_outlined),
-        const SizedBox(height: 8),
-        if (analiz.etki != null) 
-          _buildEtkiCubuklar(analiz.etki!)
-        else
-          _buildSectionContent('Etki analizi bulunamadı'),
-        
-        const SizedBox(height: 16),
-        
-        // Anlık Tavsiye
-        _buildSectionTitle('Anlık Tavsiye', Icons.lightbulb_outline),
-        const SizedBox(height: 8),
-        _buildSectionContent(analiz.oneriler.isNotEmpty ? analiz.oneriler.first : 'Tavsiye bulunamadı'),
-        
-        const SizedBox(height: 16),
-        
-        // Yeniden Yazım
-        _buildSectionTitle('Yeniden Yazım Önerisi', Icons.edit_outlined),
-        const SizedBox(height: 8),
-        _buildSectionContent(analiz.yenidenYazim ?? 'Yeniden yazım önerisi bulunmuyor'),
-        
-        const SizedBox(height: 16),
-        
-        // Karşı Taraf Analizi
-        _buildSectionTitle('Karşı Taraf Analizi', Icons.person_outline),
-        const SizedBox(height: 8),
-        _buildSectionContent(analiz.analiz),
-        
-        // İleriye Yönelik Strateji (varsa)
-        if (analiz.strateji != null) ...[
-          const SizedBox(height: 16),
-          _buildSectionTitle('İleriye Yönelik Strateji', Icons.route_outlined),
-          const SizedBox(height: 8),
-          _buildSectionContent(analiz.strateji!),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF9D3FFF), size: 18),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionContent(String content) {
+  Widget _buildMessageInputArea(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFF462B8C),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.4)),
       ),
-      child: Text(
-        content,
-        style: const TextStyle(
-          color: Colors.white,
-          height: 1.4,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEtkiCubuklar(Map<String, int> etki) {
-    return Column(
-      children: etki.entries.map((entry) {
-        final duygu = entry.key;
-        final yuzde = entry.value;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        children: [
+          TextField(
+            controller: _mesajController,
+            maxLines: 4,
+            minLines: 1,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Analiz etmek istediğiniz mesajı yazın',
+              hintStyle: TextStyle(color: Colors.white70),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+          
+          // Seçilen görsel varsa önizleme göster
+          if (_selectedImage != null) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 8, bottom: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Stack(
                 children: [
-                  Text(
-                    duygu.substring(0, 1).toUpperCase() + duygu.substring(1),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      _selectedImage!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                  Text(
-                    '%$yuzde',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedImage = null;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: yuzde / 100,
-                  backgroundColor: Colors.white.withOpacity(0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(_getEtkiRenk(duygu)),
-                  minHeight: 8,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Color _getEtkiRenk(String duygu) {
-    switch (duygu.toLowerCase()) {
-      case 'sempatik':
-        return Colors.green;
-      case 'flörtöz':
-        return Colors.pink;
-      case 'çekingen':
-        return Colors.amber;
-      case 'soğuk':
-        return Colors.blue;
-      case 'kararsız':
-        return Colors.orange;
-      case 'gergin':
-        return Colors.red;
-      case 'yoğun':
-        return Colors.deepPurple;
-      case 'baskıcı':
-        return Colors.redAccent;
-      default:
-        return const Color(0xFF9D3FFF);
-    }
-  }
-
-  Widget _buildMessageInputArea(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        children: [
+            ),
+          ],
+          
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _mesajController,
-                  maxLines: 4,
-                  minLines: 1,
-                  decoration: const InputDecoration(
-                    hintText: 'Analiz etmek istediğiniz mesajı yazın',
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
               IconButton(
-                icon: const Icon(Icons.image, color: Colors.blue),
+                icon: const Icon(Icons.image, color: Colors.white70),
                 tooltip: 'Görsel ekle',
                 onPressed: () => _pickImageForAnalysis(context),
               ),
-            ],
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-              child: ElevatedButton(
+              ElevatedButton(
                 onPressed: () async {
-                  if (_mesajController.text.trim().isNotEmpty) {
-                    final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
-                    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                  final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+                  final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                  
+                  if (_selectedImage != null) {
+                    // Görsel analizi başlat
+                    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+                    await messageViewModel.analyzeImageMessage(_selectedImage!);
+                    
+                    // Analiz sonrası görsel temizlenir - mounted kontrolü eklendi
+                    if (mounted) {
+                      setState(() {
+                        _selectedImage = null;
+                      });
+                    }
+                    
+                    if (mounted) {
+                      FeedbackUtils.showSuccessFeedback(
+                        context, 
+                        'Görsel başarıyla analiz edildi'
+                      );
+                    }
+                  } else if (_mesajController.text.trim().isNotEmpty) {
+                    // Metin analizi başlat
                     await adviceViewModel.analyzeMesaj(
                       _mesajController.text,
                       authViewModel.user?.id ?? '',
                     );
+                  } else {
+                    // Hata mesajı göster
+                    if (mounted) {
+                      FeedbackUtils.showErrorFeedback(
+                        context, 
+                        'Lütfen analiz için metin girin veya görsel yükleyin'
+                      );
+                    }
                   }
                 },
-                child: const Text('Analiz Et'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9D3FFF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: const Text(
+                  'Analiz Et',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -378,7 +297,6 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
 
   // Görsel seçme ve analiz etme
   Future<void> _pickImageForAnalysis(BuildContext context) async {
-    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     if (authViewModel.user == null) {
@@ -439,20 +357,20 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
         return;
       }
       
-      // Görsel analizi başlat
-      await messageViewModel.analyzeImageMessage(file);
-      
-      // Başarılı mesajı göster
-      FeedbackUtils.showSuccessFeedback(
-        context, 
-        'Görsel başarıyla analiz edildi'
-      );
+      // Seçilen görseli state'e kaydet ve önizleme için göster - mounted kontrolü eklendi
+      if (mounted) {
+        setState(() {
+          _selectedImage = file;
+        });
+      }
       
     } catch (e) {
-      FeedbackUtils.showErrorFeedback(
-        context, 
-        'Görsel seçme işlemi sırasında hata: $e'
-      );
+      if (mounted) {
+        FeedbackUtils.showErrorFeedback(
+          context, 
+          'Görsel seçme işlemi sırasında hata: $e'
+        );
+      }
     }
   }
 } 

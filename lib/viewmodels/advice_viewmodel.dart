@@ -243,11 +243,11 @@ class AdviceViewModel extends ChangeNotifier {
     notifyListeners();
   }
   
-  // Analiz sonucunu sıfırla
+  // Analiz sonucunu sıfırlama
   void resetAnalysisResult() {
     _mesajAnalizi = null;
+    _errorMessage = null;
     notifyListeners();
-    _logger.d('Analiz sonucu sıfırlandı');
   }
   
   // Hata mesajını sıfırla

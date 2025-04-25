@@ -140,19 +140,6 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
                               ),
                             ),
                             const SizedBox(height: 32),
-                            ElevatedButton.icon(
-                              onPressed: () => context.go('/message-analysis'),
-                              icon: const Icon(Icons.message),
-                              label: const Text('Mesaj Analizi Yap'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF9D3FFF),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       );
