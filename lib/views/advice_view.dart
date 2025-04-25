@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import '../services/logger_service.dart';
@@ -27,6 +29,8 @@ class _AdviceViewState extends State<AdviceView> {
   final ImagePicker _picker = ImagePicker();
   final _logger = LoggerService();
   Timer? _analysisTimer;
+  final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -71,6 +75,7 @@ class _AdviceViewState extends State<AdviceView> {
     _messageFocusNode.removeListener(_onFocusChange);
     _messageFocusNode.dispose();
     _analysisTimer?.cancel();
+    _textRecognizer.close();
     super.dispose();
   }
 
@@ -169,30 +174,60 @@ class _AdviceViewState extends State<AdviceView> {
       // Görsel modunda OCR işlemi yapılacak
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
       
       try {
-        // TODO: Görsel OCR işlemi burada yapılacak
-        // Şimdilik mockup bir mesaj oluşturalım
-        final messageText = "Görüntüden metinler çıkarılacak...";
+        // OCR işlemi
+        String extractedText = '';
+        for (final imageFile in _selectedImages) {
+          final inputImage = InputImage.fromFilePath(imageFile.path);
+          final recognizedText = await _textRecognizer.processImage(inputImage);
+          extractedText += recognizedText.text + '\n';
+        }
+        
+        extractedText = extractedText.trim();
+        _logger.i('OCR Sonucu: ${extractedText.isNotEmpty ? extractedText.substring(0, min(50, extractedText.length)) + "..." : "[BOŞ]"}');
+
+        if (extractedText.isEmpty) {
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Görselden metin okunamadı veya metin bulunamadı. Lütfen daha net bir görsel deneyin.'
+          );
+          Future.microtask(() {
+            setState(() {
+              _isLoading = false;
+            });
+          });
+          return;
+        }
         
         // AdviceViewModel'e mesajı gönder
         final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
-        await adviceViewModel.analyzeMesaj(messageText, userId);
+        await adviceViewModel.analyzeMesaj(extractedText, userId);
         
-        setState(() {
-          _isLoading = false;
+        Future.microtask(() {
+          setState(() {
+            _isLoading = false;
+            _selectedImages.clear();
+            _imageMode = false;
+          });
         });
       } catch (e) {
-        setState(() {
-          _isLoading = false;
+        _logger.e('Görsel analiz (OCR) hatası: $e');
+        Future.microtask(() {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Görsel işlenirken bir hata oluştu: $e';
+          });
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Görsel işlenirken bir hata oluştu: $e'
+          );
         });
-        FeedbackUtils.showErrorFeedback(
-          context, 
-          'Görsel analiz edilirken bir hata oluştu: $e'
-        );
       }
     } else {
+      // Metin modu
       final messageText = _messageController.text.trim();
       if (messageText.isEmpty) {
         FeedbackUtils.showErrorFeedback(
@@ -204,27 +239,34 @@ class _AdviceViewState extends State<AdviceView> {
       
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
       
       try {
-        // AdviceViewModel'e mesajı gönder
         final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
         await adviceViewModel.analyzeMesaj(messageText, userId);
         
-        // İşlem başarılı olduysa mesaj kutusunu temizle
-        _messageController.clear();
-        
-        setState(() {
-          _isLoading = false;
+        Future.microtask(() {
+          setState(() {
+            _isLoading = false;
+          });
+          
+          if (mounted) {
+            _messageController.clear();
+          }
         });
       } catch (e) {
-        setState(() {
-          _isLoading = false;
+        _logger.e('Metin analizi hatası: $e');
+        Future.microtask(() {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Mesaj analiz edilirken bir hata oluştu: $e';
+          });
+          FeedbackUtils.showErrorFeedback(
+            context, 
+            'Mesaj analiz edilirken bir hata oluştu: $e'
+          );
         });
-        FeedbackUtils.showErrorFeedback(
-          context, 
-          'Mesaj analiz edilirken bir hata oluştu: $e'
-        );
       }
     }
   }
@@ -260,7 +302,10 @@ class _AdviceViewState extends State<AdviceView> {
       backgroundColor: const Color(0xFF121212),
       body: Consumer<AdviceViewModel>(
         builder: (context, viewModel, child) {
-          // Yükleniyor göstergesi
+          // DEBUG: Analiz durumunu kontrol edelim
+          print('🔍 AdviceView build - isLoading=$_isLoading, viewModel.isAnalyzing=${viewModel.isAnalyzing}, hasAnalizi=${viewModel.hasAnalizi}, mesajAnalizi=${viewModel.mesajAnalizi != null}, error=${viewModel.errorMessage}');
+          
+          // Yükleniyor göstergesi (View'ın kendi isLoading'i VEYA ViewModel'in isAnalyzing durumu)
           if (_isLoading || viewModel.isAnalyzing) {
             return Center(
               child: Column(
@@ -280,41 +325,61 @@ class _AdviceViewState extends State<AdviceView> {
             );
           }
           
-          // Ana sayfa - MesajKocuCard ve analiz sonuçları
+          // Ana sayfa
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Mesaj Koçu kartı
-                const MesajKocuCard(),
-                
-                const SizedBox(height: 24),
-                
-                // Mesaj girişi veya görsel yükleme
-                _imageMode ? _buildImageUploadSection() : _buildMessageInputSection(),
-                
-                const SizedBox(height: 24),
-                
-                // Otomatik analiz bilgisi
+                // Mesaj girişi veya görsel yükleme - Ana fonksiyonu direkt olarak en üste taşıyorum
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 24),
                   decoration: BoxDecoration(
                     color: const Color(0xFF9D3FFF).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Analiz yapmak için mesajını yaz veya görsel yükle',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Açıklama
+                      Text(
+                        'Mesaj Koçu kartı aracılığıyla analiz yapabilirsiniz.',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Kalan ücretsiz analiz sayısı
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.info_outline,
+                        Icons.timer_outlined,
                         color: Colors.white.withOpacity(0.7),
                         size: 18,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Mesaj girişinden sonra analiz otomatik olarak yapılacaktır.',
+                          'Kalan ücretsiz analiz: ${MesajKocuAnalizi.ucretlizAnalizSayisi - viewModel.ucretlizAnalizSayisi}',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
                             fontSize: 14,
@@ -325,236 +390,72 @@ class _AdviceViewState extends State<AdviceView> {
                   ),
                 ),
                 
+                // Mesaj Koçu kartı (en sonda gösterelim)
+                const MesajKocuCard(),
+                
                 const SizedBox(height: 24),
                 
-                // Hata mesajı varsa göster
-                if (viewModel.errorMessage != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.error_outline, color: Colors.red),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Hata',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                // Hata Mesajı Bölümü (ViewModel'den gelen veya View'ın kendi hatası)
+                if (viewModel.errorMessage != null || _errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Hata',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            viewModel.errorMessage ?? _errorMessage ?? 'Bilinmeyen bir hata oluştu.',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          viewModel.errorMessage!,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              viewModel.resetError();
-                            },
-                            child: const Text('Tamam'),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                viewModel.resetError();
+                                setState(() {
+                                  _errorMessage = null;
+                                });
+                              },
+                              child: const Text('Tamam'),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 
-                const SizedBox(height: 24),
-                
-                // Analiz sonuçları (hasAnalizi kontrolü ile)
-                if (viewModel.hasAnalizi)
+                // Analiz sonuçları 
+                if (viewModel.hasAnalizi && viewModel.mesajAnalizi != null)
                   _buildAnalysisResults(viewModel.mesajAnalizi!),
               ],
             ),
           );
         },
-      ),
-    );
-  }
-  
-  // Mesaj giriş alanı
-  Widget _buildMessageInputSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Mesajlaşma İçeriğini Yapıştır',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _messageController,
-            focusNode: _messageFocusNode,
-            style: TextStyle(color: Colors.white.withOpacity(0.9)),
-            maxLines: 8,
-            decoration: InputDecoration(
-              hintText: 'Analiz etmek istediğin mesajlaşmayı buraya yapıştır...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: const Color(0xFF9D3FFF), width: 2),
-              ),
-              contentPadding: const EdgeInsets.all(16),
-              helperText: 'Metni girdiğinizde analiz otomatik olarak yapılacaktır',
-              helperStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  // Görsel yükleme alanı
-  Widget _buildImageUploadSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Mesajlaşma Ekran Görüntüleri',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          // Seçilen görseller varsa göster
-          if (_selectedImages.isNotEmpty)
-            SizedBox(
-              height: 120,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _selectedImages.length,
-                itemBuilder: (context, index) {
-                  return Stack(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        width: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            _selectedImages[index],
-                            fit: BoxFit.cover,
-                            height: 100,
-                            width: 100,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 12,
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedImages.removeAt(index);
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          
-          const SizedBox(height: 16),
-          
-          // Görsel yükleme butonları
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _pickImages,
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text('Galeriden Seç'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _takePhoto,
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Fotoğraf Çek'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -762,4 +663,4 @@ extension StringExtension on String {
   String get capitalizeFirst => length > 0 
       ? '${this[0].toUpperCase()}${substring(1)}'
       : '';
-} 
+}

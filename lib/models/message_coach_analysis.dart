@@ -27,11 +27,19 @@ class MesajKocuAnalizi {
   });
 
   factory MesajKocuAnalizi.fromJson(Map<String, dynamic> json) {
-    // Oneriler listesini dönüştür
+    // Debug log için konsola yazdır
+    print('MesajKocuAnalizi.fromJson çağrıldı: ${json.keys.toList()}');
+    
+    // Öneriler listesini dönüştür
     final List<dynamic> onerileriJson = json['öneriler'] ?? [];
     final List<String> onerileriList = onerileriJson
         .map((item) => item.toString())
         .toList();
+    
+    // Öneriler listesi boşsa varsayılan değerler ver
+    if (onerileriList.isEmpty) {
+      onerileriList.addAll(['İletişim tekniklerini geliştir', 'Karşı tarafı dinlemeye özen göster']);
+    }
 
     // Etki alanını Map<String, int> olarak dönüştür
     Map<String, int> etkiMap = {};
@@ -54,17 +62,35 @@ class MesajKocuAnalizi {
         }
       });
     }
+    
+    // Etki haritası boşsa varsayılan değer ekle
+    if (etkiMap.isEmpty) {
+      etkiMap = {'nötr': 100};
+    }
+
+    // Zorunlu alanların varlığını kontrol et
+    String? analiz = json['analiz'] ?? json['mesajYorumu'];
+    if (analiz == null) {
+      throw Exception('Analiz sonucu bulunamadı');
+    }
+    
+    String? anlikTavsiye = json['anlikTavsiye'] ?? json['instantAdvice'] ?? json['mesajYorumu'];
+    String? yenidenYazim = json['yenidenYazim'] ?? json['rewrite'];
+    String? strateji = json['strateji'] ?? json['strategy'];
+    String? karsiTarafYorumu = json['karsiTarafYorumu'] ?? json['counterpartOpinion'];
+    String? gucluYonler = json['gucluYonler'] ?? json['strongPoints'];
+    String? iliskiTipi = json['iliskiTipi'] ?? json['relationshipType'];
 
     return MesajKocuAnalizi(
-      iliskiTipi: json['ilişki_tipi'] as String?,
-      analiz: json['analiz'] as String? ?? 'Analiz bulunamadı',
-      gucluYonler: json['güçlü_yönler'] as String?,
+      iliskiTipi: iliskiTipi,
+      analiz: analiz,
+      gucluYonler: gucluYonler,
       oneriler: onerileriList,
       etki: etkiMap,
-      yenidenYazim: json['rewrite'] as String?,
-      strateji: json['strategy'] as String?,
-      karsiTarafYorumu: json['karsiTarafYorumu'] as String?,
-      anlikTavsiye: json['anlikTavsiye'] as String?,
+      yenidenYazim: yenidenYazim,
+      strateji: strateji,
+      karsiTarafYorumu: karsiTarafYorumu,
+      anlikTavsiye: anlikTavsiye,
     );
   }
 
@@ -84,16 +110,15 @@ class MesajKocuAnalizi {
 
   Map<String, dynamic> toFirestore() {
     return {
-      'ilişki_tipi': iliskiTipi,
+      'iliskiTipi': iliskiTipi,
       'analiz': analiz,
-      'güçlü_yönler': gucluYonler,
-      'öneriler': oneriler,
-      'effect': etki,
-      'rewrite': yenidenYazim,
-      'strategy': strateji,
+      'gucluYonler': gucluYonler,
+      'oneriler': oneriler,
+      'etki': etki,
+      'yenidenYazim': yenidenYazim,
+      'strateji': strateji,
       'karsiTarafYorumu': karsiTarafYorumu,
       'anlikTavsiye': anlikTavsiye,
-      'timestamp': DateTime.now().toIso8601String(),
     };
   }
 } 

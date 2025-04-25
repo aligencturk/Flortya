@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 /// İlişki analiz sonucunu temsil eden veri modeli
 class AnalysisResult {
@@ -19,7 +20,7 @@ class AnalysisResult {
     required this.intent,
     required this.tone,
     required this.severity,
-    this.persons = '',
+    required this.persons,
     required this.aiResponse,
     required this.createdAt,
   });
@@ -41,23 +42,105 @@ class AnalysisResult {
 
   // Map veri türünden doğrudan oluşturma
   factory AnalysisResult.fromMap(Map<String, dynamic> map) {
-    return AnalysisResult(
-      id: map['id'] ?? '',
-      messageId: map['messageId'] ?? '',
-      emotion: map['emotion'] ?? '',
-      intent: map['intent'] ?? '',
-      tone: map['tone'] ?? '',
-      severity: map['severity'] ?? 0,
-      persons: map['persons'] ?? '',
-      aiResponse: map['aiResponse'] ?? {},
-      createdAt: map['createdAt'] is Timestamp 
-          ? (map['createdAt'] as Timestamp).toDate()
-          : (map['createdAt'] != null ? DateTime.parse(map['createdAt'].toString()) : DateTime.now()),
-    );
+    try {
+      print('🧩 AnalysisResult.fromMap çağrıldı: ${map.keys.toList()}');
+      
+      // Zorunlu alanları kontrol et, eksikse varsayılan değer kullan
+      String id = map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString();
+      String messageId = map['messageId']?.toString() ?? id;
+      String emotion = map['emotion']?.toString() ?? 'Belirtilmemiş';
+      String intent = map['intent']?.toString() ?? 'Belirtilmemiş';
+      String tone = map['tone']?.toString() ?? 'Nötr';
+      int severity = 0;
+      
+      // severity dönüşümünü güvenli bir şekilde yap
+      if (map['severity'] is int) {
+        severity = map['severity'];
+      } else if (map['severity'] is String) {
+        try {
+          severity = int.parse(map['severity'].toString());
+        } catch (e) {
+          severity = 5;
+        }
+      } else {
+        severity = 5;
+      }
+      
+      String persons = map['persons']?.toString() ?? 'Belirtilmemiş';
+      
+      // aiResponse dönüşümü
+      Map<String, dynamic> aiResponse = {};
+      if (map['aiResponse'] is Map) {
+        aiResponse = Map<String, dynamic>.from(map['aiResponse']);
+      } else {
+        // aiResponse yoksa, mesajYorumu ve cevapOnerileri varsa onları kullan
+        if (map.containsKey('mesajYorumu')) {
+          aiResponse['mesajYorumu'] = map['mesajYorumu'];
+        }
+        if (map.containsKey('cevapOnerileri')) {
+          aiResponse['cevapOnerileri'] = map['cevapOnerileri'];
+        }
+      }
+      
+      // aiResponse hala boşsa varsayılan değerler koy
+      if (aiResponse.isEmpty) {
+        aiResponse = {
+          'mesajYorumu': 'Analiz sonucu bulunamadı',
+          'cevapOnerileri': ['İletişim tekniklerini geliştir']
+        };
+      }
+      
+      // createdAt dönüşümü
+      DateTime createdAt;
+      try {
+        if (map['createdAt'] is String) {
+          createdAt = DateTime.parse(map['createdAt']);
+        } else {
+          createdAt = DateTime.now();
+        }
+      } catch (e) {
+        createdAt = DateTime.now();
+      }
+      
+      print('✅ AnalysisResult oluşturuldu: id=$id, emotion=$emotion');
+      
+      return AnalysisResult(
+        id: id,
+        messageId: messageId,
+        emotion: emotion,
+        intent: intent,
+        tone: tone,
+        severity: severity,
+        persons: persons,
+        aiResponse: aiResponse,
+        createdAt: createdAt,
+      );
+    } catch (e, stackTrace) {
+      print('❌ AnalysisResult.fromMap hatası: $e');
+      print('❌ Stack trace: $stackTrace');
+      print('❌ Map içeriği: $map');
+      
+      // Hata durumunda, varsayılan bir AnalysisResult nesnesi oluştur
+      return AnalysisResult(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+        emotion: 'Hata',
+        intent: 'Hata',
+        tone: 'Hata',
+        severity: 5,
+        persons: 'Hata',
+        aiResponse: {
+          'mesajYorumu': 'Analiz sonucu işlenirken bir hata oluştu: $e',
+          'cevapOnerileri': ['Tekrar analiz yapmayı deneyin']
+        },
+        createdAt: DateTime.now(),
+      );
+    }
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'messageId': messageId,
       'emotion': emotion,
       'intent': intent,
@@ -65,7 +148,7 @@ class AnalysisResult {
       'severity': severity,
       'persons': persons,
       'aiResponse': aiResponse,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 

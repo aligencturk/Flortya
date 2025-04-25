@@ -760,118 +760,99 @@ class AiService {
 
   // Mesaj Koçu - mesaj analizi
   Future<Map<String, dynamic>> getMesajKocuAnalizi(String messageText) async {
-    _logger.d('Mesaj analizi istendi');
+    _logger.d('Mesaj analizi istendi: "${messageText.substring(0, min(50, messageText.length))}..."');
     
     if (messageText.isEmpty) {
       return {'error': 'Mesaj boş olamaz'};
     }
     
-    final apiKey = dotenv.env['OPENAI_API_KEY'];
-    if (apiKey == null || apiKey.isEmpty) {
+    if (_geminiApiKey.isEmpty) {
       return {'error': 'API anahtarı bulunamadı'};
     }
     
     try {
+      _logger.d('Gemini API isteği gönderiliyor...');
+      
       final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
+        Uri.parse('https://generativelanguage.googleapis.com/v1/models/${_geminiModel}:generateContent'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
+          'x-goog-api-key': _geminiApiKey,
         },
         body: jsonEncode({
-          'model': 'gpt-4o',
-          'messages': [
-            {
-              'role': 'system',
-              'content': '''
-              Sen profesyonel bir mesaj koçusun. Kullanıcının sana gönderdiği mesajlaşma içeriğini analiz ederek aşağıdaki bilgileri içeren bir JSON oluşturmalısın:
-              
-              1. Mesaj etki yüzdeleri - Mesajlaşmanın duygusal etkisini yüzdelik dilimlerle analiz et (örn. %56 sempatik, %30 kararsız, %14 endişeli). Yüzdelerin toplamı 100 olmalı.
-              2. Anlık tavsiye - Kullanıcıya hemen yapması gereken eylem (yazmalı mı, beklemeli mi, farklı bir yaklaşım mı göstermeli).
-              3. Yeniden yazım önerisi - Eğer mesajlar kullanıcıya aitse, daha etkili nasıl yazabileceğini göster.
-              4. Karşı taraf yorumu - Karşı tarafın mesajlaşma tarzı (kısa kesiyor mu, ilgisiz mi, flörtöz mü, soğuk mu?).
-              5. Strateji önerisi - İlişki dinamiğini iyileştirmek için izlenmesi gereken yol.
-              
-              Yanıtını aşağıdaki JSON formatında ver:
-              {
-                "effect": {
-                  "sempatik": 56,
-                  "kararsız": 30,
-                  "endişeli": 14
-                },
-                "anlikTavsiye": "Şu an yazmalı mısın, beklemeli misin",
-                "rewrite": "Şu mesajı şöyle yazarsan daha etkili olur...",
-                "karsiTarafYorumu": "Karşı tarafın mesajlaşma tarzı hakkında detaylı yorum...",
-                "strategy": "İlişki dinamiğini iyileştirmek için şunları yapabilirsin...",
-                "analiz": "Genel bir mesajlaşma analizi",
-                "öneriler": [
-                  "Somut bir iletişim önerisi 1",
-                  "Somut bir iletişim önerisi 2",
-                  "Somut bir iletişim önerisi 3"
-                ]
-              }
-              
-              İlişki türüne göre (romantik, arkadaşlık, iş, aile vb.) ve mesajlaşma içeriğine göre analizini derinleştir. 
-              Karşı tarafın yazdıkları hakkında özellikle detaylı içgörü sun.
-              Pratik ve uygulanabilir tavsiyeler ver.
-              "Effect" değerleri tam sayı olmalı ve toplamı 100'e eşit olmalı.
-              Sadece JSON formatında yanıt ver, başka açıklama yapma.
-              '''
-            },
+          'contents': [
             {
               'role': 'user',
-              'content': messageText
+              'parts': [
+                {
+                  'text': '''Sen profesyonel bir mesaj koçusun. Kullanıcının sana gönderdiği mesajlaşma içeriğini analiz ederek aşağıdaki bilgileri içeren bir JSON oluşturmalısın:
+                  
+                  1. Mesaj etki yüzdeleri - Mesajlaşmanın duygusal etkisini yüzdelik dilimlerle analiz et (örn. %56 sempatik, %30 kararsız, %14 endişeli). Yüzdelerin toplamı 100 olmalı.
+                  2. Anlık tavsiye - Kullanıcıya hemen yapması gereken eylem (yazmalı mı, beklemeli mi, farklı bir yaklaşım mı göstermeli).
+                  3. Yeniden yazım önerisi - Eğer mesajlar kullanıcıya aitse, daha etkili nasıl yazabileceğini göster.
+                  4. Karşı taraf yorumu - Karşı tarafın mesajlaşma tarzı (kısa kesiyor mu, ilgisiz mi, flörtöz mü, soğuk mu?).
+                  5. Strateji önerisi - İlişki dinamiğini iyileştirmek için izlenmesi gereken yol.
+                  
+                  Yanıtını aşağıdaki JSON formatında ver:
+                  {
+                    "effect": {
+                      "sempatik": 56,
+                      "kararsız": 30,
+                      "endişeli": 14
+                    },
+                    "instantAdvice": "Açık ve net bir şekilde duygularını ifade et. Karşı tarafın cevabını beklemeden önce düşüncelerini tamamla.",
+                    "rewrite": "Merhaba, seninle konuşmak istediğim bir konu var. Müsait olduğunda bana haber verebilir misin?",
+                    "counterpartOpinion": "Karşı taraf kısa ve öz cevaplar veriyor, detaylara girmiyor.",
+                    "strategy": "Daha spesifik sorular sor ve karşı tarafı konuşmaya dahil et.",
+                    "analiz": "Mesaj analizi tamamlandı",
+                    "öneriler": ["İletişimi geliştir", "Açık ol", "Dinlemeye önem ver"],
+                    "gucluYonler": "Açık iletişim",
+                    "anlikTavsiye": "Açık ve net bir şekilde duygularını ifade et.",
+                    "yenidenYazim": "Merhaba, seninle konuşmak istediğim bir konu var.",
+                    "karsiTarafYorumu": "Karşı taraf kısa ve öz cevaplar veriyor.",
+                    "strateji": "Daha spesifik sorular sor."
+                  }
+                  
+                  SADECE JSON FORMATINDA CEVAP VER, BAŞKA BİR ŞEY YAZMA. YUKARIDAKİ ALANLARIN TAMAMINI DOLDUR.
+                  
+                  İşte analiz edilecek mesaj:
+                  
+                  ${messageText}'''
+                }
+              ]
             }
           ],
-          'temperature': 0.7,
-          'max_tokens': 1000,
+          'generationConfig': {
+            'temperature': 0.4,
+            'topP': 0.95,
+            'topK': 40,
+            'maxOutputTokens': _geminiMaxTokens
+          }
         }),
       );
-      
+
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['choices']?[0]?['message']?['content'];
+        _logger.d('Gemini API yanıt döndü: ${response.body}');
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         
-        if (aiContent == null || aiContent.isEmpty) {
-          _logger.e('API yanıtı boş veya beklenen formatta değil', data);
-          return {'error': 'Analiz sonucu alınamadı'};
-        }
-        
-        _logger.d('API yanıt metni: $aiContent');
-        
-        // JSON yanıtını ayrıştır
-        try {
-          final Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
+        if (jsonResponse.containsKey('candidates') && 
+            jsonResponse['candidates'].isNotEmpty && 
+            jsonResponse['candidates'][0].containsKey('content') &&
+            jsonResponse['candidates'][0]['content'].containsKey('parts') &&
+            jsonResponse['candidates'][0]['content']['parts'].isNotEmpty) {
           
-          if (jsonMap != null) {
-            return jsonMap;
-          } else {
-            // JSON ayrıştılamazsa metin tabanlı veri çıkarma yöntemlerini kullan
-            final iliskiTipi = _extractRelationshipType(aiContent);
-            final oneriler = _extractSuggestions(aiContent);
-            
-            return {
-              'ilişki_tipi': iliskiTipi ?? 'belirlenemedi',
-              'analiz': 'Mesaj analiz edildi',
-              'öneriler': oneriler ?? <String>[],
-              'effect': {'nötr': 100},
-              'anlikTavsiye': 'Teknik bir sorun nedeniyle analiz tamamlanamadı. Lütfen tekrar deneyin.',
-              'rewrite': 'Teknik bir sorun nedeniyle öneri oluşturulamadı.',
-              'karsiTarafYorumu': 'Teknik bir sorun nedeniyle yorum yapılamadı.',
-              'strategy': 'Teknik bir sorun nedeniyle strateji önerilemedi.'
-            };
-          }
-        } catch (e) {
-          _logger.e('JSON ayrıştırma hatası', e);
-          return {'error': 'Analiz formatı geçersiz: $e'};
+          final text = jsonResponse['candidates'][0]['content']['parts'][0]['text'];
+          return jsonDecode(text);
+        } else {
+          return {'error': 'API yanıtı beklenen formatta değil'};
         }
       } else {
-        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return {'error': 'API yanıtı alınamadı: ${response.statusCode}'};
+        _logger.e('API hatası: ${response.statusCode} - ${response.body}');
+        return {'error': 'API hatası: ${response.statusCode}'};
       }
     } catch (e) {
-      _logger.e('Mesaj analizi hatası', e);
-      return {'error': 'İstek sırasında hata oluştu: $e'};
+      _logger.e('Mesaj analizi hatası: $e');
+      return {'error': 'Mesaj analizi hatası: $e'};
     }
   }
 
@@ -881,8 +862,7 @@ class AiService {
     
     try {
       // API anahtarını kontrol et
-      final apiKey = dotenv.env['OPENAI_API_KEY'];
-      if (apiKey == null || apiKey.isEmpty) {
+      if (_geminiApiKey.isEmpty) {
         return {'error': 'API anahtarı bulunamadı'};
       }
 
@@ -895,17 +875,17 @@ class AiService {
       final messageText = 'İlişki analizi: ${analizVerileri.toString()}';
       
       final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
+        Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
-          'model': 'gpt-3.5-turbo',
-          'messages': [
+          'contents': [
             {
-              'role': 'system',
-              'content': '''
+              'role': 'user',
+              'parts': [
+                {
+                  'text': '''
 İlişki uzmanı olarak görevin, kullanıcının verdiği bilgilere dayanarak ilişki durumunu analiz etmek.
 Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
 {
@@ -922,20 +902,23 @@ Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
   "gelistirilebilirYonler": "İlişkinin geliştirilebilir yönleri",
   "oneriler": ["Öneri 1", "Öneri 2", "Öneri 3"]
 }
-''',
-            },
-            {
-              'role': 'user',
-              'content': messageText,
-            },
+
+İlişki analizi verisi: ${messageText}
+'''
+                }
+              ]
+            }
           ],
-          'temperature': 0.7,
+          'generationConfig': {
+            'temperature': 0.7,
+            'maxOutputTokens': _geminiMaxTokens
+          }
         }),
       );
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['choices']?[0]?['message']?['content'];
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent == null || aiContent.isEmpty) {
           return {'error': 'Analiz sonucu alınamadı'};
@@ -969,49 +952,47 @@ Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
     
     try {
       // API anahtarını kontrol et
-      final apiKey = dotenv.env['OPENAI_API_KEY'];
-      if (apiKey == null || apiKey.isEmpty) {
+      if (_geminiApiKey.isEmpty) {
         return ['API anahtarı bulunamadı, tavsiyeler oluşturulamadı.'];
       }
 
       // API isteği için veri hazırlama
       final promptText = '''
-İlişki puanı: $iliskiPuani
-Kategori puanları: $kategoriPuanlari
-Kullanıcı bilgileri: $kullaniciVerileri
-
-Bu verilere dayanarak kişiselleştirilmiş tavsiyeler oluştur.
-''';
-      
-      final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: jsonEncode({
-          'model': 'gpt-3.5-turbo',
-          'messages': [
-            {
-              'role': 'system',
-              'content': '''
 İlişki koçu olarak görevin, kullanıcının ilişki puanı ve kategori puanlarına dayanarak kişiselleştirilmiş tavsiyeler oluşturmak.
 5 adet kısa, uygulanabilir ve etkileyici tavsiye oluştur. Tavsiyeler doğrudan "sen" diliyle yazılmalı.
 Yanıtını sadece tavsiye listesi olarak ver, JSON formatı kullanma, başka açıklama ekleme.
-''',
-            },
+
+İlişki puanı: $iliskiPuani
+Kategori puanları: $kategoriPuanlari
+Kullanıcı bilgileri: $kullaniciVerileri
+''';
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'contents': [
             {
               'role': 'user',
-              'content': promptText,
-            },
+              'parts': [
+                {
+                  'text': promptText
+                }
+              ]
+            }
           ],
-          'temperature': 0.8,
+          'generationConfig': {
+            'temperature': 0.8,
+            'maxOutputTokens': _geminiMaxTokens
+          }
         }),
       );
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['choices']?[0]?['message']?['content'];
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent == null || aiContent.isEmpty) {
           return ['Tavsiyeler oluşturulamadı.'];
@@ -1044,40 +1025,42 @@ Yanıtını sadece tavsiye listesi olarak ver, JSON formatı kullanma, başka a�
     
     try {
       // API anahtarını kontrol et
-      final apiKey = dotenv.env['OPENAI_API_KEY'];
-      if (apiKey == null || apiKey.isEmpty) {
+      if (_geminiApiKey.isEmpty) {
         return _getFallbackQuestions();
       }
 
       final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
+        Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
-          'model': 'gpt-3.5-turbo',
-          'messages': [
+          'contents': [
             {
-              'role': 'system',
-              'content': '''
+              'role': 'user',
+              'parts': [
+                {
+                  'text': '''
 İlişki uzmanı olarak görevin, ilişki değerlendirmesi için 10 adet anlamlı ve düşündürücü soru oluşturmak.
 Sorular, ilişkinin farklı yönlerini (iletişim, güven, samimiyet, destek, uyum vb.) değerlendirmeli.
 Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açıklama ekleme.
-''',
-            },
-            {
-              'role': 'user',
-              'content': 'İlişki değerlendirmesi için 10 adet farklı konularda soru oluştur.',
-            },
+
+İlişki değerlendirmesi için 10 adet farklı konularda soru oluştur.
+'''
+                }
+              ]
+            }
           ],
-          'temperature': 0.7,
+          'generationConfig': {
+            'temperature': 0.7,
+            'maxOutputTokens': _geminiMaxTokens
+          }
         }),
       );
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['choices']?[0]?['message']?['content'];
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent == null || aiContent.isEmpty) {
           return _getFallbackQuestions();
@@ -1124,8 +1107,7 @@ Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açı
     
     try {
       // API anahtarını kontrol et
-      final apiKey = dotenv.env['OPENAI_API_KEY'];
-      if (apiKey == null || apiKey.isEmpty) {
+      if (_geminiApiKey.isEmpty) {
         return [{'error': 'API anahtarı bulunamadı'}];
       }
 
@@ -1135,17 +1117,17 @@ Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açı
           : sohbetMetni;
 
       final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
+        Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
-          'model': 'gpt-3.5-turbo',
-          'messages': [
+          'contents': [
             {
-              'role': 'system',
-              'content': '''
+              'role': 'user',
+              'parts': [
+                {
+                  'text': '''
 Görevin, verilen sohbet metnini analiz edip "Spotify Wrapped" tarzında ilginç ve eğlenceli içgörüler çıkarmak.
 Aşağıdaki kategorilerde 6 farklı içgörü oluştur:
 1. En sık kullanılan kelimeler/ifadeler
@@ -1168,21 +1150,25 @@ Her içgörü için aşağıdaki JSON formatında bir yanıt oluştur:
   ...
 ]
 
-Başlıklar kısa ve çarpıcı, yorumlar ise detaylı ve eğlenceli olmalı. İstatistikler ve yorumlar, Spotify Wrapped stilinde esprili ve kişiselleştirilmiş bir dille yazılmalı.
-''',
-            },
-            {
-              'role': 'user',
-              'content': kisaltilmisSohbet,
-            },
+Başlıklar kısa ve çarpıcı, yorumlar ise detaylı ve eğlenceli olmalı. İstatistikler ve yorumlar, Spotify Wrapped stilinde esprili ve kişiselleştirilmiş bir dilde yazılmalı.
+
+İşte analiz edilecek sohbet metni: 
+${kisaltilmisSohbet}
+'''
+                }
+              ]
+            }
           ],
-          'temperature': 0.8,
+          'generationConfig': {
+            'temperature': 0.8,
+            'maxOutputTokens': _geminiMaxTokens
+          }
         }),
       );
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['choices']?[0]?['message']?['content'];
+        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent == null || aiContent.isEmpty) {
           return [{'title': 'Analiz Hatası', 'comment': 'Sohbet analiz edilemedi.'}];

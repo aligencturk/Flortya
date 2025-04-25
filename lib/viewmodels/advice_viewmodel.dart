@@ -2,11 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/message_coach_analysis.dart';
+import '../models/analysis_result_model.dart';  // AnalysisResult için import ekliyorum
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math';  // min fonksiyonu için import ekliyorum
+import '../services/api_service.dart';  // ApiService için import ekliyorum
 
 class AdviceViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore;
@@ -43,46 +46,222 @@ class AdviceViewModel extends ChangeNotifier {
        _notificationService = notificationService;
 
   // Mesaj Koçu analizi yapma
-  Future<void> analyzeMesaj(String messageText, String userId) async {
-    _setAnalyzing(true);
-    _setError(null);
+  Future<void> analyzeMesaj(String metin, String userId) async {
+    if (_isAnalyzing) {
+      print('⚠️ Zaten analiz yapılıyor, işlem iptal edildi');
+      return;
+    }
+    
+    print('📊 Mesaj analizi başlatılıyor: "${metin.substring(0, min(20, metin.length))}..."');
+    
+    // Analizden önce tüm durumları sıfırla
     _mesajAnalizi = null;
+    _isLoading = true;
+    _isAnalyzing = true;
+    _errorMessage = null;
     notifyListeners();
     
+    // Analiz işlemi için bir zaman aşımı ekleyelim
+    Timer? timeoutTimer;
+    timeoutTimer = Timer(const Duration(seconds: 25), () {
+      print('⏰ Analiz zaman aşımına uğradı, durum temizleniyor');
+      _isLoading = false;
+      _isAnalyzing = false;
+      _errorMessage = 'Analiz zaman aşımına uğradı, lütfen tekrar deneyin';
+      notifyListeners();
+    });
+    
     try {
-      _logger.i('Mesaj analizi yapılıyor...');
-      
-      // Kullanıcının bugün kalan ücretsiz analiz sayısını kontrol et
-      if (!analizHakkiVar) {
-        _setError('Ücretsiz analiz hakkınız doldu. Premium üyelik için profil ayarlarınızı kontrol edin.');
+      // Ücretsiz analiz sınırını kontrol et
+      if (_ucretlizAnalizSayisi >= MesajKocuAnalizi.ucretlizAnalizSayisi) {
+        _isLoading = false;
+        _isAnalyzing = false;
+        _errorMessage = 'Ücretsiz analiz hakkınızı doldurdunuz';
+        notifyListeners();
+        timeoutTimer.cancel();
         return;
       }
       
-      // Analiz yap
-      final result = await _aiService.getMesajKocuAnalizi(messageText);
+      // Geminik AI üzerinden analiz
+      final analiz = await ApiService().analyzeMessage(metin);
       
-      if (result.containsKey('error')) {
-        _setError(result['error']);
+      // Zaman aşımı zamanlayıcısını iptal et
+      timeoutTimer.cancel();
+      
+      if (analiz == null) {
+        _isLoading = false;
+        _isAnalyzing = false;
+        _errorMessage = 'Sunucu yanıt vermedi veya analiz sonucu alınamadı. Lütfen tekrar deneyin.';
+        notifyListeners();
         return;
       }
       
-      // Analiz modelini oluştur
-      final analiz = MesajKocuAnalizi.fromJson(result);
-      _mesajAnalizi = analiz;
+      // Analizi MesajKocuAnalizi tipine dönüştür
+      final mesajAnalizi = _convertAnalysisToMesajKocu(analiz);
       
-      // Veritabanına kaydet
-      await _saveAnalysisToFirestore(analiz, messageText, userId);
-      
-      // Kullanılan ücretsiz analiz sayısını artır
+      // Firestore'a kaydet
+      await _saveAnalysisToFirestore(userId, mesajAnalizi, metin);
       await _incrementAnalysisCount(userId);
       
-      _logger.i('Mesaj analizi başarıyla tamamlandı');
+      // Tüm işlemler tamamlandıktan sonra sonuç modelini ata
+      _mesajAnalizi = mesajAnalizi;
+      _isLoading = false;
+      _isAnalyzing = false;
+      
+      // UI'a bildir
+      notifyListeners();
+      
+      print('✅ Mesaj analizi tamamlandı: ${_mesajAnalizi?.anlikTavsiye?.substring(0, min(30, _mesajAnalizi?.anlikTavsiye?.length ?? 0))}...');
+      print('✅ UI güncellendi - isAnalyzing=$_isAnalyzing, hasAnalizi=${hasAnalizi}');
+      
+    } catch (e) {
+      print('❌ Mesaj analizi hatası: $e');
+      timeoutTimer.cancel();
+      
+      _isLoading = false;
+      _isAnalyzing = false;
+      _errorMessage = 'Analiz sırasında bir hata oluştu: $e';
       
       notifyListeners();
-    } catch (e) {
-      _setError('Mesaj analizi yapılırken hata oluştu: $e');
-    } finally {
-      _setAnalyzing(false);
+    }
+  }
+  
+  // AnalysisResult'ı MesajKocuAnalizi'ne dönüştür
+  MesajKocuAnalizi _convertAnalysisToMesajKocu(dynamic analysisResult) {
+    try {
+      print('🔄 _convertAnalysisToMesajKocu başlıyor');
+      
+      // Dynamic tipindeki veriyi Map<String, dynamic>'e dönüştür
+      Map<String, dynamic> resultMap;
+      if (analysisResult is Map<String, dynamic>) {
+        resultMap = analysisResult;
+      } else if (analysisResult is AnalysisResult) {
+        resultMap = analysisResult.toMap();
+      } else {
+        print('❌ Beklenmeyen analiz sonucu tipi: ${analysisResult.runtimeType}');
+        throw Exception('Beklenmeyen analiz sonucu tipi: ${analysisResult.runtimeType}');
+      }
+      
+      print('🔑 Analiz sonucu anahtarları: ${resultMap.keys.toList()}');
+      
+      // aiResponse içeriğini al
+      Map<String, dynamic> aiResponseMap = {};
+      
+      if (resultMap.containsKey('aiResponse') && resultMap['aiResponse'] is Map) {
+        aiResponseMap = Map<String, dynamic>.from(resultMap['aiResponse']);
+        print('✅ aiResponse bulundu: ${aiResponseMap.keys.toList()}');
+      } else {
+        print('⚠️ aiResponse bulunamadı, alternatif değerler aranıyor');
+      }
+      
+      // Öneriler listesini oluştur
+      List<String> oneriler = [];
+      
+      // Önce aiResponse içindeki cevapOnerileri'ni kontrol et
+      if (aiResponseMap.containsKey('cevapOnerileri') && aiResponseMap['cevapOnerileri'] is List) {
+        oneriler = List<String>.from(aiResponseMap['cevapOnerileri'].map((item) => item.toString()));
+        print('✅ aiResponse.cevapOnerileri bulundu: ${oneriler.length} öğe');
+      } 
+      // Doğrudan cevapOnerileri'ni kontrol et
+      else if (resultMap.containsKey('cevapOnerileri') && resultMap['cevapOnerileri'] is List) {
+        oneriler = List<String>.from(resultMap['cevapOnerileri'].map((item) => item.toString()));
+        print('✅ cevapOnerileri bulundu: ${oneriler.length} öğe');
+      }
+      
+      // Öneriler listesi boşsa varsayılan değerler ver
+      if (oneriler.isEmpty) {
+        oneriler = ['İletişim tekniklerini geliştir', 'Sakin ve net bir dil kullan'];
+        print('⚠️ Öneriler listesi boş, varsayılan değerler eklendi');
+      }
+      
+      // Etki haritasını oluştur
+      Map<String, int> etki = {'nötr': 100};
+      
+      // Etki değerlerini kontrol et
+      if (resultMap.containsKey('effect') && resultMap['effect'] is Map) {
+        // effect alanının deep copy'sini al
+        Map<String, dynamic> effectMap = Map<String, dynamic>.from(resultMap['effect']);
+        
+        effectMap.forEach((key, value) {
+          if (value is int) {
+            etki[key] = value;
+          } else if (value is double) {
+            etki[key] = value.toInt();
+          } else if (value is String) {
+            try {
+              etki[key] = int.parse(value);
+            } catch (e) {
+              etki[key] = 50; // Varsayılan değer
+            }
+          }
+        });
+        
+        print('✅ effect değerleri dönüştürüldü: ${etki.length} adet');
+      } else {
+        print('⚠️ effect değerleri bulunamadı, varsayılan değerler kullanıldı');
+      }
+      
+      // anlikTavsiye, mesajYorumu dönüşümü
+      String? anlikTavsiye;
+      
+      // Önce aiResponse içindeki mesajYorumu'nu kontrol et
+      if (aiResponseMap.containsKey('mesajYorumu') && aiResponseMap['mesajYorumu'] != null) {
+        anlikTavsiye = aiResponseMap['mesajYorumu'].toString();
+        print('✅ aiResponse.mesajYorumu bulundu');
+      } 
+      // Doğrudan mesajYorumu'nu kontrol et
+      else if (resultMap.containsKey('mesajYorumu') && resultMap['mesajYorumu'] != null) {
+        anlikTavsiye = resultMap['mesajYorumu'].toString();
+        print('✅ mesajYorumu bulundu');
+      }
+      
+      // Analiz değeri için her durumu kontrol et
+      String analiz = 'Mesaj analizi tamamlandı';
+      
+      if (anlikTavsiye != null && anlikTavsiye.isNotEmpty) {
+        analiz = anlikTavsiye;
+      } else if (resultMap.containsKey('analiz') && resultMap['analiz'] != null) {
+        analiz = resultMap['analiz'].toString();
+      }
+      
+      // Diğer alanları kontrol et
+      String? yenidenYazim = resultMap['yenidenYazim']?.toString() ?? 
+                             resultMap['rewrite']?.toString() ?? 
+                             aiResponseMap['rewrite']?.toString();
+                             
+      String? strateji = resultMap['strateji']?.toString() ?? 
+                         resultMap['strategy']?.toString() ?? 
+                         aiResponseMap['strategy']?.toString();
+                         
+      String? karsiTarafYorumu = resultMap['karsiTarafYorumu']?.toString() ?? 
+                                resultMap['counterpartOpinion']?.toString() ?? 
+                                aiResponseMap['counterpartOpinion']?.toString();
+      
+      String? gucluYonler = resultMap['gucluYonler']?.toString() ?? 
+                            resultMap['strongPoints']?.toString() ?? 
+                            aiResponseMap['strongPoints']?.toString();
+      
+      String? iliskiTipi = resultMap['iliskiTipi']?.toString() ?? 
+                          resultMap['relationshipType']?.toString() ?? 
+                          aiResponseMap['relationshipType']?.toString();
+      
+      print('✅ _convertAnalysisToMesajKocu tamamlandı');
+      
+      return MesajKocuAnalizi(
+        analiz: analiz,
+        oneriler: oneriler,
+        etki: etki,
+        anlikTavsiye: anlikTavsiye,
+        yenidenYazim: yenidenYazim,
+        strateji: strateji,
+        karsiTarafYorumu: karsiTarafYorumu,
+        gucluYonler: gucluYonler,
+        iliskiTipi: iliskiTipi,
+      );
+    } catch (e, stackTrace) {
+      print('❌ _convertAnalysisToMesajKocu hatası: $e');
+      print('❌ Stack trace: $stackTrace');
+      throw Exception('Analiz sonucu dönüştürme hatası: $e');
     }
   }
   
@@ -107,7 +286,7 @@ class AdviceViewModel extends ChangeNotifier {
   }
   
   // Firestore'a analiz sonucunu kaydetme
-  Future<void> _saveAnalysisToFirestore(MesajKocuAnalizi analiz, String messageText, String userId) async {
+  Future<void> _saveAnalysisToFirestore(String userId, MesajKocuAnalizi analiz, String messageText) async {
     try {
       final data = analiz.toFirestore();
       data['userId'] = userId;
@@ -226,7 +405,13 @@ class AdviceViewModel extends ChangeNotifier {
   }
   
   void _setAnalyzing(bool value) {
+    // İç durumu değiştir
     _isAnalyzing = value;
+    
+    // Log ekle
+    _logger.i('_setAnalyzing çağrıldı - Yeni durum: $_isAnalyzing');
+    
+    // UI'a bildir
     notifyListeners();
   }
   
@@ -255,5 +440,44 @@ class AdviceViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     _logger.d('Hata mesajı sıfırlandı');
+  }
+  
+  // Durumu zorla güncelleme yöntemleri
+  void forceStartAnalysis() {
+    _isLoading = true;
+    _isAnalyzing = true;
+    _mesajAnalizi = null;
+    _errorMessage = null;
+    notifyListeners();
+    print('➡️ Analiz başlatıldı - isAnalyzing=$_isAnalyzing');
+  }
+  
+  void forceStopAnalysis() {
+    // Tüm state'leri temizle
+    _isLoading = false;
+    _isAnalyzing = false;
+    
+    // Durumları bildirip debug log yazdır
+    notifyListeners();
+    print('➡️ Analiz durduruldu - isAnalyzing=$_isAnalyzing, hasAnalizi=$hasAnalizi');
+    
+    // Durumun tamamen temizlenmesini garanti edelim
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // İkinci bir bildirim - build işlemi tamamlandıktan sonra
+      notifyListeners();
+    });
+  }
+  
+  void refreshUI() {
+    notifyListeners();
+    print('🔄 UI yenileniyor - isAnalyzing=$_isAnalyzing, hasAnalizi=${hasAnalizi}');
+    
+    // Takılı kalan analiz durumunu kontrol edip temizleyelim
+    if (_isAnalyzing && !_isLoading) {
+      // Durumu sıfırla
+      print('⚠️ Analiz durumu sıfırlanıyor');
+      _isAnalyzing = false;
+      notifyListeners();
+    }
   }
 }
