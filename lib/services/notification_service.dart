@@ -184,20 +184,6 @@ class NotificationService {
     }
   }
   
-  // Günlük tavsiye bildirimi gönder
-  Future<void> showDailyAdviceNotification(String title, String body) async {
-    try {
-      // Bu metod artık doğrudan Firebase Console üzerinden veya bir backend aracılığıyla gönderilecek
-      // Burada, backend'e bildirim gönderme isteği yapılabilir
-      _logger.i('Günlük tavsiye bildirimi isteği gönderildi: $title');
-      
-      // NOT: Gerçek uygulamada, burada bir API çağrısı yaparak backend'e bildirim gönderme isteği yapabilirsiniz
-      // Örnek: await _apiService.sendNotificationRequest(title, body);
-    } catch (e) {
-      _logger.e('Günlük tavsiye bildirimi gösterme hatası: $e');
-    }
-  }
-  
   // Yerel bildirim göster (bildirim izni olmayan durumlar için)
   Future<void> showLocalNotification(String title, String body) async {
     try {

@@ -359,10 +359,13 @@ class ProfileViewModel extends ChangeNotifier {
     _setLoading(true);
     try {
       // Analiz sonucu oluştur
-      final analizSonucu = await _aiService.iliskiDurumuAnaliziYap(
+      final Map<String, dynamic> analizSonucuMap = await _aiService.iliskiDurumuAnaliziYap(
         _auth.currentUser!.uid, 
         analizVerileri
       );
+      
+      // Map'i AnalizSonucu nesnesine dönüştür
+      final AnalizSonucu analizSonucu = AnalizSonucu.fromMap(analizSonucuMap);
       
       // Kullanıcı modelini güncelle
       final UserModel guncelKullanici = _user!.analizSonucuEkle(analizSonucu);

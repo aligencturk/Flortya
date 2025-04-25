@@ -17,9 +17,20 @@ import '../app_router.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../views/conversation_summary_view.dart';
 import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/advice_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
+import '../models/message_coach_analysis.dart';
+import '../models/analysis_result.dart' as analysis;
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// String için extension - capitalizeFirst metodu
+extension StringExtension on String {
+  String get capitalizeFirst => length > 0 
+      ? '${this[0].toUpperCase()}${substring(1)}'
+      : '';
+}
 
 // Mesaj sınıfı için extension
 extension MessageExtension on Message {
@@ -1873,6 +1884,167 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  // Mesaj Koçu analiz sonuçlarını görüntüle
+  Widget _buildMesajKocuAnalizi(MesajKocuAnalizi analiz) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Mesaj Etki Yüzdeleri
+          Text(
+            '📊 Mesaj Etki Analizi',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
+          _buildEtkiYuzdeleri(analiz.etki),
+          const Divider(height: 24),
+          
+          // 2. Anlık Tavsiye
+          Text(
+            '💬 Anlık Tavsiye',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            analiz.anlikTavsiye ?? 'Tavsiye bulunamadı',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const Divider(height: 24),
+          
+          // 3. Yeniden Yazım Önerisi
+          Text(
+            '✍️ Yeniden Yazım Önerisi',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            analiz.yenidenYazim ?? 'Öneri bulunamadı',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const Divider(height: 24),
+          
+          // 4. Karşı Taraf Yorumu
+          Text(
+            '🔍 Karşı Taraf Yorumu',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            analiz.karsiTarafYorumu ?? 'Yorum bulunamadı',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const Divider(height: 24),
+          
+          // 5. Strateji Önerisi
+          Text(
+            '🧭 Strateji Önerisi',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            analiz.strateji ?? 'Öneri bulunamadı',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEtkiYuzdeleri(Map<String, int> etki) {
+    if (etki.isEmpty) {
+      return const Text('Etki analizi bulunamadı');
+    }
+    
+    // Etki değerlerini azalan sırada sırala
+    final List<MapEntry<String, int>> siralanmisEtki = etki.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    return Column(
+      children: siralanmisEtki.map((entry) {
+        final String etiket = entry.key;
+        final int deger = entry.value;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${etiket.capitalizeFirst}: %$deger',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  Text(
+                    '$deger%',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              LinearProgressIndicator(
+                value: deger / 100,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  _getEtkiRengi(etiket),
+                ),
+                minHeight: 10,
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  Color _getEtkiRengi(String etiket) {
+    // Farklı etiketler için farklı renkler
+    switch (etiket.toLowerCase()) {
+      case 'sempatik':
+        return Colors.green;
+      case 'kararsız':
+        return Colors.orange;
+      case 'endişeli':
+        return Colors.red;
+      case 'olumlu':
+        return Colors.blue;
+      case 'flörtöz':
+        return Colors.purple;
+      case 'mesafeli':
+        return Colors.grey;
+      case 'nötr':
+        return Colors.blueGrey;
+      default:
+        return Colors.teal;
     }
   }
 } 

@@ -15,6 +15,15 @@ import '../controllers/home_controller.dart';
 import '../app_router.dart';
 import '../utils/feedback_utils.dart';
 import '../utils/loading_indicator.dart';
+import '../widgets/message_coach_card.dart';
+import '../models/message_coach_analysis.dart';
+
+// String için extension - capitalizeFirst metodu
+extension StringExtension on String {
+  String get capitalizeFirst => length > 0 
+      ? '${this[0].toUpperCase()}${substring(1)}'
+      : '';
+}
 
 // Grafik Çizici Sınıf
 class ChartPainter extends CustomPainter {
@@ -128,9 +137,6 @@ class _HomeViewState extends State<HomeView> {
   final GlobalKey _categoryAnalysisKey = GlobalKey();
   final GlobalKey _relationshipEvaluationKey = GlobalKey();
   
-  // AdviceCard tanımını düzelt
-  Map<String, dynamic>? _dailyAdvice;
-  
   @override
   void initState() {
     super.initState();
@@ -151,8 +157,13 @@ class _HomeViewState extends State<HomeView> {
       final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
       messageViewModel.setProfileViewModel(profileViewModel);
       
-      // Günlük tavsiyeyi yükle
-      _loadDailyAdvice();
+      // Kullanıcının analiz sayısını yükle
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+      
+      if (authViewModel.user != null) {
+        adviceViewModel.loadAnalysisCount(authViewModel.user!.id);
+      }
     });
   }
 
@@ -205,18 +216,6 @@ class _HomeViewState extends State<HomeView> {
       _selectedIndex = index;
     });
   }
-
-  // Günlük tavsiyeyi yükle
-  Future<void> _loadDailyAdvice() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
-    
-    if (authViewModel.user != null) {
-      await adviceViewModel.getDailyAdviceCard(authViewModel.user!.id);
-    }
-  }
-  
-  // Tavsiyeyi yenile (premium kullanıcı için) fonksiyonu kaldırıldı
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +289,7 @@ class _HomeViewState extends State<HomeView> {
             BottomNavigationBarItem(
               icon: Icon(Icons.favorite_outline),
               activeIcon: Icon(Icons.favorite),
-              label: 'Tavsiyeler',
+              label: 'Mesaj Koçu',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
@@ -1446,273 +1445,368 @@ class _HomeViewState extends State<HomeView> {
   
   // Tavsiye Kartı Tab
   Widget _buildAdviceCardTab(BuildContext context) {
+    final adviceViewModel = Provider.of<AdviceViewModel>(context);
+    
     return SafeArea(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // App Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                FutureBuilder<User?>(
-                  future: Future.value(FirebaseAuth.instance.currentUser),
-                  builder: (context, snapshot) {
-                    final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
-                    return Text(
-                      'Merhaba, $displayName',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    );
-                  },
+                const Text(
+                  'Mesaj Koçu',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                  icon: const Icon(Icons.help_outline, color: Colors.white),
                   onPressed: () {
-                    context.push('/settings');
+                    // Yardım sayfasına yönlendir
+                    context.push('/faq');
                   },
                 ),
               ],
             ),
           ),
           
-          // Ana içerik
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Başlık, kalan sayısı ve yenile butonu
-                  Row(
-                    children: [
-                      // Başlık
-                      const Text(
-                        'Günlük AI\nTavsiyesi',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Spacer(),
-                      
-                      // Kalan tavsiye sayısı ve Yenile butonu kaldırıldı
-                    ],
+                  // Başlık
+                  const Text(
+                    'Mesaj Koçu',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
                   ),
                   
                   const SizedBox(height: 24),
                   
-                  // Tavsiye kartı
-                  Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.5,
-                      minHeight: 300,
-                    ),
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    child: Consumer<AdviceViewModel>(
-                      builder: (context, adviceViewModel, child) {
-                        if (adviceViewModel.isLoading) {
-                          return const Center(
-                            child: YuklemeAnimasyonu(
-                              renk: Colors.white,
-                            ),
-                          );
-                        }
-                        
-                        if (adviceViewModel.errorMessage != null) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: Colors.white70,
-                                  size: 48,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Tavsiye yüklenirken bir sorun oluştu',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 16,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 24),
-                                TextButton(
-                                  onPressed: _loadDailyAdvice,
-                                  child: const Text(
-                                    'Tekrar Dene',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        
-                        final advice = adviceViewModel.adviceCard;
-                        
-                        if (advice == null) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: Colors.white70,
-                                  size: 48,
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Bugünün tavsiyesi şu an getirilemiyor. Lütfen daha sonra tekrar deneyin.',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 16,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 24),
-                                ElevatedButton.icon(
-                                  onPressed: _loadDailyAdvice,
-                                  icon: const Icon(Icons.refresh, color: Colors.white),
-                                  label: const Text(
-                                    'Tekrar Dene',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF6C5DD3),
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        
-                        final title = advice['title'] ?? 'İlişki Tavsiyesi';
-                        final content = advice['content'] ?? 'Tavsiye içeriği bulunamadı.';
-                        final category = advice['category'] ?? 'genel';
-                        final source = advice['source'] ?? 'Yapay Zeka Asistanı';
-                        
-                        return Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF6C5DD3),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Başlık ve simge
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      title,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.lightbulb_outline,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              const SizedBox(height: 16),
-                              
-                              // Tavsiye metni - Daha iyi scrolling için
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  physics: const BouncingScrollPhysics(),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        content,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Kaynak bilgisi
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.info_outline,
-                                              color: Colors.white70,
-                                              size: 14,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Kaynak: $source',
-                                              style: const TextStyle(
-                                                color: Colors.white70,
-                                                fontSize: 12,
-                                                fontStyle: FontStyle.italic,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                  // Mesaj Koçu kartı
+                  const MesajKocuCard(),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Mesaj Koçu Analiz Sonuçları veya Analiz Yap Kartı
+                  adviceViewModel.hasAnalizi 
+                      ? _buildAnalysisResults(adviceViewModel.mesajAnalizi!)
+                      : _buildAnalysisPrompt(),
                 ],
               ),
             ),
           ),
         ],
       ),
-    )
-    .animate()
-    .fadeIn(duration: 300.ms);
+    );
+  }
+  
+  // Analiz Yönlendirme/Teşvik Etme Kartı
+  Widget _buildAnalysisPrompt() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Başlık
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Mesajlarını Analiz Et',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+        ),
+        
+        // Bilgi kartı
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Analiz bilgisi
+              Text(
+                'Mesajını analiz ederek iletişim etkinliğini artır',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 16,
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Analiz avantajları
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildAnalysisFeature(
+                  icon: Icons.auto_graph,
+                  text: 'Mesaj etki skorunu öğren',
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildAnalysisFeature(
+                  icon: Icons.psychology_alt,
+                  text: 'Karşı tarafın olası tepkisini gör',
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildAnalysisFeature(
+                  icon: Icons.edit_note,
+                  text: 'Daha etkili mesaj önerileri al',
+                ),
+              ),
+              
+              // Tam analiz için butonu
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    context.push('/advice');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9D3FFF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Mesaj Analizi Yap', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Analiz özelliği satırı
+  Widget _buildAnalysisFeature({required IconData icon, required String text}) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white.withOpacity(0.7),
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Analiz bölümü yapısı
+  Widget _buildAnalysisSection(String title, {String? content, Widget? child, bool showDivider = true}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (content != null)
+          Text(
+            content,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        if (child != null) child,
+        if (showDivider)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(color: Colors.white.withOpacity(0.1)),
+          ),
+      ],
+    );
+  }
+  
+  // Etki yüzdelerini gösteren widget
+  Widget _buildEtkiYuzdeleri(Map<String, int> etki) {
+    if (etki.isEmpty) {
+      return Text(
+        'Etki analizi bulunamadı',
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.8),
+          fontSize: 14,
+        ),
+      );
+    }
+    
+    // Etki değerlerini azalan sırada sırala
+    final List<MapEntry<String, int>> siralanmisEtki = etki.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    // Sadece ilk 3 etki tipini göster
+    final gosterilecekEtki = siralanmisEtki.take(3).toList();
+    
+    return Column(
+      children: gosterilecekEtki.map((entry) {
+        final String etiket = entry.key;
+        final int deger = entry.value;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${etiket.capitalizeFirst}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    '%$deger',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: deger / 100,
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(_getEtkiRengi(etiket)),
+                  minHeight: 8,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  Color _getEtkiRengi(String etiket) {
+    // Farklı etiketler için farklı renkler
+    switch (etiket.toLowerCase()) {
+      case 'sempatik':
+        return Colors.green;
+      case 'kararsız':
+        return Colors.orange;
+      case 'endişeli':
+        return Colors.red;
+      case 'olumlu':
+        return Colors.blue;
+      case 'flörtöz':
+        return Colors.purple;
+      case 'mesafeli':
+        return Colors.grey;
+      case 'nötr':
+        return Colors.blueGrey;
+      default:
+        return const Color(0xFF9D3FFF); // Uygulama ana rengi
+    }
+  }
+  
+  // Tavsiye kartı
+  Widget _buildCommunicationTipCard(
+    BuildContext context, {
+    required String title,
+    required String advice,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  advice,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Profil Tab
@@ -3519,6 +3613,94 @@ class _HomeViewState extends State<HomeView> {
       context,
       title: 'Yakında',
       message: 'Şifre değiştirme özelliği yakında eklenecek.',
+    );
+  }
+
+  // Mesaj Koçu Analiz Sonuçları
+  Widget _buildAnalysisResults(MesajKocuAnalizi analiz) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Analiz Sonuçları Başlığı
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Mesaj Analiz Sonuçları',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+        ),
+        
+        // Analiz sonuçları kartı
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Mesaj Etki Yüzdeleri
+              _buildAnalysisSection(
+                '📊 Mesaj Etki Yüzdeleri',
+                child: _buildEtkiYuzdeleri(analiz.etki),
+              ),
+              
+              // 2. Anlık Tavsiye
+              _buildAnalysisSection(
+                '💬 Anlık Tavsiye',
+                content: analiz.anlikTavsiye ?? 'Tavsiye bulunamadı',
+              ),
+              
+              // 3. Yeniden Yazım Önerisi
+              _buildAnalysisSection(
+                '✍️ Rewrite Önerisi',
+                content: analiz.yenidenYazim ?? 'Öneri bulunamadı',
+              ),
+              
+              // 4. Karşı Taraf Yorumu
+              _buildAnalysisSection(
+                '🔍 Karşı Taraf Yorumu',
+                content: analiz.karsiTarafYorumu ?? 'Yorum bulunamadı',
+              ),
+              
+              // 5. Strateji Önerisi
+              _buildAnalysisSection(
+                '🧭 Strateji Önerisi',
+                content: analiz.strateji ?? 'Strateji bulunamadı',
+                showDivider: false,
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Tam analiz için butonu
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    context.push('/advice');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Tam Analiz İçin Tıkla'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 } 

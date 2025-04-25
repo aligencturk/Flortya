@@ -18,7 +18,6 @@ import 'package:file_selector/file_selector.dart';
 import '../services/ocr_service.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:logger/logger.dart';
 
 // Extension to add firstWhereOrNull functionality
 extension ListExtension<T> on List<T> {
@@ -582,7 +581,10 @@ class MessageViewModel extends ChangeNotifier {
       UserModel userModel = UserModel.fromFirestore(userDoc);
       
       // Analiz hizmeti ile ilişki durumunu analiz et
-      final analizSonucu = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
+      final analizSonucuMap = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
+      
+      // Map'i AnalizSonucu nesnesine dönüştür
+      final AnalizSonucu analizSonucu = AnalizSonucu.fromMap(analizSonucuMap);
       
       // Kullanıcı modelini güncelle
       final UserModel guncelKullanici = userModel.analizSonucuEkle(analizSonucu);
@@ -614,7 +616,7 @@ class MessageViewModel extends ChangeNotifier {
         _logger.w('Ana sayfa güncellenirken hata oluştu: $e');
       }
     } catch (e) {
-      _logger.w('Kullanıcı profili güncellenirken hata oluştu', e);
+      _logger.w('Analiz sonucu kullanıcı profiline kaydedilirken hata oluştu', e);
     }
   }
 
@@ -1399,7 +1401,10 @@ class MessageViewModel extends ChangeNotifier {
       UserModel userModel = UserModel.fromFirestore(userDoc);
       
       // Analiz hizmeti ile ilişki durumunu analiz et
-      final analizSonucu = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
+      final analizSonucuMap = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
+      
+      // Map'i AnalizSonucu nesnesine dönüştür
+      final AnalizSonucu analizSonucu = AnalizSonucu.fromMap(analizSonucuMap);
       
       // Kullanıcı modelini güncelle
       final UserModel guncelKullanici = userModel.analizSonucuEkle(analizSonucu);
