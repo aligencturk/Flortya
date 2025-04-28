@@ -345,40 +345,34 @@ class AiService {
       } else {
         // Normal metin mesajı
         prompt = '''
-        Sen bir ilişki analiz uzmanı olmasına rağmen, yakın bir arkadaş gibi davranıyorsun. Kullanıcıya asla bir uzman gibi cevap verme, bir arkadaş olarak cevap ver. 
-        Resmi dilden ve profesyonel söylemlerden kaçın. Samimi, empatik ve sıcak bir yaklaşım sergile.
+        Sen dürüst, doğrudan ve bazen küstah olabilen bir ilişki analiz uzmanısın. Hiçbir zaman ham gerçeği saklamaz, kullanıcının ilişkisindeki sorunları açıkça söylersin. Kibarlıktan çok dürüstlüğe ve doğrudanlığa değer verirsin.
         
         ÖNEMLİ KURALLAR:
-        1. Analizi yapan kişi, mesajın bir tarafıdır. Yani "ilk kişi" ya da "ikinci kişi" gibi ifadeler KULLANMA.
-        2. Cevabında kullanıcıya doğrudan "sen" diye hitap et.
-        3. Mesajlardaki taraf ayrımı şuna dayanır: Görselde analiz yapan kişinin mesajları genelde sağda, karşı tarafın mesajları solda olur. Fakat bunu analizde açıkça yazma.
-        4. "Senin mesajlarında...", "karşı taraf şu şekilde davranıyor..." gibi kişisel ve direkt ifadeler kullan.
-        5. "Sağdaki/soldaki", "ilk/ikinci kişi", gibi ifadeleri kesinlikle kullanma. Analizi yapan kişinin kendisiyle konuşuyorsun.
-        6. Analiz sıcak, empatik ve arkadaşça olmalı. Resmi dilden kaçın.
+        1. Analizi yapan kişi, mesajın bir tarafıdır. Cevabında kullanıcıya doğrudan "sen" diye hitap et.
+        2. Mesajındaki sorunları KÜSTAHÇA ve NET bir şekilde belirt. Gerçekleri yumuşatmaya çalışma.
+        3. Profesyonel olmayan, arkadaşça ama gerektiğinde sert bir üslup kullan.
+        4. Cevabında asla özür dileme veya tavsiyelerini yumuşatma.
+        5. Kullanıcı daha sert analizler istiyorsa gerektiğinde küçük düşürücü olabilirsin, ilişki analizi konusunda acımasız ol.
         
         Aşağıdaki ilişki mesajının analizini yap:
         
-        1. Mesajdaki baskın duyguyu belirle
-        2. Mesajın arkasındaki niyeti anlamaya çalış
-        3. İletişimin tonunu belirle (samimi, resmi, agresif, sevecen, vb.)
-        4. Mesajın ciddiyetini 1-10 arası derecelendir (10 en ciddi)
-        5. Mesajda konuşan kişileri belirlemeye çalış - Sen ve karşındaki olarak düşün
-        6. Mesajla ilgili dostça ve empatik bir yorum yap
-        7. Mesaja nasıl yaklaşılması gerektiğine dair somut ve uygulanabilir öneriler sun
+        1. Sohbetin genel havasını şu seçeneklerden belirle: Soğuk / Samimi / Pasif-agresif / İlgisiz / İlgili
+        2. Son mesajın tonunu şu seçeneklerden belirle: Sert / Soğuk / Sempatik / Umursamaz
+        3. Son mesajın etkisini yüzdelik olarak ölç: %xx sempatik / %xx kararsız / %xx olumsuz
+        4. KÜSTAHÇA ve NET bir şekilde tavsiye ver
+        5. İhtiyaç duyulursa karşı tarafa direkt ve soğukkanlı bir cevap önerisi yap
         
-        Cevabını şu format içinde, ama bir arkadaş gibi konuşarak hazırla:
+        Cevabını şu format içinde, bir arkadaş gibi ama sert ve doğrudan hazırla:
         
         {
           "duygu": "mesajdaki baskın duygu",
           "niyet": "mesajın arkasındaki niyet",
-          "ton": "iletişim tonu",
+          "ton": "iletişim tonu (Sert / Soğuk / Sempatik / Umursamaz)",
           "ciddiyet": "1-10 arası rakam",
           "kişiler": "Sen ve karşındaki kişi",
-          "mesajYorumu": "mesaj hakkında arkadaşça, empatik bir yorum. Kesinlikle 'Sen' diye hitap et, 'siz' değil. Günlük konuşma diline uygun ifadeler kullan.",
+          "mesajYorumu": "Sohbet genel havası: [Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili] \\n\\nGenel yorum: [1-2 cümlede doğrudan ve küstahça bir yorum] \\n\\nSon mesaj tonu: [Sert/Soğuk/Sempatik/Umursamaz] \\n\\nSon mesaj etkisi: %xx sempatik / %xx kararsız / %xx olumsuz \\n\\nDirekt Yorum: [Açık ve küstah bir tavsiye]",
           "cevapOnerileri": [
-            "Karşındaki kişiye şöyle cevap verebilirsin: '[somut bir cevap örneği]'. Bu yaklaşım iletişimi güçlendirecek.",
-            "Son mesajın yerine şöyle bir şey yazabilirsin: '[örnek yanıt]'. Bu yanıt karşındaki kişinin seni anlamasını kolaylaştırır.",
-            "Karşı tarafın mesajlarına yanıt verirken şu tekniği kullanabilirsin: '[belirli bir teknik]'. Şöyle diyebilirsin: '[örnek yanıt]'."
+            "Karşı tarafa verebileceğin direkt ve soğukkanlı bir cevap önerisi."
           ]
         }
         
@@ -758,130 +752,199 @@ class AiService {
     return _extractSuggestionsFromText(text);
   }
 
-  // Mesaj Koçu - mesaj analizi
-  Future<Map<String, dynamic>> getMesajKocuAnalizi(String messageText) async {
-    _logger.d('Mesaj analizi istendi: "${messageText.substring(0, min(50, messageText.length))}..."');
-    
-    if (messageText.isEmpty) {
-      return {'error': 'Mesaj boş olamaz'};
-    }
-    
-    if (_geminiApiKey.isEmpty) {
-      return {'error': 'API anahtarı bulunamadı'};
-    }
-    
+  /// Mesaj koçu analizi yapma
+  Future<Map<String, dynamic>> analyzeChatCoach(String messageContent) async {
     try {
-      _logger.d('Gemini API isteği gönderiliyor...');
+      _logger.i('Mesaj koçu analizi başlatılıyor...');
       
+      // Mesaj içeriğini kontrol etme
+      if (messageContent.trim().isEmpty) {
+        _logger.w('Boş mesaj içeriği, analiz yapılamıyor');
+        return {'error': 'Mesaj içeriği boş'};
+      }
+      
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
+        return {'error': 'API anahtarı eksik'};
+      }
+      
+      // Mesajın uzunluğunu kontrol et
+      if (messageContent.length > 12000) {
+        _logger.w('Mesaj içeriği çok uzun (${messageContent.length} karakter). Kısaltılıyor...');
+        messageContent = "${messageContent.substring(0, 12000)}...";
+      }
+      
+      // OCR metni ve Görsel Analizi için formatlama belirleme
+      final bool isImageAnalysis = messageContent.contains("Görsel Analizi:") || 
+                                 messageContent.contains("---- Görüntüden çıkarılan metin ----");
+      
+      // Prompt hazırlama - Mesaj Koçu Analizi formatında
+      String prompt = '''
+      Sen bir ilişki ve mesajlaşma uzmanısın, ancak kibarlık ve incelikten çok direkt, küstah ve bazen acımasız olmayı tercih ediyorsun. Gerçekleri asla yumuşatmıyor, karşındakine net ve çarpıcı bir şekilde söylüyorsun.
+
+      ÖNEMLİ: Aşağıdaki metni analiz et. Bu metin:
+      - Kopyala-yapıştır yapılmış düz yazı mesajları olabilir
+      - veya birden fazla adet ekran görüntüsünden çıkarılmış metinler olabilir
+      
+      Eğer gelen veri ekran görüntüsünden çıkarılmışsa:
+      - İçerik düzensiz olabilir (zaman, tarih, sticker bilgileri, eksik mesajlar vs.)
+      - Sadece gerçek mesaj içeriklerine odaklan
+      - Saat, tarih gibi bilgiler analiz dışı bırakılacak
+
+      Eğer birden fazla ekran görüntüsü gönderildiyse:
+      - Her görselden çıkarılan metinleri birleştir ve tek bir büyük konuşma geçmişi gibi ele al
+      - Bütün veriyi topluca analiz et
+
+      Analiz sonucunda:
+      1. Sohbetin genel havasını şu seçeneklerden belirlemelisin: Soğuk / Samimi / Pasif-agresif / İlgisiz / İlgili
+      2. Son mesajın tonunu şu seçeneklerden belirlemelisin: Sert / Soğuk / Sempatik / Umursamaz
+      3. Son mesajın etkisini yüzdelik olarak ölçmelisin: %xx sempatik / %xx kararsız / %xx olumsuz
+      4. KÜSTAHÇA ve NET bir şekilde tavsiye vermelisin
+      5. Her türlü takdim ve nezaket ifadelerinden kaçınmalısın
+      6. Küçümseyici, alaycı ve doğrudan bir dil kullanmalısın
+
+      ÖNEMLİ: Yanıtını tam olarak aşağıdaki JSON formatında hazırla. Başka açıklama ekleme veya JSON formatını bozma:
+      
+      {
+        "başlık": "Mesaj Koçu Analizi",
+        "öneriler": [
+          "Küstah ve net tavsiye 1", 
+          "Küstah ve net tavsiye 2",
+          "Küstah ve net tavsiye 3",
+          "Küstah ve net tavsiye 4 (gerekirse)"
+        ],
+        "sohbet_havası": "Soğuk / Samimi / Pasif-agresif / İlgisiz / İlgili",
+        "son_mesaj_tonu": "Sert / Soğuk / Sempatik / Umursamaz",
+        "effect": {
+          "sempatik": 25,
+          "kararsız": 25,
+          "olumsuz": 50
+        },
+        "direkt_yorum": "İlişkinizle ilgili açık ve küstahça bir yorum - doğrudan ve acımasız olmalı"
+      }
+      
+      Eğer çıkarılan metin aşırı bozuksa veya çok azsa, sadece şunu döndür:
+      
+      {
+        "error": "Yüklenen veriden sağlıklı bir analiz yapılamadı, lütfen daha net mesaj içerikleri gönderin."
+      }
+
+      Analiz edilecek metin:
+      ${messageContent}
+      ''';
+      
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': prompt
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('Mesaj koçu analizi API isteği gönderiliyor');
+      
+      // HTTP isteği için timeout ekle
       final response = await http.post(
-        Uri.parse('https://generativelanguage.googleapis.com/v1/models/${_geminiModel}:generateContent'),
+        Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': _geminiApiKey,
         },
-        body: jsonEncode({
-          'contents': [
-            {
-              'role': 'user',
-              'parts': [
-                {
-                  'text': '''Sen profesyonel bir mesaj koçusun. Kullanıcının sana gönderdiği mesajlaşma içeriğini analiz ederek aşağıdaki bilgileri içeren bir JSON oluşturmalısın:
-                  
-                  1. 💬 **Mesaj Etkisi Değerlendirmesi**  
-                  → Yazılan son mesajın insani etkisi nedir?  
-                  Örn: "%72 samimi, %20 çekingen, %8 belirsiz"
-
-                  2. 🧭 **Anlık Tavsiye**  
-                  → Kullanıcı bu noktada ne yapmalı?  
-                  Örn: "Şu an karşı taraf cevap vermedi, beklemek daha iyi olur."  
-                  Örn: "Cümle biraz direkt oldu, yumuşatabilirsin."
-
-                  3. ✍️ **Yeniden Yazım Önerisi**  
-                  → Eğer uygunsa, aynı duyguyu daha etkili aktaracak bir öneri cümlesi ver.  
-                  Örn: "Seni düşündüm bir anda." yerine → "Az önce seni hatırladım, gülümsedim :)"
-
-                  4. 🔍 **Duygu / Niyet Analizi**  
-                  → Karşı tarafın şu ana kadarki mesajlarında nasıl bir tutum var?  
-                  Örn: "Pasif, kısa cevaplar veriyor. İlgisiz olabilir ya da çekingen."
-
-                  Kurallar:
-                  - Yazışma bağlamını anlamalısın: flört, iş, arkadaşlık olabilir.
-                  - Gereksiz uzatma yapma, yönlendirmeleri kısa ve net ver.
-                  - Kullanıcıya akıl ver değil, koçluk yap: karar onun ama veri sende.
-                  
-                  Yanıtını aşağıdaki JSON formatında ver:
-                  {
-                    "effect": {
-                      "samimi": 70,
-                      "çekingen": 20,
-                      "belirsiz": 10
-                    },
-                    "mesajYorumu": "Anlık tavsiye burada yer almalı",
-                    "yenidenYazim": "Yeniden yazım önerisi burada yer almalı (eğer gerekiyorsa)",
-                    "karsiTarafYorumu": "Karşı tarafın tutumuna dair analiz burada yer almalı",
-                    "öneriler": ["Öneri 1", "Öneri 2", "Öneri 3"]
-                  }
-                  
-                  SADECE JSON FORMATINDA CEVAP VER, BAŞKA BİR ŞEY YAZMA. YUKARIDAKİ ALANLARIN TAMAMINI DOLDUR.
-                  
-                  İşte analiz edilecek mesaj:
-                  
-                  ${messageText}'''
-                }
-              ]
-            }
-          ],
-          'generationConfig': {
-            'temperature': 0.6,
-            'topP': 0.95,
-            'topK': 40,
-            'maxOutputTokens': _geminiMaxTokens
-          }
-        }),
+        body: requestBody,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _logger.e('Gemini API istek zaman aşımına uğradı');
+          return http.Response('{"error": "Zaman aşımı"}', 408);
+        },
       );
-
+      
+      _logger.d('API yanıtı alındı - status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
-        _logger.d('Gemini API yanıt döndü: ${response.body}');
-        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final responseData = jsonDecode(response.body);
+        final aiContent = responseData['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
-        if (jsonResponse.containsKey('candidates') && 
-            jsonResponse['candidates'].isNotEmpty && 
-            jsonResponse['candidates'][0].containsKey('content') &&
-            jsonResponse['candidates'][0]['content'].containsKey('parts') &&
-            jsonResponse['candidates'][0]['content']['parts'].isNotEmpty) {
+        if (aiContent == null || aiContent.isEmpty) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil');
+          return {'error': 'AI yanıtı alınamadı'};
+        }
+
+        _logger.d('AI yanıt içeriği: $aiContent');
+
+        // Yanıttan JSON kısmını ayıkla
+        String jsonText = aiContent;
+        
+        // Eğer ``` ```  formatında JSON varsa onu çıkar
+        if (jsonText.contains("```json")) {
+          jsonText = jsonText.split("```json")[1].split("```")[0].trim();
+        } else if (jsonText.contains("```")) {
+          jsonText = jsonText.split("```")[1].split("```")[0].trim();
+        }
+        
+        _logger.d('Ayıklanan JSON içeriği: $jsonText');
+        
+        // JSON olarak parse etmeyi dene
+        try {
+          Map<String, dynamic> analysisResult = jsonDecode(jsonText);
+          _logger.i('Mesaj koçu analizi başarıyla alındı');
           
-          final text = jsonResponse['candidates'][0]['content']['parts'][0]['text'];
-          try {
-            final parsedJson = jsonDecode(text);
-            _logger.i('🟢 AI Yanıtı Başarıyla Alındı: ${parsedJson.keys}');
-            return parsedJson;
-          } catch (e) {
-            _logger.e('JSON parse hatası: $e');
-            // API yanıtı JSON olmayabilir, bu durumda elle dönüştür
-            return {
-              "effect": {"nötr": 100},
-              "mesajYorumu": "API yanıtı JSON formatında değildi. Lütfen tekrar deneyin.",
-              "yenidenYazim": null,
-              "karsiTarafYorumu": null,
-              "öneriler": ["İletişimi geliştir", "Açık ol", "Dinlemeye önem ver"]
+          // Hata durumunu kontrol et
+          if (analysisResult.containsKey('error')) {
+            return {'error': analysisResult['error']};
+          }
+          
+          // Öneriler doğru şekilde alınmış mı kontrol et
+          if (!analysisResult.containsKey('öneriler') || !(analysisResult['öneriler'] is List)) {
+            _logger.e('Öneriler listesi bulunamadı veya geçersiz format');
+            analysisResult['öneriler'] = [
+              'İletişim şeklini daha yumuşak hale getir',
+              'Daha açık sorular sor',
+              'Karşı tarafın söylediklerine aktif dinleme yap'
+            ];
+          }
+          
+          // Effect verisi doğru şekilde alınmış mı kontrol et
+          if (!analysisResult.containsKey('effect') || !(analysisResult['effect'] is Map)) {
+            _logger.e('Effect verisi bulunamadı veya geçersiz format');
+            analysisResult['effect'] = {
+              "nötr": 100
             };
           }
-        } else {
-          return {'error': 'API yanıtı beklenen formatta değil'};
+          
+          return analysisResult;
+        } catch (jsonError) {
+          _logger.e('JSON parse hatası: $jsonError');
+          
+          // JSON parse edilemiyorsa, düz metin olarak döndür
+          return {
+            'başlık': 'Mesaj Koçu Analizi',
+            'öneriler': [
+              'Mesajlaşma analizinde teknik bir sorun oluştu',
+              'Lütfen başka bir mesaj örneği deneyin',
+              'Daha net mesaj içeriği sağlamayı deneyin'
+            ],
+            'effect': {
+              'nötr': 100
+            }
+          };
         }
       } else {
-        _logger.e('API hatası: ${response.statusCode} - ${response.body}');
-        return {'error': 'API hatası: ${response.statusCode}'};
+        _logger.e('API hatası: ${response.statusCode}', response.body);
+        return {'error': 'Analiz API hatası: ${response.statusCode}'};
       }
     } catch (e) {
-      _logger.e('Mesaj analizi hatası: $e');
-      return {
-        "effect": {"nötr": 100},
-        "mesajYorumu": "Mesaj analiz edilirken bir hata oluştu: $e",
-        "yenidenYazim": null,
-        "karsiTarafYorumu": null,
-        "öneriler": ["İletişimi geliştir", "Açık ol", "Dinlemeye önem ver"]
-      };
+      _logger.e('Mesaj koçu analizi hatası', e);
+      return {'error': 'Beklenmeyen bir hata oluştu: $e'};
     }
   }
 

@@ -497,15 +497,15 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.start,
          children: [
-           // 1. MESAJ ETKİSİ DEĞERLENDİRMESİ
+           // 1. GENEL SOHBET ANALİZİ
            const Padding(
              padding: EdgeInsets.only(bottom: 8),
              child: Row(
                children: [
-                 Icon(Icons.analytics_outlined, color: Color(0xFF9D3FFF), size: 18),
+                 Icon(Icons.chat_outlined, color: Color(0xFF9D3FFF), size: 18),
                  SizedBox(width: 6),
                  Text(
-                   '1. Mesaj Etkisi Değerlendirmesi',
+                   '1. Genel Sohbet Analizi',
                    style: TextStyle(
                      color: Colors.white,
                      fontWeight: FontWeight.bold,
@@ -516,164 +516,247 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
              ),
            ),
            
-           // Duygusal etki yüzdeleri
            Container(
+             width: double.infinity,
              padding: const EdgeInsets.all(12),
              decoration: BoxDecoration(
                color: Colors.white.withOpacity(0.1),
                borderRadius: BorderRadius.circular(12),
              ),
-             child: _buildEtkiYuzdeleri(analiz.etki),
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Row(
+                   children: [
+                     const Text(
+                       'Sohbet genel havası: ',
+                       style: TextStyle(
+                         color: Colors.white70,
+                         fontWeight: FontWeight.w600,
+                       ),
+                     ),
+                     Text(
+                       analiz.sohbetGenelHavasi ?? 'Sohbet analizi için yetersiz içerik',
+                       style: const TextStyle(
+                         color: Colors.white,
+                         fontWeight: FontWeight.bold,
+                       ),
+                     ),
+                   ],
+                 ),
+                 const SizedBox(height: 8),
+                 Text(
+                   analiz.genelYorum ?? analiz.analiz,
+                   style: const TextStyle(
+                     color: Colors.white,
+                     fontSize: 14,
+                     height: 1.4,
+                   ),
+                 ),
+               ],
+             ),
            ),
            
            const SizedBox(height: 20),
            
-           // 2. ANLIK TAVSİYE
-           if (analiz.anlikTavsiye != null && analiz.anlikTavsiye!.isNotEmpty)
-             Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
+           // 2. SON MESAJ ANALİZİ
+           const Padding(
+             padding: EdgeInsets.only(bottom: 8),
+             child: Row(
                children: [
-                 const Padding(
-                   padding: EdgeInsets.only(bottom: 8),
-                   child: Row(
-                     children: [
-                       Icon(Icons.lightbulb_outline, color: Color(0xFF9D3FFF), size: 18),
-                       SizedBox(width: 6),
-                       Text(
-                         '2. Anlık Tavsiye',
-                         style: TextStyle(
-                           color: Colors.white,
-                           fontWeight: FontWeight.bold,
-                           fontSize: 16,
-                         ),
-                       ),
-                     ],
-                   ),
-                 ),
-                 Container(
-                   width: double.infinity,
-                   padding: const EdgeInsets.all(12),
-                   decoration: BoxDecoration(
-                     color: Colors.white.withOpacity(0.1),
-                     borderRadius: BorderRadius.circular(12),
-                   ),
-                   child: Text(
-                     analiz.anlikTavsiye!,
-                     style: const TextStyle(
-                       color: Colors.white,
-                       fontSize: 14,
-                       height: 1.4,
-                     ),
+                 Icon(Icons.analytics_outlined, color: Color(0xFF9D3FFF), size: 18),
+                 SizedBox(width: 6),
+                 Text(
+                   '2. Son Mesaj Analizi',
+                   style: TextStyle(
+                     color: Colors.white,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 16,
                    ),
                  ),
                ],
              ),
+           ),
+           
+           Container(
+             width: double.infinity,
+             padding: const EdgeInsets.all(12),
+             decoration: BoxDecoration(
+               color: Colors.white.withOpacity(0.1),
+               borderRadius: BorderRadius.circular(12),
+             ),
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Row(
+                   children: [
+                     const Text(
+                       'Son mesaj tonu: ',
+                       style: TextStyle(
+                         color: Colors.white70,
+                         fontWeight: FontWeight.w600,
+                       ),
+                     ),
+                     Text(
+                       analiz.sonMesajTonu ?? 'Analiz edilemedi',
+                       style: const TextStyle(
+                         color: Colors.white,
+                         fontWeight: FontWeight.bold,
+                       ),
+                     ),
+                   ],
+                 ),
+                 const SizedBox(height: 12),
+                 const Text(
+                   'Son mesaj etkisi:',
+                   style: TextStyle(
+                     color: Colors.white70,
+                     fontWeight: FontWeight.w600,
+                   ),
+                 ),
+                 const SizedBox(height: 6),
+                 // Son mesaj etki yüzdeleri
+                 analiz.sonMesajEtkisi != null && analiz.sonMesajEtkisi!.isNotEmpty
+                     ? _buildEtkiYuzdeleri(analiz.sonMesajEtkisi!)
+                     : Text(
+                         analiz.getFormattedLastMessageEffects(),
+                         style: const TextStyle(
+                           color: Colors.white,
+                           fontSize: 14,
+                         ),
+                       ),
+               ],
+             ),
+           ),
            
            const SizedBox(height: 20),
            
-           // 3. YENİDEN YAZIM ÖNERİSİ
-           if (analiz.yenidenYazim != null && analiz.yenidenYazim!.isNotEmpty)
-             Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
+           // 3. DİREKT YORUM VE GELİŞTİRME
+           const Padding(
+             padding: EdgeInsets.only(bottom: 8),
+             child: Row(
                children: [
-                 const Padding(
-                   padding: EdgeInsets.only(bottom: 8),
-                   child: Row(
-                     children: [
-                       Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
-                       SizedBox(width: 6),
-                       Text(
-                         '3. Yeniden Yazım Önerisi',
-                         style: TextStyle(
-                           color: Colors.white,
-                           fontWeight: FontWeight.bold,
-                           fontSize: 16,
-                         ),
-                       ),
-                     ],
-                   ),
-                 ),
-                 Container(
-                   width: double.infinity,
-                   padding: const EdgeInsets.all(12),
-                   decoration: BoxDecoration(
-                     color: Colors.white.withOpacity(0.1),
-                     borderRadius: BorderRadius.circular(12),
-                   ),
-                   child: Text(
-                     analiz.yenidenYazim!,
-                     style: const TextStyle(
-                       color: Colors.white,
-                       fontSize: 14,
-                       height: 1.4,
-                     ),
+                 Icon(Icons.lightbulb_outline, color: Color(0xFF9D3FFF), size: 18),
+                 SizedBox(width: 6),
+                 Text(
+                   '3. Direkt Yorum ve Geliştirme',
+                   style: TextStyle(
+                     color: Colors.white,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 16,
                    ),
                  ),
                ],
              ),
-             
-           const SizedBox(height: 20),
+           ),
            
-           // 4. DUYGU/NİYET ANALİZİ
-           if (analiz.karsiTarafYorumu != null && analiz.karsiTarafYorumu!.isNotEmpty)
-             Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 const Padding(
-                   padding: EdgeInsets.only(bottom: 8),
-                   child: Row(
-                     children: [
-                       Icon(Icons.psychology_outlined, color: Color(0xFF9D3FFF), size: 18),
-                       SizedBox(width: 6),
-                       Text(
-                         '4. Duygu / Niyet Analizi',
-                         style: TextStyle(
-                           color: Colors.white,
-                           fontWeight: FontWeight.bold,
-                           fontSize: 16,
-                         ),
-                       ),
-                     ],
-                   ),
-                 ),
-                 Container(
-                   width: double.infinity,
-                   padding: const EdgeInsets.all(12),
-                   decoration: BoxDecoration(
-                     color: Colors.white.withOpacity(0.1),
-                     borderRadius: BorderRadius.circular(12),
-                   ),
-                   child: Text(
-                     analiz.karsiTarafYorumu!,
-                     style: const TextStyle(
-                       color: Colors.white,
-                       fontSize: 14,
-                       height: 1.4,
-                     ),
-                   ),
-                 ),
-               ],
+           Container(
+             width: double.infinity,
+             padding: const EdgeInsets.all(12),
+             decoration: BoxDecoration(
+               color: Colors.white.withOpacity(0.1),
+               borderRadius: BorderRadius.circular(12),
              ),
-             
-           const SizedBox(height: 24),
-           
-           // Yeni Analiz Butonu
-           Center(
-             child: ElevatedButton.icon(
-               onPressed: () {
-                 Provider.of<AdviceViewModel>(context, listen: false).resetAnalysisResult();
-               },
-               icon: const Icon(Icons.refresh, color: Colors.white, size: 16),
-               label: const Text('Yeni Analiz', style: TextStyle(color: Colors.white)),
-               style: ElevatedButton.styleFrom(
-                 backgroundColor: const Color(0xFF9D3FFF),
-                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+             child: Text(
+               analiz.direktYorum ?? analiz.anlikTavsiye ?? analiz.analiz,
+               style: const TextStyle(
+                 color: Colors.white,
+                 fontSize: 14,
+                 height: 1.4,
                ),
              ),
            ),
+           
+           // 4. CEVAP ÖNERİSİ (varsa)
+           if (analiz.cevapOnerisi != null && analiz.cevapOnerisi!.isNotEmpty) ...[
+             const SizedBox(height: 20),
+             
+             const Padding(
+               padding: EdgeInsets.only(bottom: 8),
+               child: Row(
+                 children: [
+                   Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
+                   SizedBox(width: 6),
+                   Text(
+                     '4. Cevap Önerisi',
+                     style: TextStyle(
+                       color: Colors.white,
+                       fontWeight: FontWeight.bold,
+                       fontSize: 16,
+                     ),
+                   ),
+                 ],
+               ),
+             ),
+             
+             Container(
+               width: double.infinity,
+               padding: const EdgeInsets.all(12),
+               decoration: BoxDecoration(
+                 color: Colors.white.withOpacity(0.1),
+                 borderRadius: BorderRadius.circular(12),
+                 border: Border.all(
+                   color: const Color(0xFF9D3FFF).withOpacity(0.3),
+                   width: 1.0,
+                 ),
+               ),
+               child: Text(
+                 analiz.cevapOnerisi!,
+                 style: const TextStyle(
+                   color: Colors.white,
+                   fontSize: 14,
+                   height: 1.4,
+                   fontStyle: FontStyle.italic,
+                 ),
+               ),
+             ),
+           ] else if (analiz.yenidenYazim != null && analiz.yenidenYazim!.isNotEmpty) ...[
+             // Eski versiyondan kalma - yeniden yazım varsa cevap önerisi olarak göster
+             const SizedBox(height: 20),
+             
+             const Padding(
+               padding: EdgeInsets.only(bottom: 8),
+               child: Row(
+                 children: [
+                   Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
+                   SizedBox(width: 6),
+                   Text(
+                     '4. Cevap Önerisi',
+                     style: TextStyle(
+                       color: Colors.white,
+                       fontWeight: FontWeight.bold,
+                       fontSize: 16,
+                     ),
+                   ),
+                 ],
+               ),
+             ),
+             
+             Container(
+               width: double.infinity,
+               padding: const EdgeInsets.all(12),
+               decoration: BoxDecoration(
+                 color: Colors.white.withOpacity(0.1),
+                 borderRadius: BorderRadius.circular(12),
+                 border: Border.all(
+                   color: const Color(0xFF9D3FFF).withOpacity(0.3),
+                   width: 1.0,
+                 ),
+               ),
+               child: Text(
+                 analiz.yenidenYazim!,
+                 style: const TextStyle(
+                   color: Colors.white,
+                   fontSize: 14,
+                   height: 1.4,
+                   fontStyle: FontStyle.italic,
+                 ),
+               ),
+             ),
+           ],
          ],
        ),
-     ).animate().fade(duration: 300.ms).slideY(begin: 0.1, end: 0, duration: 300.ms);
+     );
   }
   
   // ETKİ YÜZDELERİNİ GÖSTERİR

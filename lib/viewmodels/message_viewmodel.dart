@@ -801,10 +801,84 @@ class MessageViewModel extends ChangeNotifier {
               isAnalyzing: false,
               isAnalyzed: true,
               analysisResult: analysisResult,
-              analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
+              analysisSource: AnalysisSource.image, // Görüntü analizi kaynağını ayarla
             );
             _currentMessage = _messages[index];
             _currentAnalysisResult = analysisResult;
+            
+            // Analiz tamamlandıktan sonra eksik alanları kontrol et ve güncelle
+            final mesajYorumu = analysisResult.aiResponse['mesajYorumu'] as String?;
+            if (analysisResult.tone.isEmpty || 
+                analysisResult.emotion.isEmpty || 
+                analysisResult.intent.isEmpty ||
+                mesajYorumu == null || mesajYorumu.isEmpty) {
+              _logger.w('Analiz sonucunda eksik alanlar var, görsel OCR metni üzerinden yeniden analiz yapılacak');
+              
+              // Eksik alanlar için OCR metnini kullanarak yeniden analiz et
+              try {
+                analysis.AnalysisResult? updatedAnalysis = await _aiService.analyzeMessage(extractedText);
+                
+                if (updatedAnalysis != null) {
+                  _logger.i('OCR metni ile yapılan analiz başarılı, eksik alanlar güncellendi');
+                  
+                  // Eksik alanları güncelle
+                  Map<String, dynamic> resultMap = analysisResult.toMap();
+                  Map<String, dynamic> updatedMap = updatedAnalysis.toMap();
+                  
+                  // Boş olan alanları güncelle
+                  if (analysisResult.tone.isEmpty) {
+                    resultMap['tone'] = updatedMap['tone'];
+                  }
+                  if (analysisResult.emotion.isEmpty) {
+                    resultMap['emotion'] = updatedMap['emotion'];
+                  }
+                  if (analysisResult.intent.isEmpty) {
+                    resultMap['intent'] = updatedMap['intent'];
+                  }
+                  
+                  // aiResponse üzerinden mesajYorumu kontrolü
+                  final upAiResponse = updatedMap['aiResponse'] as Map<String, dynamic>?;
+                  final upMesajYorumu = upAiResponse?['mesajYorumu'] as String?;
+                  if (upMesajYorumu == null || upMesajYorumu.isEmpty) {
+                    resultMap['aiResponse'] = resultMap['aiResponse'] ?? {};
+                    (resultMap['aiResponse'] as Map<String, dynamic>)['mesajYorumu'] = upMesajYorumu ?? '';
+                  }
+                  
+                  // aiResponse üzerinden cevapOnerileri kontrolü
+                  final cevapOnerileri = analysisResult.aiResponse['cevapOnerileri'];
+                  final cevapOnerileriEmpty = cevapOnerileri == null || 
+                      (cevapOnerileri is List && cevapOnerileri.isEmpty);
+                      
+                  if (cevapOnerileriEmpty) {
+                    resultMap['aiResponse'] = resultMap['aiResponse'] ?? {};
+                    final upAiResponse = updatedMap['aiResponse'] as Map<String, dynamic>?;
+                    final upCevapOnerileri = upAiResponse?['cevapOnerileri'];
+                    (resultMap['aiResponse'] as Map<String, dynamic>)['cevapOnerileri'] = upCevapOnerileri ?? [];
+                  }
+                  
+                  // Güncellenmiş analiz sonucunu oluştur
+                  analysis.AnalysisResult mergedResult = analysis.AnalysisResult.fromMap(resultMap);
+                  
+                  // Firestore'da güncelle
+                  await docRef.update({
+                    'analysisResult': mergedResult.toMap(),
+                    'updatedAt': Timestamp.now(),
+                  });
+                  
+                  // Yerel listeyi güncelle
+                  _messages[index] = _messages[index].copyWith(
+                    analysisResult: mergedResult,
+                  );
+                  _currentMessage = _messages[index];
+                  _currentAnalysisResult = mergedResult;
+                  
+                  _logger.i('Eksik alanlar OCR metni ile güncellendi');
+                }
+              } catch (analyzeError) {
+                _logger.e('OCR metni ile eksik alan güncelleme hatası: $analyzeError');
+                // Hata olsa bile devam et, ilk analiz sonucu zaten kaydedildi
+              }
+            }
           }
           
           _logger.i('Analiz sonucu Firestore\'a kaydedildi');

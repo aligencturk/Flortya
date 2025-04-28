@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import '../models/user_model.dart';
+import '../models/message_coach_analysis.dart';
 import '../services/user_service.dart';
 import '../services/ai_service.dart';
+
+/// Controller durumunu belirten enum
+enum KontrolDurumu { yukleniyor, yuklendi, hata }
 
 class HomeController extends ChangeNotifier {
   final UserService _userService;
   final AiService _aiService;
+  final Logger _logger = Logger();
   
   bool _isLoading = false;
   String? _errorMessage;
@@ -13,6 +19,7 @@ class HomeController extends ChangeNotifier {
   List<AnalizSonucu> _analizGecmisi = [];
   Map<String, dynamic> _kategoriDegisimleri = {};
   List<String> _kisisellestirilmisTavsiyeler = [];
+  KontrolDurumu _durum = KontrolDurumu.yuklendi;
 
   // Getters
   bool get isLoading => _isLoading;
@@ -21,6 +28,7 @@ class HomeController extends ChangeNotifier {
   List<AnalizSonucu> get analizGecmisi => _analizGecmisi;
   Map<String, dynamic> get kategoriDegisimleri => _kategoriDegisimleri;
   List<String> get kisisellestirilmisTavsiyeler => _kisisellestirilmisTavsiyeler;
+  KontrolDurumu get durum => _durum;
 
   HomeController({
     required UserService userService,
@@ -285,22 +293,53 @@ class HomeController extends ChangeNotifier {
     }
   }
 
-  // Yükleme durumunu güncelleme
-  void _setLoading(bool loading) {
-    _isLoading = loading;
+  /// Kontrol durumunu ayarlar
+  void setState(KontrolDurumu yeniDurum) {
+    _durum = yeniDurum;
     notifyListeners();
   }
 
-  // Hata mesajını temizleme
-  void clearError() {
-    _errorMessage = null;
-    notifyListeners();
+  /// Mesaj Koçu analizi yap - yeni format
+  Future<String> mesajKocuAnaliziYap(String messageText) async {
+    setState(KontrolDurumu.yukleniyor);
+    
+    try {
+      // Boş mesaj kontrolü
+      if (messageText.trim().isEmpty) {
+        setState(KontrolDurumu.hata);
+        return "Yüklenen veriden sağlıklı bir analiz yapılamadı, lütfen daha net mesaj içerikleri gönderin.";
+      }
+      
+      // Servis üzerinden analiz isteği
+      Map<String, dynamic> result = await _aiService.analyzeChatCoach(messageText);
+      
+      // Hata kontrolü
+      if (result.containsKey('error')) {
+        setState(KontrolDurumu.hata);
+        return result['error'];
+      }
+      
+      // MesajKocuAnalizi nesnesine dönüştür
+      final analiz = MesajKocuAnalizi.fromJson(result);
+      
+      // Formatlanmış sonucu döndür
+      setState(KontrolDurumu.yuklendi);
+      return analiz.getFormattedAnalysis();
+    } catch (e) {
+      setState(KontrolDurumu.hata);
+      _logger.e('Mesaj koçu analizi hatası: $e');
+      return "Analiz sırasında bir hata oluştu, lütfen tekrar deneyin.";
+    }
   }
 
-  // Hata mesajını ayarlama
-  void _setError(String error) {
-    _errorMessage = error;
-    debugPrint(error);
+  // Yardımcı fonksiyonlar
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+  
+  void _setError(String message) {
+    _errorMessage = message;
     notifyListeners();
   }
 } 

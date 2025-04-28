@@ -331,6 +331,24 @@ class _AdviceViewState extends State<AdviceView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Sol üst köşede kullanıcı selamlama bölümü
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Consumer<AuthViewModel>(
+                    builder: (context, authViewModel, _) {
+                      final displayName = authViewModel.currentUser?.displayName ?? 'Ziyaretçi';
+                      return Text(
+                        'Merhaba, $displayName',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
                 // Mesaj girişi veya görsel yükleme - Ana fonksiyonu direkt olarak en üste taşıyorum
                 Container(
                   width: double.infinity,

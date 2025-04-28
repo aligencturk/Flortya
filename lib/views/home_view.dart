@@ -1200,9 +1200,9 @@ class _HomeViewState extends State<HomeView> {
                         final displayName = snapshot.data?.displayName ?? 'Ziyaretçi';
                         return Text(
                           'Merhaba, $displayName',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
                           ),
                         );
                       },
@@ -1456,13 +1456,17 @@ class _HomeViewState extends State<HomeView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const Text(
-                  'Mesaj Koçu',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                Consumer<AuthViewModel>(
+                  builder: (context, authViewModel, _) {
+                    final displayName = authViewModel.user?.displayName ?? 'Ziyaretçi';
+                    return Text(
+                      'Merhaba, $displayName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    );
+                  },
                 ),
                 const Spacer(),
                 IconButton(

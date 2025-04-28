@@ -408,13 +408,17 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                     onPressed: () => context.pop(),
                   ),
-                  const Text(
-                    'Mesaj Analizi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
+                  Consumer<AuthViewModel>(
+                    builder: (context, authViewModel, _) {
+                      return Text(
+                        'Merhaba, ${authViewModel.user?.displayName ?? ""}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      );
+                    },
                   ),
                   const Spacer(),
                   // Reset veriler butonu
