@@ -775,53 +775,44 @@ class AiService {
         messageContent = "${messageContent.substring(0, 12000)}...";
       }
       
-      // OCR metni ve Görsel Analizi için formatlama belirleme
-      final bool isImageAnalysis = messageContent.contains("Görsel Analizi:") || 
-                                 messageContent.contains("---- Görüntüden çıkarılan metin ----");
-      
       // Prompt hazırlama - Mesaj Koçu Analizi formatında
       String prompt = '''
       Sen bir ilişki ve mesajlaşma uzmanısın, ancak kibarlık ve incelikten çok direkt, küstah ve bazen acımasız olmayı tercih ediyorsun. Gerçekleri asla yumuşatmıyor, karşındakine net ve çarpıcı bir şekilde söylüyorsun.
 
-      ÖNEMLİ: Aşağıdaki metni analiz et. Bu metin:
-      - Kopyala-yapıştır yapılmış düz yazı mesajları olabilir
-      - veya birden fazla adet ekran görüntüsünden çıkarılmış metinler olabilir
-      
-      Eğer gelen veri ekran görüntüsünden çıkarılmışsa:
-      - İçerik düzensiz olabilir (zaman, tarih, sticker bilgileri, eksik mesajlar vs.)
-      - Sadece gerçek mesaj içeriklerine odaklan
-      - Saat, tarih gibi bilgiler analiz dışı bırakılacak
+      Kullanıcı bir sohbet geçmişi (ekran görüntüsü veya kopyala-yapıştır metin) ve son gönderilen mesaj verecek.
 
-      Eğer birden fazla ekran görüntüsü gönderildiyse:
-      - Her görselden çıkarılan metinleri birleştir ve tek bir büyük konuşma geçmişi gibi ele al
-      - Bütün veriyi topluca analiz et
+      Görevlerin:
+      1. Sohbetin genel havasını analiz et (Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili kategorilerinden bir veya ikisini seç)
+      2. Sağdaki balonları kullanıcı ("sen"), soldaki balonları karşı taraf ("o") olarak tanı
+      3. Son mesaja özel bir analiz yap (şu anda verilen cevabın etkisini ölç)
+      4. Sonuca göre direkt, küstah ve net yorumlar ver
+      5. Mesajın etkisini yüzdesel olarak tahmin et (% sempatik, % kararsız, % olumsuz)
+      6. Gerekirse kısa ve net bir cevap önerisi sun
 
-      Analiz sonucunda:
-      1. Sohbetin genel havasını şu seçeneklerden belirlemelisin: Soğuk / Samimi / Pasif-agresif / İlgisiz / İlgili
-      2. Son mesajın tonunu şu seçeneklerden belirlemelisin: Sert / Soğuk / Sempatik / Umursamaz
-      3. Son mesajın etkisini yüzdelik olarak ölçmelisin: %xx sempatik / %xx kararsız / %xx olumsuz
-      4. KÜSTAHÇA ve NET bir şekilde tavsiye vermelisin
-      5. Her türlü takdim ve nezaket ifadelerinden kaçınmalısın
-      6. Küçümseyici, alaycı ve doğrudan bir dil kullanmalısın
+      Kurallar:
+      - Nazik olma. Açık konuş. Kırıcı olman gerekirse ol.
+      - Gereksiz uzun açıklamalardan kaçın. Direkt eleştir.
+      - Eğer sohbet genel olarak kötü gidiyorsa belirt ("Bu ilişki burada bitmiş olabilir." gibi net söyle).
+      - Son mesajı ayrıca değerlendir ve yüzdesel etki tahmini yap (örnek: "%62 sempatik / %25 kararsız / %13 olumsuz").
+      - Statik veri verme, analizi gerçek sohbete göre yap.
+      - Cevap önerisi verirken şirinlik yapma, gerektiğinde soğukkanlı ve gerçekçi bir öneri ver.
+      - Sohbet akışı yukarıdan aşağı doğru.
+      - "sen" ve "o" ifadeleri kullan, asla tırnak ("") kullanma.
+      - Sohbet içeriğini doğrudan kopyalama veya alıntılama, sadece analiz et.
 
       ÖNEMLİ: Yanıtını tam olarak aşağıdaki JSON formatında hazırla. Başka açıklama ekleme veya JSON formatını bozma:
       
       {
-        "başlık": "Mesaj Koçu Analizi",
-        "öneriler": [
-          "Küstah ve net tavsiye 1", 
-          "Küstah ve net tavsiye 2",
-          "Küstah ve net tavsiye 3",
-          "Küstah ve net tavsiye 4 (gerekirse)"
-        ],
-        "sohbet_havası": "Soğuk / Samimi / Pasif-agresif / İlgisiz / İlgili",
-        "son_mesaj_tonu": "Sert / Soğuk / Sempatik / Umursamaz",
-        "effect": {
+        "sohbetGenelHavasi": "Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili",
+        "genelYorum": "1-2 kısa cümlede net ve doğrudan ifade",
+        "sonMesajTonu": "Sert/Soğuk/Sempatik/Umursamaz/Nötr",
+        "sonMesajEtkisi": {
           "sempatik": 25,
           "kararsız": 25,
           "olumsuz": 50
         },
-        "direkt_yorum": "İlişkinizle ilgili açık ve küstahça bir yorum - doğrudan ve acımasız olmalı"
+        "direktYorum": "Açık ve küstah tavsiyen - net şekilde yaz",
+        "cevapOnerisi": "Eğer gerekiyorsa kullanıcıya direkt ve soğukkanlı bir cevap önerisi"
       }
       
       Eğer çıkarılan metin aşırı bozuksa veya çok azsa, sadece şunu döndür:
@@ -903,39 +894,45 @@ class AiService {
             return {'error': analysisResult['error']};
           }
           
-          // Öneriler doğru şekilde alınmış mı kontrol et
-          if (!analysisResult.containsKey('öneriler') || !(analysisResult['öneriler'] is List)) {
-            _logger.e('Öneriler listesi bulunamadı veya geçersiz format');
-            analysisResult['öneriler'] = [
-              'İletişim şeklini daha yumuşak hale getir',
-              'Daha açık sorular sor',
-              'Karşı tarafın söylediklerine aktif dinleme yap'
-            ];
+          // Gerekli alanları kontrol et
+          if (!analysisResult.containsKey('sonMesajEtkisi') || !(analysisResult['sonMesajEtkisi'] is Map)) {
+            _logger.e('Son mesaj etkisi bulunamadı veya geçersiz format');
+            analysisResult['sonMesajEtkisi'] = {
+              "sempatik": 60,
+              "kararsız": 30,
+              "olumsuz": 10
+            };
           }
           
-          // Effect verisi doğru şekilde alınmış mı kontrol et
-          if (!analysisResult.containsKey('effect') || !(analysisResult['effect'] is Map)) {
-            _logger.e('Effect verisi bulunamadı veya geçersiz format');
-            analysisResult['effect'] = {
-              "nötr": 100
-            };
+          // Varsayılan öneriler ekle
+          if (!analysisResult.containsKey('öneriler')) {
+            analysisResult['öneriler'] = [
+              'İletişim şeklini daha açık hale getir',
+              'Daha net ifadeler kullan',
+              'Karşı tarafın söylediklerini dikkate al'
+            ];
           }
           
           return analysisResult;
         } catch (jsonError) {
           _logger.e('JSON parse hatası: $jsonError');
           
-          // JSON parse edilemiyorsa, düz metin olarak döndür
+          // JSON parse edilemiyorsa, varsayılan değerleri döndür
           return {
-            'başlık': 'Mesaj Koçu Analizi',
+            'sohbetGenelHavasi': 'Soğuk',
+            'genelYorum': 'Mesajlaşma analizinde bir sorun oluştu, lütfen başka bir mesaj örneği deneyin.',
+            'sonMesajTonu': 'Nötr',
+            'sonMesajEtkisi': {
+              'sempatik': 60,
+              'kararsız': 30,
+              'olumsuz': 10
+            },
+            'direktYorum': 'Mesajlaşma analizi yapılamadı, daha net mesaj örnekleri gerekiyor.',
             'öneriler': [
-              'Mesajlaşma analizinde teknik bir sorun oluştu',
-              'Lütfen başka bir mesaj örneği deneyin',
-              'Daha net mesaj içeriği sağlamayı deneyin'
-            ],
-            'effect': {
-              'nötr': 100
-            }
+              'Daha net mesaj içeriği sağla',
+              'Farklı bir mesaj örneği dene',
+              'Daha uzun bir sohbet geçmişi paylaş'
+            ]
           };
         }
       } else {
