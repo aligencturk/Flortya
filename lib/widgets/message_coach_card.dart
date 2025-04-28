@@ -615,16 +615,9 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                    ),
                  ),
                  const SizedBox(height: 6),
-                 // Son mesaj etki yüzdeleri
-                 analiz.sonMesajEtkisi != null && analiz.sonMesajEtkisi!.isNotEmpty
-                     ? _buildEtkiYuzdeleri(analiz.sonMesajEtkisi!)
-                     : Text(
-                         analiz.getFormattedLastMessageEffects(),
-                         style: const TextStyle(
-                           color: Colors.white,
-                           fontSize: 14,
-                         ),
-                       ),
+                 // Son mesaj etki yüzdeleri - sonMesajEtkisi yok veya boşsa formatlanmış metni kullan
+                 // Ekran görüntüsündeki gibi progress bar'lı gösterim
+                 _buildProgressBarEtki(analiz),
                ],
              ),
            ),
@@ -759,30 +752,82 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
      );
   }
   
-  // ETKİ YÜZDELERİNİ GÖSTERİR
-  Widget _buildEtkiYuzdeleri(Map<String, int> etki) {
-    if (etki.isEmpty) {
-      return const Text(
-        'Etki analizi bulunamadı',
-        style: TextStyle(
-          color: Colors.white70,
+  // YENİ METOT: Progress bar ile etki yüzdelerini gösterir
+  Widget _buildProgressBarEtki(MesajKocuAnalizi analiz) {
+    // Formatlanmış mesaj etkisini al
+    String etkiText = analiz.getFormattedLastMessageEffects();
+    
+    // Analiz bekleniyor durumunda özel gösterim
+    if (etkiText == 'Analiz bekleniyor') {
+      return Text(
+        etkiText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+    
+    // "% değer kategori / % değer kategori / % değer kategori" formatında
+    List<String> parts = etkiText.split('/');
+    
+    if (parts.length < 3) {
+      return Text(
+        etkiText,
+        style: const TextStyle(
+          color: Colors.white,
           fontSize: 14,
         ),
       );
     }
     
-    // Etki değerlerini azalan sırada sırala
-    final List<MapEntry<String, int>> siralanmisEtki = etki.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    // Her kategori için değerleri ayıkla
+    Map<String, int> parsedValues = {};
     
+    for (var part in parts) {
+      // % işaretini bul
+      int percentIndex = part.indexOf('%');
+      if (percentIndex >= 0) {
+        // % işaretinden sonraki sayıyı bul
+        String percentValueStr = '';
+        int i = percentIndex + 1;
+        while (i < part.length && part[i].contains(RegExp(r'[0-9]'))) {
+          percentValueStr += part[i];
+          i++;
+        }
+        
+        if (percentValueStr.isNotEmpty) {
+          int percentValue = int.tryParse(percentValueStr) ?? 0;
+          
+          // Kategori ismini bul
+          String category = '';
+          if (i < part.length) {
+            category = part.substring(i).trim();
+          }
+          
+          if (category.isNotEmpty) {
+            parsedValues[category] = percentValue;
+          }
+        }
+      }
+    }
+    
+    // Boş değerler kontrol
+    if (parsedValues.isEmpty) {
+      return Text(
+        "Etki değerleri alınamadı",
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+    
+    // Değerleri progress bar olarak göster
     return Column(
-      children: siralanmisEtki.map((entry) {
-        final duygu = entry.key;
-        final yuzde = entry.value;
-        final buyukHarfliDuygu = duygu.isNotEmpty 
-            ? duygu[0].toUpperCase() + duygu.substring(1) 
-            : '';
-            
+      children: parsedValues.entries.map((entry) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Column(
@@ -792,14 +837,14 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    buyukHarfliDuygu,
+                    _capitalizeFirst(entry.key),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
                     ),
                   ),
                   Text(
-                    '%$yuzde',
+                    '%${entry.value}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -812,9 +857,9 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: yuzde / 100,
+                  value: entry.value / 100,
                   backgroundColor: Colors.white.withOpacity(0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(_getEtkiRenk(duygu)),
+                  valueColor: AlwaysStoppedAnimation<Color>(_getEtkiRenk(entry.key)),
                   minHeight: 6,
                 ),
               ),
@@ -823,6 +868,12 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
         );
       }).toList(),
     );
+  }
+  
+  // Yardımcı metot: İlk harfi büyük yap
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return '';
+    return text[0].toUpperCase() + text.substring(1);
   }
   
   // DUYGU TİPİNE GÖRE RENK BELİRLER

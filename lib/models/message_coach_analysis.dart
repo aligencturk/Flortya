@@ -195,7 +195,7 @@ class MesajKocuAnalizi {
   
   /// Geçerli bir sohbet genel havası değeri döndürür
   String _getValidChatMood() {
-    final List<String> gecerliDegerler = ['Soğuk', 'Samimi', 'Pasif-agresif', 'İlgisiz', 'İlgili'];
+    final List<String> gecerliDegerler = ['Soğuk', 'Samimi', 'Pasif-agresif', 'İlgisiz', 'İlgili', 'Normal'];
     
     if (sohbetGenelHavasi != null) {
       for (final deger in gecerliDegerler) {
@@ -205,12 +205,13 @@ class MesajKocuAnalizi {
       }
     }
     
-    return 'Soğuk'; // Varsayılan değer
+    // Varsayılan değer yok - dinamik içerik isteniyor
+    return sohbetGenelHavasi ?? 'Analiz bekleniyor';
   }
   
   /// Geçerli bir mesaj tonu değeri döndürür
   String _getValidMessageTone() {
-    final List<String> gecerliDegerler = ['Sert', 'Soğuk', 'Sempatik', 'Umursamaz', 'İlgili', 'Samimi', 'Pasif-agresif', 'Nötr'];
+    final List<String> gecerliDegerler = ['Sert', 'Soğuk', 'Sempatik', 'Umursamaz', 'İlgili', 'Samimi', 'Pasif-agresif', 'Nötr', 'Normal'];
     
     if (sonMesajTonu != null) {
       for (final deger in gecerliDegerler) {
@@ -220,7 +221,8 @@ class MesajKocuAnalizi {
       }
     }
     
-    return 'Nötr'; // Varsayılan değer olarak değiştirildi - ekran görüntüsündeki gibi
+    // Varsayılan değer yok - dinamik içerik isteniyor
+    return sonMesajTonu ?? 'Analiz bekleniyor';
   }
   
   /// Mesaj koçu analiz sonucunu, istenilen formatta ve özetlenmiş halde döndürür
@@ -310,9 +312,8 @@ ${cevapOnerisi != null ? '4. Cevap Önerisi:\n$cevapOnerisi' : ''}
   
   /// Son mesaj etkisini formatlı olarak döndürür
   String getFormattedLastMessageEffects() {
-    // Ekran görüntüsüne göre "%" sembolleri sol tarafta olmalı
     if (sonMesajEtkisi == null || sonMesajEtkisi!.isEmpty) {
-      return '%60 sempatik / %30 kararsız / %10 olumsuz';
+      return 'Analiz bekleniyor';
     }
     
     // Etki değerlerini büyükten küçüğe sırala

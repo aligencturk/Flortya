@@ -167,15 +167,20 @@ class AdviceViewModel extends ChangeNotifier {
         oneriler = List<String>.from(resultMap['cevapOnerileri'].map((item) => item.toString()));
         print('✅ cevapOnerileri bulundu: ${oneriler.length} öğe');
       }
+      // öneriler alanını kontrol et
+      else if (resultMap.containsKey('öneriler') && resultMap['öneriler'] is List) {
+        oneriler = List<String>.from(resultMap['öneriler'].map((item) => item.toString()));
+        print('✅ öneriler bulundu: ${oneriler.length} öğe');
+      }
       
       // Öneriler listesi boşsa varsayılan değerler ver
       if (oneriler.isEmpty) {
-        oneriler = ['İletişim tekniklerini geliştir', 'Sakin ve net bir dil kullan'];
+        oneriler = ['İletişimi geliştir'];
         print('⚠️ Öneriler listesi boş, varsayılan değerler eklendi');
       }
       
-      // Etki haritasını oluştur
-      Map<String, int> etki = {'nötr': 100};
+      // Etki haritasını oluştur - dinamik olarak boş başlatıyoruz, API'dan gelen değerlerle doldurulacak
+      Map<String, int> etki = {};
       
       // Etki değerlerini kontrol et
       if (resultMap.containsKey('effect') && resultMap['effect'] is Map) {
@@ -191,14 +196,21 @@ class AdviceViewModel extends ChangeNotifier {
             try {
               etki[key] = int.parse(value);
             } catch (e) {
-              etki[key] = 50; // Varsayılan değer
+              etki[key] = 0; // Artık varsayılan değer olarak 0 kullanacağız, API kendi değerlerini gönderecek
             }
           }
         });
         
         print('✅ effect değerleri dönüştürüldü: ${etki.length} adet');
       } else {
-        print('⚠️ effect değerleri bulunamadı, varsayılan değerler kullanıldı');
+        print('⚠️ effect değerleri bulunamadı');
+      }
+      
+      // Etki haritası boşsa, API eksik veri göndermiş demektir, birkaç temel kategori ekleyelim
+      if (etki.isEmpty) {
+        // Dinamik değerler için en az bir kategori ekleyelim ama varsayılan değer vermeden
+        etki['dynamicData'] = 100;
+        print('⚠️ effect değerleri eksik, dinamik veri işaretleyicisi eklendi');
       }
       
       // Son mesaj etkisi haritası
@@ -222,6 +234,25 @@ class AdviceViewModel extends ChangeNotifier {
         });
         
         print('✅ Son mesaj etkisi değerleri dönüştürüldü: ${sonMesajEtkisi.length} adet');
+      } else if (resultMap.containsKey('sonMesajEtkisi') && resultMap['sonMesajEtkisi'] is Map) {
+        sonMesajEtkisi = {};
+        final sonMesajEtkisiMap = Map<String, dynamic>.from(resultMap['sonMesajEtkisi']);
+        
+        sonMesajEtkisiMap.forEach((key, value) {
+          if (value is int) {
+            sonMesajEtkisi![key] = value;
+          } else if (value is double) {
+            sonMesajEtkisi![key] = value.toInt();
+          } else if (value is String) {
+            try {
+              sonMesajEtkisi![key] = int.parse(value);
+            } catch (e) {
+              sonMesajEtkisi![key] = 0;
+            }
+          }
+        });
+        
+        print('✅ sonMesajEtkisi değerleri dönüştürüldü: ${sonMesajEtkisi.length} adet');
       }
       
       // anlikTavsiye, mesajYorumu dönüşümü
@@ -236,6 +267,9 @@ class AdviceViewModel extends ChangeNotifier {
       else if (resultMap.containsKey('mesajYorumu') && resultMap['mesajYorumu'] != null) {
         anlikTavsiye = resultMap['mesajYorumu'].toString();
         print('✅ mesajYorumu bulundu');
+      } else if (resultMap.containsKey('direktYorum') && resultMap['direktYorum'] != null) {
+        anlikTavsiye = resultMap['direktYorum'].toString();
+        print('✅ direktYorum bulundu');
       }
       
       // Yeniden yazım ve strateji
@@ -246,94 +280,50 @@ class AdviceViewModel extends ChangeNotifier {
       } else if (resultMap.containsKey('yenidenYazim') && resultMap['yenidenYazim'] != null) {
         yenidenYazim = resultMap['yenidenYazim'].toString();
         print('✅ yenidenYazim bulundu');
+      } else if (resultMap.containsKey('cevapOnerisi') && resultMap['cevapOnerisi'] != null) {
+        yenidenYazim = resultMap['cevapOnerisi'].toString();
+        print('✅ cevapOnerisi yenidenYazim olarak kullanılıyor');
       }
       
-      // Yeni analiz formatı için alanlar
-      String? sohbetGenelHavasi = resultMap['chatMood'] ?? aiResponseMap['chatMood'] ?? resultMap['sohbetGenelHavasi'];
-      String? genelYorum = resultMap['generalComment'] ?? aiResponseMap['generalComment'] ?? resultMap['genelYorum'];
-      String? sonMesajTonu = resultMap['lastMessageTone'] ?? aiResponseMap['lastMessageTone'] ?? resultMap['sonMesajTonu'];
-      String? direktYorum = resultMap['directComment'] ?? aiResponseMap['directComment'] ?? resultMap['direktYorum'];
-      String? cevapOnerisi = resultMap['responseProposal'] ?? aiResponseMap['responseProposal'] ?? resultMap['cevapOnerisi'];
+      // Yeni format alanlarını arayalım
+      String? sohbetGenelHavasi = resultMap['sohbetGenelHavasi']?.toString() ?? aiResponseMap['sohbetGenelHavasi']?.toString() ?? resultMap['chatMood']?.toString();
+      String? genelYorum = resultMap['genelYorum']?.toString() ?? aiResponseMap['genelYorum']?.toString() ?? resultMap['generalComment']?.toString();
+      String? sonMesajTonu = resultMap['sonMesajTonu']?.toString() ?? aiResponseMap['sonMesajTonu']?.toString() ?? resultMap['lastMessageTone']?.toString();
+      String? direktYorum = resultMap['direktYorum']?.toString() ?? aiResponseMap['direktYorum']?.toString() ?? resultMap['directComment']?.toString();
+      String? cevapOnerisi = resultMap['cevapOnerisi']?.toString() ?? aiResponseMap['cevapOnerisi']?.toString() ?? resultMap['suggestionResponse']?.toString();
       
-      // Alanların boş olup olmadığını kontrol et ve varsayılan değerler ata
-      if (sohbetGenelHavasi == null || sohbetGenelHavasi.isEmpty) {
-        // Etki haritasına bakarak uygun bir sohbet havası belirle
-        if (etki.containsKey('sempatik') && etki['sempatik']! > 50) {
-          sohbetGenelHavasi = 'Samimi';
-        } else if (etki.containsKey('soğuk') && etki['soğuk']! > 50) {
-          sohbetGenelHavasi = 'Soğuk';
-        } else if (etki.containsKey('kararsız') && etki['kararsız']! > 50) {
-          sohbetGenelHavasi = 'Kararsız';
-        } else {
-          sohbetGenelHavasi = 'Normal';
-        }
-      }
+      // Alanların varlığı logla
+      print('🔍 Yeni format alanları: sohbetGenelHavasi=${sohbetGenelHavasi != null}, genelYorum=${genelYorum != null}, sonMesajTonu=${sonMesajTonu != null}, direktYorum=${direktYorum != null}, cevapOnerisi=${cevapOnerisi != null}');
       
-      if (sonMesajTonu == null || sonMesajTonu.isEmpty) {
-        // Etki haritasına bakarak uygun bir mesaj tonu belirle
-        if (etki.containsKey('sempatik') && etki['sempatik']! > 50) {
-          sonMesajTonu = 'Sempatik';
-        } else if (etki.containsKey('soğuk') && etki['soğuk']! > 50) {
-          sonMesajTonu = 'Soğuk';
-        } else if (etki.containsKey('kararsız') && etki['kararsız']! > 50) {
-          sonMesajTonu = 'Kararsız';
-        } else {
-          sonMesajTonu = 'Nötr';
-        }
-      }
-      
-      // Son mesaj etkisi haritası boşsa, genel etki haritasına dayanarak varsayılan değerler oluştur
-      if (sonMesajEtkisi == null || sonMesajEtkisi.isEmpty) {
-        sonMesajEtkisi = {};
-        
-        // Etki haritasındaki değerleri kullanarak son mesaj etkisi oluştur
-        if (etki.containsKey('sempatik')) {
-          sonMesajEtkisi['sempatik'] = etki['sempatik']!;
-        } else {
-          sonMesajEtkisi['sempatik'] = 60; // Varsayılan değer
-        }
-        
-        if (etki.containsKey('kararsız')) {
-          sonMesajEtkisi['kararsız'] = etki['kararsız']!;
-        } else {
-          sonMesajEtkisi['kararsız'] = 25; // Varsayılan değer
-        }
-        
-        if (etki.containsKey('soğuk') || etki.containsKey('olumsuz')) {
-          sonMesajEtkisi['olumsuz'] = etki.containsKey('soğuk') ? etki['soğuk']! : etki['olumsuz']!;
-        } else {
-          sonMesajEtkisi['olumsuz'] = 15; // Varsayılan değer
-        }
-      }
-      
-      // karşı taraf yorumu ve strateji
-      String? karsiTarafYorumu = resultMap['karsiTarafYorumu'] ?? aiResponseMap['karsiTarafYorumu'];
-      String? strateji = resultMap['strateji'] ?? aiResponseMap['strateji'] ?? resultMap['strategy'];
-      
-      // MesajKocuAnalizi nesnesini oluşturarak döndür
-      return MesajKocuAnalizi(
-        analiz: resultMap['analiz'] ?? 'Metin analizi',
-        anlikTavsiye: anlikTavsiye,
-        etki: etki,
-        gucluYonler: resultMap['gucluYonler'],
-        iliskiTipi: resultMap['iliskiTipi'],
-        karsiTarafYorumu: karsiTarafYorumu,
+      // Sonuç nesnesini oluştur
+      final mesajAnalizi = MesajKocuAnalizi(
+        iliskiTipi: resultMap['iliskiTipi']?.toString() ?? aiResponseMap['iliskiTipi']?.toString(),
+        analiz: resultMap['analiz']?.toString() ?? aiResponseMap['analiz']?.toString() ?? 'Analiz sonucu alınamadı',
+        gucluYonler: resultMap['gucluYonler']?.toString() ?? aiResponseMap['gucluYonler']?.toString(),
         oneriler: oneriler,
-        strateji: strateji,
+        etki: etki,
         yenidenYazim: yenidenYazim,
+        strateji: resultMap['strateji']?.toString() ?? aiResponseMap['strateji']?.toString(),
+        karsiTarafYorumu: resultMap['karsiTarafYorumu']?.toString() ?? aiResponseMap['karsiTarafYorumu']?.toString(),
+        anlikTavsiye: anlikTavsiye,
         sohbetGenelHavasi: sohbetGenelHavasi,
-        genelYorum: genelYorum, 
+        genelYorum: genelYorum,
         sonMesajTonu: sonMesajTonu,
         sonMesajEtkisi: sonMesajEtkisi,
         direktYorum: direktYorum,
         cevapOnerisi: cevapOnerisi,
       );
+      
+      print('✅ MesajKocuAnalizi nesnesi oluşturuldu');
+      return mesajAnalizi;
+      
     } catch (e) {
-      print('❌ MesajKocuAnalizi dönüştürme hatası: $e');
+      print('❌ _convertAnalysisToMesajKocu hata: $e');
+      // En azından temel alanları içeren bir hata sonucu dön, statik veriler kullanma
       return MesajKocuAnalizi(
-        analiz: 'Analiz sırasında bir hata oluştu: $e',
-        etki: {'hata': 100},
-        oneriler: ['Lütfen daha sonra tekrar deneyin'],
+        analiz: 'Analiz dönüştürme hatası: $e',
+        oneriler: ['API yanıt formatı uyumsuz'],
+        etki: {'error': 100},
       );
     }
   }

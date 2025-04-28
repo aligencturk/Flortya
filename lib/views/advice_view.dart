@@ -602,6 +602,18 @@ class _AdviceViewState extends State<AdviceView> {
       );
     }
     
+    // API'dan gelen "dynamicData" özel durumu - bu statik veri olmadan dinamik işlem olduğunu göstermek için
+    if (etki.length == 1 && etki.containsKey('dynamicData')) {
+      return Text(
+        'Analiz verisi işleniyor...',
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.8),
+          fontSize: 14,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+    
     // Etki değerlerini azalan sırada sırala
     final List<MapEntry<String, int>> siralanmisEtki = etki.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -657,19 +669,28 @@ class _AdviceViewState extends State<AdviceView> {
     // Farklı etiketler için farklı renkler
     switch (etiket.toLowerCase()) {
       case 'sempatik':
+      case 'olumlu':
+      case 'positive':
         return Colors.green;
       case 'kararsız':
+      case 'hesitant':
+      case 'neutral':
+      case 'nötr':
         return Colors.orange;
       case 'endişeli':
+      case 'negative':
+      case 'olumsuz':
         return Colors.red;
-      case 'olumlu':
-        return Colors.blue;
       case 'flörtöz':
         return Colors.purple;
       case 'mesafeli':
+      case 'cold':
+      case 'soğuk':
+        return Colors.blue;
+      case 'error':
         return Colors.grey;
-      case 'nötr':
-        return Colors.blueGrey;
+      case 'dynamicdata':
+        return const Color(0xFF9D3FFF);
       default:
         return const Color(0xFF9D3FFF); // Uygulama ana rengi
     }
