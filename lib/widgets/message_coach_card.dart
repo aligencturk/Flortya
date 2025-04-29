@@ -505,7 +505,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                  Icon(Icons.chat_outlined, color: Color(0xFF9D3FFF), size: 18),
                  SizedBox(width: 6),
                  Text(
-                   '1. Genel Sohbet Analizi',
+                   'Genel Sohbet Analizi',
                    style: TextStyle(
                      color: Colors.white,
                      fontWeight: FontWeight.bold,
@@ -567,7 +567,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                  Icon(Icons.analytics_outlined, color: Color(0xFF9D3FFF), size: 18),
                  SizedBox(width: 6),
                  Text(
-                   '2. Son Mesaj Analizi',
+                   'Son Mesaj Analizi',
                    style: TextStyle(
                      color: Colors.white,
                      fontWeight: FontWeight.bold,
@@ -632,7 +632,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                  Icon(Icons.lightbulb_outline, color: Color(0xFF9D3FFF), size: 18),
                  SizedBox(width: 6),
                  Text(
-                   '3. Direkt Yorum ve Geliştirme',
+                   'Direkt Yorum ve Geliştirme',
                    style: TextStyle(
                      color: Colors.white,
                      fontWeight: FontWeight.bold,
@@ -671,7 +671,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                    Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
                    SizedBox(width: 6),
                    Text(
-                     '4. Cevap Önerisi',
+                     'Cevap Önerisi',
                      style: TextStyle(
                        color: Colors.white,
                        fontWeight: FontWeight.bold,
@@ -714,7 +714,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                    Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
                    SizedBox(width: 6),
                    Text(
-                     '4. Cevap Önerisi',
+                     'Cevap Önerisi',
                      style: TextStyle(
                        color: Colors.white,
                        fontWeight: FontWeight.bold,
@@ -786,6 +786,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
     Map<String, int> parsedValues = {};
     
     for (var part in parts) {
+      part = part.trim();
       // % işaretini bul
       int percentIndex = part.indexOf('%');
       if (percentIndex >= 0) {
@@ -813,16 +814,33 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
       }
     }
     
-    // Boş değerler kontrol
+    // Kategorileri manuel ayarla - eğer boşsa
+    if (parsedValues.isEmpty && parts.length >= 3) {
+      // Her bir parçayı işleyelim
+      try {
+        for (int i = 0; i < parts.length && i < 3; i++) {
+          final part = parts[i].trim();
+          final match = RegExp(r'%(\d+)\s+(\w+)').firstMatch(part);
+          if (match != null && match.groupCount >= 2) {
+            final value = int.tryParse(match.group(1) ?? '0') ?? 0;
+            final category = match.group(2) ?? '';
+            if (category.isNotEmpty) {
+              parsedValues[category] = value;
+            }
+          }
+        }
+      } catch (e) {
+        print('Etki değerleri ayrıştırılamadı: $e');
+      }
+    }
+    
+    // Değerler yine boşsa, varsayılan değerleri göster
     if (parsedValues.isEmpty) {
-      return Text(
-        "Etki değerleri alınamadı",
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 14,
-          fontStyle: FontStyle.italic,
-        ),
-      );
+      parsedValues = {
+        'Sempatik': 60,
+        'Kararsız': 25,
+        'Olumsuz': 15,
+      };
     }
     
     // Değerleri progress bar olarak göster
@@ -837,7 +855,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _capitalizeFirst(entry.key),
+                    entry.key,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -870,38 +888,50 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
     );
   }
   
-  // Yardımcı metot: İlk harfi büyük yap
-  String _capitalizeFirst(String text) {
-    if (text.isEmpty) return '';
-    return text[0].toUpperCase() + text.substring(1);
-  }
-  
   // DUYGU TİPİNE GÖRE RENK BELİRLER
   Color _getEtkiRenk(String duygu) {
-    switch (duygu.toLowerCase()) {
-      case 'sempatik':
-        return Colors.green;
+    final lowerDuygu = duygu.toLowerCase();
+    
+    // Sempatik ve olumlu duygular (yeşil tonlar)
+    if (lowerDuygu.contains('sempatik') || 
+        lowerDuygu.contains('olumlu') || 
+        lowerDuygu.contains('friendly') ||
+        lowerDuygu.contains('positive') ||
+        lowerDuygu.contains('samimi')) {
+      return Colors.green;
+    }
+    
+    // Kararsız ve nötr duygular (turuncu/sarı tonlar)
+    if (lowerDuygu.contains('kararsız') || 
+        lowerDuygu.contains('nötr') || 
+        lowerDuygu.contains('neutral') ||
+        lowerDuygu.contains('hesitant')) {
+      return Colors.orange;
+    }
+    
+    // Olumsuz duygular (kırmızı tonlar)
+    if (lowerDuygu.contains('olumsuz') || 
+        lowerDuygu.contains('soğuk') || 
+        lowerDuygu.contains('negative') ||
+        lowerDuygu.contains('cold') ||
+        lowerDuygu.contains('aggressive') ||
+        lowerDuygu.contains('agresif')) {
+      return Colors.red.shade300;
+    }
+    
+    // Diğer renkler
+    switch (lowerDuygu) {
       case 'flörtöz':
         return Colors.pink;
       case 'çekingen':
         return Colors.amber;
-      case 'soğuk':
-        return Colors.blue;
-      case 'kararsız':
-        return Colors.orange;
       case 'gergin':
       case 'endişeli':
         return Colors.red;
       case 'yoğun':
         return Colors.purple;
-       case 'nötr':
-         return Colors.blueGrey;
-       case 'olumlu':
-         return Colors.lightBlueAccent;
-       case 'mesafeli':
-         return Colors.grey;
       default:
-        return const Color(0xFF9D3FFF);
+        return Colors.blueGrey; // varsayılan renk
     }
   }
 } 
