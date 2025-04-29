@@ -109,47 +109,4 @@ Widget yuklemeWidgeti({
     tip: tip,
     mesaj: mesaj,
   );
-}
-
-class LoadingIndicator extends StatelessWidget {
-  final String? message;
-  final double size;
-  final Color? color;
-  
-  const LoadingIndicator({
-    super.key,
-    this.message,
-    this.size = 24.0,
-    this.color,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    final themeColor = color ?? Theme.of(context).colorScheme.primary;
-    
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: CircularProgressIndicator(
-            strokeWidth: 3.0,
-            valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-          ),
-        ),
-        if (message != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            message!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ],
-    );
-  }
 } 

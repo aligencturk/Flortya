@@ -9,6 +9,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:file_selector/file_selector.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
+import '../utils/loading_indicator.dart';
 
 class MessageCoachCard extends StatefulWidget {
   const MessageCoachCard({Key? key}) : super(key: key);
@@ -244,9 +245,10 @@ class _MessageCoachCardState extends State<MessageCoachCard> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SpinKitPulse(
-            color: Color(0xFF9D3FFF),
-            size: 50.0,
+          const YuklemeAnimasyonu(
+            tip: AnimasyonTipi.DALGALI,
+            boyut: 50.0,
+            renk: Color(0xFF9D3FFF),
           ),
           const SizedBox(height: 16),
           const Text(
