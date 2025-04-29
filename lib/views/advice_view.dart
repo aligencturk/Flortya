@@ -2,16 +2,18 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import '../services/logger_service.dart';
 import '../utils/loading_indicator.dart';
 import '../widgets/message_coach_card.dart';
-import '../utils/feedback_utils.dart';
+import '../utils/utils.dart';
 import '../models/message_coach_analysis.dart';
 import 'dart:async';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:percent_indicator/linear_percent_indicator.dart';
 
 class AdviceView extends StatefulWidget {
   const AdviceView({Key? key}) : super(key: key);
@@ -26,7 +28,6 @@ class _AdviceViewState extends State<AdviceView> {
   bool _isLoading = false;
   bool _imageMode = false;
   List<File> _selectedImages = [];
-  final ImagePicker _picker = ImagePicker();
   final _logger = LoggerService();
   Timer? _analysisTimer;
   final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
@@ -105,8 +106,13 @@ class _AdviceViewState extends State<AdviceView> {
   // Görsel seçme (çoklu)
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage(
-        imageQuality: 85,
+      const XTypeGroup typeGroup = XTypeGroup(
+        label: 'Görseller',
+        extensions: <String>['jpg', 'jpeg', 'png'],
+      );
+      
+      final List<XFile> images = await openFiles(
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
 
       if (images.isNotEmpty) {
@@ -118,7 +124,7 @@ class _AdviceViewState extends State<AdviceView> {
         });
       }
     } catch (e) {
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Görseller seçilirken bir hata oluştu: $e'
       );
@@ -128,19 +134,14 @@ class _AdviceViewState extends State<AdviceView> {
   // Kamera ile fotoğraf çekme
   Future<void> _takePhoto() async {
     try {
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
+      // File selector doesn't support camera directly
+      // Consider using a separate camera package if this functionality is needed
+      Utils.showErrorFeedback(
+        context, 
+        'Kamera ile fotoğraf çekme özelliği şu anda desteklenmiyor.'
       );
-
-      if (photo != null) {
-        setState(() {
-          _selectedImages.add(File(photo.path));
-          _imageMode = true;
-        });
-      }
     } catch (e) {
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Fotoğraf çekilirken bir hata oluştu: $e'
       );
@@ -154,7 +155,7 @@ class _AdviceViewState extends State<AdviceView> {
     final userId = authViewModel.currentUser?.uid;
     
     if (userId == null) {
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Lütfen önce giriş yapın'
       );
@@ -164,7 +165,7 @@ class _AdviceViewState extends State<AdviceView> {
     // Mesaj içeriğini kontrol et
     if (_imageMode) {
       if (_selectedImages.isEmpty) {
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Lütfen en az bir görsel seçin'
         );
@@ -190,7 +191,7 @@ class _AdviceViewState extends State<AdviceView> {
         _logger.i('OCR Sonucu: ${extractedText.isNotEmpty ? extractedText.substring(0, min(50, extractedText.length)) + "..." : "[BOŞ]"}');
 
         if (extractedText.isEmpty) {
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Görselden metin okunamadı veya metin bulunamadı. Lütfen daha net bir görsel deneyin.'
           );
@@ -220,7 +221,7 @@ class _AdviceViewState extends State<AdviceView> {
             _isLoading = false;
             _errorMessage = 'Görsel işlenirken bir hata oluştu: $e';
           });
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Görsel işlenirken bir hata oluştu: $e'
           );
@@ -230,7 +231,7 @@ class _AdviceViewState extends State<AdviceView> {
       // Metin modu
       final messageText = _messageController.text.trim();
       if (messageText.isEmpty) {
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Lütfen bir mesaj girin'
         );
@@ -262,7 +263,7 @@ class _AdviceViewState extends State<AdviceView> {
             _isLoading = false;
             _errorMessage = 'Mesaj analiz edilirken bir hata oluştu: $e';
           });
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Mesaj analiz edilirken bir hata oluştu: $e'
           );
@@ -385,8 +386,13 @@ class _AdviceViewState extends State<AdviceView> {
                 ),
                 
                 // Kalan ücretsiz analiz sayısı
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4A3986),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -397,7 +403,7 @@ class _AdviceViewState extends State<AdviceView> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Kalan ücretsiz analiz: ${MesajKocuAnalizi.ucretlizAnalizSayisi - viewModel.ucretlizAnalizSayisi}',
+                          'Kalan ücretsiz analiz: ${MessageCoachAnalysis.ucretlizAnalizSayisi - viewModel.ucretlizAnalizSayisi}',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
                             fontSize: 14,
@@ -409,7 +415,7 @@ class _AdviceViewState extends State<AdviceView> {
                 ),
                 
                 // Mesaj Koçu kartı (en sonda gösterelim)
-                const MesajKocuCard(),
+                const MessageCoachCard(),
                 
                 const SizedBox(height: 24),
                 
@@ -479,7 +485,7 @@ class _AdviceViewState extends State<AdviceView> {
   }
   
   // Analiz sonuçları bölümü
-  Widget _buildAnalysisResults(MesajKocuAnalizi analiz) {
+  Widget _buildAnalysisResults(MessageCoachAnalysis analiz) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),

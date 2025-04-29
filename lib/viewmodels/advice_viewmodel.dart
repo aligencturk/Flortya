@@ -21,17 +21,17 @@ class AdviceViewModel extends ChangeNotifier {
   String? _errorMessage;
   
   // Mesaj Koçu ile ilgili özellikler
-  MesajKocuAnalizi? _mesajAnalizi;
+  MessageCoachAnalysis? _mesajAnalizi;
   bool _isAnalyzing = false;
   int _ucretlizAnalizSayisi = 0;
 
   // Mesaj Koçu getters
-  MesajKocuAnalizi? get mesajAnalizi => _mesajAnalizi;
+  MessageCoachAnalysis? get mesajAnalizi => _mesajAnalizi;
   bool get isAnalyzing => _isAnalyzing;
   String? get errorMessage => _errorMessage;
   bool get hasAnalizi => _mesajAnalizi != null;
   int get ucretlizAnalizSayisi => _ucretlizAnalizSayisi;
-  bool get analizHakkiVar => _ucretlizAnalizSayisi < MesajKocuAnalizi.ucretlizAnalizSayisi;
+  bool get analizHakkiVar => _ucretlizAnalizSayisi < MessageCoachAnalysis.ucretlizAnalizSayisi;
   bool get isLoading => _isLoading;
   
   // Constructor
@@ -73,7 +73,7 @@ class AdviceViewModel extends ChangeNotifier {
     
     try {
       // Ücretsiz analiz sınırını kontrol et
-      if (_ucretlizAnalizSayisi >= MesajKocuAnalizi.ucretlizAnalizSayisi) {
+      if (_ucretlizAnalizSayisi >= MessageCoachAnalysis.ucretlizAnalizSayisi) {
         _isLoading = false;
         _isAnalyzing = false;
         _errorMessage = 'Ücretsiz analiz hakkınızı doldurdunuz';
@@ -96,7 +96,7 @@ class AdviceViewModel extends ChangeNotifier {
         return;
       }
       
-      // Analizi MesajKocuAnalizi tipine dönüştür
+      // Analizi MessageCoachAnalysis tipine dönüştür
       final mesajAnalizi = _convertAnalysisToMesajKocu(analiz);
       
       // Firestore'a kaydet
@@ -126,8 +126,8 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
   
-  // AnalysisResult'ı MesajKocuAnalizi'ne dönüştür
-  MesajKocuAnalizi _convertAnalysisToMesajKocu(dynamic analysisResult) {
+  // AnalysisResult'ı MessageCoachAnalysis'e dönüştür
+  MessageCoachAnalysis _convertAnalysisToMesajKocu(dynamic analysisResult) {
     try {
       print('🔄 _convertAnalysisToMesajKocu başlıyor');
       
@@ -296,12 +296,12 @@ class AdviceViewModel extends ChangeNotifier {
       print('🔍 Yeni format alanları: sohbetGenelHavasi=${sohbetGenelHavasi != null}, genelYorum=${genelYorum != null}, sonMesajTonu=${sonMesajTonu != null}, direktYorum=${direktYorum != null}, cevapOnerisi=${cevapOnerisi != null}');
       
       // Sonuç nesnesini oluştur
-      final mesajAnalizi = MesajKocuAnalizi(
-        iliskiTipi: resultMap['iliskiTipi']?.toString() ?? aiResponseMap['iliskiTipi']?.toString(),
+      final mesajAnalizi = MessageCoachAnalysis(
         analiz: resultMap['analiz']?.toString() ?? aiResponseMap['analiz']?.toString() ?? 'Analiz sonucu alınamadı',
-        gucluYonler: resultMap['gucluYonler']?.toString() ?? aiResponseMap['gucluYonler']?.toString(),
         oneriler: oneriler,
         etki: etki,
+        iliskiTipi: resultMap['iliskiTipi']?.toString() ?? aiResponseMap['iliskiTipi']?.toString(),
+        gucluYonler: resultMap['gucluYonler']?.toString() ?? aiResponseMap['gucluYonler']?.toString(),
         yenidenYazim: yenidenYazim,
         strateji: resultMap['strateji']?.toString() ?? aiResponseMap['strateji']?.toString(),
         karsiTarafYorumu: resultMap['karsiTarafYorumu']?.toString() ?? aiResponseMap['karsiTarafYorumu']?.toString(),
@@ -314,13 +314,13 @@ class AdviceViewModel extends ChangeNotifier {
         cevapOnerisi: cevapOnerisi,
       );
       
-      print('✅ MesajKocuAnalizi nesnesi oluşturuldu');
+      print('✅ MessageCoachAnalysis nesnesi oluşturuldu');
       return mesajAnalizi;
       
     } catch (e) {
       print('❌ _convertAnalysisToMesajKocu hata: $e');
       // En azından temel alanları içeren bir hata sonucu dön, statik veriler kullanma
-      return MesajKocuAnalizi(
+      return MessageCoachAnalysis(
         analiz: 'Analiz dönüştürme hatası: $e',
         oneriler: ['API yanıt formatı uyumsuz'],
         etki: {'error': 100},
@@ -349,7 +349,7 @@ class AdviceViewModel extends ChangeNotifier {
   }
   
   // Firestore'a analiz sonucunu kaydetme
-  Future<void> _saveAnalysisToFirestore(String userId, MesajKocuAnalizi analiz, String messageText) async {
+  Future<void> _saveAnalysisToFirestore(String userId, MessageCoachAnalysis analiz, String messageText) async {
     try {
       final data = analiz.toFirestore();
       data['userId'] = userId;
@@ -549,7 +549,7 @@ class AdviceViewModel extends ChangeNotifier {
     try {
       print('🔄 MessageViewModel analiz sonucu işleniyor...');
       
-      // AnalysisResult'tan MesajKocuAnalizi oluştur
+      // AnalysisResult'tan MessageCoachAnalysis oluştur
       final mesajAnalizi = _convertAnalysisToMesajKocu(analysisResult);
       
       // Mesaj analiz sonucunu ayarla

@@ -7,7 +7,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../widgets/custom_button.dart';
 import '../services/input_service.dart';
-import '../utils/feedback_utils.dart';
+import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 
 class ReportView extends StatefulWidget {
@@ -87,7 +87,7 @@ class _ReportViewState extends State<ReportView> {
     final comment = _commentController.text.trim();
     
     if (comment.isEmpty) {
-      FeedbackUtils.showToast(context, 'Lütfen yorum yazın');
+      Utils.showToast(context, 'Lütfen yorum yazın');
       return;
     }
     
@@ -97,7 +97,7 @@ class _ReportViewState extends State<ReportView> {
     }
     
     // Gönderildi bildirimi
-    FeedbackUtils.showSuccessFeedback(context, 'Yorumunuz gönderildi');
+    Utils.showSuccessFeedback(context, 'Yorumunuz gönderildi');
     
     _commentController.clear();
     setState(() {
@@ -215,7 +215,7 @@ class _ReportViewState extends State<ReportView> {
                 onPressed: () {
                   // Mevcut sorunun cevabını kontrol et
                   if (reportViewModel.answers[reportViewModel.currentQuestionIndex].isEmpty) {
-                    FeedbackUtils.showToast(context, 'Lütfen soruyu yanıtlayın');
+                    Utils.showToast(context, 'Lütfen soruyu yanıtlayın');
                     return;
                   }
                   
@@ -473,7 +473,7 @@ class _ReportViewState extends State<ReportView> {
                         });
                       } catch (e) {
                         // Herhangi bir hata durumunda kullanıcıyı bilgilendir
-                        FeedbackUtils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
+                        Utils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
                       }
                     },
                     type: ButtonType.outline,
@@ -754,7 +754,7 @@ class _ReportViewState extends State<ReportView> {
                   onPressed: () {
                     // Puanı kaydet ve diyalogu kapat
                     Navigator.of(context).pop();
-                    FeedbackUtils.showToast(context, 'Değerlendirmeniz için teşekkürler!');
+                    Utils.showToast(context, 'Değerlendirmeniz için teşekkürler!');
                   },
                 ),
               ),

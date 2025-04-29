@@ -6,21 +6,20 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../models/message_coach_analysis.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 
-class MesajKocuCard extends StatefulWidget {
-  const MesajKocuCard({Key? key}) : super(key: key);
+class MessageCoachCard extends StatefulWidget {
+  const MessageCoachCard({Key? key}) : super(key: key);
 
   @override
-  _MesajKocuCardState createState() => _MesajKocuCardState();
+  _MessageCoachCardState createState() => _MessageCoachCardState();
 }
 
-class _MesajKocuCardState extends State<MesajKocuCard> {
+class _MessageCoachCardState extends State<MessageCoachCard> {
   final TextEditingController _messageController = TextEditingController();
   bool _isTextInputVisible = false;
-  final ImagePicker _picker = ImagePicker();
   final List<File> _selectedImages = [];
   
   @override
@@ -32,14 +31,19 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
   // Görsel seçme fonksiyonu
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage(
-        imageQuality: 85,
+      final typeGroup = XTypeGroup(
+        label: 'Görseller',
+        extensions: ['jpg', 'jpeg', 'png'],
+      );
+      
+      final List<XFile> files = await openFiles(
+        acceptedTypeGroups: [typeGroup],
       );
 
-      if (images.isNotEmpty) {
+      if (files.isNotEmpty) {
         setState(() {
-          for (var image in images) {
-            _selectedImages.add(File(image.path));
+          for (var file in files) {
+            _selectedImages.add(File(file.path));
           }
         });
       }
@@ -160,10 +164,10 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
     // Her build işleminde durumları güncelleyelim
     final bool isLoading = adviceViewModel.isLoading || adviceViewModel.isAnalyzing;
     final bool hasAnalysis = adviceViewModel.hasAnalizi;
-    final MesajKocuAnalizi? sonuc = adviceViewModel.mesajAnalizi;
+    final MessageCoachAnalysis? sonuc = adviceViewModel.mesajAnalizi;
     
     // DEBUG: Widget durumunu loglayalım
-    print('⭐️ MesajKocuCard yeniden oluşturuluyor - isLoading=$isLoading, hasAnalysis=$hasAnalysis, sonuc=${sonuc != null ? "var" : "yok"}, error=${adviceViewModel.errorMessage != null}');
+    print('⭐️ MessageCoachCard yeniden oluşturuluyor - isLoading=$isLoading, hasAnalysis=$hasAnalysis, sonuc=${sonuc != null ? "var" : "yok"}, error=${adviceViewModel.errorMessage != null}');
     
     if (hasAnalysis && sonuc != null) {
       print('✅ Görüntülenecek SONUÇ VAR: ${sonuc.anlikTavsiye != null ? "Tavsiye: ${sonuc.anlikTavsiye!.substring(0, min(30, sonuc.anlikTavsiye!.length))}..." : "Tavsiye yok"}, ÖNERİLER: ${sonuc.oneriler.length}');
@@ -317,7 +321,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
               const Icon(Icons.info_outline, color: Colors.white70, size: 14),
               const SizedBox(width: 4),
               Text(
-                'Kalan ücretsiz analiz: ${MesajKocuAnalizi.ucretlizAnalizSayisi - adviceViewModel.ucretlizAnalizSayisi}',
+                'Kalan ücretsiz analiz: ${MessageCoachAnalysis.ucretlizAnalizSayisi - adviceViewModel.ucretlizAnalizSayisi}',
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
@@ -490,7 +494,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
   }
   
   // ANALİZ SONUÇLARI
-  Widget _buildAnalysisResults(MesajKocuAnalizi analiz, BuildContext context) {
+  Widget _buildAnalysisResults(MessageCoachAnalysis analiz, BuildContext context) {
     final String resultKey = analiz.anlikTavsiye ?? 'no_advice';
      return Container(
        key: ValueKey('analysis_results_$resultKey'),
@@ -753,7 +757,7 @@ class _MesajKocuCardState extends State<MesajKocuCard> {
   }
   
   // YENİ METOT: Progress bar ile etki yüzdelerini gösterir
-  Widget _buildProgressBarEtki(MesajKocuAnalizi analiz) {
+  Widget _buildProgressBarEtki(MessageCoachAnalysis analiz) {
     // Formatlanmış mesaj etkisini al
     String etkiText = analiz.getFormattedLastMessageEffects();
     

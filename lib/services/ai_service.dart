@@ -3,8 +3,6 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
-import '../models/user_model.dart';
-import '../models/relationship_quote.dart';
 import 'logger_service.dart';
 
 class AiService {
@@ -15,6 +13,23 @@ class AiService {
   String get _geminiModel => dotenv.env['GEMINI_MODEL'] ?? 'gemini-2.0-flash';
   int get _geminiMaxTokens => int.tryParse(dotenv.env['GEMINI_MAX_TOKENS'] ?? '1024') ?? 1024;
   String get _geminiApiUrl => 'https://generativelanguage.googleapis.com/v1/models/$_geminiModel:generateContent?key=$_geminiApiKey';
+
+  // API anahtarını kontrol et ve tam URL'i hazırla
+  String _getApiUrl() {
+    final apiKey = _geminiApiKey;
+    if (apiKey.isEmpty) {
+      _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
+      throw Exception('API anahtarı eksik veya geçersiz. Lütfen .env dosyasını kontrol edin ve GEMINI_API_KEY değerini ayarlayın.');
+    }
+    
+    final model = _geminiModel;
+    if (model.isEmpty) {
+      _logger.e('Gemini model adı bulunamadı. .env dosyasını kontrol edin.');
+      throw Exception('Model adı eksik veya geçersiz. Lütfen .env dosyasını kontrol edin ve GEMINI_MODEL değerini ayarlayın.');
+    }
+    
+    return 'https://generativelanguage.googleapis.com/v1/models/$model:generateContent?key=$apiKey';
+  }
 
   // İlişki raporu yorumuna yanıt oluşturma
   Future<Map<String, dynamic>> getCommentResponse(
@@ -196,10 +211,28 @@ class AiService {
         return null;
       }
       
-      // API anahtarını kontrol et
-      if (_geminiApiKey.isEmpty) {
-        _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
-        throw Exception('API anahtarı eksik veya geçersiz. Lütfen .env dosyasını kontrol edin ve GEMINI_API_KEY değerini ayarlayın.');
+      // API anahtarını kontrol et ve tam URL oluştur
+      String apiUrl;
+      try {
+        apiUrl = _getApiUrl();
+        _logger.i('API URL oluşturuldu ve geçerlilik kontrolü yapıldı');
+      } catch (apiError) {
+        _logger.e('API URL oluşturulurken hata: $apiError');
+        // API hatasında varsayılan değer döndür
+        return AnalysisResult(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+          emotion: 'Belirtilmemiş',
+          intent: 'API yapılandırma hatası',
+          tone: 'Nötr',
+          severity: 5,
+          persons: 'Belirtilenmemiş',
+          aiResponse: {
+            'mesajYorumu': 'API yapılandırma hatası: $apiError. Lütfen uygulama ayarlarını kontrol edin.',
+            'cevapOnerileri': ['Ayarları kontrol edin ve tekrar deneyin.']
+          },
+          createdAt: DateTime.now(),
+        );
       }
       
       // Mesajın uzunluğunu kontrol et
@@ -209,10 +242,6 @@ class AiService {
       }
       
       // OCR metni ve Görsel Analizi işleme biçimini modernize edelim
-      final bool isImageAnalysis = messageContent.contains("Görsel Analizi:");
-      final bool hasOcrText = messageContent.contains("---- OCR Metni ----") && 
-                             messageContent.contains("---- OCR Metni Sonu ----");
-      
       // Yeni eklenen OCR formatını tanı
       final bool hasFormattedOCR = messageContent.contains("---- Görüntüden çıkarılan metin ----") &&
                                   messageContent.contains("---- Çıkarılan metin sonu ----");
@@ -225,9 +254,6 @@ class AiService {
       final bool hasExtractedText = messageContent.contains("Görseldeki metin:") && 
           messageContent.split("Görseldeki metin:").length > 1 && 
           messageContent.split("Görseldeki metin:")[1].trim().isNotEmpty;
-      
-      final bool hasConversationParts = messageContent.contains("---- Mesaj içeriği ----") &&
-                                       messageContent.contains("Konuşmacı:");
       
       // Prompt hazırlama
       String prompt = '';
@@ -407,46 +433,157 @@ class AiService {
       
       _logger.d('API isteği gönderiliyor: $_geminiApiUrl');
       
-      // HTTP isteği için timeout ekle
-      final response = await http.post(
-        Uri.parse(_geminiApiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          _logger.e('Gemini API istek zaman aşımına uğradı');
-          throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
-        },
-      );
-      
-      _logger.d('API yanıtı alındı - status: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
-        return _processApiResponse(response.body);
-      } else {
-        _logger.e('API hatası: ${response.statusCode}', response.body);
-        throw Exception('Analiz API hatası: ${response.statusCode}');
+      // HTTP isteği için timeout ekle ve daha güvenli istek yapılandırması
+      try {
+        final response = await http.post(
+          Uri.parse(apiUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: requestBody,
+        ).timeout(
+          const Duration(seconds: 45), // Timeout süresini uzattık
+          onTimeout: () {
+            _logger.e('Gemini API istek zaman aşımına uğradı (45 saniye)');
+            throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
+          },
+        );
+        
+        _logger.d('API yanıtı alındı - status: ${response.statusCode}, içerik uzunluğu: ${response.body.length}');
+        
+        if (response.statusCode == 200) {
+          // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
+          try {
+            return _processApiResponse(response.body);
+          } catch (processError) {
+            _logger.e('API yanıtı işlenirken hata', processError);
+            // Varsayılan sonuç döndür
+            return AnalysisResult(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+              emotion: 'Belirtilmemiş',
+              intent: 'İletişim kurma',
+              tone: 'Nötr',
+              severity: 5,
+              persons: 'Belirtilenmemiş',
+              aiResponse: {
+                'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
+                'cevapOnerileri': ['Mesajınızı tekrar göndermeyi deneyin.']
+              },
+              createdAt: DateTime.now(),
+            );
+          }
+        } else {
+          // Hata durumunu daha detaylı logla
+          _logger.e('API hatası: ${response.statusCode}', 'Yanıt: ${response.body.substring(0, min(200, response.body.length))}...');
+          
+          // Özel hata kodlarını kontrol et
+          if (response.statusCode == 400) {
+            _logger.e('API hata 400: İstek yapısı hatalı');
+            return AnalysisResult(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+              emotion: 'Belirtilmemiş',
+              intent: 'İstek hatası',
+              tone: 'Nötr',
+              severity: 5,
+              persons: 'Belirtilenmemiş',
+              aiResponse: {
+                'mesajYorumu': 'İstek formatında hata: ${response.statusCode}. Lütfen tekrar deneyiniz.',
+                'cevapOnerileri': ['Daha kısa bir mesaj ile tekrar deneyin.']
+              },
+              createdAt: DateTime.now(),
+            );
+          } else if (response.statusCode == 401 || response.statusCode == 403) {
+            _logger.e('API yetkilendirme hatası: API anahtarı geçersiz veya yetkisiz');
+            return AnalysisResult(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+              emotion: 'Belirtilmemiş',
+              intent: 'Yetkilendirme hatası',
+              tone: 'Nötr',
+              severity: 5,
+              persons: 'Belirtilenmemiş',
+              aiResponse: {
+                'mesajYorumu': 'API yetkilendirme hatası (${response.statusCode}). Lütfen uygulama ayarlarını kontrol edin.',
+                'cevapOnerileri': ['Uygulama yöneticinizle iletişime geçin.']
+              },
+              createdAt: DateTime.now(),
+            );
+          } else {
+            throw Exception('Analiz API hatası: ${response.statusCode}');
+          }
+        }
+      } catch (httpError) {
+        // HTTP istek hatalarını daha iyi ele al
+        _logger.e('HTTP istek hatası', httpError);
+        return AnalysisResult(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+          emotion: 'Belirtilmemiş',
+          intent: 'İletişim hatası',
+          tone: 'Nötr',
+          severity: 5,
+          persons: 'Belirtilenmemiş',
+          aiResponse: {
+            'mesajYorumu': 'API ile iletişim sırasında hata: ${httpError.toString()}. Lütfen internet bağlantınızı kontrol edin.',
+            'cevapOnerileri': ['İnternet bağlantınızı kontrol edin ve tekrar deneyin.']
+          },
+          createdAt: DateTime.now(),
+        );
       }
     } catch (e) {
       _logger.e('Mesaj analizi hatası', e);
-      rethrow;
+      // Hata yakalanırken null döndürmek yerine varsayılan sonuç oluştur
+      return AnalysisResult(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+        emotion: 'Belirtilmemiş',
+        intent: 'İletişim kurma',
+        tone: 'Nötr',
+        severity: 5,
+        persons: 'Belirtilenmemiş',
+        aiResponse: {
+          'mesajYorumu': 'Mesaj analiz edilirken bir hata oluştu: ${e.toString()}',
+          'cevapOnerileri': ['Lütfen tekrar deneyiniz veya başka bir mesaj gönderiniz.']
+        },
+        createdAt: DateTime.now(),
+      );
     }
   }
 
   // API yanıtını işleme - UI thread'i blokelemeden çalışır
   AnalysisResult? _processApiResponse(String responseBody) {
     try {
+      // Boş yanıt kontrolü
+      if (responseBody.isEmpty) {
+        _logger.e('API yanıtı boş');
+        return _createFallbackResult('API yanıtı boş geldi. Lütfen tekrar deneyiniz.');
+      }
+      
       // Uzun JSON işleme
-      final Map<String, dynamic> data = jsonDecode(responseBody);
-      final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(responseBody);
+      } catch (jsonError) {
+        _logger.e('API yanıtı JSON formatında değil', jsonError);
+        return _createFallbackResult('API yanıtı geçerli bir format içermiyor.');
+      }
+      
+      // AI içeriğini güvenli şekilde çıkar
+      final dynamic candidates = data['candidates'];
+      final String? aiContent = candidates is List && candidates.isNotEmpty && 
+                               candidates[0] is Map && 
+                               candidates[0]['content'] is Map && 
+                               candidates[0]['content']['parts'] is List && 
+                               candidates[0]['content']['parts'].isNotEmpty
+        ? candidates[0]['content']['parts'][0]['text']
+        : null;
       
       if (aiContent == null || aiContent.isEmpty) {
         _logger.e('AI yanıtı boş veya beklenen formatta değil');
-        return null;
+        return _createFallbackResult('AI yanıtı boş veya beklenmeyen bir formatta.');
       }
       
       // JSON içindeki JSON string'i ayıkla
@@ -455,49 +592,89 @@ class AiService {
       
       if (jsonStart == -1 || jsonEnd == 0 || jsonStart >= jsonEnd) {
         _logger.e('JSON yanıtında geçerli bir JSON formatı bulunamadı', aiContent);
-        
-        // Fallback sonuç döndür, iletişim kurma
-        return AnalysisResult(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-          emotion: 'Belirtilmemiş',
-          intent: 'Belirtilmemiş',
-          tone: 'Belirtilmemiş',
-          severity: 5,
-          persons: 'Belirtilmemiş',
-          aiResponse: {
-            'mesajYorumu': 'Analiz sırasında teknik bir sorun oluştu. Lütfen tekrar deneyiniz.',
-            'cevapOnerileri': ['Mesajı tekrar gönderin veya farklı bir mesaj ile analiz yapın.']
-          },
-          createdAt: DateTime.now(),
-        );
+        return _createFallbackResult('Yanıt içinde geçerli bir JSON verisi bulunamadı.');
       }
       
       // API yanıtından JSON kısmını ayıkla
       String jsonStr = aiContent.substring(jsonStart, jsonEnd);
       
       // JSON yanıtını işle
-      Map<String, dynamic> analysisJson = jsonDecode(jsonStr);
+      Map<String, dynamic> analysisJson;
+      try {
+        analysisJson = jsonDecode(jsonStr);
+      } catch (jsonParseError) {
+        _logger.e('İç JSON ayrıştırma hatası', jsonParseError);
+        // Alternatif JSON ayrıştırma yöntemi dene
+        try {
+          // Özel karakterleri temizle ve tekrar dene
+          jsonStr = jsonStr.replaceAll(RegExp(r'[\u0000-\u001F]'), '');
+          analysisJson = jsonDecode(jsonStr);
+        } catch (secondAttemptError) {
+          _logger.e('İkinci JSON ayrıştırma denemesi başarısız', secondAttemptError);
+          return _createFallbackResult('Yanıt içinde geçerli bir veri formatı bulunamadı.');
+        }
+      }
       
       // Analiz sonucunu oluştur
-      final result = AnalysisResult(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-        emotion: analysisJson['duygu'] ?? 'Belirtilmemiş',
-        intent: analysisJson['niyet'] ?? 'Belirtilmemiş',
-        tone: analysisJson['ton'] ?? 'Belirtilmemiş',
-        severity: int.tryParse(analysisJson['ciddiyet']?.toString() ?? '5') ?? 5,
-        persons: analysisJson['kişiler']?.toString() ?? 'Belirtilmemiş',
-        aiResponse: analysisJson,
-        createdAt: DateTime.now(),
-      );
-      
-      _logger.i('Analiz tamamlandı: ${result.emotion}, ${result.intent}, ${result.tone}');
-      return result;
+      try {
+        final result = AnalysisResult(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+          emotion: _safeGetString(analysisJson, 'duygu'),
+          intent: _safeGetString(analysisJson, 'niyet'),
+          tone: _safeGetString(analysisJson, 'ton'),
+          severity: _safeGetInt(analysisJson, 'ciddiyet', defaultValue: 5),
+          persons: _safeGetString(analysisJson, 'kişiler'),
+          aiResponse: analysisJson,
+          createdAt: DateTime.now(),
+        );
+        
+        _logger.i('Analiz tamamlandı: ${result.emotion}, ${result.intent}, ${result.tone}');
+        return result;
+      } catch (resultError) {
+        _logger.e('Analiz sonucu oluşturulurken hata oluştu', resultError);
+        return _createFallbackResult('Analiz sonucu oluşturulurken beklenmeyen bir hata oluştu.');
+      }
     } catch (e) {
       _logger.e('API yanıtı işlenirken hata oluştu', e);
-      return null;
+      return _createFallbackResult('Yanıt işlenirken bir hata oluştu: ${e.toString().substring(0, min(50, e.toString().length))}');
     }
+  }
+  
+  // Güvenli string alma - null kontrolü
+  String _safeGetString(Map<String, dynamic> map, String key, {String defaultValue = 'Belirtilmemiş'}) {
+    final value = map[key];
+    if (value == null) return defaultValue;
+    return value.toString();
+  }
+  
+  // Güvenli int alma - null kontrolü
+  int _safeGetInt(Map<String, dynamic> map, String key, {int defaultValue = 5}) {
+    final value = map[key];
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is String) {
+      return int.tryParse(value) ?? defaultValue;
+    }
+    return defaultValue;
+  }
+  
+  // Varsayılan bir sonuç oluştur
+  AnalysisResult _createFallbackResult(String errorMessage) {
+    return AnalysisResult(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+      emotion: 'Belirtilmemiş',
+      intent: 'İletişim kurma',
+      tone: 'Nötr',
+      severity: 5,
+      persons: 'Belirtilenmemiş',
+      aiResponse: {
+        'mesajYorumu': errorMessage,
+        'cevapOnerileri': ['Lütfen tekrar deneyiniz veya başka bir mesaj gönderiniz.']
+      },
+      createdAt: DateTime.now(),
+    );
   }
 
   // İlişki raporu oluşturma
@@ -602,110 +779,7 @@ class AiService {
     }
   }
 
-  // Metinden dizi çıkarma
-  List<String>? _extractArrayFromText(String text, String fieldName) {
-    try {
-      // JSON içinde dizi formatı: "fieldName": [ "item1", "item2" ]
-      final RegExp regex = RegExp('"$fieldName"\\s*:\\s*\\[(.*?)\\]', caseSensitive: false, dotAll: true);
-      final match = regex.firstMatch(text);
-      
-      if (match != null && match.group(1) != null) {
-        final String arrayContent = match.group(1)!;
-        // Dizideki itemları ayrıştır - tırnak işaretleri içindeki metinleri bul
-        final RegExp itemRegex = RegExp('"(.*?)"', dotAll: true);
-        final matches = itemRegex.allMatches(arrayContent);
-        
-        if (matches.isNotEmpty) {
-          return matches
-              .map((m) => m.group(1))
-              .where((item) => item != null)
-              .map((item) => item!.trim())
-              .toList();
-        }
-      }
-      
-      // Regex ile bulunamazsa, basit bir yaklaşım dene
-      if (text.contains(fieldName)) {
-        final parts = text.split(fieldName);
-        if (parts.length > 1) {
-          // Alanın bulunduğu satırdan sonraki 3 satırı al (muhtemelen öneri içerir)
-          final nextLines = parts[1].split('\n').take(5).toList();
-          return nextLines
-              .where((line) => line.contains('-') || line.contains('*'))
-              .map((line) => line.replaceAll(RegExp(r'^[- *]+'), '').trim())
-              .where((line) => line.isNotEmpty)
-              .toList();
-        }
-      }
-      
-      return null;
-    } catch (e) {
-      _logger.e('Dizi çıkarma hatası: $e');
-      return null;
-    }
-  }
-  
-  // Metinden alan çıkarma
-  String? _extractFieldFromText(String text, String fieldName) {
-    final RegExp regex = RegExp('"$fieldName"\\s*:\\s*"([^"]*)"', caseSensitive: false);
-    final match = regex.firstMatch(text);
-    final value = match?.group(1)?.trim();
-    _logger.d('$fieldName alanı çıkarıldı: $value');
-    return value;
-  }
-  
-  // Metinden sayısal alan çıkarma
-  int? _extractNumericFieldFromText(String text, String fieldName) {
-    final RegExp regex = RegExp('"$fieldName"\\s*:\\s*(\\d+)', caseSensitive: false);
-    final match = regex.firstMatch(text);
-    if (match == null) {
-      // Alternatif regex - tırnak içinde sayı olabilir
-      final altRegex = RegExp('"$fieldName"\\s*:\\s*"(\\d+)"', caseSensitive: false);
-      final altMatch = altRegex.firstMatch(text);
-      final altValue = altMatch?.group(1);
-      final numericValue = altValue != null ? int.tryParse(altValue) : null;
-      return numericValue ?? 5; // Varsayılan değer
-    }
-    
-    final value = match.group(1);
-    final numericValue = value != null ? int.tryParse(value) : null;
-    return numericValue ?? 5; // Varsayılan değer
-  }
-  
-  // Metinden önerileri çıkarma
-  List<String>? _extractSuggestionsFromText(String text) {
-    // Öneri listesi için regex
-    final RegExp listRegex = RegExp('"cevap_onerileri"\\s*:\\s*\\[(.*?)\\]', caseSensitive: false, dotAll: true);
-    final listMatch = listRegex.firstMatch(text);
-    
-    if (listMatch != null && listMatch.group(1) != null) {
-      final listContent = listMatch.group(1)!;
-      final suggestions = RegExp('"([^"]*)"').allMatches(listContent)
-          .map((m) => m.group(1)?.trim())
-          .where((s) => s != null && s.isNotEmpty)
-          .map((s) => s!)
-          .toList();
-      
-      _logger.d('Öneriler çıkarıldı: $suggestions');
-      return suggestions.isNotEmpty ? suggestions : null;
-    }
-    
-    // Madde işaretli liste biçiminde olabilir
-    final bulletedItems = text.split('\n')
-        .where((line) => line.contains('- ') || RegExp(r'^\d+\.').hasMatch(line.trim()))
-        .map((line) => line.replaceAll(RegExp(r'^-|\d+\.'), '').trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
-    
-    if (bulletedItems.isNotEmpty) {
-      _logger.d('Madde işaretli öneriler çıkarıldı: $bulletedItems');
-      return bulletedItems;
-    }
-    
-    return null;
-  }
-  
-  // Metinden JSON çıkarma
+  // Metinden JSON yanıtını ayrıştırma
   Map<String, dynamic>? _parseJsonFromText(String text) {
     _logger.d('JSON metni ayrıştırılıyor: $text');
     
@@ -758,6 +832,39 @@ class AiService {
   // Metinden önerileri çıkarma
   List<String>? _extractSuggestions(String text) {
     return _extractSuggestionsFromText(text);
+  }
+
+  // Metinden önerileri çıkarma
+  List<String>? _extractSuggestionsFromText(String text) {
+    // Öneri listesi için regex
+    final RegExp listRegex = RegExp('"cevap_onerileri"\\s*:\\s*\\[(.*?)\\]', caseSensitive: false, dotAll: true);
+    final listMatch = listRegex.firstMatch(text);
+    
+    if (listMatch != null && listMatch.group(1) != null) {
+      final listContent = listMatch.group(1)!;
+      final suggestions = RegExp('"([^"]*)"').allMatches(listContent)
+          .map((m) => m.group(1)?.trim())
+          .where((s) => s != null && s.isNotEmpty)
+          .map((s) => s!)
+          .toList();
+      
+      _logger.d('Öneriler çıkarıldı: $suggestions');
+      return suggestions.isNotEmpty ? suggestions : null;
+    }
+    
+    // Madde işaretli liste biçiminde olabilir
+    final bulletedItems = text.split('\n')
+        .where((line) => line.contains('- ') || RegExp(r'^\d+\.').hasMatch(line.trim()))
+        .map((line) => line.replaceAll(RegExp(r'^-|\d+\.'), '').trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    
+    if (bulletedItems.isNotEmpty) {
+      _logger.d('Madde işaretli öneriler çıkarıldı: $bulletedItems');
+      return bulletedItems;
+    }
+    
+    return null;
   }
 
   /// Mesaj koçu analizi yapma
@@ -833,7 +940,7 @@ class AiService {
       İçerik çok azsa bile analiz yap, "eldeki bilgilerle kısıtlı bir analiz" gibi mazeretler sunma. Her durumda bir analiz sonucu dön.
 
       Analiz edilecek metin:
-      ${messageContent}
+      $messageContent
       ''';
       
       final requestBody = jsonEncode({
@@ -855,100 +962,121 @@ class AiService {
       
       _logger.d('Mesaj koçu analizi API isteği gönderiliyor');
       
-      // HTTP isteği için timeout ekle
-      final response = await http.post(
-        Uri.parse(_geminiApiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          _logger.e('Gemini API istek zaman aşımına uğradı');
-          return http.Response('{"error": "Zaman aşımı"}', 408);
-        },
-      );
-      
-      _logger.d('API yanıtı alındı - status: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        final aiContent = responseData['candidates']?[0]?['content']?['parts']?[0]?['text'];
+      // HTTP isteği için timeout ekle ve daha güvenli istek yapılandırması
+      try {
+        final response = await http.post(
+          Uri.parse(_geminiApiUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: requestBody,
+        ).timeout(
+          const Duration(seconds: 45), // Timeout süresini uzattık
+          onTimeout: () {
+            _logger.e('Gemini API istek zaman aşımına uğradı (45 saniye)');
+            throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
+          },
+        );
         
-        if (aiContent == null || aiContent.isEmpty) {
-          _logger.e('AI yanıtı boş veya beklenen formatta değil');
-          return {'error': 'AI yanıtı alınamadı'};
-        }
-
-        _logger.d('AI yanıt içeriği: $aiContent');
-
-        // Yanıttan JSON kısmını ayıkla
-        String jsonText = aiContent;
+        _logger.d('API yanıtı alındı - status: ${response.statusCode}, içerik uzunluğu: ${response.body.length}');
         
-        // Eğer ``` ```  formatında JSON varsa onu çıkar
-        if (jsonText.contains("```json")) {
-          jsonText = jsonText.split("```json")[1].split("```")[0].trim();
-        } else if (jsonText.contains("```")) {
-          jsonText = jsonText.split("```")[1].split("```")[0].trim();
-        }
-        
-        _logger.d('Ayıklanan JSON içeriği: $jsonText');
-        
-        // JSON olarak parse etmeyi dene
-        try {
-          Map<String, dynamic> analysisResult = jsonDecode(jsonText);
-          _logger.i('Mesaj koçu analizi başarıyla alındı');
-          
-          // Hata durumunu kontrol et
-          if (analysisResult.containsKey('error')) {
-            return {'error': analysisResult['error']};
-          }
-          
-          // Gerekli alanları kontrol et
-          if (!analysisResult.containsKey('sonMesajEtkisi') || !(analysisResult['sonMesajEtkisi'] is Map)) {
-            _logger.e('Son mesaj etkisi bulunamadı veya geçersiz format');
-            analysisResult['sonMesajEtkisi'] = {
-              "sempatik": 60,
-              "kararsız": 30,
-              "olumsuz": 10
+        if (response.statusCode == 200) {
+          // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
+          try {
+            // _processApiResponse metodu AnalysisResult? döndürdüğü için Map<String, dynamic>'e dönüştürüyoruz
+            final result = _processApiResponse(response.body);
+            if (result != null) {
+              return {
+                'id': result.id,
+                'messageId': result.messageId,
+                'emotion': result.emotion,
+                'intent': result.intent,
+                'tone': result.tone,
+                'severity': result.severity,
+                'persons': result.persons,
+                'mesajYorumu': result.aiResponse['mesajYorumu'],
+                'cevapOnerileri': result.aiResponse['cevapOnerileri']
+              };
+            } else {
+              return {
+                'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
+                'emotion': 'Belirtilmemiş',
+                'intent': 'İletişim kurma',
+                'tone': 'Nötr',
+                'severity': 5,
+                'persons': 'Belirtilenmemiş',
+                'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
+                'cevapOnerileri': ['Mesajınızı tekrar göndermeyi deneyin.']
+              };
+            }
+          } catch (processError) {
+            _logger.e('API yanıtı işlenirken hata', processError);
+            // Varsayılan sonuç döndür
+            return {
+              'id': DateTime.now().millisecondsSinceEpoch.toString(),
+              'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
+              'emotion': 'Belirtilmemiş',
+              'intent': 'İletişim kurma',
+              'tone': 'Nötr',
+              'severity': 5,
+              'persons': 'Belirtilenmemiş',
+              'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
+              'cevapOnerileri': ['Mesajınızı tekrar göndermeyi deneyin.']
             };
           }
+        } else {
+          // Hata durumunu daha detaylı logla
+          _logger.e('API hatası: ${response.statusCode}', 'Yanıt: ${response.body.substring(0, min(200, response.body.length))}...');
           
-          // cevapOnerileri alanını kontrol et
-          if (!analysisResult.containsKey('cevapOnerileri')) {
-            analysisResult['cevapOnerileri'] = [
-              'İletişim şeklini daha açık hale getir',
-              'Daha net ifadeler kullan',
-              'Karşı tarafın söylediklerini dikkate al'
-            ];
+          // Özel hata kodlarını kontrol et
+          if (response.statusCode == 400) {
+            _logger.e('API hata 400: İstek yapısı hatalı');
+            return {
+              'id': DateTime.now().millisecondsSinceEpoch.toString(),
+              'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
+              'emotion': 'Belirtilmemiş',
+              'intent': 'İstek hatası',
+              'tone': 'Nötr',
+              'severity': 5,
+              'persons': 'Belirtilenmemiş',
+              'mesajYorumu': 'İstek formatında hata: ${response.statusCode}. Lütfen tekrar deneyiniz.',
+              'cevapOnerileri': ['Daha kısa bir mesaj ile tekrar deneyin.']
+            };
+          } else if (response.statusCode == 401 || response.statusCode == 403) {
+            _logger.e('API yetkilendirme hatası: API anahtarı geçersiz veya yetkisiz');
+            return {
+              'id': DateTime.now().millisecondsSinceEpoch.toString(),
+              'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
+              'emotion': 'Belirtilmemiş',
+              'intent': 'Yetkilendirme hatası',
+              'tone': 'Nötr',
+              'severity': 5,
+              'persons': 'Belirtilenmemiş',
+              'mesajYorumu': 'API yetkilendirme hatası (${response.statusCode}). Lütfen uygulama ayarlarını kontrol edin.',
+              'cevapOnerileri': ['Uygulama yöneticinizle iletişime geçin.']
+            };
+          } else {
+            return {
+              'error': 'Analiz API hatası: ${response.statusCode}'
+            };
           }
-          
-          return analysisResult;
-        } catch (jsonError) {
-          _logger.e('JSON parse hatası: $jsonError');
-          
-          // JSON parse edilemiyorsa, varsayılan değerleri döndür
-          return {
-            'sohbetGenelHavasi': 'Samimi',
-            'genelYorum': 'Mesajlaşmanızda iletişim sorunları var. Karşı tarafı anlamakta zorluk çekiyorsun ve kendini ifade edemiyorsun.',
-            'sonMesajTonu': 'Soğuk',
-            'sonMesajEtkisi': {
-              'sempatik': 20,
-              'kararsız': 30,
-              'olumsuz': 50
-            },
-            'direktYorum': 'Karşı tarafla iletişimin zayıf. Daha açık konuşmalı ve net ifadeler kullanmalısın. İçten içe kızgınlık besliyorsun ama bunu doğrudan söylemiyorsun, bu da iletişimi daha da zorlaştırıyor.',
-            'cevapOnerileri': [
-              'Ne düşündüğünü ve hissettiğini açıkça söyle, dolambaçlı cümlelerden kaçın',
-              'Karşı tarafa ne istediğini net olarak belirt, belirsiz ifadeler kullanma',
-              'Pasif-agresif tavırlar yerine doğrudan konuşmayı dene'
-            ]
-          };
         }
-      } else {
-        _logger.e('API hatası: ${response.statusCode}', response.body);
-        return {'error': 'Analiz API hatası: ${response.statusCode}'};
+      } catch (httpError) {
+        // HTTP istek hatalarını daha iyi ele al
+        _logger.e('HTTP istek hatası', httpError);
+        return {
+          'id': DateTime.now().millisecondsSinceEpoch.toString(),
+          'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
+          'emotion': 'Belirtilmemiş',
+          'intent': 'İletişim hatası',
+          'tone': 'Nötr',
+          'severity': 5,
+          'persons': 'Belirtilenmemiş',
+          'mesajYorumu': 'API ile iletişim sırasında hata: ${httpError.toString()}. Lütfen internet bağlantınızı kontrol edin.',
+          'cevapOnerileri': ['İnternet bağlantınızı kontrol edin ve tekrar deneyin.']
+        };
       }
     } catch (e) {
       _logger.e('Mesaj koçu analizi hatası', e);
@@ -1003,7 +1131,7 @@ Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
   "oneriler": ["Öneri 1", "Öneri 2", "Öneri 3"]
 }
 
-İlişki analizi verisi: ${messageText}
+İlişki analizi verisi: $messageText
 '''
                 }
               ]
@@ -1213,7 +1341,7 @@ Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açı
 
       // Metin çok uzunsa kısalt
       final String kisaltilmisSohbet = sohbetMetni.length > 15000 
-          ? sohbetMetni.substring(0, 15000) + "... (sohbet kesildi)"
+          ? "${sohbetMetni.substring(0, 15000)}... (sohbet kesildi)"
           : sohbetMetni;
 
       final response = await http.post(
@@ -1253,7 +1381,7 @@ Her içgörü için aşağıdaki JSON formatında bir yanıt oluştur:
 Başlıklar kısa ve çarpıcı, yorumlar ise detaylı ve eğlenceli olmalı. İstatistikler ve yorumlar, Spotify Wrapped stilinde esprili ve kişiselleştirilmiş bir dilde yazılmalı.
 
 İşte analiz edilecek sohbet metni: 
-${kisaltilmisSohbet}
+$kisaltilmisSohbet
 '''
                 }
               ]

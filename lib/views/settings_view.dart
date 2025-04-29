@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
 import '../viewmodels/auth_viewmodel.dart';
-import '../utils/feedback_utils.dart';
+import '../utils/utils.dart';
 import '../controllers/home_controller.dart';
 import '../services/data_reset_service.dart';
 
@@ -147,7 +147,7 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Sürüm Bilgisi',
               icon: Icons.info_outline,
               onTap: () {
-                FeedbackUtils.showToast(context, 'Sürüm 1.0.0');
+                Utils.showToast(context, 'Sürüm 1.0.0');
               },
             ),
             
@@ -336,11 +336,11 @@ class _SettingsViewState extends State<SettingsView> {
     final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
+      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
       return;
     }
     
-    FeedbackUtils.showLoadingDialog(context, 'İlişki değerlendirme verileri siliniyor...');
+    Utils.showLoadingDialog(context, 'İlişki değerlendirme verileri siliniyor...');
     
     try {
       // Data reset servisini oluştur
@@ -359,16 +359,16 @@ class _SettingsViewState extends State<SettingsView> {
       
       // Başarı durumunu bildir
       if (success) {
-        FeedbackUtils.showToast(context, 'İlişki değerlendirme verileri başarıyla silindi');
+        Utils.showToast(context, 'İlişki değerlendirme verileri başarıyla silindi');
       } else {
-        FeedbackUtils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
+        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
       }
     } catch (e) {
       // Dialog'u kapat
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       
-      FeedbackUtils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
+      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
     }
   }
   
@@ -377,11 +377,11 @@ class _SettingsViewState extends State<SettingsView> {
     final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
+      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
       return;
     }
     
-    FeedbackUtils.showLoadingDialog(context, 'Mesaj analiz verileri siliniyor...');
+    Utils.showLoadingDialog(context, 'Mesaj analiz verileri siliniyor...');
     
     try {
       // Data reset servisini oluştur
@@ -400,16 +400,16 @@ class _SettingsViewState extends State<SettingsView> {
       
       // Başarı durumunu bildir
       if (success) {
-        FeedbackUtils.showToast(context, 'Mesaj analiz verileri başarıyla silindi');
+        Utils.showToast(context, 'Mesaj analiz verileri başarıyla silindi');
       } else {
-        FeedbackUtils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
+        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
       }
     } catch (e) {
       // Dialog'u kapat
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       
-      FeedbackUtils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
+      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
     }
   }
   
@@ -418,11 +418,11 @@ class _SettingsViewState extends State<SettingsView> {
     final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
+      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
       return;
     }
     
-    FeedbackUtils.showLoadingDialog(context, 'Tüm veriler siliniyor...');
+    Utils.showLoadingDialog(context, 'Tüm veriler siliniyor...');
     
     try {
       // Data reset servisini oluştur
@@ -442,16 +442,16 @@ class _SettingsViewState extends State<SettingsView> {
       
       // Başarı durumunu bildir
       if (success) {
-        FeedbackUtils.showToast(context, 'Tüm veriler başarıyla silindi');
+        Utils.showToast(context, 'Tüm veriler başarıyla silindi');
       } else {
-        FeedbackUtils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
+        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
       }
     } catch (e) {
       // Dialog'u kapat
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       
-      FeedbackUtils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
+      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
     }
   }
 } 

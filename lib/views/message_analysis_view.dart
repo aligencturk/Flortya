@@ -7,10 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import '../utils/feedback_utils.dart';
+import '../utils/utils.dart';
 import '../services/ai_service.dart';
 import '../models/message.dart';
 import '../app_router.dart';
@@ -19,7 +18,6 @@ import '../views/conversation_summary_view.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
 import '../controllers/home_controller.dart';
-import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 import '../models/message_coach_analysis.dart';
 import '../models/analysis_result.dart' as analysis;
@@ -123,7 +121,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     // Kullanıcı kontrolü
     if (authViewModel.user == null) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Mesajlarınızı yüklemek için lütfen giriş yapın'
       );
@@ -142,7 +140,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       debugPrint('Mesaj yükleme tamamlandı. Mesaj sayısı: ${messageViewModel.messages.length}');
       
       if (messageViewModel.errorMessage != null) {
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Mesajlar yüklenirken hata: ${messageViewModel.errorMessage}'
         );
@@ -158,7 +156,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
     } catch (e) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Mesajlar yüklenirken beklenmeyen hata: $e'
       );
@@ -182,7 +180,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     if (authViewModel.user == null) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Verilerinizi sıfırlamak için lütfen giriş yapın'
       );
@@ -209,7 +207,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (!mounted) return;
       
       // Başarı mesajı göster
-      FeedbackUtils.showSuccessFeedback(
+      Utils.showSuccessFeedback(
         context, 
         'Tüm analiz verileriniz başarıyla silindi'
       );
@@ -223,7 +221,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
     } catch (e) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Veriler sıfırlanırken hata: $e'
       );
@@ -641,7 +639,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     if (authViewModel.user == null) {
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Lütfen önce giriş yapın'
       );
@@ -678,7 +676,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Kullanıcı dosya seçmediyse
       if (pickedFile == null) {
         debugPrint('_pickImage: Görsel seçilmedi');
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Görsel seçilmedi'
         );
@@ -700,7 +698,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         
         if (!fileExists) {
           debugPrint('_pickImage: Seçilen dosya bulunamadı: ${pickedFile.path}');
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Seçilen görsel dosyasına erişilemiyor'
           );
@@ -713,7 +711,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         
         final int fileSize = await file.length();
         if (fileSize > 10 * 1024 * 1024) {
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Dosya boyutu 10MB\'dan küçük olmalıdır'
           );
@@ -727,7 +725,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         // Dosya uzantısını kontrol et
         final String extension = pickedFile.path.split('.').last.toLowerCase();
         if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension)) {
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Desteklenmeyen dosya formatı. Lütfen bir görsel seçin.'
           );
@@ -739,7 +737,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         }
       } catch (fileError) {
         debugPrint('_pickImage: Dosya kontrol hatası: $fileError');
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Görsel dosyası kontrol edilirken hata oluştu: $fileError'
         );
@@ -769,7 +767,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
       
       if (result) {
-        FeedbackUtils.showSuccessFeedback(
+        Utils.showSuccessFeedback(
           context, 
           'Görsel başarıyla analiz edildi'
         );
@@ -786,7 +784,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           homeController.anaSayfayiGuncelle();
         }
       } else {
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Görsel analiz edilirken bir hata oluştu'
         );
@@ -799,7 +797,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         });
         
         debugPrint('_pickImage genel hata: $e');
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Görsel seçme işlemi sırasında hata: $e'
         );
@@ -812,7 +810,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     if (authViewModel.user == null) {
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Lütfen önce giriş yapın'
       );
@@ -849,7 +847,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Kullanıcı dosya seçmediyse
       if (pickedFile == null) {
         debugPrint('_pickTextFile: Metin dosyası seçilmedi');
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Metin dosyası seçilmedi'
         );
@@ -871,7 +869,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         
         if (!fileExists) {
           debugPrint('_pickTextFile: Seçilen dosya bulunamadı: ${pickedFile.path}');
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Seçilen metin dosyasına erişilemiyor'
           );
@@ -884,7 +882,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         
         final int fileSize = await file.length();
         if (fileSize > 5 * 1024 * 1024) {
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Dosya boyutu 5MB\'dan küçük olmalıdır'
           );
@@ -898,7 +896,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         // Dosya uzantısını kontrol et
         final String extension = pickedFile.path.split('.').last.toLowerCase();
         if (extension != 'txt') {
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Desteklenmeyen dosya formatı. Lütfen bir .txt dosyası seçin.'
           );
@@ -912,7 +910,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         // Dosya içeriğini oku ve kontrol et (opsiyonel)
         final String content = await file.readAsString();
         if (content.trim().isEmpty) {
-          FeedbackUtils.showErrorFeedback(
+          Utils.showErrorFeedback(
             context, 
             'Seçilen metin dosyası boş'
           );
@@ -924,7 +922,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         }
       } catch (fileError) {
         debugPrint('_pickTextFile: Dosya kontrol hatası: $fileError');
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Metin dosyası kontrol edilirken hata oluştu: $fileError'
         );
@@ -951,7 +949,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
       
       if (result != null) {
-        FeedbackUtils.showSuccessFeedback(
+        Utils.showSuccessFeedback(
           context, 
           'Metin başarıyla analiz edildi'
         );
@@ -968,7 +966,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           homeController.anaSayfayiGuncelle();
         }
       } else {
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Metin analiz edilirken bir hata oluştu'
         );
@@ -981,7 +979,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         });
         
         debugPrint('_pickTextFile genel hata: $e');
-        FeedbackUtils.showErrorFeedback(
+        Utils.showErrorFeedback(
           context, 
           'Metin dosyası seçme işlemi sırasında hata: $e'
         );
@@ -1177,7 +1175,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                         
                         // Hata mesajı göster
                         if (mounted) {
-                          FeedbackUtils.showErrorFeedback(
+                          Utils.showErrorFeedback(
                             context, 
                             'Spotify Wrapped analizi alınırken hata oluştu: $e'
                           );
@@ -1596,7 +1594,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     
     if (authViewModel.user == null) {
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Verilerinizi sıfırlamak için lütfen giriş yapın'
       );
@@ -1782,7 +1780,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (!mounted) return;
       
       // Başarı mesajı göster
-      FeedbackUtils.showSuccessFeedback(
+      Utils.showSuccessFeedback(
         context, 
         'Mesaj analizi verileriniz başarıyla silindi'
       );
@@ -1799,7 +1797,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
     } catch (e) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Veriler sıfırlanırken hata: $e'
       );
@@ -1829,7 +1827,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (!mounted) return;
       
       // Başarı mesajı göster
-      FeedbackUtils.showSuccessFeedback(
+      Utils.showSuccessFeedback(
         context, 
         'İlişki değerlendirme verileriniz başarıyla silindi'
       );
@@ -1840,7 +1838,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
     } catch (e) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Veriler sıfırlanırken hata: $e'
       );
@@ -1870,7 +1868,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (!mounted) return;
       
       // Başarı mesajı göster
-      FeedbackUtils.showSuccessFeedback(
+      Utils.showSuccessFeedback(
         context, 
         'Danışma verileriniz başarıyla silindi'
       );
@@ -1881,7 +1879,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
     } catch (e) {
       if (!mounted) return;
-      FeedbackUtils.showErrorFeedback(
+      Utils.showErrorFeedback(
         context, 
         'Veriler sıfırlanırken hata: $e'
       );
@@ -1892,7 +1890,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   }
 
   // Mesaj Koçu analiz sonuçlarını görüntüle
-  Widget _buildMesajKocuAnalizi(MesajKocuAnalizi analiz) {
+  Widget _buildMesajKocuAnalizi(MessageCoachAnalysis analiz) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

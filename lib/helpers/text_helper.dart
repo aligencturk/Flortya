@@ -1,4 +1,3 @@
-
 /// Türkçe metin işlemleri için yardımcı sınıf
 class TextHelper {
   /// Türkçe karakterleri düzeltir

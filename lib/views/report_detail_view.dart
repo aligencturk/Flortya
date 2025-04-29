@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/past_report_model.dart';
 import '../viewmodels/past_reports_viewmodel.dart';
-import '../utils/feedback_utils.dart';
+import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 
 class ReportDetailView extends StatefulWidget {
@@ -40,7 +40,7 @@ class _ReportDetailViewState extends State<ReportDetailView> {
       setState(() {});
     } catch (e) {
       // Rapor bulunamadı - Dialog ile bildir
-      FeedbackUtils.showInfoDialog(
+      Utils.showInfoDialog(
         context,
         title: 'Rapor Bulunamadı',
         message: 'İstediğiniz rapor bulunamadı: $e',

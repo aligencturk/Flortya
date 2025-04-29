@@ -320,7 +320,7 @@ class HomeController extends ChangeNotifier {
       }
       
       // MesajKocuAnalizi nesnesine dönüştür
-      final analiz = MesajKocuAnalizi.from(result);
+      final analiz = MessageCoachAnalysis.from(result);
       
       // Formatlanmış sonucu döndür
       setState(KontrolDurumu.yuklendi);

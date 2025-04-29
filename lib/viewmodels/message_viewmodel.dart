@@ -781,139 +781,126 @@ class MessageViewModel extends ChangeNotifier {
         _logger.d('AI analizi için içerik (ilk 100 karakter): ${aiAnalysisContent.length > 100 ? aiAnalysisContent.substring(0, 100) + '...' : aiAnalysisContent}');
         
         // Görsel analizinden çıkarılan metni ilet 
-        analysis.AnalysisResult? analysisResult = await _aiService.analyzeMessage(aiAnalysisContent);
-        
-        if (analysisResult != null) {
-          _logger.i('AI mesaj analizi tamamlandı, sonuç alındı');
+        try {
+          _logger.i('AI analizi için görüntüden çıkarılan metin gönderiliyor...');
           
-          // Analiz sonucunu Firestore'a kaydet
-          await docRef.update({
-            'analysisResult': analysisResult.toMap(),
-            'isAnalyzing': false,
-            'isAnalyzed': true,
-            'updatedAt': Timestamp.now(),
-          });
+          // API çağrısını daha sağlam hale getir
+          analysis.AnalysisResult? analysisResult;
+          try {
+            analysisResult = await _aiService.analyzeMessage(aiAnalysisContent);
+            _logger.i('AI servisi yanıt verdi');
+          } catch (apiError) {
+            _logger.e('AI servisi çağrısında hata oluştu', apiError);
+            // Null döndürme, hata durumunda işleme devam edecek
+            analysisResult = null;
+          }
           
-          // Yerel listedeki mesajı güncelle
-          final index = _messages.indexWhere((m) => m.id == docRef.id);
-          if (index != -1) {
-            _messages[index] = _messages[index].copyWith(
-              isAnalyzing: false,
-              isAnalyzed: true,
-              analysisResult: analysisResult,
-              analysisSource: AnalysisSource.image, // Görüntü analizi kaynağını ayarla
-            );
-            _currentMessage = _messages[index];
-            _currentAnalysisResult = analysisResult;
+          if (analysisResult != null) {
+            _logger.i('AI mesaj analizi tamamlandı, sonuç alındı');
             
-            // Analiz tamamlandıktan sonra eksik alanları kontrol et ve güncelle
-            final mesajYorumu = analysisResult.aiResponse['mesajYorumu'] as String?;
-            if (analysisResult.tone.isEmpty || 
-                analysisResult.emotion.isEmpty || 
-                analysisResult.intent.isEmpty ||
-                mesajYorumu == null || mesajYorumu.isEmpty) {
-              _logger.w('Analiz sonucunda eksik alanlar var, görsel OCR metni üzerinden yeniden analiz yapılacak');
+            try {
+              // Analiz sonucunu Firestore'a kaydet
+              await docRef.update({
+                'analysisResult': analysisResult.toMap(),
+                'isAnalyzing': false,
+                'isAnalyzed': true,
+                'updatedAt': Timestamp.now(),
+              });
               
-              // Eksik alanlar için OCR metnini kullanarak yeniden analiz et
-              try {
-                analysis.AnalysisResult? updatedAnalysis = await _aiService.analyzeMessage(extractedText);
-                
-                if (updatedAnalysis != null) {
-                  _logger.i('OCR metni ile yapılan analiz başarılı, eksik alanlar güncellendi');
-                  
-                  // Eksik alanları güncelle
-                  Map<String, dynamic> resultMap = analysisResult.toMap();
-                  Map<String, dynamic> updatedMap = updatedAnalysis.toMap();
-                  
-                  // Boş olan alanları güncelle
-                  if (analysisResult.tone.isEmpty) {
-                    resultMap['tone'] = updatedMap['tone'];
-                  }
-                  if (analysisResult.emotion.isEmpty) {
-                    resultMap['emotion'] = updatedMap['emotion'];
-                  }
-                  if (analysisResult.intent.isEmpty) {
-                    resultMap['intent'] = updatedMap['intent'];
-                  }
-                  
-                  // aiResponse üzerinden mesajYorumu kontrolü
-                  final upAiResponse = updatedMap['aiResponse'] as Map<String, dynamic>?;
-                  final upMesajYorumu = upAiResponse?['mesajYorumu'] as String?;
-                  if (upMesajYorumu == null || upMesajYorumu.isEmpty) {
-                    resultMap['aiResponse'] = resultMap['aiResponse'] ?? {};
-                    (resultMap['aiResponse'] as Map<String, dynamic>)['mesajYorumu'] = upMesajYorumu ?? '';
-                  }
-                  
-                  // aiResponse üzerinden cevapOnerileri kontrolü
-                  final cevapOnerileri = analysisResult.aiResponse['cevapOnerileri'];
-                  final cevapOnerileriEmpty = cevapOnerileri == null || 
-                      (cevapOnerileri is List && cevapOnerileri.isEmpty);
-                      
-                  if (cevapOnerileriEmpty) {
-                    resultMap['aiResponse'] = resultMap['aiResponse'] ?? {};
-                    final upAiResponse = updatedMap['aiResponse'] as Map<String, dynamic>?;
-                    final upCevapOnerileri = upAiResponse?['cevapOnerileri'];
-                    (resultMap['aiResponse'] as Map<String, dynamic>)['cevapOnerileri'] = upCevapOnerileri ?? [];
-                  }
-                  
-                  // Güncellenmiş analiz sonucunu oluştur
-                  analysis.AnalysisResult mergedResult = analysis.AnalysisResult.fromMap(resultMap);
-                  
-                  // Firestore'da güncelle
-                  await docRef.update({
-                    'analysisResult': mergedResult.toMap(),
-                    'updatedAt': Timestamp.now(),
-                  });
-                  
-                  // Yerel listeyi güncelle
-                  _messages[index] = _messages[index].copyWith(
-                    analysisResult: mergedResult,
-                  );
-                  _currentMessage = _messages[index];
-                  _currentAnalysisResult = mergedResult;
-                  
-                  _logger.i('Eksik alanlar OCR metni ile güncellendi');
-                }
-              } catch (analyzeError) {
-                _logger.e('OCR metni ile eksik alan güncelleme hatası: $analyzeError');
-                // Hata olsa bile devam et, ilk analiz sonucu zaten kaydedildi
-              }
+              _logger.i('Analiz sonucu Firestore\'a kaydedildi');
+            } catch (dbError) {
+              _logger.e('Firestore güncelleme hatası', dbError);
+              // Veritabanı hatası olsa bile devam et
             }
+            
+            // Yerel listedeki mesajı güncelle
+            final index = _messages.indexWhere((m) => m.id == docRef.id);
+            if (index != -1) {
+              _messages[index] = _messages[index].copyWith(
+                isAnalyzing: false,
+                isAnalyzed: true,
+                analysisResult: analysisResult,
+                analysisSource: AnalysisSource.image, // Görüntü analizi kaynağını ayarla
+              );
+              _currentMessage = _messages[index];
+              _currentAnalysisResult = analysisResult;
+            }
+            
+            // Kullanıcı profiline kaydetmeyi dene
+            try {
+              // Analiz sonucunu kullanıcı profiline de kaydet
+              await _updateUserProfileWithAnalysis(userId, analysisResult);
+              _logger.i('Analiz sonucu kullanıcı profiline kaydedildi');
+            } catch (profileError) {
+              _logger.e('Kullanıcı profili güncelleme hatası', profileError);
+              // Profil hatası olsa bile işlemi tamamla
+            }
+            
+            _isLoading = false;
+            notifyListeners();
+            return true;
+          } else {
+            _logger.w('AI mesaj analizi sonuç döndürmedi');
+            
+            // Analiz başarısız olduğunda güncelleme yap
+            try {
+              await docRef.update({
+                'isAnalyzing': false,
+                'isAnalyzed': true,
+                'errorMessage': 'Analiz sonucu alınamadı',
+                'updatedAt': Timestamp.now(),
+              });
+            } catch (updateError) {
+              _logger.e('Analiz başarısız - Firestore güncelleme hatası', updateError);
+            }
+            
+            // Yerel listedeki mesajı güncelle
+            final index = _messages.indexWhere((m) => m.id == docRef.id);
+            if (index != -1) {
+              _messages[index] = _messages[index].copyWith(
+                isAnalyzing: false,
+                isAnalyzed: true,
+                errorMessage: 'Analiz sonucu alınamadı',
+                analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
+              );
+              _currentMessage = _messages[index];
+            }
+            
+            // Hata durumunu bildir
+            _isLoading = false;
+            _errorMessage = 'Analiz sonucu alınamadı';
+            notifyListeners();
+            
+            return false;
+          }
+        } catch (analysisError) {
+          _logger.e('Analiz sırasında beklenmeyen bir hata oluştu', analysisError);
+          
+          // Hata durumunda Firestore'u güncelle
+          try {
+            await docRef.update({
+              'isAnalyzing': false,
+              'isAnalyzed': false,
+              'errorMessage': 'Analiz sırasında hata: ${analysisError.toString()}',
+              'updatedAt': Timestamp.now(),
+            });
+            
+            // Yerel listedeki mesajı güncelle
+            final index = _messages.indexWhere((m) => m.id == docRef.id);
+            if (index != -1) {
+              _messages[index] = _messages[index].copyWith(
+                isAnalyzing: false,
+                isAnalyzed: false,
+                errorMessage: 'Analiz sırasında hata: ${analysisError.toString()}',
+              );
+              _currentMessage = _messages[index];
+            }
+          } catch (updateError) {
+            _logger.e('Hata durumunda Firestore güncelleme hatası', updateError);
           }
           
-          _logger.i('Analiz sonucu Firestore\'a kaydedildi');
-          
-          // Analiz tamamlandı durumunu bildir
           _isLoading = false;
-          notifyListeners();
-          
-          return true;
-        } else {
-          _logger.w('AI mesaj analizi sonuç döndürmedi');
-          
-          // Analiz başarısız olduğunda güncelleme yap
-          await docRef.update({
-            'isAnalyzing': false,
-            'isAnalyzed': true,
-            'errorMessage': 'Analiz sonucu alınamadı',
-            'updatedAt': Timestamp.now(),
-          });
-          
-          // Yerel listedeki mesajı güncelle
-          final index = _messages.indexWhere((m) => m.id == docRef.id);
-          if (index != -1) {
-            _messages[index] = _messages[index].copyWith(
-              isAnalyzing: false,
-              isAnalyzed: true,
-              errorMessage: 'Analiz sonucu alınamadı',
-              analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
-            );
-            _currentMessage = _messages[index];
-          }
-          
-          // Hata durumunu bildir
-          _isLoading = false;
-          _errorMessage = 'Analiz sonucu alınamadı';
+          _errorMessage = 'Analiz sırasında hata oluştu: ${analysisError.toString()}';
           notifyListeners();
           
           return false;

@@ -5,6 +5,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:percent_indicator/percent_indicator.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -13,10 +17,14 @@ import '../viewmodels/advice_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
-import '../utils/feedback_utils.dart';
 import '../utils/loading_indicator.dart';
 import '../widgets/message_coach_card.dart';
 import '../models/message_coach_analysis.dart';
+import '../models/analysis_result.dart';
+import '../models/past_analysis_model.dart';
+import '../models/past_report_model.dart';
+import '../utils/date_time_utils.dart';
+import '../utils/utils.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -1503,7 +1511,7 @@ class _HomeViewState extends State<HomeView> {
                   Consumer<AdviceViewModel>(
                     builder: (context, adviceViewModel, _) {
                       // isAnalyzing değiştiğinde kart'ın yeniden çizilmesini sağlamak için
-                      return const MesajKocuCard();
+                      return const MessageCoachCard();
                     }
                   ),
                   
@@ -3020,46 +3028,43 @@ class _HomeViewState extends State<HomeView> {
   }
   
   // Dalga animasyonu oluşturma
-  Widget _buildWaveAnimation(int score, Color baseColor) {
-    // Dalga hareketinin ve yüksekliğinin puana göre ayarlanması
-    final double waveFrequency = _getWaveFrequency(score);
-    final double waveHeight = _getWaveHeight(score);
+  Widget _buildWaveAnimation(int? score, Color color) {
+    // Puan null ise varsayılan değer kullan
+    final dalgaYuksekligi = score != null ? score / 5 : 5.0;
     
-    // Skora göre renk değiştirme
-    final Color waveColor = _getWaveColor(score);
-    
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedWave(
-        color: waveColor,
-        frequency: waveFrequency,
-        amplitude: waveHeight,
+    // Basit bir gradient ile statik bir dalga gösterimi
+    return Container(
+      height: 80,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withOpacity(0.2),
+            color.withOpacity(0.7),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
       ),
+      child: score != null
+        ? CustomPaint(
+            painter: SimpleDalgaPainter(
+              dalgaYuksekligi: dalgaYuksekligi,
+              dalgaSayisi: 5,
+              renk: color,
+            ),
+          )
+        : Center(
+            child: Text(
+              "Henüz değerlendirme yapılmadı",
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+          ),
     );
-  }
-  
-  // Dalga rengini puana göre ayarlama
-  Color _getWaveColor(int score) {
-    if (score >= 90) return const Color(0xFF9D3FFF); // Mor - En iyi puan
-    if (score >= 60) return const Color(0xFF7B68EE); // Lavanta
-    if (score >= 40) return const Color(0xFFFF6B6B); // Turuncu-Kırmızı
-    return const Color(0xFFFF4500);  // Kırmızı - En düşük puan
-  }
-  
-  // Dalga frekansını puana göre ayarlama (düşük puan = daha hızlı ve düzensiz dalga)
-  double _getWaveFrequency(int score) {
-    if (score >= 90) return 0.03; // 90-100 puan - Çok sakin, yavaş dalga
-    if (score >= 60) return 0.06; // 60-89 puan - Orta hızda dalga
-    if (score >= 40) return 0.10; // 40-59 puan - Hızlı dalga
-    return 0.15; // 0-39 puan - Çok hızlı ve düzensiz dalga
-  }
-  
-  // Dalga yüksekliğini puana göre ayarlama (düşük puan = daha yüksek dalga)
-  double _getWaveHeight(int score) {
-    if (score >= 90) return 4;  // 90-100 puan - Çok düşük, yumuşak dalga
-    if (score >= 60) return 8;  // 60-89 puan - Orta yükseklikte dalga
-    if (score >= 40) return 12; // 40-59 puan - Yüksek dalga
-    return 18; // 0-39 puan - Çok yüksek, sert ve düzensiz dalga
   }
 
   // SSS Diyaloğu
@@ -3273,7 +3278,7 @@ class _HomeViewState extends State<HomeView> {
       final homeController = Provider.of<HomeController>(context, listen: false);
       
       // İşlem onayını al
-      final shouldContinue = await FeedbackUtils.showConfirmationDialog(
+      final shouldContinue = await Utils.showConfirmationDialog(
         context,
         title: 'Veriler Silinecek',
         message: 'Tüm analiz verileriniz silinecek. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
@@ -3282,13 +3287,13 @@ class _HomeViewState extends State<HomeView> {
       if (!shouldContinue) return;
       
       // Toast bildirim göster
-      FeedbackUtils.showToast(context, 'Veriler temizleniyor...');
+      Utils.showToast(context, 'Veriler temizleniyor...');
       
       // Firestore'daki verileri temizle
       final result = await profileViewModel.clearUserAnalysisData();
       
       if (!result) {
-        FeedbackUtils.showErrorFeedback(context, 'Veriler temizlenirken bir hata oluştu');
+        Utils.showErrorFeedback(context, 'Veriler temizlenirken bir hata oluştu');
         return;
       }
       
@@ -3298,9 +3303,9 @@ class _HomeViewState extends State<HomeView> {
       homeController.resetAnalizVerileri();
       
       // Başarı mesajı göster
-      FeedbackUtils.showSuccessFeedback(context, 'Tüm veriler başarıyla temizlendi');
+      Utils.showSuccessFeedback(context, 'Tüm veriler başarıyla temizlendi');
     } catch (e) {
-      FeedbackUtils.showErrorFeedback(context, 'Hata: $e');
+      Utils.showErrorFeedback(context, 'Hata: $e');
     }
   }
 
@@ -3309,15 +3314,15 @@ class _HomeViewState extends State<HomeView> {
     try {
       // Ayarlar kaydedildiğinde geri bildirim göster
       Navigator.of(context).pop(); // Ayarlar dialogunu kapat
-      FeedbackUtils.showToast(context, 'Bildirim ayarları kaydedildi');
+      Utils.showToast(context, 'Bildirim ayarları kaydedildi');
     } catch (e) {
-      FeedbackUtils.showErrorFeedback(context, 'Ayarlar kaydedilirken hata oluştu');
+      Utils.showErrorFeedback(context, 'Ayarlar kaydedilirken hata oluştu');
     }
   }
 
   // Şifre değiştirme (henüz uygulanmamış)
   void _changePassword() {
-    FeedbackUtils.showInfoDialog(
+    Utils.showInfoDialog(
       context,
       title: 'Yakında',
       message: 'Şifre değiştirme özelliği yakında eklenecek.',
@@ -3327,143 +3332,47 @@ class _HomeViewState extends State<HomeView> {
 
 // Sınıf sonu
 
-// Animasyonlu dalga widget'ı
-class AnimatedWave extends StatefulWidget {
-  final Color color;
-  final double frequency;
-  final double amplitude;
+// Basit dalga çizici
+class SimpleDalgaPainter extends CustomPainter {
+  final double dalgaYuksekligi;
+  final int dalgaSayisi;
+  final Color renk;
 
-  const AnimatedWave({
-    super.key, 
-    required this.color,
-    required this.frequency,
-    required this.amplitude,
-  });
-
-  @override
-  State<AnimatedWave> createState() => _AnimatedWaveState();
-}
-
-class _AnimatedWaveState extends State<AnimatedWave> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Animasyon kontrolcüsü oluşturma
-    _controller = AnimationController(
-      vsync: this,
-      // İlişki puanına göre farklı hızda hareket eden animasyon
-      duration: Duration(milliseconds: (3000 / widget.frequency).round()),
-    );
-
-    // Sürekli tekrarlayan animasyon
-    _animation = Tween<double>(begin: 0, end: 2 * pi).animate(_controller);
-    
-    // Animasyonu başlat
-    _controller.repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: WavePainter(
-            color: widget.color,
-            frequency: widget.frequency,
-            amplitude: widget.amplitude,
-            phase: _animation.value,
-          ),
-          size: Size.infinite,
-          child: Container(),
-        );
-      },
-    );
-  }
-}
-
-// Dalga animasyonu çizici sınıfı
-class WavePainter extends CustomPainter {
-  final Color color;
-  final double frequency;
-  final double amplitude;
-  final double phase;
-
-  WavePainter({
-    required this.color,
-    required this.frequency,
-    required this.amplitude,
-    required this.phase,
+  SimpleDalgaPainter({
+    required this.dalgaYuksekligi,
+    required this.dalgaSayisi,
+    required this.renk,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.8)
-      ..style = PaintingStyle.fill;
-
+      ..color = renk.withOpacity(0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
     final path = Path();
     final width = size.width;
     final height = size.height;
     
-    // Yol başlangıcı
-    path.moveTo(0, height / 2);
+    // Yatay çizgi (orta)
+    final baseY = height * 0.5;
+    path.moveTo(0, baseY);
     
-    // Dalgalı çizgiyi oluşturma
-    for (double i = 0; i <= width; i++) {
-      // Sinüs dalgasını kullanarak dalgayı çiz
-      // Farklı frekans ve genlik değerleri farklı dalga desenleri oluşturur
-      // phase değeri, dalgayı hareket ettirmek için kullanılır
-      final y = height / 2 + 
-              amplitude * sin((i * frequency) + phase * 10) +
-              (amplitude / 2) * sin((i * frequency * 2) + phase * 15);
+    // Dalga deseni oluştur
+    double waveWidth = width / dalgaSayisi;
+    
+    for (int i = 0; i <= dalgaSayisi; i++) {
+      double x1 = i * waveWidth;
+      double y1 = baseY + sin(i * pi) * dalgaYuksekligi;
       
-      path.lineTo(i, y);
+      path.lineTo(x1, y1);
     }
     
-    // Yolun altını kapat
-    path.lineTo(width, height);
-    path.lineTo(0, height);
-    path.close();
-    
-    // Dalgalı alanı doldur
     canvas.drawPath(path, paint);
-    
-    // Dalga çizgisini de çiz (daha kalın ve belirgin)
-    final strokePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
-    
-    final linePath = Path();
-    linePath.moveTo(0, height / 2);
-    
-    for (double i = 0; i <= width; i++) {
-      final y = height / 2 + 
-              amplitude * sin((i * frequency) + phase * 10) +
-              (amplitude / 2) * sin((i * frequency * 2) + phase * 15);
-      
-      linePath.lineTo(i, y);
-    }
-    
-    canvas.drawPath(linePath, strokePaint);
   }
 
   @override
-  bool shouldRepaint(WavePainter oldDelegate) => 
-      oldDelegate.phase != phase ||
-      oldDelegate.frequency != frequency ||
-      oldDelegate.amplitude != amplitude ||
-      oldDelegate.color != color;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 

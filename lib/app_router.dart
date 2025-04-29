@@ -17,6 +17,7 @@ import 'views/report_detail_view.dart';
 import 'views/consultation_view.dart';
 import 'views/settings_view.dart';
 import 'views/conversation_summary_view.dart';
+import 'views/message_coach_view.dart';
 import 'utils/utils.dart';
 import 'utils/loading_indicator.dart';
 
@@ -1485,6 +1486,18 @@ class AppRouter {
             final summaryData = state.extra as List<Map<String, String>>? ?? [];
             return KonusmaSummaryView(summaryData: summaryData);
           },
+        ),
+        // Mesaj Koçu sayfası
+        GoRoute(
+          path: '/message-coach',
+          name: 'message-coach',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const MessageCoachView(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          ),
         ),
       ],
       errorBuilder: (context, state) => Scaffold(

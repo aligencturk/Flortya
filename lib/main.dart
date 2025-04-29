@@ -25,6 +25,8 @@ import 'viewmodels/past_reports_viewmodel.dart';
 import 'package:flutter/services.dart';
 import 'services/notification_service.dart';
 import 'utils/utils.dart';
+import 'controllers/message_coach_controller.dart';
+import 'controllers/home_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -122,6 +124,9 @@ void main() async {
               final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
               return PastReportsViewModel(reportViewModel);
             },
+          ),
+          ChangeNotifierProvider<MessageCoachController>(
+            create: (_) => MessageCoachController(),
           ),
         ],
         child: MyApp(),

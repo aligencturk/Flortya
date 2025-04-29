@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'dart:math';
 
-class MesajKocuAnalizi {
+class MessageCoachAnalysis {
   final String? iliskiTipi;
   final String analiz;
   final String? gucluYonler;
@@ -23,7 +23,7 @@ class MesajKocuAnalizi {
   // İlk 3 analizi tanımlamak için sabit
   static const int ucretlizAnalizSayisi = 3;
 
-  MesajKocuAnalizi({
+  MessageCoachAnalysis({
     this.iliskiTipi,
     required this.analiz,
     this.gucluYonler,
@@ -41,7 +41,7 @@ class MesajKocuAnalizi {
     this.cevapOnerisi,
   });
 
-  factory MesajKocuAnalizi.from(Map<String, dynamic> json) {
+  factory MessageCoachAnalysis.from(Map<String, dynamic> json) {
     try {
       // Öneri listesini dönüştür
       final List<dynamic> onerileriJson = json['öneriler'] ?? [];
@@ -232,7 +232,7 @@ class MesajKocuAnalizi {
       print('📊 MesajKocuAnalizi - Son Mesaj Etkisi: ${sonMesajEtkisiMap.keys.join(', ')}');
       print('💡 MesajKocuAnalizi - Direkt Yorum: ${direktYorum?.substring(0, min(30, direktYorum?.length ?? 0))}...');
 
-      return MesajKocuAnalizi(
+      return MessageCoachAnalysis(
         iliskiTipi: iliskiTipi,
         analiz: analiz,
         gucluYonler: gucluYonler,
@@ -252,7 +252,7 @@ class MesajKocuAnalizi {
     } catch (e) {
       print('❌ MesajKocuAnalizi.from hatası: $e');
       // Hata durumunda daha kullanışlı varsayılan değerlerle nesne döndür
-      return MesajKocuAnalizi(
+      return MessageCoachAnalysis(
         iliskiTipi: 'Arkadaşlık',
         analiz: 'Mesajınız genellikle açık ve samimi bir iletişim içeriyor. İfade tarzınız olumlu etki yaratıyor.',
         gucluYonler: 'Açık iletişim, samimi ifadeler',
@@ -316,8 +316,8 @@ class MesajKocuAnalizi {
   }
   
   /// JSON verilerinden MesajKocuAnalizi nesnesi oluşturur
-  factory MesajKocuAnalizi.fromJson(Map<String, dynamic> json) {
-    return MesajKocuAnalizi.from(json);
+  factory MessageCoachAnalysis.fromJson(Map<String, dynamic> json) {
+    return MessageCoachAnalysis.from(json);
   }
   
   /// Geçerli bir sohbet genel havası değeri döndürür
