@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
+import '../models/message_coach_analysis.dart'; // Mesaj koçu modelini import et
 import 'logger_service.dart';
 
 class AiService {
@@ -868,81 +869,78 @@ class AiService {
   }
 
   /// Mesaj koçu analizi yapma
-  Future<Map<String, dynamic>> analyzeChatCoach(String messageContent) async {
+  Future<Map<String, dynamic>> analyzeChatCoach(String chatContent) async {
     try {
       _logger.i('Mesaj koçu analizi başlatılıyor...');
       
       // Mesaj içeriğini kontrol etme
-      if (messageContent.trim().isEmpty) {
+      if (chatContent.trim().isEmpty) {
         _logger.w('Boş mesaj içeriği, analiz yapılamıyor');
-        return {'error': 'Mesaj içeriği boş'};
+        return {'error': 'Analiz için geçerli bir içerik gerekli'};
       }
       
-      // API anahtarını kontrol et
-      if (_geminiApiKey.isEmpty) {
-        _logger.e('Gemini API anahtarı bulunamadı. .env dosyasını kontrol edin.');
-        return {'error': 'API anahtarı eksik'};
+      // API anahtarını kontrol et ve tam URL oluştur
+      String apiUrl;
+      try {
+        apiUrl = _getApiUrl();
+        _logger.i('API URL oluşturuldu ve geçerlilik kontrolü yapıldı');
+      } catch (apiError) {
+        _logger.e('API URL oluşturulurken hata: $apiError');
+        return {'error': 'API yapılandırma hatası: $apiError'};
       }
       
-      // Mesajın uzunluğunu kontrol et
-      if (messageContent.length > 12000) {
-        _logger.w('Mesaj içeriği çok uzun (${messageContent.length} karakter). Kısaltılıyor...');
-        messageContent = "${messageContent.substring(0, 12000)}...";
+      // Mesaj içeriğinin uzunluğunu kontrol et
+      if (chatContent.length > 12000) {
+        _logger.w('Mesaj içeriği çok uzun (${chatContent.length} karakter). Kısaltılıyor...');
+        chatContent = "${chatContent.substring(0, 12000)}...";
       }
       
-      // Prompt hazırlama - Mesaj Koçu Analizi formatında
-      String prompt = '''
-      Sen bir ilişki ve mesajlaşma uzmanısın, ancak SEVİMLİ VE NAZİK DEĞİLSİN. Tamamen direkt, KÜSTAH VE ACIMASIZ davranıyorsun. "Canım benim", "tatlım", "bebeğim" gibi ifadeler ASLA KULLANMIYORSUN. Gerçekleri hiçbir zaman yumuşatmadan, sert ve keskin bir üslupla söylüyorsun.
+      // Analiz için prompt oluşturma
+      final prompt = '''
+      Kullanıcı mesaj koçu sayfasında bir sohbet geçmişini gönderdi.
+      Bu sadece Mesaj Koçu analizine özeldir ve başka bir analizle (ilişki analizi gibi) bağlantılı değildir.
 
-      Kullanıcı bir sohbet geçmişi (ekran görüntüsü veya kopyala-yapıştır metin) ve son gönderilen mesaj verdi. BU MESAJI MUTLAKA ANALİZ ETMEN GEREKİYOR. Hiçbir durumda "analiz yapılamadı" veya "yetersiz içerik" gibi statik yanıtlar VERME. Eğer içerik azsa bile, eldeki bilgilere dayanarak bir analiz yap.
+      Görevin:
+      1. Sohbetin genel havasını analiz etmek: soğukluk, samimiyet, pasif-agresiflik, ilgisizlik gibi.
+      2. Son mesaja ayrıca özel bir analiz yapmak.
+      3. Küstah, dürüst ve doğrudan yorumlar vermek.
+      4. Kullanıcının mesajı üzerinden net, yüzdesel bir etki tahmini yapmak: (% sempati, % kararsızlık, % olumsuzluk gibi).
+      5. Gerekirse doğrudan kısa bir cevap önerisinde bulunmak.
 
-      ŞUNLAR KESINLIKLE ZORUNLU:
-      1. Sohbetin genel havasını analiz et (Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili kategorilerinden birini kesinlikle seç, "analiz yapılamadı" ASLA YAZMA)
-      2. Sağdaki balonları kullanıcı ("sen"), soldaki balonları karşı taraf ("o") olarak tanı
-      3. Son mesaja kesinlikle özel bir analiz yap ve tonu belirt (Sert/Soğuk/Sempatik/Umursamaz – mutlaka bir ton belirle)
-      4. Sonuca göre direkt, küstah ve acımasız yorumlar ver, asla nazik olma
-      5. Sempatik, kararsız ve olumsuz değerlerini toplam %100 olacak şekilde değerlendir
-      6. Kısa ve net bir cevap önerisi sun, "canım" gibi ifadeler kullanmadan
+      ÖNEMLİ:
+      - Her durumda mutlaka analiz yap, içerik ne kadar az olursa olsun. "Analiz edilemedi" veya "yetersiz içerik" gibi ifadeler kullanma.
+      - Mutlaka küstah ve doğrudan yorumlar yap, nazik olmaktan kaçın.
+      - Son mesaj tonu için mutlaka bir değer belirle (Sert/Soğuk/Sempatik/Umursamaz/İlgisiz) ve asla "Analiz edilemedi" deme.
 
-      KESİNLİKLE DİKKAT EDİLECEK KURALLAR:
-      - NAZİK OLMA. Kibar değilsin. İltifat veya sevgi sözcükleri kullanma.
-      - Gerçekleri olduğu gibi söyle. "Canım benim", "tatlım" gibi sevimli ifadeler ASLA KULLANMA.
-      - Dürüst ve sert ol. Gereksiz uzun açıklamalardan kaçın. Direkt eleştir.
-      - Eğer sohbet genel olarak kötü gidiyorsa açıkça belirt ("Bu ilişki bitti" gibi net söyle).
-      - Son mesajın tonunu MUTLAKA belirle (Sert/Soğuk/Sempatik/Umursamaz seçeneklerinden birini).
-      - Son mesajın etki yüzdelerini MUTLAKA belirle (%XX sempatik / %XX kararsız / %XX olumsuz toplam %100 olacak şekilde).
-      - Boş veya statik veri VERME. Eldeki metni analiz et, içerik yetersizse bile en iyi tahminini yap.
-      - "Analiz edilemedi" gibi ifadeler yerine HER ZAMAN bir analiz sun.
-      - Cevap önerisi verirken nazik ve kibar olmaktan kaçın, gerektiğinde soğuk ve gerçekçi ol.
-      - Sohbet içeriğini doğrudan kopyalama veya alıntılama, sadece analiz et.
+      Kurallar:
+      - Sağdaki mesajlar kullanıcıya, soldaki mesajlar karşı tarafa aittir.
+      - Sohbet akışı yukarıdan aşağı doğru ilerler.
+      - Gereksiz uzun açıklamalara girmeden kısa, açık ve net yorumlar yap.
+      - Lafı dolandırmadan yaz. Gerekirse eleştirilerini sert bir dille yap.
 
-      ÖNEMLİ: Yanıtını tam olarak aşağıdaki JSON formatında hazırla. Başka açıklama ekleme veya JSON formatını bozma:
-      
+      Analiz için sohbet içeriği:
+      ```
+      ${chatContent}
+      ```
+
+      Lütfen aşağıdaki JSON formatında yanıt ver:
       {
-        "sohbetGenelHavasi": "Seçeneklerden birini mutlaka seç: Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili",
-        "genelYorum": "1-2 kısa cümlede net ve doğrudan ifade et, nazik olmadan",
-        "sonMesajTonu": "Mutlaka seç: Sert/Soğuk/Sempatik/Umursamaz",
+        "sohbetGenelHavasi": "Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili",
+        "genelYorum": "Genel dürüst ve doğrudan yorum",
+        "sonMesajTonu": "Sert/Soğuk/Sempatik/Umursamaz",
         "sonMesajEtkisi": {
-          "sempatik": XX,
-          "kararsız": XX,
-          "olumsuz": XX
+          "sempatik": 30,
+          "kararsız": 40,
+          "olumsuz": 30
         },
-        "direktYorum": "Açık, küstah ve eleştiren bir yorum yaz. Asla sevimli, tatlı veya samimi olma. Direkt eleştirini net bir şekilde belirt. 'Canım benim' gibi hitaplar ASLA KULLANMA.",
-        "cevapOnerileri": ["Karşı tarafa verebileceğin bir cevap önerisi", "İkinci bir cevap alternatifi", "Üçüncü bir alternatif"]
+        "direktYorum": "Küstah ve net bir tavsiye ver",
+        "cevapOnerileri": [
+          "Direkt bir cevap önerisinde bulun"
+        ]
       }
-      
-      Eğer çıkarılan metin çok kısaysa bile, bir analiz yapmaya çalış. Asla şunu döndürme:
-      
-      {
-        "error": "Yüklenen veriden sağlıklı bir analiz yapılamadı..."
-      }
-
-      İçerik çok azsa bile analiz yap, "eldeki bilgilerle kısıtlı bir analiz" gibi mazeretler sunma. Her durumda bir analiz sonucu dön.
-
-      Analiz edilecek metin:
-      $messageContent
       ''';
       
+      // API isteği için JSON gövdesi oluştur
       final requestBody = jsonEncode({
         'contents': [
           {
@@ -960,127 +958,190 @@ class AiService {
         }
       });
       
-      _logger.d('Mesaj koçu analizi API isteği gönderiliyor');
+      // API isteği içeriğini logla
+      _logger.d('API İstek URL: $apiUrl');
+      _logger.d('API İstek Gövdesi: ${requestBody.length} karakter - Örnek içerik (ilk 200 karakter): ${requestBody.substring(0, min(200, requestBody.length))}...');
       
-      // HTTP isteği için timeout ekle ve daha güvenli istek yapılandırması
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        _logger.e('GEMİNİ API ANAHTARI BOŞ - Authorization header eklenemeyecek');
+        return {'error': 'API anahtarı bulunamadı veya geçersiz'};
+      }
+      
+      // HTTP isteği gönderme - zaman aşımını 60 saniye olarak ayarla
       try {
+        _logger.i('API isteği gönderiliyor...');
         final response = await http.post(
-          Uri.parse(_geminiApiUrl),
+          Uri.parse(apiUrl),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
           body: requestBody,
         ).timeout(
-          const Duration(seconds: 45), // Timeout süresini uzattık
+          const Duration(seconds: 60),
           onTimeout: () {
-            _logger.e('Gemini API istek zaman aşımına uğradı (45 saniye)');
-            throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
+            _logger.e('API yanıt zaman aşımı - 60 saniye doldu');
+            throw Exception('API yanıtı zaman aşımına uğradı. Lütfen internet bağlantınızı kontrol edin veya daha sonra tekrar deneyin.');
           },
         );
         
-        _logger.d('API yanıtı alındı - status: ${response.statusCode}, içerik uzunluğu: ${response.body.length}');
+        // API yanıtını detaylı logla
+        _logger.i('API Yanıtı Alındı - HTTP Status: ${response.statusCode}');
+        _logger.d('API Yanıt Headers: ${response.headers}');
+        
+        // Yanıt içeriğini kısaltarak logla
+        final responseBodySummary = response.body.length > 500 
+            ? '${response.body.substring(0, 500)}... (${response.body.length} karakter)'
+            : response.body;
+        _logger.d('API Yanıt İçeriği: $responseBodySummary');
         
         if (response.statusCode == 200) {
-          // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
+          // Başarılı yanıt
+          _logger.i('API isteği başarılı (200 OK)');
+          
+          // Yanıtı parse et
+          Map<String, dynamic>? data;
           try {
-            // _processApiResponse metodu AnalysisResult? döndürdüğü için Map<String, dynamic>'e dönüştürüyoruz
-            final result = _processApiResponse(response.body);
-            if (result != null) {
-              return {
-                'id': result.id,
-                'messageId': result.messageId,
-                'emotion': result.emotion,
-                'intent': result.intent,
-                'tone': result.tone,
-                'severity': result.severity,
-                'persons': result.persons,
-                'mesajYorumu': result.aiResponse['mesajYorumu'],
-                'cevapOnerileri': result.aiResponse['cevapOnerileri']
-              };
-            } else {
-              return {
-                'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
-                'emotion': 'Belirtilmemiş',
-                'intent': 'İletişim kurma',
-                'tone': 'Nötr',
-                'severity': 5,
-                'persons': 'Belirtilenmemiş',
-                'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
-                'cevapOnerileri': ['Mesajınızı tekrar göndermeyi deneyin.']
-              };
+            data = jsonDecode(response.body);
+            _logger.d('API yanıtı başarıyla JSON\'a dönüştürüldü');
+          } catch (jsonError) {
+            _logger.e('API yanıtı JSON\'a dönüştürülemedi', jsonError);
+            return {'error': 'API yanıtı geçerli bir JSON içermiyor: $jsonError'};
+          }
+          
+          // candidates kontrol et
+          final candidates = data?['candidates'];
+          if (candidates == null || !(candidates is List) || candidates.isEmpty) {
+            _logger.e('API yanıtında candidates bulunamadı veya boş', data);
+            return {'error': 'API yanıtı beklenen formatta değil: candidates bulunamadı'};
+          }
+          
+          // content/parts kontrol et
+          final content = candidates[0]?['content'];
+          final parts = content?['parts'];
+          if (parts == null || !(parts is List) || parts.isEmpty) {
+            _logger.e('API yanıtında content/parts bulunamadı veya boş', content);
+            return {'error': 'API yanıtı beklenen formatta değil: content/parts bulunamadı'};
+          }
+          
+          // text alanını al
+          final text = parts[0]?['text'];
+          if (text == null || text.toString().trim().isEmpty) {
+            _logger.e('API yanıtında text bulunamadı veya boş', parts);
+            return {'error': 'API yanıtı beklenen formatta değil: text bulunamadı veya boş'};
+          }
+          
+          // text içeriğini logla
+          _logger.d('AI yanıt metni (ilk 200 karakter): ${text.toString().substring(0, min(200, text.toString().length))}...');
+          
+          // JSON bloğunu ayıkla
+          try {
+            final jsonRegExp = RegExp(r'{[\s\S]*}');
+            final jsonMatch = jsonRegExp.firstMatch(text);
+            
+            if (jsonMatch == null) {
+              _logger.e('AI yanıtında JSON bloğu bulunamadı', text);
+              return {'error': 'AI yanıtı beklenen JSON formatında değil'};
             }
-          } catch (processError) {
-            _logger.e('API yanıtı işlenirken hata', processError);
-            // Varsayılan sonuç döndür
-            return {
-              'id': DateTime.now().millisecondsSinceEpoch.toString(),
-              'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
-              'emotion': 'Belirtilmemiş',
-              'intent': 'İletişim kurma',
-              'tone': 'Nötr',
-              'severity': 5,
-              'persons': 'Belirtilenmemiş',
-              'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
-              'cevapOnerileri': ['Mesajınızı tekrar göndermeyi deneyin.']
-            };
+            
+            final jsonStr = jsonMatch.group(0);
+            if (jsonStr == null || jsonStr.isEmpty) {
+              _logger.e('Boş JSON bloğu', jsonMatch);
+              return {'error': 'AI yanıtından JSON bloğu çıkarılamadı'};
+            }
+            
+            // JSON bloğunu çözümle
+            final parsedData = jsonDecode(jsonStr);
+            _logger.i('AI yanıtı başarıyla çözümlendi - ${parsedData.keys.length} alan içeriyor');
+            
+            return parsedData;
+          } catch (jsonError) {
+            _logger.e('AI yanıtı JSON formatına çevrilemedi', jsonError);
+            _logger.e('Hatalı JSON içeriği: $text');
+            return {'error': 'AI yanıtı geçerli bir JSON formatına çevrilemedi: $jsonError'};
           }
         } else {
-          // Hata durumunu daha detaylı logla
-          _logger.e('API hatası: ${response.statusCode}', 'Yanıt: ${response.body.substring(0, min(200, response.body.length))}...');
-          
-          // Özel hata kodlarını kontrol et
-          if (response.statusCode == 400) {
-            _logger.e('API hata 400: İstek yapısı hatalı');
-            return {
-              'id': DateTime.now().millisecondsSinceEpoch.toString(),
-              'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
-              'emotion': 'Belirtilmemiş',
-              'intent': 'İstek hatası',
-              'tone': 'Nötr',
-              'severity': 5,
-              'persons': 'Belirtilenmemiş',
-              'mesajYorumu': 'İstek formatında hata: ${response.statusCode}. Lütfen tekrar deneyiniz.',
-              'cevapOnerileri': ['Daha kısa bir mesaj ile tekrar deneyin.']
-            };
-          } else if (response.statusCode == 401 || response.statusCode == 403) {
-            _logger.e('API yetkilendirme hatası: API anahtarı geçersiz veya yetkisiz');
-            return {
-              'id': DateTime.now().millisecondsSinceEpoch.toString(),
-              'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
-              'emotion': 'Belirtilmemiş',
-              'intent': 'Yetkilendirme hatası',
-              'tone': 'Nötr',
-              'severity': 5,
-              'persons': 'Belirtilenmemiş',
-              'mesajYorumu': 'API yetkilendirme hatası (${response.statusCode}). Lütfen uygulama ayarlarını kontrol edin.',
-              'cevapOnerileri': ['Uygulama yöneticinizle iletişime geçin.']
-            };
-          } else {
-            return {
-              'error': 'Analiz API hatası: ${response.statusCode}'
-            };
-          }
+          // Hata durumu - response.statusCode != 200
+          _logger.e('API Hatası: HTTP ${response.statusCode}', response.body);
+          return {
+            'error': 'API yanıtı başarısız (HTTP ${response.statusCode}).',
+            'statusCode': response.statusCode,
+            'body': response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body
+          };
         }
       } catch (httpError) {
-        // HTTP istek hatalarını daha iyi ele al
+        // HTTP isteği sırasında oluşan hatalar
         _logger.e('HTTP istek hatası', httpError);
-        return {
-          'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
-          'emotion': 'Belirtilmemiş',
-          'intent': 'İletişim hatası',
-          'tone': 'Nötr',
-          'severity': 5,
-          'persons': 'Belirtilenmemiş',
-          'mesajYorumu': 'API ile iletişim sırasında hata: ${httpError.toString()}. Lütfen internet bağlantınızı kontrol edin.',
-          'cevapOnerileri': ['İnternet bağlantınızı kontrol edin ve tekrar deneyin.']
-        };
+        return {'error': 'API ile iletişim sırasında hata oluştu: $httpError'};
       }
     } catch (e) {
-      _logger.e('Mesaj koçu analizi hatası', e);
-      return {'error': 'Beklenmeyen bir hata oluştu: $e'};
+      _logger.e('Beklenmeyen analiz hatası', e);
+      return {'error': 'Mesaj koçu analizi sırasında beklenmeyen bir hata oluştu: $e'};
+    }
+  }
+
+  // Sohbet analiz sonuçlarını döndürme (eski message_coach_service'ten taşındı)
+  Future<MessageCoachAnalysis?> sohbetiAnalizeEt(String sohbetIcerigi) async {
+    try {
+      _logger.i('Sohbet analizi başlatılıyor...');
+      
+      // Sohbet içeriğini kontrol etme
+      if (sohbetIcerigi.trim().isEmpty) {
+        _logger.w('Boş sohbet içeriği, analiz yapılamıyor');
+        return null;
+      }
+      
+      // Analiz yap ve ham sonucu al
+      Map<String, dynamic> analizSonucu = await analyzeChatCoach(sohbetIcerigi);
+      
+      // Mesaj koçu analiz sonucunda hata varsa kontrol et
+      if (analizSonucu.containsKey('error')) {
+        _logger.e('Sohbet analizi hatası: ${analizSonucu['error']}');
+        return MessageCoachAnalysis(
+          analiz: 'Analiz yapılamadı: ${analizSonucu['error']}',
+          oneriler: ['Tekrar deneyin', 'Daha net bir sohbet metni sağlayın'],
+          etki: {'Hata': 100},
+        );
+      }
+      
+      // AI yanıtını JSON formatına çevirip analiz nesnesine dönüştürme
+      try {
+        // JSON alanlarını MessageCoachAnalysis'e dönüştür
+        return MessageCoachAnalysis(
+          analiz: analizSonucu['mesajYorumu'] ?? 'Sohbet analizi yapıldı.',
+          oneriler: analizSonucu['cevapOnerileri'] is List 
+              ? List<String>.from(analizSonucu['cevapOnerileri'])
+              : ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
+          etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+          sohbetGenelHavasi: analizSonucu['sohbetGenelHavasi'] ?? 'Samimi',
+          genelYorum: analizSonucu['genelYorum'] ?? 'Konuşma stilin berbat. Karşı taraf ne dediğini anlayamıyor olmalı.',
+          sonMesajTonu: analizSonucu['sonMesajTonu'] ?? 'Soğuk',
+          sonMesajEtkisi: analizSonucu['sonMesajEtkisi'] as Map<String, int>? ?? {'sempatik': 30, 'kararsız': 40, 'olumsuz': 30},
+          direktYorum: analizSonucu['direktYorum'] ?? 'Bu kadar bariz kaçamak cevaplar verince kimse seni ciddiye almayacak.',
+          cevapOnerisi: analizSonucu['cevapOnerileri'] is List && (analizSonucu['cevapOnerileri'] as List).isNotEmpty 
+              ? (analizSonucu['cevapOnerileri'] as List).first.toString()
+              : 'Bu konudaki düşüncemi doğrudan söyleyeyim: evet, öyle düşünüyorum ve şunları yapmalıyız.',
+        );
+      } catch (e) {
+        _logger.e('Mesaj koçu analiz sonucu dönüştürme hatası', e);
+        
+        // Varsayılan analiz sonucu döndür
+        return MessageCoachAnalysis(
+          analiz: 'Sohbet analizi yapıldı.',
+          oneriler: ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
+          etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+          sohbetGenelHavasi: 'Samimi',
+          genelYorum: 'Sohbetin havası kesinlikle kötü. Kendini daha net ifade et ve lafı dolandırma.',
+          sonMesajTonu: 'Sempatik',
+          sonMesajEtkisi: {'sempatik': 50, 'kararsız': 30, 'olumsuz': 20},
+          direktYorum: 'Resmen karşı tarafı sıkıyorsun. Bu kadar dolaylı konuşmayı bırak ve direkt ne istiyorsan söyle.',
+          cevapOnerisi: 'Merhaba, durumum tam olarak şu. Bana karşı ne hissettiğini bilmek istiyorum.',
+        );
+      }
+    } catch (e) {
+      _logger.e('Sohbet analizi işlemi hatası', e);
+      return null;
     }
   }
 

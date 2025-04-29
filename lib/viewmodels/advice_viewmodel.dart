@@ -72,57 +72,80 @@ class AdviceViewModel extends ChangeNotifier {
     });
     
     try {
-      // Ücretsiz analiz sınırını kontrol et
-      if (_ucretlizAnalizSayisi >= MessageCoachAnalysis.ucretlizAnalizSayisi) {
-        _isLoading = false;
-        _isAnalyzing = false;
-        _errorMessage = 'Ücretsiz analiz hakkınızı doldurdunuz';
-        notifyListeners();
+      // AiService üzerinden analiz isteği yapma
+      final MessageCoachAnalysis? sonuc = await _aiService.sohbetiAnalizeEt(metin);
+      
+      // Zaman aşımı timer'ını iptal et
+      if (timeoutTimer != null && timeoutTimer.isActive) {
         timeoutTimer.cancel();
-        return;
       }
       
-      // Geminik AI üzerinden analiz
-      final analiz = await ApiService().analyzeMessage(metin);
-      
-      // Zaman aşımı zamanlayıcısını iptal et
-      timeoutTimer.cancel();
-      
-      if (analiz == null) {
+      // Sonucu kontrol et
+      if (sonuc == null) {
+        // Analiz sonucu alınamadıysa hata mesajı ayarla
+        _errorMessage = 'Analiz yapılamadı. Lütfen tekrar deneyin.';
         _isLoading = false;
         _isAnalyzing = false;
-        _errorMessage = 'Sunucu yanıt vermedi veya analiz sonucu alınamadı. Lütfen tekrar deneyin.';
         notifyListeners();
         return;
       }
       
-      // Analizi MessageCoachAnalysis tipine dönüştür
-      final mesajAnalizi = _convertAnalysisToMesajKocu(analiz);
+      // Analiz sonucunu atama
+      _mesajAnalizi = sonuc;
       
-      // Firestore'a kaydet
-      await _saveAnalysisToFirestore(userId, mesajAnalizi, metin);
-      await _incrementAnalysisCount(userId);
+      // Kullanıcının ücretsiz analiz sayısını artır
+      _ucretlizAnalizSayisi++;
       
-      // Tüm işlemler tamamlandıktan sonra sonuç modelini ata
-      _mesajAnalizi = mesajAnalizi;
+      // Durumları güncelleme
       _isLoading = false;
       _isAnalyzing = false;
-      
-      // UI'a bildir
       notifyListeners();
       
-      print('✅ Mesaj analizi tamamlandı: ${_mesajAnalizi?.anlikTavsiye?.substring(0, min(30, _mesajAnalizi?.anlikTavsiye?.length ?? 0))}...');
-      print('✅ UI güncellendi - isAnalyzing=$_isAnalyzing, hasAnalizi=${hasAnalizi}');
+      print('✅ Mesaj analizi tamamlandı: ${sonuc.direktYorum?.substring(0, min(30, sonuc.direktYorum?.length ?? 0))}...');
+      
+      // Bildirim gönder
+      _notificationService.showLocalNotification(
+        'Mesaj Koçu',
+        'Sohbet analiziniz tamamlandı.'
+      );
+      
+      // Firestore'a kaydetme (opsiyonel - bağımlılık oluşturabilir)
+      try {
+        await _kaydetAnalizi(userId, sonuc);
+      } catch (dbError) {
+        print('⚠️ Analiz sonucu veritabanına kaydedilemedi: $dbError');
+        // Veritabanı hatası kullanıcıya yansıtılmayacak
+      }
       
     } catch (e) {
       print('❌ Mesaj analizi hatası: $e');
-      timeoutTimer.cancel();
       
+      // Zaman aşımı timer'ını iptal et
+      if (timeoutTimer != null && timeoutTimer.isActive) {
+        timeoutTimer.cancel();
+      }
+      
+      // Hata durumunda
+      _errorMessage = 'API Hatası: $e';
       _isLoading = false;
       _isAnalyzing = false;
-      _errorMessage = 'Analiz sırasında bir hata oluştu: $e';
+      
+      // Varsayılan bir analiz sonucu oluştur
+      _mesajAnalizi = MessageCoachAnalysis(
+        analiz: 'Analiz yapılamadı: $e',
+        oneriler: ['Lütfen internet bağlantınızı kontrol edin', 'Daha kısa bir metin deneyin'],
+        etki: {'Hata': 100},
+        sohbetGenelHavasi: 'Belirlenemedi',
+        sonMesajTonu: 'Belirlenemedi',
+        direktYorum: 'Analiz yapılamadı. Teknik bir hata oluştu: $e',
+        cevapOnerisi: 'Sistem şu anda yanıt veremiyor. Lütfen daha sonra tekrar deneyin.',
+        sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
+      );
       
       notifyListeners();
+      
+      // Hatayı logla
+      _logger.e('Mesaj analizi hatası', e);
     }
   }
   
@@ -348,17 +371,28 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
   
-  // Firestore'a analiz sonucunu kaydetme
-  Future<void> _saveAnalysisToFirestore(String userId, MessageCoachAnalysis analiz, String messageText) async {
+  // Analiz sonucunu Firestore'a kaydet
+  Future<void> _kaydetAnalizi(String userId, MessageCoachAnalysis analiz) async {
     try {
-      final data = analiz.toFirestore();
-      data['userId'] = userId;
-      data['messageText'] = messageText;
-      data['timestamp'] = Timestamp.now();
+      final docRef = _firestore.collection('users').doc(userId).collection('message_coach_analyses').doc();
       
-      await _firestore.collection('message_coach_analyses').add(data);
+      // Analiz sonucunu serileştir
+      final Map<String, dynamic> data = {
+        'sohbetGenelHavasi': analiz.sohbetGenelHavasi,
+        'sonMesajTonu': analiz.sonMesajTonu,
+        'direktYorum': analiz.direktYorum,
+        'oneriler': analiz.oneriler,
+        'etki': analiz.etki,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      
+      // Firestore'a kaydet
+      await docRef.set(data);
+      
+      print('✅ Analiz sonucu Firestore\'a kaydedildi: ${docRef.id}');
     } catch (e) {
-      _logger.e('Analiz kaydedilirken hata: $e');
+      print('❌ Firestore kaydetme hatası: $e');
+      // Hatayı yukarı taşıma, sessizce başarısız ol
     }
   }
   

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/message_coach_analysis.dart';
-import '../services/message_coach_service.dart';
+import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 
 class MessageCoachController extends ChangeNotifier {
-  final MessageCoachService _mesajKocuService = MessageCoachService();
+  final AiService _aiService = AiService();
   final LoggerService _logger = LoggerService();
   
   MessageCoachAnalysis? _mevcutAnaliz;
@@ -19,6 +19,10 @@ class MessageCoachController extends ChangeNotifier {
   bool _analizTamamlandi = false;
   bool get analizTamamlandi => _analizTamamlandi;
   
+  // Mesaj koçu analizi geçmişi
+  List<MessageCoachAnalysis> _analizGecmisi = [];
+  List<MessageCoachAnalysis> get analizGecmisi => _analizGecmisi;
+  
   // UI metinleri
   String get baslik => 'Mesaj Koçu';
   String get aciklamaBaslik => 'Sohbet Analizi';
@@ -26,11 +30,17 @@ class MessageCoachController extends ChangeNotifier {
   String get dosyaSecmeButonMetni => 'Dosyadan Yükle';
   String get yuklemeMetni => 'Sohbet analiz ediliyor...';
   
-  // Sohbet analizi sonuçlarını sıfırla
+  // Analiz sonuçlarını temizle
   void analizSonuclariniSifirla() {
     _mevcutAnaliz = null;
     _hataMesaji = null;
     _analizTamamlandi = false;
+    notifyListeners();
+  }
+  
+  // Analiz geçmişini temizle
+  void analizGecmisiniSifirla() {
+    _analizGecmisi = [];
     notifyListeners();
   }
   
@@ -49,7 +59,7 @@ class MessageCoachController extends ChangeNotifier {
     
     try {
       _logger.i('Sohbet analizi başlatılıyor...');
-      final analizSonucu = await _mesajKocuService.sohbetiAnalizeEt(sohbetIcerigi);
+      final analizSonucu = await _aiService.sohbetiAnalizeEt(sohbetIcerigi);
       
       if (analizSonucu == null) {
         _hataMesaji = 'Sohbet analizi yapılamadı. Lütfen tekrar deneyin.';
@@ -87,6 +97,9 @@ class MessageCoachController extends ChangeNotifier {
         _mevcutAnaliz = analizSonucu;
       }
       
+      // Analiz geçmişine ekle
+      _analizGecmisiniGuncelle(_mevcutAnaliz!);
+      
       _analizTamamlandi = true;
       _yukleniyor = false;
       
@@ -98,6 +111,14 @@ class MessageCoachController extends ChangeNotifier {
       _hataMesaji = 'Beklenmeyen bir hata oluştu: $e';
       _yukleniyor = false;
       notifyListeners();
+    }
+  }
+  
+  // Analiz geçmişine yeni analizi ekle (en son 10 analiz tutulur)
+  void _analizGecmisiniGuncelle(MessageCoachAnalysis yeniAnaliz) {
+    _analizGecmisi.add(yeniAnaliz);
+    if (_analizGecmisi.length > 10) {
+      _analizGecmisi = _analizGecmisi.sublist(_analizGecmisi.length - 10);
     }
   }
   
@@ -173,5 +194,130 @@ Ben: Yarın kesin söylerim, kontrol edip sana yazarım.
     temizMetin = temizMetin.replaceAll(RegExp(r'\n\s*\n'), '\n\n');
     
     return temizMetin;
+  }
+  
+  // Formatlanmış analiz sonucu döndürme (HomeController'dan taşındı)
+  Future<String> formatliAnalizYap(String messageText) async {
+    _yukleniyor = true;
+    _analizTamamlandi = false;
+    _hataMesaji = null;
+    notifyListeners();
+    
+    try {
+      // Boş mesaj kontrolü
+      if (messageText.trim().isEmpty) {
+        _hataMesaji = 'Yüklenen veriden sağlıklı bir analiz yapılamadı, lütfen daha net mesaj içerikleri gönderin.';
+        _yukleniyor = false;
+        notifyListeners();
+        return _hataMesaji!;
+      }
+      
+      // Servis üzerinden analiz isteği
+      final analizSonucu = await _aiService.sohbetiAnalizeEt(messageText);
+      
+      if (analizSonucu == null) {
+        _hataMesaji = 'Analiz yapılamadı';
+        _yukleniyor = false;
+        notifyListeners();
+        return _hataMesaji!;
+      }
+      
+      _mevcutAnaliz = analizSonucu;
+      
+      // Analiz geçmişine ekle
+      _analizGecmisiniGuncelle(_mevcutAnaliz!);
+      
+      _analizTamamlandi = true;
+      _yukleniyor = false;
+      notifyListeners();
+      
+      // Formatlanmış sonucu döndür
+      return analizSonucu.getFormattedAnalysis();
+    } catch (e) {
+      _logger.e('Formatlanmış analiz hatası', e);
+      _hataMesaji = 'Analiz sırasında bir hata oluştu: $e';
+      _yukleniyor = false;
+      notifyListeners();
+      return "Analiz sırasında bir hata oluştu, lütfen tekrar deneyin.";
+    }
+  }
+  
+  // Önceki analiz sonuçlarını karşılaştırarak ilerleme raporu oluştur
+  Map<String, dynamic> ilerlemeRaporuOlustur() {
+    if (_analizGecmisi.length < 2) {
+      return {'rapor': 'Karşılaştırma için yeterli analiz verisi yok', 'sonuc': 'Değerlendirme için en az 2 analiz gerekli'};
+    }
+    
+    final sonAnaliz = _analizGecmisi.last;
+    final oncekiAnaliz = _analizGecmisi[_analizGecmisi.length - 2];
+    
+    // Analiz sonuçlarını karşılaştırma
+    final sohbetHavasiDegisti = sonAnaliz.sohbetGenelHavasi != oncekiAnaliz.sohbetGenelHavasi;
+    final sonMesajTonuDegisti = sonAnaliz.sonMesajTonu != oncekiAnaliz.sonMesajTonu;
+    
+    // Etki değerlerini karşılaştır
+    Map<String, int> etkiDegisimleri = {};
+    if (sonAnaliz.sonMesajEtkisi != null && oncekiAnaliz.sonMesajEtkisi != null) {
+      sonAnaliz.sonMesajEtkisi!.forEach((anahtar, deger) {
+        final oncekiDeger = oncekiAnaliz.sonMesajEtkisi![anahtar] ?? 0;
+        etkiDegisimleri[anahtar] = deger - oncekiDeger;
+      });
+    }
+    
+    // İlerleme açıklaması oluştur
+    String ilerlemeAciklamasi = '';
+    
+    if (sohbetHavasiDegisti) {
+      ilerlemeAciklamasi += 'Sohbet havası "${oncekiAnaliz.sohbetGenelHavasi}" durumundan "${sonAnaliz.sohbetGenelHavasi}" durumuna değişti. ';
+    } else {
+      ilerlemeAciklamasi += 'Sohbet havası aynı kaldı. ';
+    }
+    
+    if (sonMesajTonuDegisti) {
+      ilerlemeAciklamasi += 'Son mesaj tonu "${oncekiAnaliz.sonMesajTonu}" yerine "${sonAnaliz.sonMesajTonu}" olarak değişti. ';
+    }
+    
+    // Etki değişimlerini açıklamaya ekle
+    if (etkiDegisimleri.isNotEmpty) {
+      ilerlemeAciklamasi += 'Etki değişimleri: ';
+      etkiDegisimleri.forEach((anahtar, degisim) {
+        final yonIsareti = degisim > 0 ? '+' : '';
+        ilerlemeAciklamasi += '$anahtar: $yonIsareti$degisim%, ';
+      });
+      
+      // Son virgülü kaldır
+      ilerlemeAciklamasi = ilerlemeAciklamasi.substring(0, ilerlemeAciklamasi.length - 2);
+    }
+    
+    // Genel değerlendirme
+    String genelDegerlendirme = '';
+    
+    // Genel iyileşme/kötüleşme kontrolü
+    int olumluDegisimSayisi = 0;
+    int olumsuzDegisimSayisi = 0;
+    
+    etkiDegisimleri.forEach((anahtar, degisim) {
+      if (anahtar.toLowerCase() == 'sempatik' || anahtar.toLowerCase() == 'olumlu') {
+        if (degisim > 0) olumluDegisimSayisi++;
+        else if (degisim < 0) olumsuzDegisimSayisi++;
+      } else if (anahtar.toLowerCase() == 'olumsuz' || anahtar.toLowerCase() == 'kararsız') {
+        if (degisim < 0) olumluDegisimSayisi++;
+        else if (degisim > 0) olumsuzDegisimSayisi++;
+      }
+    });
+    
+    if (olumluDegisimSayisi > olumsuzDegisimSayisi) {
+      genelDegerlendirme = 'İletişim becerilerin gelişiyor. Devam et!';
+    } else if (olumluDegisimSayisi < olumsuzDegisimSayisi) {
+      genelDegerlendirme = 'İletişim tarzında sorunlar var. İyileştirme için daha fazla çaba göstermelisin.';
+    } else {
+      genelDegerlendirme = 'İletişim tarzında belirgin bir değişiklik yok. Daha etkili iletişim kurmaya çalış.';
+    }
+    
+    return {
+      'rapor': ilerlemeAciklamasi,
+      'sonuc': genelDegerlendirme,
+      'degisimler': etkiDegisimleri,
+    };
   }
 } 

@@ -299,36 +299,110 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Mesaj Koçu analizi yap - yeni format
+  /// @deprecated Bu metot artık MessageCoachController'a taşındı.
+  /// Bunun yerine MessageCoachController.formatliAnalizYap() kullanın.
   Future<String> mesajKocuAnaliziYap(String messageText) async {
-    setState(KontrolDurumu.yukleniyor);
+    debugPrint('UYARI: Bu metot artık kullanımdan kaldırılmıştır. Lütfen MessageCoachController.formatliAnalizYap() metodunu kullanın.');
+    // Geriye dönük uyumluluk için işlevselliği koruyoruz, gelecek sürümlerde kaldırılacak
     
     try {
-      // Boş mesaj kontrolü
+      // Varsayılan "analiz yapılamadı" mesajı
+      String analizSonucu = "Analiz yapılamadı. Lütfen daha sonra tekrar deneyin.";
+      
+      // Mesaj içeriği boş kontrolü
       if (messageText.trim().isEmpty) {
-        setState(KontrolDurumu.hata);
         return "Yüklenen veriden sağlıklı bir analiz yapılamadı, lütfen daha net mesaj içerikleri gönderin.";
       }
       
-      // Servis üzerinden analiz isteği
-      Map<String, dynamic> result = await _aiService.analyzeChatCoach(messageText);
-      
-      // Hata kontrolü
-      if (result.containsKey('error')) {
-        setState(KontrolDurumu.hata);
-        return result['error'];
+      try {
+        // API'den analiz isteği
+        final sonuc = await _aiService.sohbetiAnalizeEt(messageText);
+        if (sonuc != null) {
+          // Map türündeki sonucu formatlanmış metin olarak dönüştür
+          analizSonucu = _formatAnalysisResult(sonuc);
+        }
+      } catch (e) {
+        _logger.e("Mesaj koçu analizi sırasında hata: $e");
+        return "Analiz sırasında bir hata oluştu: $e";
       }
       
-      // MesajKocuAnalizi nesnesine dönüştür
-      final analiz = MessageCoachAnalysis.from(result);
-      
-      // Formatlanmış sonucu döndür
-      setState(KontrolDurumu.yuklendi);
-      return analiz.getFormattedAnalysis();
+      return analizSonucu;
     } catch (e) {
-      setState(KontrolDurumu.hata);
+      _logger.e("Mesaj koçu genel hata: $e");
+      return "İşlem sırasında beklenmeyen bir hata oluştu: $e";
+    }
+  }
+
+  // Analiz sonucunu formatlanmış metne dönüştürme
+  String _formatAnalysisResult(dynamic sonuc) {
+    try {
+      Map<String, dynamic> sonucMap;
+      
+      // MessageCoachAnalysis nesnesini Map'e dönüştür
+      if (sonuc is MessageCoachAnalysis) {
+        sonucMap = {
+          'sohbetGenelHavasi': sonuc.sohbetGenelHavasi,
+          'sonMesajTonu': sonuc.sonMesajTonu,
+          'direktYorum': sonuc.direktYorum,
+          'cevapOnerisi': sonuc.cevapOnerisi
+        };
+      } else if (sonuc is Map<String, dynamic>) {
+        sonucMap = sonuc;
+      } else {
+        return "Bilinmeyen analiz sonucu formatı";
+      }
+      
+      final sohbetHavasi = sonucMap['sohbetGenelHavasi'] ?? 'Belirsiz';
+      final sonMesajTonu = sonucMap['sonMesajTonu'] ?? 'Belirsiz';
+      final direktYorum = sonucMap['direktYorum'] ?? 'Yorum alınamadı';
+      
+      // cevapOnerisi'nin bir liste veya string olabileceğini kontrol et
+      String cevapOnerisiMetni = '';
+      final cevapOnerisi = sonucMap['cevapOnerisi'];
+      
+      if (cevapOnerisi != null) {
+        if (cevapOnerisi is Iterable) {
+          // Eğer liste ise, elemanları birleştir
+          cevapOnerisiMetni = (cevapOnerisi as Iterable).join('\n- ');
+          if (cevapOnerisiMetni.isNotEmpty) {
+            cevapOnerisiMetni = '- $cevapOnerisiMetni';
+          }
+        } else if (cevapOnerisi is String) {
+          // Eğer string ise, doğrudan kullan
+          cevapOnerisiMetni = cevapOnerisi;
+        }
+      }
+      
+      return '''
+Sohbet Genel Havası: $sohbetHavasi
+Son Mesaj Tonu: $sonMesajTonu
+
+Yorum: $direktYorum
+
+${cevapOnerisiMetni.isNotEmpty ? 'Cevap Önerisi:\n$cevapOnerisiMetni' : ''}
+'''.trim();
+    } catch (e) {
+      return "Analiz sonuçları formatlanırken hata oluştu: $e";
+    }
+  }
+
+  // Mesaj koçu analizi yap - ana sayfayı güncellemeyen versiyonu
+  Future<MessageCoachAnalysis?> analyzeChatCoach(String messageText) async {
+    if (messageText.trim().isEmpty) {
+      return null;
+    }
+    
+    try {
+      _logger.d('Mesaj koçu analizi başlatılıyor');
+      
+      // Analiz sonucunu al - sadece analiz yap, ana sayfayı güncelleme
+      final sonuc = await _aiService.sohbetiAnalizeEt(messageText);
+      _logger.d('Mesaj koçu analizi tamamlandı');
+      
+      return sonuc;
+    } catch (e) {
       _logger.e('Mesaj koçu analizi hatası: $e');
-      return "Analiz sırasında bir hata oluştu, lütfen tekrar deneyin.";
+      return null;
     }
   }
 
