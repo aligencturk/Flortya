@@ -567,23 +567,37 @@ class MessageViewModel extends ChangeNotifier {
         'mesajYorumu': analysisResult.aiResponse['mesajYorumu'] ?? '',
       };
       
-      // Analiz türünü kontrol et - Mesaj Koçu ise ana sayfayı güncelleme
-      final bool isMessageCoach = analysisResult.aiResponse.containsKey('direktYorum') || 
-                                analysisResult.aiResponse.containsKey('sohbetGenelHavasi');
-                                
-      // İlişki değerlendirmesi kontrolü  
-      final bool isRelationshipEvaluation = analysisResult.aiResponse.containsKey('relationship_type') ||
-                                        analysisResult.aiResponse.containsKey('relationshipType');
+      // Analiz türünü belirle
+      AnalysisType analizTuru = AnalysisType.other;
       
-      // Mesaj Koçu veya İlişki Değerlendirmesi ise sadece ilgili koleksiyonlara kaydet,
-      // kullanıcı profilini ve ana sayfayı güncelleme
-      if (isMessageCoach) {
+      // Mesaj Koçu kontrolü
+      if (analysisResult.aiResponse.containsKey('direktYorum') || 
+          analysisResult.aiResponse.containsKey('sohbetGenelHavasi')) {
+        analizTuru = AnalysisType.messageCoach;
         _logger.i('Mesaj Koçu analizi tespit edildi, kullanıcı profili güncellenmeyecek');
         return;
       }
       
-      if (isRelationshipEvaluation) {
+      // İlişki değerlendirmesi kontrolü
+      if (analysisResult.aiResponse.containsKey('relationship_type') ||
+          analysisResult.aiResponse.containsKey('relationshipType')) {
+        analizTuru = AnalysisType.relationshipEvaluation;
         _logger.i('İlişki Değerlendirmesi tespit edildi, kullanıcı profili güncellenmeyecek');
+        return;
+      }
+      
+      // AnalysisSource'a göre türü belirle
+      if (_currentMessage != null) {
+        if (_currentMessage!.analysisSource == AnalysisSource.text) {
+          analizTuru = AnalysisType.txtFile;
+        } else if (_currentMessage!.analysisSource == AnalysisSource.image) {
+          analizTuru = AnalysisType.image;
+        }
+      }
+      
+      // Eğer tür hala belirlenemediyse, devam etmeyelim
+      if (analizTuru == AnalysisType.other) {
+        _logger.w('Analiz türü belirlenemedi, kullanıcı profili güncellenmeyecek');
         return;
       }
       
@@ -1469,8 +1483,11 @@ class MessageViewModel extends ChangeNotifier {
     try {
       _logger.i('${analysisType.name} analiz sonucu kullanıcı profiline kaydediliyor: $userId');
       
-      // Özel analiz türlerini kontrol et - Mesaj Koçu ve İlişki Değerlendirmesi ana sayfayı güncellemeyecek
-      if (analysisType == AnalysisType.messageCoach || analysisType == AnalysisType.relationshipEvaluation) {
+      // Sadece Mesaj Analizi türlerinin (görsel, txt dosyası ve danışma) ana sayfayı güncellemesine izin ver
+      // Diğer analiz türleri için ana sayfayı güncelleme
+      if (analysisType != AnalysisType.image && 
+          analysisType != AnalysisType.txtFile && 
+          analysisType != AnalysisType.consultation) {
         _logger.i('${analysisType.name} için kullanıcı profili güncellenmeyecek');
         return;
       }

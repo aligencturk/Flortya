@@ -52,6 +52,7 @@ class _ConsultationViewState extends State<ConsultationView> {
     
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
     
     // Kullanıcı giriş yapmamış ise
     if (authViewModel.currentUser == null) {
@@ -74,11 +75,51 @@ class _ConsultationViewState extends State<ConsultationView> {
         return;
       }
       
+      // Başarılı yanıt 
+      bool isSuccessful = false;
+      
+      if (response.containsKey('answer') && response['answer'] != null) {
+        final responseText = response['answer'].toString();
+        _saveAnswerToHistory(query, responseText);
+        
+        // Ana sayfayı güncellemek için sonucu analiz olarak kaydet
+        try {
+          // Analiz sonucu oluştur
+          final AnalysisResult consultationAnalysis = AnalysisResult(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+            emotion: 'Danışma',
+            intent: 'İlişki Tavsiyesi',
+            tone: 'Profesyonel',
+            severity: 5,
+            persons: authViewModel.currentUser?.displayName ?? '',
+            aiResponse: {
+              'mesaj': query,
+              'mesajYorumu': responseText,
+              'tavsiyeler': response['advice'] is List ? response['advice'] : [responseText],
+            },
+            createdAt: DateTime.now(),
+          );
+          
+          // Analiz sonucunu kullanıcı profiline ekle ve ana sayfayı güncelle
+          await messageViewModel.updateUserProfileWithAnalysis(
+            authViewModel.currentUser!.uid, 
+            consultationAnalysis, 
+            AnalysisType.consultation
+          );
+        } catch (analysisError) {
+          print('Danışma analiz sonucu kayıt hatası: $analysisError');
+          // Sadece loglama yap, kullanıcıya gösterme
+        }
+        
+        isSuccessful = true;
+        _responseText = responseText;
+      }
+      
       setState(() {
         _isLoading = false;
-        if (response.containsKey('answer') && response['answer'] != null) {
-          _responseText = response['answer'].toString();
-          _saveAnswerToHistory(query, _responseText!);
+        if (isSuccessful) {
+          // UI güncelleme
         } else {
           _errorMessage = 'Cevap alınamadı, lütfen tekrar deneyin.';
         }
@@ -86,7 +127,23 @@ class _ConsultationViewState extends State<ConsultationView> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Bir hata oluştu: $e';
+        _errorMessage = 'Danışma işlemi sırasında bir hata oluştu: $e';
+      });
+    }
+    
+    // İşlem sonrası, metin girişini temizle
+    _questionController.clear();
+    
+    // Yanıtı görüntüle
+    if (_responseText != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       });
     }
   }

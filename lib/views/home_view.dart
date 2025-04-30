@@ -792,6 +792,42 @@ class _HomeViewState extends State<HomeView> {
                         color: _getAdviceColor(tavsiye),
                         icon: _getAdviceIcon(tavsiye),
                       ))
+                    else if (analizSonucu != null && tavsiyeler.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF352269),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.amber.withOpacity(0.7),
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Tavsiyeler oluşturulamadı. Lütfen yeni bir analiz yapın.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Görsel yükleme, metin analizi veya danışma bölümünden analiz yaparak kişiselleştirilmiş tavsiyeler alabilirsiniz.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     else if (analizSonucu == null)
                       Container(
                         padding: const EdgeInsets.all(20),
@@ -809,7 +845,7 @@ class _HomeViewState extends State<HomeView> {
                             ),
                             const SizedBox(height: 16),
                             const Text(
-                              'Bugünün tavsiyesi şu an getirilemiyor. Lütfen daha sonra tekrar deneyin.',
+                              'Kişiselleştirilmiş tavsiyeler için analiz yapmanız gerekiyor',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 16,
@@ -818,7 +854,7 @@ class _HomeViewState extends State<HomeView> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Kişiselleştirilmiş tavsiyeler için analiz yapmanız gerekiyor',
+                              'Mesaj Analizi, Görsel Yükleme veya Danışma bölümünden bir analiz yaparak tavsiyeler alabilirsiniz',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.7),

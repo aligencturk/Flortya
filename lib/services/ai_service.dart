@@ -1084,8 +1084,19 @@ class AiService {
             - Her durumda sohbeti ağır ELEŞTİREL bir şekilde değerlendirmelisin
             - "direktYorum" alanında AĞIR ELEŞTİRİLER ve KÜSTAH ifadeler kullanmalısın
             - "canım", "tatlım", "bebeğim" gibi yumuşak hitaplar ASLA kullanma
+            - Kullanıcıya her zaman "sen" diye hitap etmelisin
             - Hiçbir durumda tamamen olumlu analiz yapmamalısın
             - İçerik ne kadar kısa olursa olsun, gerçek bir analiz yapmalısın
+            
+            ÖRNEK ÇIKTI TİPLERİ:
+            1. "Şu an çok cevap verdin, biraz bekle."
+            2. "Bu kişi pasif agresif, buna şöyle cevap ver."
+            3. "Şaka dozun az, biraz yumuşat."
+            4. "Çok soğuk konuşuyor → ya ilgisi yok ya da başka şeyi var."
+            5. "Vakit kaybetme ayrıl knk."
+            
+            Ek olarak son mesajın genel sohbet akışına uyup uymadığını da belirtmelisin.
+            Kullanıcı çok fazla ardışık mesaj gönderdiyse "çok fazla mesaj gönderdin, yavaşla biraz" gibi eleştirel uyarılar yapmalısın.
             '''
           }
         ]
@@ -1122,7 +1133,8 @@ class AiService {
             SON UYARI: 
             - "Analiz yapılamadı" veya "yetersiz içerik" gibi ifadeler ASLA kullanma
             - İçerik ne kadar kısa olursa olsun TAM ve ÖZGÜN analiz yapmalısın
-            - Direktif yorumların MUTLAKA sert ve küstah olmalı
+            - Direktif yorumların MUTLAKA şu tarz olmalı: "vakit kaybetme ayrıl knk", "bu kişi seni takmıyor bence", "çok fazla mesaj atıyorsun, yavaşla biraz"
+            - Kullanıcıya "sen" diye hitap et: "senin sorunun...", "sen çok fazla..."
             - Tüm alanları doldurmalısın, eksik alan bırakma
             '''
           }
@@ -1183,6 +1195,9 @@ class AiService {
             jsonMap['direktYorum'] = await _dirtektYorumuDuzelt(chatContent);
           }
           
+          // Sert yorumlar için ek kontrol
+          sertYorumlarEkle(jsonMap);
+          
           // Zaman damgası ekle
           jsonMap['timestamp'] = DateTime.now().toIso8601String();
           
@@ -1219,6 +1234,10 @@ class AiService {
             'text': '''
             Sadece JSON formatında cevap ver. Sadece ve sadece belirtilen JSON formatında cevap ver.
             Hiçbir ekstra açıklama ekleme, sadece JSON.
+            
+            SEN SERT, KÜSTAH VE DOĞRUDAN ELEŞTİRİLER YAPAN BİR MESAJ KOÇUSUN.
+            Kullanıcının mesajlaşma stilini eleştirmen gerekiyor.
+            Nazik, kibar değil, KÜSTAH VE SERT olmalısın.
             '''
           }
         ]
@@ -1243,6 +1262,8 @@ class AiService {
             ${chatContent}
             
             SADECE JSON DÖNDÜR.
+            JSON'daki direktYorum kısmı mutlaka sert olsun ve "sen" diye hitap etsin. 
+            Örnek: "sen çok fazla mesaj atıyorsun", "vakit kaybetme ayrıl knk", "karşı taraf seni takmıyor"
             '''
           }
         ]
@@ -1707,24 +1728,31 @@ class AiService {
               'parts': [
                 {
                   'text': '''
-İlişki uzmanı olarak görevin, kullanıcının verdiği bilgilere dayanarak ilişki durumunu analiz etmek.
-Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
+İlişki koçu olarak, aşağıdaki mesaj içeriğine, duygulara, niyete ve tona dayanarak ilişki analizi yap.
+Bu analizde şu kategorilerde 0-100 arası puanlar vermen gerekiyor (100 en iyi):
+- güven
+- destek
+- iletişim
+- uyum
+- saygı
+
+Bu temelde ilişki uyumunu %0-100 olarak belirle ve beş adet kişiselleştirilmiş tavsiye ver.
+
+Yanıtını aşağıdaki JSON formatında ver, başka ekleme yapma:
 {
-  "iliskiPuani": 0-100 arası bir sayı,
+  "iliskiPuani": (0-100 arası puan),
   "kategoriPuanlari": {
-    "iletisim": 0-100 arası bir sayı,
-    "guven": 0-100 arası bir sayı,
-    "uyum": 0-100 arası bir sayı,
-    "destekleme": 0-100 arası bir sayı,
-    "samimiyet": 0-100 arası bir sayı
+    "guven": (0-100 arası puan),
+    "destek": (0-100 arası puan),
+    "iletisim": (0-100 arası puan),
+    "uyum": (0-100 arası puan),
+    "saygi": (0-100 arası puan)
   },
-  "iliskiTipi": "İlişki tipi (Dengeli, Tutkulu, Güven Odaklı vb.)",
-  "gucluyonler": "İlişkinin güçlü yönleri",
-  "gelistirilebilirYonler": "İlişkinin geliştirilebilir yönleri",
-  "oneriler": ["Öneri 1", "Öneri 2", "Öneri 3"]
+  "kisiselestirilmisTavsiyeler": ["tavsiye 1", "tavsiye 2", "tavsiye 3", "tavsiye 4", "tavsiye 5"],
+  "mesajYorumu": "mesaj hakkında kısa yorum"
 }
 
-İlişki analizi verisi: $messageText
+Mesaj detayları: ${messageText}
 '''
                 }
               ]
@@ -1737,30 +1765,129 @@ Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
         }),
       );
       
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
-        if (aiContent == null || aiContent.isEmpty) {
-          return {'error': 'Analiz sonucu alınamadı'};
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return _getDefaultRelationshipAnalysis();
         }
         
+        _logger.d('AI yanıt metni: $aiContent');
+        
         // JSON yanıtını ayrıştır
-        final Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
-        if (jsonMap != null) {
-          jsonMap['timestamp'] = DateTime.now().toIso8601String();
-          return jsonMap;
-        } else {
-          return {'error': 'Analiz sonucu ayrıştırılamadı'};
+        try {
+          Map<String, dynamic>? jsonResponse = _parseJsonFromText(aiContent);
+          
+          if (jsonResponse != null) {
+            // Zorunlu kategorilerin varlığını kontrol et - eksik varsa ekle
+            if (!jsonResponse.containsKey('kategoriPuanlari') || !(jsonResponse['kategoriPuanlari'] is Map)) {
+              jsonResponse['kategoriPuanlari'] = {
+                'guven': 60,
+                'destek': 60,
+                'iletisim': 60,
+                'uyum': 60,
+                'saygi': 60
+              };
+            } else {
+              // kategoriPuanlari var ama zorunlu kategoriler eksik olabilir - kontrol edip ekleyelim
+              Map<String, dynamic> kategoriler = jsonResponse['kategoriPuanlari'];
+              
+              // Zorunlu kategorileri kontrol et ve eksikleri ekle
+              final zorunluKategoriler = ['guven', 'destek', 'iletisim', 'uyum', 'saygi'];
+              for (final kategori in zorunluKategoriler) {
+                if (!kategoriler.containsKey(kategori)) {
+                  kategoriler[kategori] = 60; // Varsayılan değer
+                }
+              }
+            }
+            
+            // İlişki puanı eksikse ekle
+            if (!jsonResponse.containsKey('iliskiPuani') || 
+                jsonResponse['iliskiPuani'] == null || 
+                jsonResponse['iliskiPuani'] is! num) {
+              
+              // Kategori puanlarından ortalama hesapla
+              if (jsonResponse.containsKey('kategoriPuanlari') && jsonResponse['kategoriPuanlari'] is Map) {
+                double toplam = 0;
+                int sayac = 0;
+                (jsonResponse['kategoriPuanlari'] as Map).forEach((key, value) {
+                  if (value is num) {
+                    toplam += value.toDouble();
+                    sayac++;
+                  }
+                });
+                
+                if (sayac > 0) {
+                  jsonResponse['iliskiPuani'] = (toplam / sayac).round();
+                } else {
+                  jsonResponse['iliskiPuani'] = 60;
+                }
+              } else {
+                jsonResponse['iliskiPuani'] = 60;
+              }
+            }
+            
+            // Kişiselleştirilmiş tavsiyeler eksikse ekle 
+            if (!jsonResponse.containsKey('kisiselestirilmisTavsiyeler') || 
+                !(jsonResponse['kisiselestirilmisTavsiyeler'] is List) ||
+                (jsonResponse['kisiselestirilmisTavsiyeler'] as List).isEmpty) {
+              
+              jsonResponse['kisiselestirilmisTavsiyeler'] = [
+                'İletişim becerilerinizi geliştirin, daha açık ve dürüst konuşun.',
+                'Birbirinize destek olun ve zorluklarda yanında olduğunuzu hissettirin.',
+                'Güven inşa etmek için sözünüzde durun ve tutarlı davranın.',
+                'Saygılı davranın ve birbirinizin sınırlarına özen gösterin.',
+                'Düzenli olarak birlikte kaliteli zaman geçirin ve anılar biriktirin.'
+              ];
+            }
+            
+            // İlişki tarihini ekle
+            jsonResponse['tarih'] = DateTime.now().toIso8601String();
+            
+            return jsonResponse;
+          } else {
+            _logger.e('Geçerli JSON yanıtı alınamadı');
+            return _getDefaultRelationshipAnalysis();
+          }
+        } catch (e) {
+          _logger.e('JSON ayrıştırma hatası', e);
+          return _getDefaultRelationshipAnalysis();
         }
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return {'error': 'API yanıtı alınamadı: ${response.statusCode}'};
+        return _getDefaultRelationshipAnalysis();
       }
     } catch (e) {
       _logger.e('İlişki durumu analizi hatası', e);
-      return {'error': 'İstek sırasında hata oluştu: $e'};
+      return _getDefaultRelationshipAnalysis();
     }
+  }
+  
+  // Varsayılan ilişki analizi sonucu
+  Map<String, dynamic> _getDefaultRelationshipAnalysis() {
+    return {
+      'iliskiPuani': 60,
+      'kategoriPuanlari': {
+        'guven': 60,
+        'destek': 60,
+        'iletisim': 60,
+        'uyum': 60,
+        'saygi': 60
+      },
+      'kisiselestirilmisTavsiyeler': [
+        'İletişim becerilerinizi geliştirin, daha açık ve dürüst konuşun.',
+        'Birbirinize destek olun ve zorluklarda yanında olduğunuzu hissettirin.',
+        'Güven inşa etmek için sözünüzde durun ve tutarlı davranın.',
+        'Saygılı davranın ve birbirinizin sınırlarına özen gösterin.',
+        'Düzenli olarak birlikte kaliteli zaman geçirin ve anılar biriktirin.'
+      ],
+      'mesajYorumu': 'İlişkinizde gelişime açık alanlar bulunuyor. Yukarıdaki tavsiyeleri uygulayarak ilişkinizi güçlendirebilirsiniz.',
+      'tarih': DateTime.now().toIso8601String()
+    };
   }
 
   // Kişiselleştirilmiş tavsiyeler oluşturma
@@ -1774,20 +1901,38 @@ Analiz sonucunda aşağıdaki JSON formatında bir yanıt oluştur:
     try {
       // API anahtarını kontrol et
       if (_geminiApiKey.isEmpty) {
-        return ['API anahtarı bulunamadı, tavsiyeler oluşturulamadı.'];
+        return _getVarsayilanTavsiyeler();
       }
 
+      // En düşük puana sahip kategorileri bul (iyileştirilmesi gereken kategoriler)
+      List<MapEntry<String, int>> siralanmisKategoriler = kategoriPuanlari.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+      
+      // Kategori isimleri Türkçe dilinde formatlayalım
+      Map<String, String> kategoriIsimleriTurkce = {
+        'guven': 'güven',
+        'destek': 'destek',
+        'iletisim': 'iletişim',
+        'uyum': 'uyum',
+        'saygi': 'saygı',
+      };
+      
       // API isteği için veri hazırlama
       final promptText = '''
 İlişki koçu olarak görevin, kullanıcının ilişki puanı ve kategori puanlarına dayanarak kişiselleştirilmiş tavsiyeler oluşturmak.
-5 adet kısa, uygulanabilir ve etkileyici tavsiye oluştur. Tavsiyeler doğrudan "sen" diliyle yazılmalı.
+TAM OLARAK 5 adet kısa, uygulanabilir ve etkileyici tavsiye oluştur. Tavsiyeler doğrudan "sen" diliyle yazılmalı.
 Yanıtını sadece tavsiye listesi olarak ver, JSON formatı kullanma, başka açıklama ekleme.
 
-İlişki puanı: $iliskiPuani
-Kategori puanları: $kategoriPuanlari
-Kullanıcı bilgileri: $kullaniciVerileri
+İlişki puanı: $iliskiPuani (0-100 arası, yüksek puan iyi)
+Kategori puanları: $kategoriPuanlari (0-100 arası, yüksek puan iyi)
+
+Özellikle aşağıdaki kategorilere odaklan (düşük puan alan kategoriler öncelikle iyileştirilmeli):
+${siralanmisKategoriler.take(2).map((e) => '- ${kategoriIsimleriTurkce[e.key] ?? e.key}: ${e.value} puan').join('\n')}
+
+Her tavsiye, belirli bir kategoriyi iyileştirmeye yönelik olmalı (güven, saygı, iletişim, uyum, destek).
+Tavsiyeler pratik, uygulanabilir ve ilişki için faydalı olmalı.
 ''';
-      
+
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
         headers: {
@@ -1805,39 +1950,70 @@ Kullanıcı bilgileri: $kullaniciVerileri
             }
           ],
           'generationConfig': {
-            'temperature': 0.8,
-            'maxOutputTokens': _geminiMaxTokens
+            'temperature': 0.7,
+            'maxOutputTokens': 1024
           }
         }),
       );
       
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final data = json.decode(response.body);
         
-        if (aiContent == null || aiContent.isEmpty) {
-          return ['Tavsiyeler oluşturulamadı.'];
+        try {
+          // API yanıtını al
+          final String? text = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+          
+          if (text == null || text.isEmpty) {
+            _logger.w('API yanıtı boş, varsayılan tavsiyeler döndürülüyor');
+            return _getVarsayilanTavsiyeler();
+          }
+          
+          // Satır satır ayır ve boş olmayan ve numaralandırma içermeyen satırları al
+          final tavsiyeler = text
+              .split('\n')
+              .map((line) => line.trim())
+              .where((line) => line.isNotEmpty && !line.startsWith('---') && !line.startsWith('###'))
+              .map((line) {
+                // Başındaki numaralandırmayı veya madde imlerini kaldır
+                return line.replaceAll(RegExp(r'^[0-9]+[.)]\s*|^[-*•]\s*'), '');
+              })
+              .toList();
+          
+          // Tavsiye sayısını kontrol et ve gerekirse tamamla
+          if (tavsiyeler.isEmpty) {
+            return _getVarsayilanTavsiyeler();
+          } else if (tavsiyeler.length < 5) {
+            // Eksik tavsiyeleri varsayılan tavsiyelerle tamamla
+            final List<String> varsayilanTavsiyeler = _getVarsayilanTavsiyeler();
+            final List<String> eksikTavsiyeler = varsayilanTavsiyeler.take(5 - tavsiyeler.length).toList();
+            return [...tavsiyeler, ...eksikTavsiyeler];
+          } else {
+            // Fazla tavsiye varsa, ilk 5'ini al
+            return tavsiyeler.take(5).toList();
+          }
+        } catch (e) {
+          _logger.e('Tavsiye ayrıştırma hatası: $e');
+          return _getVarsayilanTavsiyeler();
         }
-        
-        // İçerikteki tavsiyeleri satır satır ayırıp liste haline getir
-        final List<String> tavsiyeler = aiContent
-            .split('\n')
-            .where((line) => line.trim().isNotEmpty)
-            .map((line) => line.replaceAll(RegExp(r'^[\d\-\.\s]+'), '').trim())
-            .where((line) => line.isNotEmpty)
-            .toList();
-        
-        return tavsiyeler.isNotEmpty 
-            ? tavsiyeler 
-            : ['Tavsiyeler oluşturulamadı, lütfen daha sonra tekrar deneyin.'];
       } else {
-        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return ['API yanıtı alınamadı, lütfen daha sonra tekrar deneyin.'];
+        _logger.e('Tavsiye API hatası: ${response.statusCode}');
+        return _getVarsayilanTavsiyeler();
       }
     } catch (e) {
-      _logger.e('Kişiselleştirilmiş tavsiye oluşturma hatası', e);
-      return ['Tavsiyeler oluşturulurken bir hata oluştu: $e'];
+      _logger.e('Tavsiye oluşturma hatası: $e');
+      return _getVarsayilanTavsiyeler();
     }
+  }
+  
+  // Varsayılan tavsiyeler listesi
+  List<String> _getVarsayilanTavsiyeler() {
+    return [
+      'Birbirinize açık ve dürüst bir şekilde iletişim kurun, düşüncelerinizi ifade edin.',
+      'Karşılıklı güveni artırmak için sözünüzde durun ve tutarlı davranın.',
+      'Birbirinizin sınırlarına saygı gösterin ve kişisel alanına değer verin.',
+      'Zor zamanlarda destek olun ve yanında olduğunuzu hissettirin.',
+      'Düzenli olarak birlikte kaliteli zaman geçirin ve paylaşımlarda bulunun.',
+    ];
   }
 
   // İlişki soruları oluşturma
@@ -2138,5 +2314,64 @@ $kisaltilmisSohbet
     }
     
     return result;
+  }
+
+  // Sert yorumlar ekleyen metot
+  void sertYorumlarEkle(Map<String, dynamic> jsonMap) {
+    if (jsonMap.containsKey('direktYorum')) {
+      String direktYorum = jsonMap['direktYorum'] as String;
+      
+      // Eğer yorum yeterince sert değilse
+      if (!direktYorum.contains('ayrıl') && 
+          !direktYorum.contains('boşver') && 
+          !direktYorum.contains('vakit kaybetme') &&
+          !direktYorum.contains('sen ')) {
+        
+        // Rastgele sert yorumlardan birini seç
+        final sertYorumlar = [
+          "Sen çok fazla mesaj atıyorsun, yavaşla biraz. Bu kadar yüzsüz olma.",
+          "Vakit kaybetme ayrıl knk, bu ilişki yürümez.",
+          "Bu kişi seni takmıyor bence, başka kapıya.",
+          "Sen hiç mesajlarını okumuyorsun değil mi? Çok soğuk duruyorsun.",
+          "Şaka dozun sıfır, biraz espri katsan mı acaba?",
+          "Sana açık konuşayım, çok sıkıcı konuşuyorsun.",
+          "Bu mesajlaşma stilinle kimseyi etkileyemezsin.",
+          "Ya bu kişinin ilgisi yok ya da başka birini düşünüyor, fark etmiyor musun?",
+          "Sen bu ilişkide çok çabalıyorsun ama karşı taraf aynı çabayı göstermiyor. Boşuna uğraşma."
+        ];
+        
+        int randomIndex = Random().nextInt(sertYorumlar.length);
+        jsonMap['direktYorum'] = sertYorumlar[randomIndex];
+      }
+    }
+    
+    // Cevap önerilerini kontrol et ve güncelle
+    if (jsonMap.containsKey('cevapOnerileri') && jsonMap['cevapOnerileri'] is List) {
+      List<dynamic> oneriler = jsonMap['cevapOnerileri'] as List;
+      
+      if (oneriler.isNotEmpty) {
+        // Önerilerin her birini kontrol et ve eğer çok kibarlasa sertleştir
+        for (int i = 0; i < oneriler.length; i++) {
+          String oneri = oneriler[i] as String;
+          
+          if (!oneri.contains('direkt') && 
+              !oneri.contains('açık') && 
+              !oneri.contains('net')) {
+            
+            // Rastgele sert cevap önerilerinden birini seç
+            final sertOneriler = [
+              "Bak sana net söylüyorum, böyle devam ederse aramızdaki her şey biter.",
+              "Açık konuşmak gerekirse, bu davranışların beni çok rahatsız ediyor.",
+              "Direkt söyleyeyim, böyle mesajlaşmak istemiyorum.",
+              "Seninle konuşurken kendimi iyi hissetmiyorum, biraz düşünmem gerek.",
+              "Bu konuşmanın bir yere varacağını sanmıyorum."
+            ];
+            
+            int randomIndex = Random().nextInt(sertOneriler.length);
+            oneriler[i] = sertOneriler[randomIndex];
+          }
+        }
+      }
+    }
   }
 }

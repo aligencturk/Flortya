@@ -61,6 +61,17 @@ class HomeController extends ChangeNotifier {
         // Kişiselleştirilmiş tavsiyeleri güncelle
         if (_sonAnalizSonucu != null) {
           _kisisellestirilmisTavsiyeler = _sonAnalizSonucu!.kisiselestirilmisTavsiyeler;
+          
+          // Tavsiyeler boşsa veya yetersizse otomatik olarak yenilemeye çalış
+          if (_kisisellestirilmisTavsiyeler.isEmpty || _kisisellestirilmisTavsiyeler.length < 5) {
+            _logger.i('Tavsiyeler boş veya yetersiz, otomatik olarak yenileniyor...');
+            try {
+              await tavsiyeleriYenile();
+            } catch (e) {
+              _logger.e('Tavsiyeler otomatik yenilenirken hata: $e');
+              // Başarısız olsa bile devam et, kullanıcı açık bir hata mesajı görecek
+            }
+          }
         }
       }
     } catch (e) {
@@ -90,6 +101,17 @@ class HomeController extends ChangeNotifier {
       
       // Kişiselleştirilmiş tavsiyeleri güncelle
       _kisisellestirilmisTavsiyeler = analizSonucu.kisiselestirilmisTavsiyeler;
+      
+      // Tavsiyeler boşsa veya yetersizse otomatik olarak yenilemeye çalış
+      if (_kisisellestirilmisTavsiyeler.isEmpty || _kisisellestirilmisTavsiyeler.length < 5) {
+        _logger.i('Tavsiyeler boş veya yetersiz, otomatik olarak yenileniyor...');
+        try {
+          await tavsiyeleriYenile();
+        } catch (e) {
+          _logger.e('Tavsiyeler otomatik yenilenirken hata: $e');
+          // Başarısız olsa bile devam et, notifyListeners ile güncellenmiş verileri göster
+        }
+      }
       
       notifyListeners();
     } catch (e) {
@@ -191,36 +213,53 @@ class HomeController extends ChangeNotifier {
 
   /// Kişiselleştirilmiş tavsiyeleri yeniden oluşturur
   Future<void> tavsiyeleriYenile() async {
-    if (_sonAnalizSonucu == null) return;
+    if (_sonAnalizSonucu == null) {
+      _setError('Henüz analiz yapılmamış, tavsiyeler oluşturulamaz');
+      throw Exception('Tavsiyeler oluşturulamadı: analiz sonucu yok');
+    }
     
     _setLoading(true);
     try {
       // Kullanıcı verilerini getir
       final kullanici = await _userService.getCurrentUser();
-      if (kullanici != null) {
-        // Yeni tavsiyeler oluştur
-        final yeniTavsiyeler = await _aiService.kisisellestirilmisTavsiyelerOlustur(
-          _sonAnalizSonucu!.iliskiPuani,
-          _sonAnalizSonucu!.kategoriPuanlari,
-          {'displayName': kullanici.displayName, 'preferences': kullanici.preferences}
-        );
-        
-        // Yeni analiz sonucunu oluştur
-        final yeniAnalizSonucu = _sonAnalizSonucu!.copyWith(
-          kisiselestirilmisTavsiyeler: yeniTavsiyeler,
-        );
-        
-        // Firestore'a kaydet
-        await _userService.updateSonAnalizSonucu(yeniAnalizSonucu);
-        
-        // Yerel değişkenleri güncelle
-        _sonAnalizSonucu = yeniAnalizSonucu;
-        _kisisellestirilmisTavsiyeler = yeniTavsiyeler;
-        
-        notifyListeners();
+      if (kullanici == null) {
+        _setError('Kullanıcı bilgileri alınamadı');
+        throw Exception('Tavsiyeler oluşturulamadı: kullanıcı bulunamadı');
       }
+      
+      // Yeni tavsiyeler oluştur
+      final yeniTavsiyeler = await _aiService.kisisellestirilmisTavsiyelerOlustur(
+        _sonAnalizSonucu!.iliskiPuani,
+        _sonAnalizSonucu!.kategoriPuanlari,
+        {'displayName': kullanici.displayName, 'preferences': kullanici.preferences}
+      );
+      
+      // Tavsiyeler boşsa hata fırlat
+      if (yeniTavsiyeler.isEmpty) {
+        _setError('Tavsiyeler oluşturulamadı');
+        throw Exception('AI servisinden boş tavsiye listesi geldi');
+      }
+      
+      _logger.i('${yeniTavsiyeler.length} adet yeni tavsiye oluşturuldu');
+      
+      // Yeni analiz sonucunu oluştur
+      final yeniAnalizSonucu = _sonAnalizSonucu!.copyWith(
+        kisiselestirilmisTavsiyeler: yeniTavsiyeler,
+      );
+      
+      // Firestore'a kaydet
+      await _userService.updateSonAnalizSonucu(yeniAnalizSonucu);
+      
+      // Yerel değişkenleri güncelle
+      _sonAnalizSonucu = yeniAnalizSonucu;
+      _kisisellestirilmisTavsiyeler = yeniTavsiyeler;
+      
+      notifyListeners();
+      
+      _logger.i('Tavsiyeler başarıyla güncellendi');
     } catch (e) {
       _setError('Tavsiyeler güncellenirken hata oluştu: $e');
+      throw Exception('Tavsiyeler oluşturulamadı: $e');
     } finally {
       _setLoading(false);
     }
