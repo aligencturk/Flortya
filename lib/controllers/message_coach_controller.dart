@@ -124,28 +124,71 @@ class MessageCoachController extends ChangeNotifier {
   
   // Analiz sonucunun eksik veya geçersiz alanları olup olmadığını kontrol et
   bool _analizSonucuGecersiziMi(MessageCoachAnalysis analiz) {
+    // Temel alanların varlığını kontrol et
     final sohbetGenelHavasi = analiz.sohbetGenelHavasi;
     final sonMesajTonu = analiz.sonMesajTonu;
     final direktYorum = analiz.direktYorum;
+    final sonMesajEtkisi = analiz.sonMesajEtkisi;
+    final cevapOnerisi = analiz.cevapOnerisi;
     
     // Geçersiz ifadeleri içeriyor mu kontrol et
-    final gecersizIfadeler = ['analiz edilemedi', 'yetersiz içerik', 'yapılamadı', 'alınamadı'];
+    final gecersizIfadeler = [
+      'analiz edilemedi', 
+      'yetersiz içerik', 
+      'yapılamadı', 
+      'alınamadı', 
+      'belirlenemedi', 
+      'json',
+      'hata',
+      'geçersiz'
+    ];
     
+    // Tüm gerekli alanların null olmadığını kontrol et
     if (sohbetGenelHavasi == null || 
         sonMesajTonu == null || 
-        direktYorum == null) {
+        direktYorum == null ||
+        sonMesajEtkisi == null ||
+        cevapOnerisi == null) {
+      _logger.w('Analiz sonucunda eksik alanlar var');
+      return true;
+    }
+    
+    // Boş veya varsayılan değerler içerip içermediğini kontrol et
+    if (sohbetGenelHavasi.isEmpty || 
+        sonMesajTonu.isEmpty || 
+        direktYorum.isEmpty ||
+        sonMesajEtkisi.isEmpty) {
+      _logger.w('Analiz sonucunda boş alanlar var');
       return true;
     }
     
     // Geçersiz ifadeleri kontrol et
     for (final ifade in gecersizIfadeler) {
-      if (sohbetGenelHavasi.toLowerCase().contains(ifade) || 
-          sonMesajTonu.toLowerCase().contains(ifade) || 
-          direktYorum.toLowerCase().contains(ifade)) {
+      if ((sohbetGenelHavasi.toLowerCase().contains(ifade)) || 
+          (sonMesajTonu.toLowerCase().contains(ifade)) || 
+          (direktYorum.toLowerCase().contains(ifade))) {
+        _logger.w('Analiz sonucunda geçersiz ifadeler var: $ifade');
         return true;
       }
     }
     
+    // Error kelimesini içeriyor mu kontrol et
+    if (analiz.analiz.toLowerCase().contains('error') ||
+        analiz.analiz.toLowerCase().contains('hata')) {
+      _logger.w('Analiz sonucunda hata ifadesi var');
+      return true;
+    }
+    
+    // sonMesajEtkisi'nin toplam 100 olup olmadığını kontrol et (± 10 tolerans)
+    if (sonMesajEtkisi.isNotEmpty) {
+      final total = sonMesajEtkisi.values.fold(0, (sum, value) => sum + value);
+      if (total < 90 || total > 110) {
+        _logger.w('Son mesaj etkisi toplamı 100 değil: $total');
+        return true;
+      }
+    }
+    
+    // Tüm kontrollerden geçti, analiz geçerli
     return false;
   }
   

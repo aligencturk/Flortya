@@ -1054,7 +1054,29 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final duygu = analysisResult.emotion;
     final niyet = analysisResult.intent;
     final mesajYorumu = analysisResult.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
-    final List<String> cevapOnerileri = List<String>.from(analysisResult.aiResponse['cevapOnerileri'] ?? []);
+    
+    // cevapOnerileri güvenli bir şekilde al
+    List<String> cevapOnerileri = [];
+    final dynamic rawOnerileri = analysisResult.aiResponse['cevapOnerileri'];
+    if (rawOnerileri is List) {
+      cevapOnerileri = List<String>.from(rawOnerileri.map((item) => item.toString()));
+    } else if (rawOnerileri is String) {
+      // String formatındaki tavsiyeleri işle
+      try {
+        // Virgülle ayrılmış bir liste olabilir
+        final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+        for (String tavsiye in parcalanmisTavsiyeler) {
+          if (tavsiye.trim().isNotEmpty) {
+            cevapOnerileri.add(tavsiye.trim());
+          }
+        }
+      } catch (e) {
+        // String'i doğrudan bir tavsiye olarak ekle
+        if (rawOnerileri.toString().trim().isNotEmpty) {
+          cevapOnerileri.add(rawOnerileri.toString());
+        }
+      }
+    }
     
     return SingleChildScrollView(
       child: Padding(

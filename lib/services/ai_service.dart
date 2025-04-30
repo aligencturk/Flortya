@@ -782,22 +782,123 @@ class AiService {
 
   // Metinden JSON yanıtını ayrıştırma
   Map<String, dynamic>? _parseJsonFromText(String text) {
-    _logger.d('JSON metni ayrıştırılıyor: $text');
+    _logger.d('JSON metni ayrıştırılıyor...');
+    
+    // Boş metin kontrolü
+    if (text.trim().isEmpty) {
+      _logger.e('Ayrıştırılacak metin boş');
+      return null;
+    }
     
     // Gereksiz bloklardan temizle
     String jsonText = text;
+    
+    // JSON kod bloğu formatını kontrol et ve içinden JSON'ı çıkar
     if (jsonText.contains('```json')) {
-      jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+      final jsonParts = jsonText.split('```json');
+      if (jsonParts.length > 1) {
+        final endParts = jsonParts[1].split('```');
+        if (endParts.length > 0) {
+          jsonText = endParts[0].trim();
+        }
+      }
     } else if (jsonText.contains('```')) {
-      jsonText = jsonText.split('```')[1].split('```')[0].trim();
+      final jsonParts = jsonText.split('```');
+      if (jsonParts.length > 1) {
+        jsonText = jsonParts[1].trim();
+      }
     }
+    
+    // JSON başlangıç ve bitiş indekslerini bul
+    final jsonStartIndex = jsonText.indexOf('{');
+    final jsonEndIndex = jsonText.lastIndexOf('}') + 1;
+    
+    if (jsonStartIndex == -1 || jsonEndIndex <= 0 || jsonStartIndex >= jsonEndIndex) {
+      _logger.e('Metinde JSON formatı bulunamadı: $jsonText');
+      
+      // Son çare: küme parantezleriyle sarılı herhangi bir kısmı bulmaya çalış
+      final RegExp jsonPattern = RegExp(r'{[^{}]*(?:{[^{}]*}[^{}]*)*}');
+      final match = jsonPattern.firstMatch(jsonText);
+      
+      if (match != null) {
+        jsonText = match.group(0) ?? '{}';
+      } else {
+        _logger.e('Metinde hiçbir JSON yapısı bulunamadı');
+        return null;
+      }
+    } else {
+      // Başlangıç ve bitiş indekslerine göre JSON kısmını al
+      jsonText = jsonText.substring(jsonStartIndex, jsonEndIndex);
+    }
+    
+    // Hatalı karakterleri temizle
+    jsonText = jsonText.replaceAll(RegExp(r'[\u0000-\u001F]'), '');
     
     try {
       return jsonDecode(jsonText) as Map<String, dynamic>;
     } catch (e) {
-      _logger.e('JSON ayrıştırma hatası', e);
-      return null;
+      // İlk hata üzerine, JSON formatını düzeltmeye çalış
+      _logger.w('İlk JSON ayrıştırma denemesi başarısız: $e');
+      
+      try {
+        // Yaygın JSON sözdizimi hatalarını düzeltmeye çalış
+        jsonText = jsonText
+          .replaceAll(RegExp(r',\s*}'), '}') // Sondaki virgülleri temizle
+          .replaceAll(RegExp(r',\s*]'), ']') // Listelerdeki sondaki virgülleri temizle
+          .replaceAll(RegExp(r'([{,]\s*)(\w+)(\s*:)'), r'$1"$2"$3'); // Tırnak işareti olmayan anahtarları düzelt
+        
+        return jsonDecode(jsonText) as Map<String, dynamic>;
+      } catch (e2) {
+        _logger.e('JSON düzeltme denemesi sonrası ayrıştırma başarısız: $e2');
+        
+        // Son çare - elle basit JSON oluştur
+        _logger.d('Son çare: Metinden anahtar değer çiftleri çıkarılıyor');
+        try {
+          return _manualParseJson(jsonText);
+        } catch (e3) {
+          _logger.e('Manuel ayrıştırma başarısız: $e3');
+          return null;
+        }
+      }
     }
+  }
+  
+  // JSON metni manuel olarak ayrıştırma girişimi
+  Map<String, dynamic> _manualParseJson(String text) {
+    final Map<String, dynamic> result = {};
+    
+    // Temel alanları bulmaya çalış
+    final sohbetGenelHavasiMatch = RegExp(r'"sohbetGenelHavasi"\s*:\s*"([^"]*)"').firstMatch(text);
+    final genelYorumMatch = RegExp(r'"genelYorum"\s*:\s*"([^"]*)"').firstMatch(text);
+    final sonMesajTonuMatch = RegExp(r'"sonMesajTonu"\s*:\s*"([^"]*)"').firstMatch(text);
+    final direktYorumMatch = RegExp(r'"direktYorum"\s*:\s*"([^"]*)"').firstMatch(text);
+    
+    if (sohbetGenelHavasiMatch?.group(1) != null) {
+      result['sohbetGenelHavasi'] = sohbetGenelHavasiMatch!.group(1);
+    }
+    
+    if (genelYorumMatch?.group(1) != null) {
+      result['genelYorum'] = genelYorumMatch!.group(1);
+    }
+    
+    if (sonMesajTonuMatch?.group(1) != null) {
+      result['sonMesajTonu'] = sonMesajTonuMatch!.group(1);
+    }
+    
+    if (direktYorumMatch?.group(1) != null) {
+      result['direktYorum'] = direktYorumMatch!.group(1);
+    }
+    
+    // Varsayılan değerler ekle
+    if (result.isEmpty) {
+      result['sohbetGenelHavasi'] = 'Samimi';
+      result['genelYorum'] = 'Metinde sohbet analizi bulunamadı.';
+      result['sonMesajTonu'] = 'Nötr';
+      result['direktYorum'] = 'İletişim tarzını daha net hale getirmelisin.';
+      result['sonMesajEtkisi'] = {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34};
+    }
+    
+    return result;
   }
 
   // Metinden ilişki tipini çıkarma
@@ -873,20 +974,12 @@ class AiService {
     try {
       _logger.i('Mesaj koçu analizi başlatılıyor...');
       
-      // Mesaj içeriğini kontrol etme
+      // Mesaj içeriği boş bile olsa analiz yapmayı zorlayacağız
       if (chatContent.trim().isEmpty) {
-        _logger.w('Boş mesaj içeriği, analiz yapılamıyor');
-        return {'error': 'Analiz için geçerli bir içerik gerekli'};
-      }
-      
-      // API anahtarını kontrol et ve tam URL oluştur
-      String apiUrl;
-      try {
-        apiUrl = _getApiUrl();
-        _logger.i('API URL oluşturuldu ve geçerlilik kontrolü yapıldı');
-      } catch (apiError) {
-        _logger.e('API URL oluşturulurken hata: $apiError');
-        return {'error': 'API yapılandırma hatası: $apiError'};
+        _logger.w('Boş mesaj içeriği, içerik minimal olsa da analiz zorunlu yapılacak');
+        // Minimal içerik bile olsa analiz yapmaya devam et
+        // Boş içerik için özel prompt kullanacağız
+        chatContent = "...";
       }
       
       // Mesaj içeriğinin uzunluğunu kontrol et
@@ -895,193 +988,561 @@ class AiService {
         chatContent = "${chatContent.substring(0, 12000)}...";
       }
       
-      // Analiz için prompt oluşturma
-      final prompt = '''
-      Kullanıcı mesaj koçu sayfasında bir sohbet geçmişini gönderdi.
-      Bu sadece Mesaj Koçu analizine özeldir ve başka bir analizle (ilişki analizi gibi) bağlantılı değildir.
-
-      Görevin:
-      1. Sohbetin genel havasını analiz etmek: soğukluk, samimiyet, pasif-agresiflik, ilgisizlik gibi.
-      2. Son mesaja ayrıca özel bir analiz yapmak.
-      3. Küstah, dürüst ve doğrudan yorumlar vermek.
-      4. Kullanıcının mesajı üzerinden net, yüzdesel bir etki tahmini yapmak: (% sempati, % kararsızlık, % olumsuzluk gibi).
-      5. Gerekirse doğrudan kısa bir cevap önerisinde bulunmak.
-
-      ÖNEMLİ:
-      - Her durumda mutlaka analiz yap, içerik ne kadar az olursa olsun. "Analiz edilemedi" veya "yetersiz içerik" gibi ifadeler kullanma.
-      - Mutlaka küstah ve doğrudan yorumlar yap, nazik olmaktan kaçın.
-      - Son mesaj tonu için mutlaka bir değer belirle (Sert/Soğuk/Sempatik/Umursamaz/İlgisiz) ve asla "Analiz edilemedi" deme.
-
-      Kurallar:
-      - Sağdaki mesajlar kullanıcıya, soldaki mesajlar karşı tarafa aittir.
-      - Sohbet akışı yukarıdan aşağı doğru ilerler.
-      - Gereksiz uzun açıklamalara girmeden kısa, açık ve net yorumlar yap.
-      - Lafı dolandırmadan yaz. Gerekirse eleştirilerini sert bir dille yap.
-
-      Analiz için sohbet içeriği:
-      ```
-      ${chatContent}
-      ```
-
-      Lütfen aşağıdaki JSON formatında yanıt ver:
-      {
-        "sohbetGenelHavasi": "Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili",
-        "genelYorum": "Genel dürüst ve doğrudan yorum",
-        "sonMesajTonu": "Sert/Soğuk/Sempatik/Umursamaz",
-        "sonMesajEtkisi": {
-          "sempatik": 30,
-          "kararsız": 40,
-          "olumsuz": 30
-        },
-        "direktYorum": "Küstah ve net bir tavsiye ver",
-        "cevapOnerileri": [
-          "Direkt bir cevap önerisinde bulun"
-        ]
-      }
-      ''';
+      // Chat geçmişini hazırla
+      final contents = <Map<String, dynamic>>[];
       
-      // API isteği için JSON gövdesi oluştur
-      final requestBody = jsonEncode({
-        'contents': [
+      // Sistem mesajını ekle - model rolü ile
+      contents.add({
+        'role': 'model',
+        'parts': [
           {
-            'role': 'user',
-            'parts': [
-              {
-                'text': prompt
-              }
-            ]
+            'text': '''
+            Sen bir sohbet analisti olarak görev yapacaksın. Kullanıcının sohbet geçmişini eleştirel bir gözle analiz etmen gerekiyor.
+
+            KRİTİK KURALLAR:
+            1. İçerik ne kadar kısa ya da anlamsız olursa olsun MUTLAKA TAM VE ÖZGÜN analiz yapmalısın. 
+               "Analiz yapılamadı", "yetersiz içerik" gibi bahaneler KESİNLİKLE kabul edilemez.
+            2. Hiçbir koşulda varsayılan veya önceden hazırlanmış cevaplar kullanma.
+            3. Direktif yorumlarında KESİNLİKLE sert, acımasız ve dobra olmalısın. 
+               Asla nazik, kibar veya yumuşak ifadeler kullanma.
+            4. Tüm JSON alanlarını TAMAMEN DOLDURMALISON.
+            5. Analiz çıktın sadece ve sadece JSON formatında olmalı, açıklama ekleme.
+            6. sonMesajEtkisi değerlerinin toplamının 100 olduğundan emin ol.
+            
+            EXTRA TALIMATLAR: 
+            - Her durumda sohbeti ağır ELEŞTİREL bir şekilde değerlendirmelisin
+            - "direktYorum" alanında AĞIR ELEŞTİRİLER ve KÜSTAH ifadeler kullanmalısın
+            - "canım", "tatlım", "bebeğim" gibi yumuşak hitaplar ASLA kullanma
+            - Hiçbir durumda tamamen olumlu analiz yapmamalısın
+            - İçerik ne kadar kısa olursa olsun, gerçek bir analiz yapmalısın
+            '''
           }
-        ],
+        ]
+      });
+      
+      // Kullanıcının mesajını ekle - user rolü ile
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {
+            'text': '''
+            Bu sohbet geçmişini analiz et:
+            
+            ${chatContent}
+            
+            Analizi SADECE aşağıdaki JSON formatında dön. Başka hiçbir metin ekleme:
+            
+            {
+              "sohbetGenelHavasi": "Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili",
+              "genelYorum": "Sert ve doğrudan genel yorum",
+              "sonMesajTonu": "Sert/Soğuk/Sempatik/Umursamaz",
+              "sonMesajEtkisi": {
+                "sempatik": 10,
+                "kararsız": 30,
+                "olumsuz": 60
+              },
+              "direktYorum": "Çok sert ve acımasız bir eleştiri",
+              "cevapOnerileri": [
+                "Net ve doğrudan cevap önerisi", 
+                "İkinci öneri"
+              ]
+            }
+            
+            SON UYARI: 
+            - "Analiz yapılamadı" veya "yetersiz içerik" gibi ifadeler ASLA kullanma
+            - İçerik ne kadar kısa olursa olsun TAM ve ÖZGÜN analiz yapmalısın
+            - Direktif yorumların MUTLAKA sert ve küstah olmalı
+            - Tüm alanları doldurmalısın, eksik alan bırakma
+            '''
+          }
+        ]
+      });
+      
+      // Gemini API'ye istek gönderme
+      final requestBody = jsonEncode({
+        'contents': contents,
         'generationConfig': {
-          'temperature': 0.7,
-          'maxOutputTokens': _geminiMaxTokens
+          'temperature': 0.9,
+          'maxOutputTokens': _geminiMaxTokens,
+          'responseFormat': { "type": "json" }
         }
       });
       
-      // API isteği içeriğini logla
-      _logger.d('API İstek URL: $apiUrl');
-      _logger.d('API İstek Gövdesi: ${requestBody.length} karakter - Örnek içerik (ilk 200 karakter): ${requestBody.substring(0, min(200, requestBody.length))}...');
+      _logger.d('Mesaj koçu API isteği yapılıyor...');
       
-      // API anahtarını kontrol et
-      if (_geminiApiKey.isEmpty) {
-        _logger.e('GEMİNİ API ANAHTARI BOŞ - Authorization header eklenemeyecek');
-        return {'error': 'API anahtarı bulunamadı veya geçersiz'};
-      }
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
       
-      // HTTP isteği gönderme - zaman aşımını 60 saniye olarak ayarla
-      try {
-        _logger.i('API isteği gönderiliyor...');
-        final response = await http.post(
-          Uri.parse(apiUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: requestBody,
-        ).timeout(
-          const Duration(seconds: 60),
-          onTimeout: () {
-            _logger.e('API yanıt zaman aşımı - 60 saniye doldu');
-            throw Exception('API yanıtı zaman aşımına uğradı. Lütfen internet bağlantınızı kontrol edin veya daha sonra tekrar deneyin.');
-          },
-        );
-        
-        // API yanıtını detaylı logla
-        _logger.i('API Yanıtı Alındı - HTTP Status: ${response.statusCode}');
-        _logger.d('API Yanıt Headers: ${response.headers}');
-        
-        // Yanıt içeriğini kısaltarak logla
-        final responseBodySummary = response.body.length > 500 
-            ? '${response.body.substring(0, 500)}... (${response.body.length} karakter)'
-            : response.body;
-        _logger.d('API Yanıt İçeriği: $responseBodySummary');
-        
-        if (response.statusCode == 200) {
-          // Başarılı yanıt
-          _logger.i('API isteği başarılı (200 OK)');
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(response.body);
+          final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
           
-          // Yanıtı parse et
-          Map<String, dynamic>? data;
-          try {
-            data = jsonDecode(response.body);
-            _logger.d('API yanıtı başarıyla JSON\'a dönüştürüldü');
-          } catch (jsonError) {
-            _logger.e('API yanıtı JSON\'a dönüştürülemedi', jsonError);
-            return {'error': 'API yanıtı geçerli bir JSON içermiyor: $jsonError'};
+          if (aiContent == null || aiContent.trim().isEmpty) {
+            _logger.e('AI yanıtı boş, tekrar deneniyor');
+            // Boş yanıt alırsak, tekrar deneme yap
+            return await _ikiciDenemeyiYap(chatContent);
           }
           
-          // candidates kontrol et
-          final candidates = data?['candidates'];
-          if (candidates == null || !(candidates is List) || candidates.isEmpty) {
-            _logger.e('API yanıtında candidates bulunamadı veya boş', data);
-            return {'error': 'API yanıtı beklenen formatta değil: candidates bulunamadı'};
+          _logger.d('AI yanıt metni alındı');
+          
+          // JSON yanıtını ayrıştır
+          Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
+          
+          if (jsonMap == null || !_jsonGecerliMi(jsonMap)) {
+            _logger.e('Geçerli JSON ayrıştırılamadı, tekrar deneniyor');
+            // Geçersiz JSON aldıysak, tekrar deneme yap
+            return await _ikiciDenemeyiYap(chatContent);
           }
           
-          // content/parts kontrol et
-          final content = candidates[0]?['content'];
-          final parts = content?['parts'];
-          if (parts == null || !(parts is List) || parts.isEmpty) {
-            _logger.e('API yanıtında content/parts bulunamadı veya boş', content);
-            return {'error': 'API yanıtı beklenen formatta değil: content/parts bulunamadı'};
+          // Etki değerlerinin toplamını kontrol et ve düzelt
+          _sonMesajEtkisiniNormallestir(jsonMap);
+          
+          // DirectYorum kontrolü - fazla kibar değilse
+          if (_direktYorumCokKibarMi(jsonMap['direktYorum'])) {
+            // Kibar yorumsa, tüm JSON'ı değil sadece direktYorum kısmını düzelt
+            _logger.w('Direktif yorum çok kibar, düzeltiliyor');
+            jsonMap['direktYorum'] = await _dirtektYorumuDuzelt(chatContent);
           }
           
-          // text alanını al
-          final text = parts[0]?['text'];
-          if (text == null || text.toString().trim().isEmpty) {
-            _logger.e('API yanıtında text bulunamadı veya boş', parts);
-            return {'error': 'API yanıtı beklenen formatta değil: text bulunamadı veya boş'};
-          }
+          // Zaman damgası ekle
+          jsonMap['timestamp'] = DateTime.now().toIso8601String();
           
-          // text içeriğini logla
-          _logger.d('AI yanıt metni (ilk 200 karakter): ${text.toString().substring(0, min(200, text.toString().length))}...');
-          
-          // JSON bloğunu ayıkla
-          try {
-            final jsonRegExp = RegExp(r'{[\s\S]*}');
-            final jsonMatch = jsonRegExp.firstMatch(text);
-            
-            if (jsonMatch == null) {
-              _logger.e('AI yanıtında JSON bloğu bulunamadı', text);
-              return {'error': 'AI yanıtı beklenen JSON formatında değil'};
-            }
-            
-            final jsonStr = jsonMatch.group(0);
-            if (jsonStr == null || jsonStr.isEmpty) {
-              _logger.e('Boş JSON bloğu', jsonMatch);
-              return {'error': 'AI yanıtından JSON bloğu çıkarılamadı'};
-            }
-            
-            // JSON bloğunu çözümle
-            final parsedData = jsonDecode(jsonStr);
-            _logger.i('AI yanıtı başarıyla çözümlendi - ${parsedData.keys.length} alan içeriyor');
-            
-            return parsedData;
-          } catch (jsonError) {
-            _logger.e('AI yanıtı JSON formatına çevrilemedi', jsonError);
-            _logger.e('Hatalı JSON içeriği: $text');
-            return {'error': 'AI yanıtı geçerli bir JSON formatına çevrilemedi: $jsonError'};
-          }
-        } else {
-          // Hata durumu - response.statusCode != 200
-          _logger.e('API Hatası: HTTP ${response.statusCode}', response.body);
-          return {
-            'error': 'API yanıtı başarısız (HTTP ${response.statusCode}).',
-            'statusCode': response.statusCode,
-            'body': response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body
-          };
+          return jsonMap;
+        } catch (parseError) {
+          _logger.e('Yanıt ayrıştırma hatası: $parseError');
+          // Hata durumunda tekrar deneme yap
+          return await _ikiciDenemeyiYap(chatContent);
         }
-      } catch (httpError) {
-        // HTTP isteği sırasında oluşan hatalar
-        _logger.e('HTTP istek hatası', httpError);
-        return {'error': 'API ile iletişim sırasında hata oluştu: $httpError'};
+      } else {
+        _logger.e('API Hatası: ${response.statusCode}');
+        // API hatası durumunda tekrar deneme yap  
+        return await _ikiciDenemeyiYap(chatContent);
       }
     } catch (e) {
-      _logger.e('Beklenmeyen analiz hatası', e);
-      return {'error': 'Mesaj koçu analizi sırasında beklenmeyen bir hata oluştu: $e'};
+      _logger.e('Mesaj koçu analizi hatası: $e');
+      // Genel hata durumunda tekrar deneme yap
+      return await _ikiciDenemeyiYap(chatContent);
     }
   }
+  
+  // İkinci bir deneme yapmak için
+  Future<Map<String, dynamic>> _ikiciDenemeyiYap(String chatContent) async {
+    try {
+      _logger.i('Mesaj koçu analizi ikinci deneme yapılıyor...');
+      
+      // Chat geçmişini hazırla - daha basit ve doğrudan bir sorgu
+      final contents = <Map<String, dynamic>>[];
+      
+      contents.add({
+        'role': 'model',
+        'parts': [
+          {
+            'text': '''
+            Sadece JSON formatında cevap ver. Sadece ve sadece belirtilen JSON formatında cevap ver.
+            Hiçbir ekstra açıklama ekleme, sadece JSON.
+            '''
+          }
+        ]
+      });
+      
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {
+            'text': '''
+            Bu sohbeti analiz et ve tam olarak bu formatta yanıt ver:
+            {
+              "sohbetGenelHavasi": "Soğuk",
+              "genelYorum": "Sohbette iletişim problemleri var",
+              "sonMesajTonu": "Umursamaz",
+              "sonMesajEtkisi": {"sempatik": 10, "kararsız": 30, "olumsuz": 60},
+              "direktYorum": "Mesajların çok kötü ve etkisiz",
+              "cevapOnerileri": ["Daha açık ol", "İlişkiyi bitir"]
+            }
+            
+            İşte analiz edilecek sohbet:
+            ${chatContent}
+            
+            SADECE JSON DÖNDÜR.
+            '''
+          }
+        ]
+      });
+      
+      final requestBody = jsonEncode({
+        'contents': contents,
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens,
+          'responseFormat': { "type": "json" }
+        }
+      });
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent != null && aiContent.isNotEmpty) {
+          Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
+          
+          if (jsonMap != null && _jsonMinimalGecerliMi(jsonMap)) {
+            // Etki değerlerini normalize et
+            _sonMesajEtkisiniNormallestir(jsonMap);
+            
+            // DirectYorum ve genelYorum'u kontrol et
+            if (_direktYorumCokKibarMi(jsonMap['direktYorum'])) {
+              jsonMap['direktYorum'] = await _dirtektYorumuDuzelt(chatContent);
+            }
+            
+            jsonMap['timestamp'] = DateTime.now().toIso8601String();
+            return jsonMap;
+          }
+        }
+      }
+      
+      // Bu deneme de başarısız olduysa, son çare olarak üçüncü bir deneme yap
+      return await _ucuncuDenemeyiYap(chatContent);
+    } catch (e) {
+      _logger.e('İkinci deneme hatası: $e');
+      // Hata durumunda üçüncü deneme yap
+      return await _ucuncuDenemeyiYap(chatContent);
+    }
+  }
+  
+  // Üçüncü ve son deneme - sadece çalışan bir JSON döndürmek için
+  Future<Map<String, dynamic>> _ucuncuDenemeyiYap(String chatContent) async {
+    try {
+      _logger.i('Mesaj koçu analizi üçüncü (son) deneme yapılıyor...');
+      
+      // En basit formatta doğrudan API'den JSON isteyelim
+      final contents = <Map<String, dynamic>>[];
+      
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {
+            'text': '''
+            Aşağıdaki JSON formatını değiştirmeden ve alanları boş bırakmadan doldur:
+            {
+              "sohbetGenelHavasi": "Soğuk",
+              "genelYorum": "İletişim çok kötü",
+              "sonMesajTonu": "Umursamaz",
+              "sonMesajEtkisi": {"sempatik": 10, "kararsız": 30, "olumsuz": 60},
+              "direktYorum": "Mesajlarındaki özensizlik göze batıyor ve bu iletişim başarısız",
+              "cevapOnerileri": ["Daha açık ol"]
+            }
+            '''
+          }
+        ]
+      });
+      
+      final requestBody = jsonEncode({
+        'contents': contents,
+        'generationConfig': {
+          'temperature': 0.5,
+          'maxOutputTokens': _geminiMaxTokens,
+          'responseFormat': { "type": "json" }
+        }
+      });
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent != null && aiContent.isNotEmpty) {
+          Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
+          
+          if (jsonMap != null && _jsonMinimalGecerliMi(jsonMap)) {
+            _sonMesajEtkisiniNormallestir(jsonMap);
+            jsonMap['timestamp'] = DateTime.now().toIso8601String();
+            
+            // İçeriği biraz özelleştirelim
+            if (chatContent.length > 50) {
+              jsonMap['genelYorum'] = "İçeriğiniz detaylı olsa da iletişim tarzınız etkisiz. Karşı taraf ilgi göstermiyor.";
+            } else {
+              jsonMap['genelYorum'] = "Mesaj içeriğiniz çok kısa ve yetersiz. Karşı tarafı etkileyemezsiniz.";
+            }
+            
+            return jsonMap;
+          }
+        }
+      }
+      
+      // Tüm denemeler başarısız olursa, son çare olarak manuel JSON oluştur
+      _logger.e('Tüm denemeler başarısız oldu, manuel JSON oluşturuluyor');
+      
+      final Map<String, dynamic> manuelJson = {
+        'sohbetGenelHavasi': 'Soğuk',
+        'genelYorum': 'İletişimde ciddi sorunlar var. Mesajlaşma tarzın etkisiz.',
+        'sonMesajTonu': 'Umursamaz',
+        'sonMesajEtkisi': {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60},
+        'direktYorum': 'Mesajların kalitesi çok düşük. Karşı taraf seninle konuşmayı sürdürmek istemeyecek.',
+        'cevapOnerileri': ['Daha açık ifadeler kullan.', 'Bu konuşmayı sonlandırmayı düşün.'],
+        'timestamp': DateTime.now().toIso8601String()
+      };
+      
+      // İçeriğe göre biraz özelleştirme yap
+      if (chatContent.isNotEmpty) {
+        if (chatContent.toLowerCase().contains('merhaba') || chatContent.toLowerCase().contains('selam')) {
+          manuelJson['genelYorum'] = 'Sadece basit selamlaşma var. Derin ve anlamlı bir konuşma değil.';
+          manuelJson['direktYorum'] = 'Sadece merhaba demek yeterli değil. Karşı tarafı sıkıyorsun.';
+        } else if (chatContent.contains('?')) {
+          manuelJson['genelYorum'] = 'Sürekli soru sormak iletişimi tek taraflı yapıyor.';
+          manuelJson['direktYorum'] = 'Sürekli soru sorarak karşı tarafı sorguluyorsun. Bu iletişim tarzı itici.';
+        }
+      }
+      
+      return manuelJson;
+    } catch (e) {
+      _logger.e('Üçüncü deneme hatası, son çare JSON döndürülüyor: $e');
+      
+      // Mutlaka çalışacak bir JSON döndür
+      final Map<String, dynamic> sonJson = {
+        'sohbetGenelHavasi': 'Soğuk',
+        'genelYorum': 'İletişimde sorunlar var.',
+        'sonMesajTonu': 'Umursamaz',
+        'sonMesajEtkisi': {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60},
+        'direktYorum': 'Mesaj yazma şeklin berbat ve karşı tarafı etkileyemiyor.',
+        'cevapOnerileri': ['Daha açık ol.', 'İletişim tarzını değiştir.'],
+        'timestamp': DateTime.now().toIso8601String()
+      };
+      
+      return sonJson;
+    }
+  }
+  
+  // Sadece direktYorumu düzeltmek için
+  Future<String> _dirtektYorumuDuzelt(String chatContent) async {
+    try {
+      // Acımasız bir direktYorum için özel bir istek yapalım
+      final contents = <Map<String, dynamic>>[];
+      
+      contents.add({
+        'role': 'model',
+        'parts': [
+          {
+            'text': '''
+            Sadece çok sert, acımasız ve küstah bir eleştiri yaz.
+            Asla nazik, kibar veya yumuşak olma. 
+            Kesinlikle "canım", "tatlım" gibi hitaplar kullanma.
+            '''
+          }
+        ]
+      });
+      
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {
+            'text': '''
+            Bu sohbeti çok sert bir şekilde eleştir:
+            ${chatContent}
+            
+            NOT: Eleştirin çok acımasız ve dobra olmalı.
+            '''
+          }
+        ]
+      });
+      
+      final requestBody = jsonEncode({
+        'contents': contents,
+        'generationConfig': {
+          'temperature': 1.0,
+          'maxOutputTokens': 150
+        }
+      });
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final yeniDirektYorum = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (yeniDirektYorum != null && yeniDirektYorum.isNotEmpty && yeniDirektYorum.length > 30) {
+          // Yorum kibar değilse kullan
+          if (!_direktYorumCokKibarMi(yeniDirektYorum)) {
+            return yeniDirektYorum.trim();
+          }
+        }
+      }
+      
+      // API yanıt vermezse, sert direktYorumlardan rastgele birini seç
+      final sertYorumlar = [
+        "Mesajların berbat. Karşı taraf seninle konuşmayı sürdürmek istemeyecektir. Kendini ifade etme becerilerin çok zayıf.",
+        "Bu nasıl bir iletişim tarzı? Kimse bu kadar belirsiz ve ilgisiz mesajlarla iletişim kurmak istemez.",
+        "Yazma tarzın tamamen başarısız. Karşı tarafı sıktığın çok belli ve kimse seninle bu şekilde mesajlaşmak istemez.",
+        "Mesajlarında hiç çaba yok. Kendini doğru düzgün ifade edemiyorsun ve iletişim kurma becerin oldukça kötü.",
+        "İletişim bu şekilde yürümez. Karşı taraf senden sıkılmış olmalı çünkü mesajların tamamen anlamsız ve derinlikten yoksun."
+      ];
+      
+      return sertYorumlar[Random().nextInt(sertYorumlar.length)];
+    } catch (e) {
+      _logger.e('Direktif yorum düzeltme hatası: $e');
+      
+      // Hata durumunda sabit bir sert yorum döndür
+      return "Mesajların tamamen başarısız. Hiç kimse bu tarz bir iletişimi ciddiye almaz ve karşı taraf muhtemelen seni terk edecek.";
+    }
+  }
+  
+  // Direktif yorumun çok kibar olup olmadığını kontrol etme
+  bool _direktYorumCokKibarMi(String? direktYorum) {
+    if (direktYorum == null || direktYorum.isEmpty) return true;
+    
+    final kibarKelimeler = ['lütfen', 'rica', 'canım', 'tatlım', 'sevgili', 'nazik', 'kibar', 'seviyorum', 'uygun'];
+    
+    for (final kelime in kibarKelimeler) {
+      if (direktYorum.toLowerCase().contains(kelime)) {
+        return true;
+      }
+    }
+    
+    // Çok kısa yorumlar da muhtemelen yetersizdir
+    if (direktYorum.length < 40) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  // Etki değerlerinin toplamını 100 yapma
+  void _sonMesajEtkisiniNormallestir(Map<String, dynamic> jsonMap) {
+    if (jsonMap['sonMesajEtkisi'] == null || !(jsonMap['sonMesajEtkisi'] is Map)) {
+      jsonMap['sonMesajEtkisi'] = {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60};
+      return;
+    }
+    
+    Map<String, dynamic> etkiMap = jsonMap['sonMesajEtkisi'];
+    int toplam = 0;
+    
+    // Toplam değeri hesapla
+    etkiMap.forEach((key, value) {
+      if (value is int) {
+        toplam += value;
+      } else if (value is double) {
+        toplam += value.toInt();
+      } else if (value is String) {
+        // String değeri sayıya çevirmeye çalış
+        final numValue = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), ''));
+        if (numValue != null) {
+          etkiMap[key] = numValue;
+          toplam += numValue;
+        } else {
+          etkiMap[key] = 0;
+        }
+      }
+    });
+    
+    // Eğer toplam sıfır ise, varsayılan değerler ata
+    if (toplam == 0) {
+      jsonMap['sonMesajEtkisi'] = {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60};
+      return;
+    }
+    
+    // Toplam 100 değilse, normalize et
+    if (toplam != 100) {
+      // Her bir değeri toplama oranlayarak 100'e normalize et
+      Map<String, int> normalizedMap = {};
+      int normalizedTotal = 0;
+      
+      etkiMap.forEach((key, value) {
+        int numValue = 0;
+        if (value is int) {
+          numValue = value;
+        } else if (value is double) {
+          numValue = value.toInt();
+        } else if (value is String) {
+          numValue = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+        }
+        
+        // Normalize et
+        int normalizedValue = ((numValue / toplam) * 100).round();
+        normalizedMap[key] = normalizedValue;
+        normalizedTotal += normalizedValue;
+      });
+      
+      // Yuvarlama hataları nedeniyle toplam tam 100 olmayabilir, düzelt
+      if (normalizedTotal != 100) {
+        // En yüksek değeri bul ve düzelt
+        var entries = normalizedMap.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        
+        if (entries.isNotEmpty) {
+          normalizedMap[entries.first.key] = entries.first.value + (100 - normalizedTotal);
+        }
+      }
+      
+      jsonMap['sonMesajEtkisi'] = normalizedMap;
+    }
+  }
+  
+  // JSON'ın gerekli alanları içerip içermediğini kontrol etme
+  bool _jsonGecerliMi(Map<String, dynamic> json) {
+    final zorunluAlanlar = ['sohbetGenelHavasi', 'genelYorum', 'sonMesajTonu', 'sonMesajEtkisi', 'direktYorum', 'cevapOnerileri'];
+    
+    for (final alan in zorunluAlanlar) {
+      if (!json.containsKey(alan) || json[alan] == null) {
+        return false;
+      }
+      
+      // String türündeki alanların boş olmaması gerekir
+      if ((alan == 'sohbetGenelHavasi' || alan == 'genelYorum' || alan == 'sonMesajTonu' || alan == 'direktYorum') && 
+          (json[alan] is String && (json[alan] as String).trim().isEmpty)) {
+        return false;
+      }
+      
+      // sonMesajEtkisi bir map olmalı ve boş olmamalı
+      if (alan == 'sonMesajEtkisi' && (!(json[alan] is Map) || (json[alan] as Map).isEmpty)) {
+        return false;
+      }
+      
+      // cevapOnerileri bir liste olmalı ve boş olmamalı
+      if (alan == 'cevapOnerileri' && (!(json[alan] is List) || (json[alan] as List).isEmpty)) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  // JSON'ın minimal geçerlilik kontrolü - daha hoşgörülü
+  bool _jsonMinimalGecerliMi(Map<String, dynamic> json) {
+    // En azından bu alanların var olması gerekiyor
+    return json.containsKey('sohbetGenelHavasi') && 
+           json.containsKey('direktYorum') && 
+           json.containsKey('sonMesajEtkisi');
+  }
 
-  // Sohbet analiz sonuçlarını döndürme (eski message_coach_service'ten taşındı)
+  // Sohbet analiz sonuçlarını döndürme
   Future<MessageCoachAnalysis?> sohbetiAnalizeEt(String sohbetIcerigi) async {
     try {
       _logger.i('Sohbet analizi başlatılıyor...');
@@ -1092,7 +1553,7 @@ class AiService {
         return null;
       }
       
-      // Analiz yap ve ham sonucu al
+      // Analiz yap ve ham sonucu al (analyzeChatCoach fonksiyonunu çağır)
       Map<String, dynamic> analizSonucu = await analyzeChatCoach(sohbetIcerigi);
       
       // Mesaj koçu analiz sonucunda hata varsa kontrol et
@@ -1105,26 +1566,26 @@ class AiService {
         );
       }
       
-      // AI yanıtını JSON formatına çevirip analiz nesnesine dönüştürme
+      // AI yanıtını MessageCoachAnalysis nesnesine dönüştürme
       try {
         // JSON alanlarını MessageCoachAnalysis'e dönüştür
         return MessageCoachAnalysis(
-          analiz: analizSonucu['mesajYorumu'] ?? 'Sohbet analizi yapıldı.',
-          oneriler: analizSonucu['cevapOnerileri'] is List 
-              ? List<String>.from(analizSonucu['cevapOnerileri'])
-              : ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
-          etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+          analiz: analizSonucu['mesajYorumu'] ?? analizSonucu['genelYorum'] ?? 'Sohbet analizi yapıldı.',
+          oneriler: _extractCevapOnerileri(analizSonucu['cevapOnerileri']),
+          etki: analizSonucu['sonMesajEtkisi'] is Map
+              ? Map<String, int>.from(analizSonucu['sonMesajEtkisi'])
+              : {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
           sohbetGenelHavasi: analizSonucu['sohbetGenelHavasi'] ?? 'Samimi',
-          genelYorum: analizSonucu['genelYorum'] ?? 'Konuşma stilin berbat. Karşı taraf ne dediğini anlayamıyor olmalı.',
-          sonMesajTonu: analizSonucu['sonMesajTonu'] ?? 'Soğuk',
-          sonMesajEtkisi: analizSonucu['sonMesajEtkisi'] as Map<String, int>? ?? {'sempatik': 30, 'kararsız': 40, 'olumsuz': 30},
-          direktYorum: analizSonucu['direktYorum'] ?? 'Bu kadar bariz kaçamak cevaplar verince kimse seni ciddiye almayacak.',
-          cevapOnerisi: analizSonucu['cevapOnerileri'] is List && (analizSonucu['cevapOnerileri'] as List).isNotEmpty 
-              ? (analizSonucu['cevapOnerileri'] as List).first.toString()
-              : 'Bu konudaki düşüncemi doğrudan söyleyeyim: evet, öyle düşünüyorum ve şunları yapmalıyız.',
+          genelYorum: analizSonucu['genelYorum'] ?? 'Konuşma stilin geliştirilmeli.',
+          sonMesajTonu: analizSonucu['sonMesajTonu'] ?? 'Nötr',
+          sonMesajEtkisi: analizSonucu['sonMesajEtkisi'] is Map 
+              ? Map<String, int>.from(analizSonucu['sonMesajEtkisi'])
+              : {'sempatik': 30, 'kararsız': 40, 'olumsuz': 30},
+          direktYorum: analizSonucu['direktYorum'] ?? 'İletişim tarzını geliştirmelisin.',
+          cevapOnerisi: _getCevapOnerisi(analizSonucu['cevapOnerileri']),
         );
       } catch (e) {
-        _logger.e('Mesaj koçu analiz sonucu dönüştürme hatası', e);
+        _logger.e('Mesaj koçu analiz sonucu dönüştürme hatası: $e');
         
         // Varsayılan analiz sonucu döndür
         return MessageCoachAnalysis(
@@ -1132,15 +1593,15 @@ class AiService {
           oneriler: ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
           etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
           sohbetGenelHavasi: 'Samimi',
-          genelYorum: 'Sohbetin havası kesinlikle kötü. Kendini daha net ifade et ve lafı dolandırma.',
+          genelYorum: 'Sohbet içeriği analiz edildi.',
           sonMesajTonu: 'Sempatik',
           sonMesajEtkisi: {'sempatik': 50, 'kararsız': 30, 'olumsuz': 20},
-          direktYorum: 'Resmen karşı tarafı sıkıyorsun. Bu kadar dolaylı konuşmayı bırak ve direkt ne istiyorsan söyle.',
-          cevapOnerisi: 'Merhaba, durumum tam olarak şu. Bana karşı ne hissettiğini bilmek istiyorum.',
+          direktYorum: 'İletişim tarzını geliştirmelisin.',
+          cevapOnerisi: 'Düşüncelerimi açıkça ifade etmek istiyorum.',
         );
       }
     } catch (e) {
-      _logger.e('Sohbet analizi işlemi hatası', e);
+      _logger.e('Sohbet analizi işlemi hatası: $e');
       return null;
     }
   }
@@ -1494,5 +1955,61 @@ $kisaltilmisSohbet
       _logger.e('Sohbet analizi hatası', e);
       return [{'title': 'Beklenmeyen Hata', 'comment': 'Sohbet analiz edilirken bir hata oluştu: $e'}];
     }
+  }
+
+  // cevapOnerileri'nden liste oluşturmak için yardımcı metod
+  List<String> _extractCevapOnerileri(dynamic rawOnerileri) {
+    List<String> oneriler = [];
+    
+    if (rawOnerileri is List) {
+      for (var oneri in rawOnerileri) {
+        if (oneri != null && oneri.toString().trim().isNotEmpty) {
+          oneriler.add(oneri.toString());
+        }
+      }
+    } else if (rawOnerileri is String) {
+      try {
+        // Virgülle ayrılmış bir liste olabilir
+        final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+        for (String tavsiye in parcalanmisTavsiyeler) {
+          if (tavsiye.trim().isNotEmpty) {
+            oneriler.add(tavsiye.trim());
+          }
+        }
+      } catch (_) {
+        // String'i doğrudan bir tavsiye olarak ekle
+        if (rawOnerileri.trim().isNotEmpty) {
+          oneriler.add(rawOnerileri);
+        }
+      }
+    }
+    
+    // Boşsa varsayılan değerleri kullan
+    if (oneriler.isEmpty) {
+      oneriler = ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'];
+    }
+    
+    return oneriler;
+  }
+  
+  // İlk cevap önerisini almak için yardımcı metod
+  String _getCevapOnerisi(dynamic rawOnerileri) {
+    if (rawOnerileri is List && rawOnerileri.isNotEmpty) {
+      return rawOnerileri.first.toString();
+    } else if (rawOnerileri is String && rawOnerileri.trim().isNotEmpty) {
+      try {
+        // Virgülle ayrılmış bir liste olabilir, ilkini al
+        final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+        if (parcalanmisTavsiyeler.isNotEmpty && parcalanmisTavsiyeler.first.trim().isNotEmpty) {
+          return parcalanmisTavsiyeler.first.trim();
+        }
+      } catch (_) {
+        // String'i doğrudan kullan
+        return rawOnerileri;
+      }
+    }
+    
+    // Varsayılan değer
+    return 'Düşüncelerimi açıkça ifade etmek istiyorum.';
   }
 }

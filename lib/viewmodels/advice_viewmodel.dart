@@ -181,14 +181,55 @@ class AdviceViewModel extends ChangeNotifier {
       List<String> oneriler = [];
       
       // Önce aiResponse içindeki cevapOnerileri'ni kontrol et
-      if (aiResponseMap.containsKey('cevapOnerileri') && aiResponseMap['cevapOnerileri'] is List) {
-        oneriler = List<String>.from(aiResponseMap['cevapOnerileri'].map((item) => item.toString()));
-        print('✅ aiResponse.cevapOnerileri bulundu: ${oneriler.length} öğe');
+      if (aiResponseMap.containsKey('cevapOnerileri')) {
+        final dynamic rawOnerileri = aiResponseMap['cevapOnerileri'];
+        if (rawOnerileri is List) {
+          oneriler = List<String>.from(rawOnerileri.map((item) => item.toString()));
+          print('✅ aiResponse.cevapOnerileri (liste) bulundu: ${oneriler.length} öğe');
+        } else if (rawOnerileri is String) {
+          // String formatındaki tavsiyeleri işle
+          try {
+            // Virgülle ayrılmış bir liste olabilir
+            final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+            for (String tavsiye in parcalanmisTavsiyeler) {
+              if (tavsiye.trim().isNotEmpty) {
+                oneriler.add(tavsiye.trim());
+              }
+            }
+            print('✅ aiResponse.cevapOnerileri (string) bulundu: ${oneriler.length} öğe');
+          } catch (e) {
+            // String'i doğrudan bir tavsiye olarak ekle
+            if (rawOnerileri.toString().trim().isNotEmpty) {
+              oneriler.add(rawOnerileri.toString());
+              print('✅ aiResponse.cevapOnerileri (tek string) bulundu');
+            }
+          }
+        }
       } 
       // Doğrudan cevapOnerileri'ni kontrol et
-      else if (resultMap.containsKey('cevapOnerileri') && resultMap['cevapOnerileri'] is List) {
-        oneriler = List<String>.from(resultMap['cevapOnerileri'].map((item) => item.toString()));
-        print('✅ cevapOnerileri bulundu: ${oneriler.length} öğe');
+      else if (resultMap.containsKey('cevapOnerileri')) {
+        final dynamic rawOnerileri = resultMap['cevapOnerileri'];
+        if (rawOnerileri is List) {
+          oneriler = List<String>.from(rawOnerileri.map((item) => item.toString()));
+          print('✅ cevapOnerileri (liste) bulundu: ${oneriler.length} öğe');
+        } else if (rawOnerileri is String) {
+          try {
+            // Virgülle ayrılmış bir liste olabilir
+            final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+            for (String tavsiye in parcalanmisTavsiyeler) {
+              if (tavsiye.trim().isNotEmpty) {
+                oneriler.add(tavsiye.trim());
+              }
+            }
+            print('✅ cevapOnerileri (string) bulundu: ${oneriler.length} öğe');
+          } catch (e) {
+            // String'i doğrudan bir tavsiye olarak ekle
+            if (rawOnerileri.toString().trim().isNotEmpty) {
+              oneriler.add(rawOnerileri.toString());
+              print('✅ cevapOnerileri (tek string) bulundu');
+            }
+          }
+        }
       }
       // öneriler alanını kontrol et
       else if (resultMap.containsKey('öneriler') && resultMap['öneriler'] is List) {

@@ -318,15 +318,50 @@ class AnalysisResultBox extends StatelessWidget {
     // Öneri listesini al
     List<String> suggestions = [];
     
+    // cevapOnerileri alanını kontrol et
     if (result.aiResponse.containsKey('cevapOnerileri')) {
-      final suggestionList = result.aiResponse['cevapOnerileri'];
-      if (suggestionList is List) {
-        suggestions = suggestionList.map((item) => item.toString()).toList();
+      final dynamic rawSuggestions = result.aiResponse['cevapOnerileri'];
+      if (rawSuggestions is List) {
+        suggestions = rawSuggestions.map((item) => item.toString()).toList();
+      } else if (rawSuggestions is String) {
+        // String formatını işle
+        try {
+          // Virgülle ayrılmış bir liste olabilir
+          final List<String> splitSuggestions = rawSuggestions.split(',');
+          for (String suggestion in splitSuggestions) {
+            if (suggestion.trim().isNotEmpty) {
+              suggestions.add(suggestion.trim());
+            }
+          }
+        } catch (e) {
+          // String'i doğrudan bir öneri olarak ekle
+          if (rawSuggestions.toString().trim().isNotEmpty) {
+            suggestions.add(rawSuggestions.toString());
+          }
+        }
       }
-    } else if (result.aiResponse.containsKey('cevap_onerileri')) {
-      final suggestionList = result.aiResponse['cevap_onerileri'];
-      if (suggestionList is List) {
-        suggestions = suggestionList.map((item) => item.toString()).toList();
+    } 
+    // cevap_onerileri alanını kontrol et
+    else if (result.aiResponse.containsKey('cevap_onerileri')) {
+      final dynamic rawSuggestions = result.aiResponse['cevap_onerileri'];
+      if (rawSuggestions is List) {
+        suggestions = rawSuggestions.map((item) => item.toString()).toList();
+      } else if (rawSuggestions is String) {
+        // String formatını işle
+        try {
+          // Virgülle ayrılmış bir liste olabilir
+          final List<String> splitSuggestions = rawSuggestions.split(',');
+          for (String suggestion in splitSuggestions) {
+            if (suggestion.trim().isNotEmpty) {
+              suggestions.add(suggestion.trim());
+            }
+          }
+        } catch (e) {
+          // String'i doğrudan bir öneri olarak ekle
+          if (rawSuggestions.toString().trim().isNotEmpty) {
+            suggestions.add(rawSuggestions.toString());
+          }
+        }
       }
     }
     

@@ -9,6 +9,12 @@ enum AnalysisType {
   /// Danışma seansı bazlı analiz
   consultation,
   
+  /// Mesaj koçu analizi
+  messageCoach,
+  
+  /// İlişki değerlendirmesi
+  relationshipEvaluation,
+  
   /// Diğer veri tipi bazlı analizler
   other
 } 

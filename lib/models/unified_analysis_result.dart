@@ -239,6 +239,20 @@ class UnifiedAnalysisResult {
             tavsiyeler.add(rec);
           }
         }
+      } else if (rawRecommendations is String) {
+        // String formatındaki tavsiyeleri işle
+        try {
+          // Virgülle ayrılmış bir liste olabilir
+          final List<String> parcalanmisTavsiyeler = rawRecommendations.split(',');
+          for (String tavsiye in parcalanmisTavsiyeler) {
+            if (tavsiye.trim().isNotEmpty) {
+              tavsiyeler.add(tavsiye.trim());
+            }
+          }
+        } catch (e) {
+          // String'i doğrudan bir tavsiye olarak ekle
+          tavsiyeler.add(rawRecommendations);
+        }
       }
     }
     

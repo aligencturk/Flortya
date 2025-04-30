@@ -567,6 +567,26 @@ class MessageViewModel extends ChangeNotifier {
         'mesajYorumu': analysisResult.aiResponse['mesajYorumu'] ?? '',
       };
       
+      // Analiz türünü kontrol et - Mesaj Koçu ise ana sayfayı güncelleme
+      final bool isMessageCoach = analysisResult.aiResponse.containsKey('direktYorum') || 
+                                analysisResult.aiResponse.containsKey('sohbetGenelHavasi');
+                                
+      // İlişki değerlendirmesi kontrolü  
+      final bool isRelationshipEvaluation = analysisResult.aiResponse.containsKey('relationship_type') ||
+                                        analysisResult.aiResponse.containsKey('relationshipType');
+      
+      // Mesaj Koçu veya İlişki Değerlendirmesi ise sadece ilgili koleksiyonlara kaydet,
+      // kullanıcı profilini ve ana sayfayı güncelleme
+      if (isMessageCoach) {
+        _logger.i('Mesaj Koçu analizi tespit edildi, kullanıcı profili güncellenmeyecek');
+        return;
+      }
+      
+      if (isRelationshipEvaluation) {
+        _logger.i('İlişki Değerlendirmesi tespit edildi, kullanıcı profili güncellenmeyecek');
+        return;
+      }
+      
       // Kullanıcı profilini çek
       DocumentReference userRef = _firestore.collection('users').doc(userId);
       DocumentSnapshot<Map<String, dynamic>> userDoc = await userRef.get() as DocumentSnapshot<Map<String, dynamic>>;
@@ -1449,6 +1469,12 @@ class MessageViewModel extends ChangeNotifier {
     try {
       _logger.i('${analysisType.name} analiz sonucu kullanıcı profiline kaydediliyor: $userId');
       
+      // Özel analiz türlerini kontrol et - Mesaj Koçu ve İlişki Değerlendirmesi ana sayfayı güncellemeyecek
+      if (analysisType == AnalysisType.messageCoach || analysisType == AnalysisType.relationshipEvaluation) {
+        _logger.i('${analysisType.name} için kullanıcı profili güncellenmeyecek');
+        return;
+      }
+      
       // İlişki puanı ve kategori puanlarını hesapla
       final Map<String, dynamic> analizVerileri = {
         'mesajIcerigi': analysisType == AnalysisType.consultation ? analysisResult.aiResponse['mesaj'] ?? '' : _currentMessage?.content ?? '',
@@ -1495,7 +1521,7 @@ class MessageViewModel extends ChangeNotifier {
         if (context != null && context.mounted) {
           try {
             final homeController = Provider.of<HomeController>(context, listen: false);
-            await homeController.anaSayfayiGuncelle(); // HomeController'ın mevcut metodunu kullan
+            await homeController.anaSayfayiGuncelle();
             _logger.i('Ana sayfa yeni analiz sonucuyla güncellendi');
           } catch (e) {
             _logger.w('HomeController ile güncelleme hatası: $e');
@@ -1507,7 +1533,7 @@ class MessageViewModel extends ChangeNotifier {
         _logger.w('Ana sayfa güncellenirken hata oluştu: $e');
       }
     } catch (e) {
-      _logger.w('Analiz sonucu kullanıcı profiline kaydedilirken hata oluştu', e);
+      _logger.e('Analiz sonucu kullanıcı profiline kaydedilirken hata oluştu', e);
     }
   }
 }
