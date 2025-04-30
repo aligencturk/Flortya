@@ -4,7 +4,7 @@ class AnalysisResult {
   final String ton;
   final int ciddiyet;
   final String mesajYorumu;
-  final List<String> cevapOnerileri;
+  final List<String> tavsiyeler;
 
   AnalysisResult({
     required this.duygu,
@@ -12,7 +12,7 @@ class AnalysisResult {
     required this.ton,
     required this.ciddiyet,
     required this.mesajYorumu,
-    required this.cevapOnerileri,
+    required this.tavsiyeler,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,18 +22,18 @@ class AnalysisResult {
       'ton': ton,
       'ciddiyet': ciddiyet,
       'mesajYorumu': mesajYorumu,
-      'cevapOnerileri': cevapOnerileri,
+      'tavsiyeler': tavsiyeler,
     };
   }
 
   factory AnalysisResult.fromMap(Map<String, dynamic> map) {
     return AnalysisResult(
       duygu: map['duygu'] ?? '',
-      niyet: map['niyet'] ?? '',
+      niyet: map['niyet'] ?? 'Belirlenemedi',
       ton: map['ton'] ?? '',
       ciddiyet: map['ciddiyet'] ?? 5,
       mesajYorumu: map['mesaj_yorumu'] ?? map['mesajYorumu'] ?? '',
-      cevapOnerileri: List<String>.from(map['cevapOnerileri'] ?? []),
+      tavsiyeler: List<String>.from(map['tavsiyeler'] ?? map['cevapOnerileri'] ?? []),
     );
   }
 

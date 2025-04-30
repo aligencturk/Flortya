@@ -1055,25 +1055,49 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final niyet = analysisResult.intent;
     final mesajYorumu = analysisResult.aiResponse['mesajYorumu'] ?? 'Yorum bulunamadı';
     
-    // cevapOnerileri güvenli bir şekilde al
-    List<String> cevapOnerileri = [];
-    final dynamic rawOnerileri = analysisResult.aiResponse['cevapOnerileri'];
-    if (rawOnerileri is List) {
-      cevapOnerileri = List<String>.from(rawOnerileri.map((item) => item.toString()));
-    } else if (rawOnerileri is String) {
+    // tavsiyeler güvenli bir şekilde al
+    List<String> tavsiyeler = [];
+    final dynamic rawTavsiyeler = analysisResult.aiResponse['tavsiyeler'];
+    if (rawTavsiyeler is List) {
+      tavsiyeler = List<String>.from(rawTavsiyeler.map((item) => item.toString()));
+    } else if (rawTavsiyeler is String) {
       // String formatındaki tavsiyeleri işle
       try {
         // Virgülle ayrılmış bir liste olabilir
-        final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+        final List<String> parcalanmisTavsiyeler = rawTavsiyeler.split(',');
         for (String tavsiye in parcalanmisTavsiyeler) {
           if (tavsiye.trim().isNotEmpty) {
-            cevapOnerileri.add(tavsiye.trim());
+            tavsiyeler.add(tavsiye.trim());
           }
         }
       } catch (e) {
         // String'i doğrudan bir tavsiye olarak ekle
-        if (rawOnerileri.toString().trim().isNotEmpty) {
-          cevapOnerileri.add(rawOnerileri.toString());
+        if (rawTavsiyeler.toString().trim().isNotEmpty) {
+          tavsiyeler.add(rawTavsiyeler.toString());
+        }
+      }
+    }
+    
+    // Geriye dönük uyumluluk - tavsiyeler boşsa eski cevapOnerileri alanını kontrol et
+    if (tavsiyeler.isEmpty) {
+      final dynamic rawOnerileri = analysisResult.aiResponse['cevapOnerileri'];
+      if (rawOnerileri is List) {
+        tavsiyeler = List<String>.from(rawOnerileri.map((item) => item.toString()));
+      } else if (rawOnerileri is String) {
+        // String formatındaki tavsiyeleri işle
+        try {
+          // Virgülle ayrılmış bir liste olabilir
+          final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
+          for (String tavsiye in parcalanmisTavsiyeler) {
+            if (tavsiye.trim().isNotEmpty) {
+              tavsiyeler.add(tavsiye.trim());
+            }
+          }
+        } catch (e) {
+          // String'i doğrudan bir tavsiye olarak ekle
+          if (rawOnerileri.toString().trim().isNotEmpty) {
+            tavsiyeler.add(rawOnerileri.toString());
+          }
         }
       }
     }
@@ -1346,7 +1370,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       Icon(Icons.lightbulb_outline, color: Colors.white70, size: 20),
                       SizedBox(width: 8),
                       Text(
-                        'Cevap Önerileri',
+                        'Tavsiyeler',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -1358,10 +1382,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   const SizedBox(height: 12),
                   // İçerik
                   Column(
-                    children: cevapOnerileri.isEmpty
+                    children: tavsiyeler.isEmpty
                         ? [
                             Text(
-                              'Cevap önerisi bulunamadı',
+                              'Tavsiye bulunamadı',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.7),
                                 fontSize: 14,
@@ -1370,7 +1394,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             )
                           ]
                         : [
-                            ...cevapOnerileri.map((oneri) => _buildSuggestionItem(oneri))
+                            ...tavsiyeler.map((oneri) => _buildSuggestionItem(oneri))
                           ],
                   ),
                 ],

@@ -18,7 +18,7 @@ class MessageCoachAnalysis {
   final String? sonMesajTonu;          // Son mesajın tonu
   final Map<String, int>? sonMesajEtkisi; // Son mesaj için etki yüzdeleri
   final String? direktYorum;           // Açık ve küstah tavsiye
-  final String? cevapOnerisi;          // Cevap önerisi
+  final List<String>? cevapOnerileri;  // Cevap önerileri listesi
   
   // İlk 3 analizi tanımlamak için sabit
   static const int ucretlizAnalizSayisi = 3;
@@ -38,7 +38,7 @@ class MessageCoachAnalysis {
     this.sonMesajTonu,
     this.sonMesajEtkisi,
     this.direktYorum,
-    this.cevapOnerisi,
+    this.cevapOnerileri,
   });
 
   factory MessageCoachAnalysis.from(Map<String, dynamic> json) {
@@ -176,16 +176,24 @@ class MessageCoachAnalysis {
         direktYorum = 'İletişim tarzını daha net hale getirmelisin.';
       }
       
-      // CevapOnerisi doğrulama
-      String? cevapOnerisi = json['cevapOnerisi'] ?? json['suggestionResponse'] ?? yenidenYazim;
+      // CevapOnerileri doğrulama
+      List<String> cevapOnerileriList = [];
+      var cevapOnerileriJson = json['cevapOnerileri'] ?? json['suggestionResponses'] ?? [];
       
-      // Geçersiz cevap önerisi kontrolü
-      if (cevapOnerisi == null || 
-          cevapOnerisi.isEmpty || 
-          cevapOnerisi.toLowerCase().contains('belirle') || 
-          cevapOnerisi.toLowerCase().contains('analiz yapıl') ||
-          cevapOnerisi == 'null') {
-        cevapOnerisi = 'Düşüncelerimi açıkça ifade etmek istiyorum.';
+      if (cevapOnerileriJson is List) {
+        cevapOnerileriList = List<String>.from(cevapOnerileriJson.map((item) => item?.toString() ?? '').where((item) => item.isNotEmpty));
+      } else if (cevapOnerileriJson is String && cevapOnerileriJson.isNotEmpty) {
+        // Tek bir string varsa listeye ekle
+        cevapOnerileriList = [cevapOnerileriJson];
+      }
+      
+      // Geçersiz cevap önerileri kontrolü
+      if (cevapOnerileriList.isEmpty) {
+        cevapOnerileriList = [
+          'Düşüncelerimi açıkça ifade etmek istiyorum.',
+          'Seninle konuşmak benim için önemli, ne düşündüğünü merak ediyorum.',
+          'Anladım.'
+        ];
       }
 
       return MessageCoachAnalysis(
@@ -203,7 +211,7 @@ class MessageCoachAnalysis {
         sonMesajTonu: sonMesajTonu,
         sonMesajEtkisi: sonMesajEtkisiMap,
         direktYorum: direktYorum,
-        cevapOnerisi: cevapOnerisi,
+        cevapOnerileri: cevapOnerileriList,
       );
     } catch (e) {
       print('❌ MesajKocuAnalizi.from hatası: $e');
@@ -223,7 +231,11 @@ class MessageCoachAnalysis {
         sonMesajTonu: 'Nötr',
         sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
         direktYorum: 'İletişim tarzını daha net hale getirmelisin.',
-        cevapOnerisi: 'Düşüncelerimi açıkça ifade etmek istiyorum.'
+        cevapOnerileri: [
+          'Düşüncelerimi açıkça ifade etmek istiyorum.',
+          'Seninle konuşmak benim için önemli, ne düşündüğünü merak ediyorum.',
+          'Anladım.'
+        ]
       );
     }
   }
@@ -244,7 +256,7 @@ class MessageCoachAnalysis {
       'sonMesajTonu': sonMesajTonu,
       'sonMesajEtkisi': sonMesajEtkisi,
       'direktYorum': direktYorum,
-      'cevapOnerisi': cevapOnerisi,
+      'cevapOnerileri': cevapOnerileri,
     };
   }
 
@@ -264,7 +276,7 @@ class MessageCoachAnalysis {
       'sonMesajTonu': sonMesajTonu,
       'sonMesajEtkisi': sonMesajEtkisi,
       'direktYorum': direktYorum,
-      'cevapOnerisi': cevapOnerisi,
+      'cevapOnerileri': cevapOnerileri,
     };
   }
   
@@ -325,7 +337,7 @@ Son mesaj etkisi: ${getFormattedLastMessageEffects()}
 Direkt Yorum ve Geliştirme:
 ${direktYorum ?? analiz}
 
-${cevapOnerisi != null ? 'Cevap Önerisi:\n$cevapOnerisi' : ''}
+${cevapOnerileri != null ? 'Cevap Önerileri:\n${cevapOnerileri!.join('\n')}' : ''}
 ''';
   }
   

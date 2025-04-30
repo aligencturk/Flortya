@@ -83,15 +83,15 @@ class MessageCoachController extends ChangeNotifier {
         
         // Analiz sonucunu varsayılan ama sert değerlerle güçlendir
         _mevcutAnaliz = MessageCoachAnalysis(
-          analiz: analizSonucu.analiz,
-          oneriler: analizSonucu.oneriler,
-          etki: analizSonucu.etki,
-          sohbetGenelHavasi: 'Soğuk',
-          genelYorum: 'İletişimin berbat. Bu kadar baştan savma mesajları kimse ciddiye almaz.',
-          sonMesajTonu: 'Umursamaz',
-          sonMesajEtkisi: sonMesajEtkisi,
-          direktYorum: 'Yazma stilin çok zayıf. Karşı taraf seninle iletişim kurmakta zorlanıyor ve muhtemelen başka biriyle konuşmayı tercih ediyor.',
-          cevapOnerisi: 'Ne düşündüğünü açıkça söylemek istiyorum. Bu durum benim için önemli ve senin de dürüst olmanı beklerim.',
+          analiz: 'Sohbet içeriği çok az. Daha fazla mesaj gerekiyor.',
+          oneriler: ['Daha fazla yazışma ekleyin', 'Konuşmayı devam ettirin'],
+          etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+          sohbetGenelHavasi: 'Analiz yapılamadı',
+          genelYorum: 'Yeterli konuşma verisi yok',
+          sonMesajTonu: 'Belirlenemedi',
+          sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
+          direktYorum: 'Sohbet içeriği çok az. En az 5-10 mesaj gerekiyor.',
+          cevapOnerileri: ['Ne düşündüğünü açıkça söylemek istiyorum. Bu durum benim için önemli ve senin de dürüst olmanı beklerim.'],
         );
       } else {
         _mevcutAnaliz = analizSonucu;
@@ -129,7 +129,7 @@ class MessageCoachController extends ChangeNotifier {
     final sonMesajTonu = analiz.sonMesajTonu;
     final direktYorum = analiz.direktYorum;
     final sonMesajEtkisi = analiz.sonMesajEtkisi;
-    final cevapOnerisi = analiz.cevapOnerisi;
+    final cevapOnerileri = analiz.cevapOnerileri;
     
     // Geçersiz ifadeleri içeriyor mu kontrol et
     final gecersizIfadeler = [
@@ -148,7 +148,7 @@ class MessageCoachController extends ChangeNotifier {
         sonMesajTonu == null || 
         direktYorum == null ||
         sonMesajEtkisi == null ||
-        cevapOnerisi == null) {
+        cevapOnerileri == null) {
       _logger.w('Analiz sonucunda eksik alanlar var');
       return true;
     }

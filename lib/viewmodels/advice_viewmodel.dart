@@ -133,13 +133,14 @@ class AdviceViewModel extends ChangeNotifier {
       // Varsayılan bir analiz sonucu oluştur
       _mesajAnalizi = MessageCoachAnalysis(
         analiz: 'Analiz yapılamadı: $e',
-        oneriler: ['Lütfen internet bağlantınızı kontrol edin', 'Daha kısa bir metin deneyin'],
-        etki: {'Hata': 100},
-        sohbetGenelHavasi: 'Belirlenemedi',
-        sonMesajTonu: 'Belirlenemedi',
-        direktYorum: 'Analiz yapılamadı. Teknik bir hata oluştu: $e',
-        cevapOnerisi: 'Sistem şu anda yanıt veremiyor. Lütfen daha sonra tekrar deneyin.',
+        oneriler: ['Konuyu daha açık ifade et', 'Dinleme becerilerini geliştir'],
+        etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+        sohbetGenelHavasi: 'Samimi',
+        genelYorum: 'Analiz bekleniyor',
+        sonMesajTonu: 'Nötr',
         sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
+        direktYorum: 'Sistem şu anda yanıt veremiyor. Lütfen daha sonra tekrar deneyin.',
+        cevapOnerileri: ['Sistem şu anda yanıt veremiyor. Lütfen daha sonra tekrar deneyin.'],
       );
       
       notifyListeners();
@@ -354,10 +355,28 @@ class AdviceViewModel extends ChangeNotifier {
       String? genelYorum = resultMap['genelYorum']?.toString() ?? aiResponseMap['genelYorum']?.toString() ?? resultMap['generalComment']?.toString();
       String? sonMesajTonu = resultMap['sonMesajTonu']?.toString() ?? aiResponseMap['sonMesajTonu']?.toString() ?? resultMap['lastMessageTone']?.toString();
       String? direktYorum = resultMap['direktYorum']?.toString() ?? aiResponseMap['direktYorum']?.toString() ?? resultMap['directComment']?.toString();
-      String? cevapOnerisi = resultMap['cevapOnerisi']?.toString() ?? aiResponseMap['cevapOnerisi']?.toString() ?? resultMap['suggestionResponse']?.toString();
+      
+      // CevapOnerileri için liste oluştur
+      List<String>? cevapOnerileriList;
+      
+      // Önce map'ten cevapOnerileri listesini bulmaya çalış
+      if (resultMap.containsKey('cevapOnerileri') && resultMap['cevapOnerileri'] is List) {
+        cevapOnerileriList = List<String>.from(resultMap['cevapOnerileri'] as List);
+      } else if (aiResponseMap.containsKey('cevapOnerileri') && aiResponseMap['cevapOnerileri'] is List) {
+        cevapOnerileriList = List<String>.from(aiResponseMap['cevapOnerileri'] as List);
+      } else {
+        // Liste bulunamadıysa, string'lerden varsa liste oluştur
+        String? cevapOnerileriStr = resultMap['cevapOnerileri']?.toString() ?? 
+                                    aiResponseMap['cevapOnerileri']?.toString() ?? 
+                                    resultMap['suggestionResponse']?.toString();
+        
+        if (cevapOnerileriStr != null && cevapOnerileriStr.isNotEmpty) {
+          cevapOnerileriList = [cevapOnerileriStr];
+        }
+      }
       
       // Alanların varlığı logla
-      print('🔍 Yeni format alanları: sohbetGenelHavasi=${sohbetGenelHavasi != null}, genelYorum=${genelYorum != null}, sonMesajTonu=${sonMesajTonu != null}, direktYorum=${direktYorum != null}, cevapOnerisi=${cevapOnerisi != null}');
+      print('🔍 Yeni format alanları: sohbetGenelHavasi=${sohbetGenelHavasi != null}, genelYorum=${genelYorum != null}, sonMesajTonu=${sonMesajTonu != null}, direktYorum=${direktYorum != null}, cevapOnerileriList=${cevapOnerileriList != null}');
       
       // Sonuç nesnesini oluştur
       final mesajAnalizi = MessageCoachAnalysis(
@@ -375,7 +394,7 @@ class AdviceViewModel extends ChangeNotifier {
         sonMesajTonu: sonMesajTonu,
         sonMesajEtkisi: sonMesajEtkisi,
         direktYorum: direktYorum,
-        cevapOnerisi: cevapOnerisi,
+        cevapOnerileri: cevapOnerileriList,
       );
       
       print('✅ MessageCoachAnalysis nesnesi oluşturuldu');

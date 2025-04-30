@@ -166,21 +166,10 @@ class AnalysisResultBox extends StatelessWidget {
             ),
           ),
           
-          // Öneriler bölümü
-          if (showDetailedInfo && result.aiResponse.containsKey('cevapOnerileri') ||
-              showDetailedInfo && result.aiResponse.containsKey('cevap_onerileri')) ...[
+          // Detaylı analiz içeriği
+          if (showDetailedInfo) ...[
             const SizedBox(height: 24),
-            
-            Text(
-              'Sana Arkadaşça Önerilerim:',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            ..._buildSuggestionsList(context, result),
+            _buildDetailedAnalysisContent(context),
           ],
           
           // Detay gösterme/gizleme butonu
@@ -205,7 +194,7 @@ class AnalysisResultBox extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      showDetailedInfo ? 'Daha az göster' : 'Önerilerimi göster',
+                      showDetailedInfo ? 'Daha az göster' : 'Tavsiyeleri göster',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.bold,
@@ -318,9 +307,9 @@ class AnalysisResultBox extends StatelessWidget {
     // Öneri listesini al
     List<String> suggestions = [];
     
-    // cevapOnerileri alanını kontrol et
-    if (result.aiResponse.containsKey('cevapOnerileri')) {
-      final dynamic rawSuggestions = result.aiResponse['cevapOnerileri'];
+    // tavsiyeler alanını kontrol et
+    if (result.aiResponse.containsKey('tavsiyeler')) {
+      final dynamic rawSuggestions = result.aiResponse['tavsiyeler'];
       if (rawSuggestions is List) {
         suggestions = rawSuggestions.map((item) => item.toString()).toList();
       } else if (rawSuggestions is String) {
@@ -341,9 +330,9 @@ class AnalysisResultBox extends StatelessWidget {
         }
       }
     } 
-    // cevap_onerileri alanını kontrol et
-    else if (result.aiResponse.containsKey('cevap_onerileri')) {
-      final dynamic rawSuggestions = result.aiResponse['cevap_onerileri'];
+    // Geriye dönük uyumluluk için cevapOnerileri alanını kontrol et
+    else if (result.aiResponse.containsKey('cevapOnerileri')) {
+      final dynamic rawSuggestions = result.aiResponse['cevapOnerileri'];
       if (rawSuggestions is List) {
         suggestions = rawSuggestions.map((item) => item.toString()).toList();
       } else if (rawSuggestions is String) {
@@ -399,14 +388,111 @@ class AnalysisResultBox extends StatelessWidget {
             Expanded(
               child: Text(
                 suggestion,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.5,
-                ),
+                style: theme.textTheme.bodyLarge,
               ),
             ),
           ],
         ),
       );
     }).toList();
+  }
+  
+  // Tavsiyeler Listesi - yeni metot adı
+  List<Widget> _buildTavsiyelerListesi(BuildContext context, AnalysisResult result) {
+    return _buildSuggestionsList(context, result);
+  }
+  
+  // Detaylı analiz içeriği
+  Widget _buildDetailedAnalysisContent(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Duygu Çözümlemesi bölümü
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Duygu Çözümlemesi',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.emotion,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Niyet Yorumu bölümü
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.tertiaryContainer.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Niyet Yorumu',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.intent,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Tavsiyeler bölümü
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.secondaryContainer.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tavsiyeler',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._buildTavsiyelerListesi(context, result),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 } 

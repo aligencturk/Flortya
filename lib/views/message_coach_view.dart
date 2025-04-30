@@ -390,9 +390,9 @@ class _MessageCoachViewState extends State<MessageCoachView> {
                   baslik: 'Direkt Yorum:',
                   icerik: analiz.direktYorum ?? analiz.anlikTavsiye ?? 'Yorum yok',
                 ),
-                if (analiz.cevapOnerisi != null) ...[
+                if (analiz.cevapOnerileri != null && analiz.cevapOnerileri!.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  _buildCevapOnerisi(analiz.cevapOnerisi!),
+                  _buildCevapOnerileri(analiz.cevapOnerileri!),
                 ],
               ],
             ),
@@ -469,8 +469,8 @@ class _MessageCoachViewState extends State<MessageCoachView> {
     return text[0].toUpperCase() + text.substring(1);
   }
 
-  // Cevap önerisi widget'ı
-  Widget _buildCevapOnerisi(String cevapOnerisi) {
+  // Cevap önerileri widget'ı
+  Widget _buildCevapOnerileri(List<String> cevapOnerileri) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -478,14 +478,14 @@ class _MessageCoachViewState extends State<MessageCoachView> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Cevap Önerisi:',
+              'Cevap Önerileri:',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             InkWell(
-              onTap: () => _metniKopyala(cevapOnerisi),
+              onTap: () => _metniKopyala(cevapOnerileri.join('\n\n')),
               borderRadius: BorderRadius.circular(4),
               child: Padding(
                 padding: const EdgeInsets.all(4.0),
@@ -498,7 +498,7 @@ class _MessageCoachViewState extends State<MessageCoachView> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Kopyala',
+                      'Tümünü Kopyala',
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).colorScheme.primary,
@@ -511,7 +511,8 @@ class _MessageCoachViewState extends State<MessageCoachView> {
           ],
         ),
         const SizedBox(height: 8),
-        Container(
+        ...cevapOnerileri.map((oneri) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
@@ -521,12 +522,12 @@ class _MessageCoachViewState extends State<MessageCoachView> {
             ),
           ),
           child: Text(
-            cevapOnerisi,
+            oneri,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
-        ),
+        )).toList(),
       ],
     );
   }

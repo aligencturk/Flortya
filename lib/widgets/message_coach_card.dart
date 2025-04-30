@@ -666,8 +666,8 @@ class _MessageCoachCardState extends State<MessageCoachCard> {
              ),
            ),
            
-           // 4. CEVAP ÖNERİSİ (varsa)
-           if (analiz.cevapOnerisi != null && analiz.cevapOnerisi!.isNotEmpty) ...[
+           // 4. CEVAP ÖNERİLERİ (varsa)
+           if (analiz.cevapOnerileri != null && analiz.cevapOnerileri!.isNotEmpty) ...[
              const SizedBox(height: 20),
              
              const Padding(
@@ -677,7 +677,7 @@ class _MessageCoachCardState extends State<MessageCoachCard> {
                    Icon(Icons.edit_note, color: Color(0xFF9D3FFF), size: 18),
                    SizedBox(width: 6),
                    Text(
-                     'Cevap Önerisi',
+                     'Cevap Önerileri',
                      style: TextStyle(
                        color: Colors.white,
                        fontWeight: FontWeight.bold,
@@ -688,24 +688,16 @@ class _MessageCoachCardState extends State<MessageCoachCard> {
                ),
              ),
              
-             Container(
+             SizedBox(
                width: double.infinity,
-               padding: const EdgeInsets.all(12),
-               decoration: BoxDecoration(
-                 color: Colors.white.withOpacity(0.1),
-                 borderRadius: BorderRadius.circular(12),
-                 border: Border.all(
-                   color: const Color(0xFF9D3FFF).withOpacity(0.3),
-                   width: 1.0,
-                 ),
-               ),
-               child: Text(
-                 analiz.cevapOnerisi!,
-                 style: const TextStyle(
-                   color: Colors.white,
-                   fontSize: 14,
-                   height: 1.4,
-                   fontStyle: FontStyle.italic,
+               child: Padding(
+                 padding: const EdgeInsets.symmetric(vertical: 8.0),
+                 child: Text(
+                   analiz.cevapOnerileri!.first,
+                   style: TextStyle(
+                     color: Colors.white.withOpacity(0.9),
+                     fontSize: 15,
+                   ),
                  ),
                ),
              ),

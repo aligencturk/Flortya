@@ -344,7 +344,7 @@ class HomeController extends ChangeNotifier {
           'sohbetGenelHavasi': sonuc.sohbetGenelHavasi,
           'sonMesajTonu': sonuc.sonMesajTonu,
           'direktYorum': sonuc.direktYorum,
-          'cevapOnerisi': sonuc.cevapOnerisi
+          'cevapOnerileri': sonuc.cevapOnerileri
         };
       } else if (sonuc is Map<String, dynamic>) {
         sonucMap = sonuc;
@@ -356,20 +356,20 @@ class HomeController extends ChangeNotifier {
       final sonMesajTonu = sonucMap['sonMesajTonu'] ?? 'Belirsiz';
       final direktYorum = sonucMap['direktYorum'] ?? 'Yorum alınamadı';
       
-      // cevapOnerisi'nin bir liste veya string olabileceğini kontrol et
-      String cevapOnerisiMetni = '';
-      final cevapOnerisi = sonucMap['cevapOnerisi'];
+      // cevapOnerileri'nin bir liste olduğunu kontrol et
+      String cevapOnerileriMetni = '';
+      final cevapOnerileri = sonucMap['cevapOnerileri'];
       
-      if (cevapOnerisi != null) {
-        if (cevapOnerisi is Iterable) {
-          // Eğer liste ise, elemanları birleştir
-          cevapOnerisiMetni = (cevapOnerisi as Iterable).join('\n- ');
-          if (cevapOnerisiMetni.isNotEmpty) {
-            cevapOnerisiMetni = '- $cevapOnerisiMetni';
+      if (cevapOnerileri != null) {
+        if (cevapOnerileri is Iterable) {
+          // Liste ise değerleri birleştir
+          cevapOnerileriMetni = (cevapOnerileri as Iterable).join('\n- ');
+          if (cevapOnerileriMetni.isNotEmpty) {
+            cevapOnerileriMetni = '- $cevapOnerileriMetni';
           }
-        } else if (cevapOnerisi is String) {
-          // Eğer string ise, doğrudan kullan
-          cevapOnerisiMetni = cevapOnerisi;
+        } else if (cevapOnerileri is String) {
+          // String ise doğrudan kullan
+          cevapOnerileriMetni = cevapOnerileri;
         }
       }
       
@@ -379,7 +379,7 @@ Son Mesaj Tonu: $sonMesajTonu
 
 Yorum: $direktYorum
 
-${cevapOnerisiMetni.isNotEmpty ? 'Cevap Önerisi:\n$cevapOnerisiMetni' : ''}
+${cevapOnerileriMetni.isNotEmpty ? 'Cevap Önerileri:\n$cevapOnerileriMetni' : ''}
 '''.trim();
     } catch (e) {
       return "Analiz sonuçları formatlanırken hata oluştu: $e";

@@ -99,7 +99,7 @@ class MessageCoachService {
           "olumsuz": Z
         },
         "direktYorum": "(Kısa, net ve gerekiyorsa acımasız bir yorum)",
-        "cevapOnerisi": "(İsteğe Bağlı) Doğrudan, kibarlaştırılmamış kısa bir cevap önerisi"
+        "cevapOnerileri": "(İsteğe Bağlı) Doğrudan, kibarlaştırılmamış kısa bir cevap önerisi"
       }
 
       Önemli: Cevabını SADECE JSON formatında ver, başka açıklama yapma.
@@ -166,7 +166,7 @@ class MessageCoachService {
               sonMesajTonu: 'Sempatik',
               sonMesajEtkisi: {'sempatik': 50, 'kararsız': 30, 'olumsuz': 20},
               direktYorum: 'Resmen karşı tarafı sıkıyorsun. Bu kadar dolaylı konuşmayı bırak ve direkt ne istiyorsan söyle.',
-              cevapOnerisi: 'Merhaba, durumum tam olarak şu. Bana karşı ne hissettiğini bilmek istiyorum.',
+              cevapOnerileri: ['Merhaba, durumum tam olarak şu. Bana karşı ne hissettiğini bilmek istiyorum.'],
             );
           }
           
@@ -183,7 +183,7 @@ class MessageCoachService {
               sonMesajTonu: 'Soğuk',
               sonMesajEtkisi: {'sempatik': 30, 'kararsız': 40, 'olumsuz': 30},
               direktYorum: 'Bu kadar bariz kaçamak cevaplar verince kimse seni ciddiye almayacak.',
-              cevapOnerisi: 'Bu konudaki düşüncemi doğrudan söyleyeyim: evet, öyle düşünüyorum ve şunları yapmalıyız.',
+              cevapOnerileri: ['Bu konudaki düşüncemi doğrudan söyleyeyim: evet, öyle düşünüyorum ve şunları yapmalıyız.'],
             );
           }
           
@@ -222,12 +222,18 @@ class MessageCoachService {
             analysisData['direktYorum'] = 'Mesajların çok zayıf ve etkileyici değil. Karşı taraf sen yazdıkça sıkılıyor ve muhtemelen başka biriyle konuşmayı tercih ediyor.';
           }
           
-          // "cevapOnerisi" alanı eksikse ekle
-          if (!analysisData.containsKey('cevapOnerisi') || 
-              analysisData['cevapOnerisi'] == null || 
-              analysisData['cevapOnerisi'].toString().contains('analiz edilemedi') ||
-              analysisData['cevapOnerisi'].toString().contains('yetersiz içerik')) {
-            analysisData['cevapOnerisi'] = 'Bu durumu ciddiye alıyorum ve seninle açıkça konuşmak istiyorum. Ne düşündüğünü bilmek istiyorum, lütfen bana dürüstçe söyle.';
+          // "cevapOnerileri" alanı eksikse ekle
+          if (!analysisData.containsKey('cevapOnerileri') || 
+              analysisData['cevapOnerileri'] == null || 
+              !_listeyeCevrilebilir(analysisData['cevapOnerileri'])) {
+            analysisData['cevapOnerileri'] = [
+              'Bu durumu ciddiye alıyorum ve seninle açıkça konuşmak istiyorum. Ne düşündüğünü bilmek istiyorum, lütfen bana dürüstçe söyle.',
+              'Seninle konuşmak benim için önemli. Düşüncelerini duymak istiyorum.',
+              'Anladım.'
+            ];
+          } else if (analysisData['cevapOnerileri'] is String) {
+            // String ise listeye çevir
+            analysisData['cevapOnerileri'] = [analysisData['cevapOnerileri']];
           }
           
           // "sonMesajEtkisi" alanı eksikse ekle
@@ -276,7 +282,7 @@ class MessageCoachService {
             sonMesajTonu: 'Belirlenemedi',
             sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
             direktYorum: 'Analiz yapılamadığı için yorum verilemiyor.',
-            cevapOnerisi: 'Merhaba, mesajını aldım. Biraz daha konuşalım.',
+            cevapOnerileri: ['Merhaba, mesajını aldım. Biraz daha konuşalım.'],
           );
         }
       } else {
@@ -290,7 +296,7 @@ class MessageCoachService {
           sonMesajTonu: 'Belirlenemedi',
           sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
           direktYorum: 'API hatası nedeniyle analiz yapılamıyor.',
-          cevapOnerisi: 'Merhaba, mesajını aldım. Biraz daha konuşalım.',
+          cevapOnerileri: ['Merhaba, mesajını aldım. Biraz daha konuşalım.'],
         );
       }
     } catch (e) {
@@ -305,8 +311,14 @@ class MessageCoachService {
         sonMesajTonu: 'Belirlenemedi',
         sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
         direktYorum: 'Beklenmeyen bir hata nedeniyle analiz yapılamıyor.',
-        cevapOnerisi: 'Merhaba, mesajını aldım. Biraz daha konuşalım.',
+        cevapOnerileri: ['Merhaba, mesajını aldım. Biraz daha konuşalım.'],
       );
     }
+  }
+
+  // Bir değerin listeye çevrilebilir olup olmadığını kontrol eder
+  bool _listeyeCevrilebilir(dynamic deger) {
+    return deger is List || 
+           (deger is String && deger.isNotEmpty && !deger.contains('analiz edilemedi') && !deger.contains('yetersiz içerik'));
   }
 } 
