@@ -47,11 +47,7 @@ class MessageCoachService {
         _logger.i('API URL oluşturuldu ve geçerlilik kontrolü yapıldı');
       } catch (apiError) {
         _logger.e('API URL oluşturulurken hata: $apiError');
-        return MessageCoachAnalysis(
-          analiz: 'API yapılandırma hatası: $apiError. Lütfen uygulama ayarlarını kontrol edin.',
-          oneriler: ['Ayarları kontrol edin ve tekrar deneyin.'],
-          etki: {'Hata': 100},
-        );
+        return null;
       }
       
       // Sohbetin uzunluğunu kontrol et
@@ -156,169 +152,162 @@ class MessageCoachService {
           
           if (jsonMatch == null) {
             _logger.e('JSON formatı bulunamadı', aiContent);
-            // JSON bulunamadı, default değerlerle analiz oluştur
-            return MessageCoachAnalysis(
-              analiz: 'Sohbet analizi yapıldı.',
-              oneriler: ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
-              etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
-              sohbetGenelHavasi: 'Samimi',
-              genelYorum: 'Sohbetin havası kesinlikle kötü. Kendini daha net ifade et ve lafı dolandırma.',
-              sonMesajTonu: 'Sempatik',
-              sonMesajEtkisi: {'sempatik': 50, 'kararsız': 30, 'olumsuz': 20},
-              direktYorum: 'Resmen karşı tarafı sıkıyorsun. Bu kadar dolaylı konuşmayı bırak ve direkt ne istiyorsan söyle.',
-              cevapOnerileri: ['Merhaba, durumum tam olarak şu. Bana karşı ne hissettiğini bilmek istiyorum.'],
-            );
+            return null;
           }
           
           final jsonStr = jsonMatch.group(0);
           if (jsonStr == null) {
             _logger.e('JSON içeriği çıkarılamadı', aiContent);
-            // JSON içeriği çıkarılamadı, default değerlerle analiz oluştur
-            return MessageCoachAnalysis(
-              analiz: 'Sohbet analizi yapıldı.',
-              oneriler: ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
-              etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
-              sohbetGenelHavasi: 'Samimi',
-              genelYorum: 'Konuşma stilin berbat. Karşı taraf ne dediğini anlayamıyor olmalı.',
-              sonMesajTonu: 'Soğuk',
-              sonMesajEtkisi: {'sempatik': 30, 'kararsız': 40, 'olumsuz': 30},
-              direktYorum: 'Bu kadar bariz kaçamak cevaplar verince kimse seni ciddiye almayacak.',
-              cevapOnerileri: ['Bu konudaki düşüncemi doğrudan söyleyeyim: evet, öyle düşünüyorum ve şunları yapmalıyız.'],
-            );
+            return null;
           }
           
-          final Map<String, dynamic> analysisData = jsonDecode(jsonStr);
-          
-          // Eksik alanlar için varsayılan değerler ekle
-          // "sohbetGenelHavasi" alanı eksikse ekle
-          if (!analysisData.containsKey('sohbetGenelHavasi') || 
-              analysisData['sohbetGenelHavasi'] == null || 
-              analysisData['sohbetGenelHavasi'].toString().contains('analiz edilemedi') ||
-              analysisData['sohbetGenelHavasi'].toString().contains('yetersiz içerik')) {
-            analysisData['sohbetGenelHavasi'] = 'Soğuk';
-          }
-          
-          // "genelYorum" alanı eksikse ekle
-          if (!analysisData.containsKey('genelYorum') || 
-              analysisData['genelYorum'] == null ||
-              analysisData['genelYorum'].toString().contains('analiz edilemedi') ||
-              analysisData['genelYorum'].toString().contains('yetersiz içerik')) {
-            analysisData['genelYorum'] = 'İletişimin berbat. Bu kadar baştan savma yazınca karşı tarafın ilgisini nasıl çekmeyi bekliyorsun?';
-          }
-          
-          // "sonMesajTonu" alanı eksikse ekle
-          if (!analysisData.containsKey('sonMesajTonu') || 
-              analysisData['sonMesajTonu'] == null || 
-              analysisData['sonMesajTonu'].toString().contains('analiz edilemedi') ||
-              analysisData['sonMesajTonu'].toString().contains('yetersiz içerik')) {
-            analysisData['sonMesajTonu'] = 'Umursamaz';
-          }
-          
-          // "direktYorum" alanı eksikse ekle
-          if (!analysisData.containsKey('direktYorum') || 
-              analysisData['direktYorum'] == null || 
-              analysisData['direktYorum'].toString().contains('analiz edilemedi') ||
-              analysisData['direktYorum'].toString().contains('yetersiz içerik')) {
-            analysisData['direktYorum'] = 'Mesajların çok zayıf ve etkileyici değil. Karşı taraf sen yazdıkça sıkılıyor ve muhtemelen başka biriyle konuşmayı tercih ediyor.';
-          }
-          
-          // "cevapOnerileri" alanı eksikse ekle
-          if (!analysisData.containsKey('cevapOnerileri') || 
-              analysisData['cevapOnerileri'] == null || 
-              !_listeyeCevrilebilir(analysisData['cevapOnerileri'])) {
-            analysisData['cevapOnerileri'] = [
-              'Bu durumu ciddiye alıyorum ve seninle açıkça konuşmak istiyorum. Ne düşündüğünü bilmek istiyorum, lütfen bana dürüstçe söyle.',
-              'Seninle konuşmak benim için önemli. Düşüncelerini duymak istiyorum.',
-              'Anladım.'
-            ];
-          } else if (analysisData['cevapOnerileri'] is String) {
-            // String ise listeye çevir
-            analysisData['cevapOnerileri'] = [analysisData['cevapOnerileri']];
-          }
-          
-          // "sonMesajEtkisi" alanı eksikse ekle
-          if (!analysisData.containsKey('sonMesajEtkisi') || analysisData['sonMesajEtkisi'] == null) {
-            analysisData['sonMesajEtkisi'] = {
-              'sempatik': 50,
-              'kararsız': 30,
-              'olumsuz': 20
-            };
-          }
-          
-          // Alanların tiplerini kontrol et ve düzelt
-          if (analysisData['sonMesajEtkisi'] is Map) {
-            final Map<String, dynamic> etkiMap = Map<String, dynamic>.from(analysisData['sonMesajEtkisi']);
-            final Map<String, int> normalizeEtki = {};
-            
-            // String değerli etkileri sayıya çevir
-            etkiMap.forEach((key, value) {
-              if (value is int) {
-                normalizeEtki[key] = value;
-              } else if (value is double) {
-                normalizeEtki[key] = value.toInt();
-              } else if (value is String) {
-                // Sayısal değer içeren string'i int'e çevir
-                normalizeEtki[key] = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), '')) ?? 33;
-              } else {
-                normalizeEtki[key] = 33; // Varsayılan değer
-              }
-            });
-            
-            analysisData['sonMesajEtkisi'] = normalizeEtki;
+          Map<String, dynamic> analysisData;
+          try {
+            analysisData = jsonDecode(jsonStr);
+          } catch (jsonError) {
+            _logger.e('JSON decode hatası: $jsonError', jsonStr);
+            // JSON decode hatası durumunda, düzeltme denemesi yap
+            final cleanedJsonStr = _jsonuDuzelt(jsonStr);
+            try {
+              analysisData = jsonDecode(cleanedJsonStr);
+            } catch (e) {
+              _logger.e('Temizlenmiş JSON dahi decode edilemedi: $e');
+              return null;
+            }
           }
           
           return MessageCoachAnalysis.from(analysisData);
         } catch (jsonError) {
           _logger.e('AI yanıtını JSON formatına çevirirken hata: $jsonError');
           _logger.e('Hatalı yanıt: $aiContent');
-          
-          // Hata durumunda varsayılan değerler
-          return MessageCoachAnalysis(
-            analiz: 'Sohbet analizi yapılırken bir hata oluştu. Lütfen tekrar deneyin.',
-            oneriler: ['Daha kısa bir sohbet geçmişi deneyin.', 'Farklı bir metin biçimi kullanın.'],
-            etki: {'Hata': 100},
-            sohbetGenelHavasi: 'Belirlenemedi',
-            genelYorum: 'Sohbet analizi yapılamadı. Teknik bir hata oluştu.',
-            sonMesajTonu: 'Belirlenemedi',
-            sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
-            direktYorum: 'Analiz yapılamadığı için yorum verilemiyor.',
-            cevapOnerileri: ['Merhaba, mesajını aldım. Biraz daha konuşalım.'],
-          );
+          return null;
         }
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return MessageCoachAnalysis(
-          analiz: 'API yanıt hatası: ${response.statusCode}',
-          oneriler: ['Daha sonra tekrar deneyin.', 'İnternet bağlantınızı kontrol edin.'],
-          etki: {'Hata': 100},
-          sohbetGenelHavasi: 'Belirlenemedi',
-          genelYorum: 'Sohbet analizi yapılamadı. API hatası oluştu.',
-          sonMesajTonu: 'Belirlenemedi',
-          sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
-          direktYorum: 'API hatası nedeniyle analiz yapılamıyor.',
-          cevapOnerileri: ['Merhaba, mesajını aldım. Biraz daha konuşalım.'],
-        );
+        return null;
       }
     } catch (e) {
       _logger.e('Sohbet analizi hatası', e);
-      
-      return MessageCoachAnalysis(
-        analiz: 'Beklenmeyen bir hata: $e',
-        oneriler: ['Tekrar deneyin.', 'Uygulama desteğine başvurun.'],
-        etki: {'Hata': 100},
-        sohbetGenelHavasi: 'Belirlenemedi',
-        genelYorum: 'Sohbet analizi yapılamadı. Beklenmeyen bir hata oluştu.',
-        sonMesajTonu: 'Belirlenemedi',
-        sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
-        direktYorum: 'Beklenmeyen bir hata nedeniyle analiz yapılamıyor.',
-        cevapOnerileri: ['Merhaba, mesajını aldım. Biraz daha konuşalım.'],
-      );
+      return null;
     }
+  }
+  
+  // JSON içindeki sorunları düzelten yardımcı metod
+  String _jsonuDuzelt(String jsonStr) {
+    // Hatalı şekilde escape edilen tırnak işaretlerini düzelt
+    String temiz = jsonStr.replaceAll('\\"', '"').replaceAll('\\\\', '\\');
+    
+    // Tırnak işaretleri içindeki tırnak işaretlerini düzelt
+    temiz = temiz.replaceAll('\\n', ' ');
+    
+    // Gereksiz boşlukları temizle
+    temiz = temiz.replaceAll(RegExp(r'\s+'), ' ');
+    
+    return temiz;
+  }
+  
+  // Analiz ifadelerini düzelten yardımcı metod
+  void _analizeIfadeleriDuzelt(Map<String, dynamic> data) {
+    // "sohbetGenelHavasi" alanı kontrolü ve düzeltmesi
+    if (!data.containsKey('sohbetGenelHavasi') || 
+        data['sohbetGenelHavasi'] == null || 
+        _yetersizIfadeIceriyor(data['sohbetGenelHavasi'].toString())) {
+      data['sohbetGenelHavasi'] = 'Samimi';
+    }
+    
+    // "genelYorum" alanı kontrolü ve düzeltmesi
+    if (!data.containsKey('genelYorum') || 
+        data['genelYorum'] == null ||
+        _yetersizIfadeIceriyor(data['genelYorum'].toString())) {
+      data['genelYorum'] = 'İletişim tarzının geliştirilmesi gerekiyor. Mesajların çok sıradan ve etkileyici değil.';
+    }
+    
+    // "sonMesajTonu" alanı kontrolü ve düzeltmesi
+    if (!data.containsKey('sonMesajTonu') || 
+        data['sonMesajTonu'] == null || 
+        _yetersizIfadeIceriyor(data['sonMesajTonu'].toString())) {
+      data['sonMesajTonu'] = 'Sempatik';
+    }
+    
+    // "direktYorum" alanı kontrolü ve düzeltmesi
+    if (!data.containsKey('direktYorum') || 
+        data['direktYorum'] == null || 
+        _yetersizIfadeIceriyor(data['direktYorum'].toString())) {
+      data['direktYorum'] = 'Mesajların zayıf ve ilgi çekici değil. Daha net ve etkileyici bir iletişim kurmalısın.';
+    }
+    
+    // "cevapOnerileri" alanı kontrolü ve düzeltmesi
+    if (!data.containsKey('cevapOnerileri') || 
+        data['cevapOnerileri'] == null || 
+        !_listeyeCevrilebilir(data['cevapOnerileri'])) {
+      data['cevapOnerileri'] = [
+        'Seninle açıkça konuşmak istiyorum. Ne düşündüğünü bilmek istiyorum.',
+        'Konuşmamız benim için önemli, devam edelim.',
+        'Anladım, şimdi ne yapabiliriz?'
+      ];
+    } else if (data['cevapOnerileri'] is String) {
+      // String ise listeye çevir
+      data['cevapOnerileri'] = [data['cevapOnerileri']];
+    }
+    
+    // "sonMesajEtkisi" alanı kontrolü ve düzeltmesi
+    if (!data.containsKey('sonMesajEtkisi') || 
+        data['sonMesajEtkisi'] == null || 
+        !(data['sonMesajEtkisi'] is Map)) {
+      data['sonMesajEtkisi'] = {
+        'sempatik': 50,
+        'kararsız': 30,
+        'olumsuz': 20
+      };
+    } else {
+      // Var olan sonMesajEtkisi'ni doğrula
+      final Map<String, dynamic> etkiMap = Map<String, dynamic>.from(data['sonMesajEtkisi']);
+      final Map<String, int> normalizeEtki = {};
+      
+      // Değeri olmayan etkiler için varsayılan ekle
+      if (!etkiMap.containsKey('sempatik')) {
+        normalizeEtki['sempatik'] = 40;
+      }
+      if (!etkiMap.containsKey('kararsız')) {
+        normalizeEtki['kararsız'] = 30;
+      }
+      if (!etkiMap.containsKey('olumsuz')) {
+        normalizeEtki['olumsuz'] = 30;
+      }
+      
+      // String değerli etkileri sayıya çevir
+      etkiMap.forEach((key, value) {
+        if (value is int) {
+          normalizeEtki[key] = value;
+        } else if (value is double) {
+          normalizeEtki[key] = value.toInt();
+        } else if (value is String) {
+          // Sayısal değer içeren string'i int'e çevir
+          final temiz = value.toString().replaceAll(RegExp(r'[^\d]'), '');
+          normalizeEtki[key] = temiz.isNotEmpty ? int.tryParse(temiz) ?? 33 : 33;
+        } else {
+          normalizeEtki[key] = 33; // Varsayılan değer
+        }
+      });
+      
+      data['sonMesajEtkisi'] = normalizeEtki;
+    }
+  }
+  
+  // Bir ifadenin "yetersiz" veya "analiz edilemedi" gibi ifadeler içerip içermediğini kontrol eder
+  bool _yetersizIfadeIceriyor(String ifade) {
+    final String kucukIfade = ifade.toLowerCase();
+    return kucukIfade.contains('analiz edilemedi') || 
+           kucukIfade.contains('yetersiz içerik') || 
+           kucukIfade.contains('belirlenemedi') ||
+           kucukIfade.contains('henüz analiz') ||
+           kucukIfade == 'null' ||
+           ifade.isEmpty;
   }
 
   // Bir değerin listeye çevrilebilir olup olmadığını kontrol eder
   bool _listeyeCevrilebilir(dynamic deger) {
     return deger is List || 
-           (deger is String && deger.isNotEmpty && !deger.contains('analiz edilemedi') && !deger.contains('yetersiz içerik'));
+           (deger is String && deger.isNotEmpty && !_yetersizIfadeIceriyor(deger));
   }
 } 

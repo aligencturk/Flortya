@@ -5,6 +5,7 @@ import '../viewmodels/past_analyses_viewmodel.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../utils/utils.dart';
 import '../controllers/home_controller.dart';
+import '../controllers/message_coach_controller.dart';
 import '../services/data_reset_service.dart';
 
 class SettingsView extends StatefulWidget {
@@ -394,6 +395,15 @@ class _SettingsViewState extends State<SettingsView> {
       final homeController = Provider.of<HomeController>(context, listen: false);
       await homeController.resetAnalizVerileri();
       
+      // Mesaj koçu verilerini de sıfırla
+      try {
+        final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
+        messageCoachController.analizSonuclariniSifirla();
+        messageCoachController.analizGecmisiniSifirla();
+      } catch (e) {
+        debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
+      }
+      
       // Dialog'u kapat
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
@@ -435,6 +445,15 @@ class _SettingsViewState extends State<SettingsView> {
       final homeController = Provider.of<HomeController>(context, listen: false);
       await homeController.resetAnalizVerileri();
       await homeController.resetRelationshipData();
+      
+      // Mesaj koçu verilerini de sıfırla
+      try {
+        final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
+        messageCoachController.analizSonuclariniSifirla();
+        messageCoachController.analizGecmisiniSifirla();
+      } catch (e) {
+        debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
+      }
       
       // Dialog'u kapat
       if (!mounted) return;

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'dart:convert';
 import '../models/message_coach_analysis.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
@@ -19,6 +21,16 @@ class MessageCoachController extends ChangeNotifier {
   bool _analizTamamlandi = false;
   bool get analizTamamlandi => _analizTamamlandi;
   
+  // Görsel analizi ile ilgili değişkenler
+  File? _gorselDosya;
+  File? get gorselDosya => _gorselDosya;
+  
+  bool _gorselModu = false;
+  bool get gorselModu => _gorselModu;
+  
+  String? _gorselOcrSonucu;
+  String? get gorselOcrSonucu => _gorselOcrSonucu;
+  
   // Mesaj koçu analizi geçmişi
   List<MessageCoachAnalysis> _analizGecmisi = [];
   List<MessageCoachAnalysis> get analizGecmisi => _analizGecmisi;
@@ -26,15 +38,20 @@ class MessageCoachController extends ChangeNotifier {
   // UI metinleri
   String get baslik => 'Mesaj Koçu';
   String get aciklamaBaslik => 'Sohbet Analizi';
-  String get aciklamaMetni => 'Sohbet geçmişinizi analiz etmek için kopyala-yapıştır yapın. Mesaj Koçu sohbetin genel havasını ve son mesajınızın etkisini analiz edecek.';
+  String get aciklamaMetni => 'Sohbet geçmişinizi analiz etmek için kopyala-yapıştır yapın veya bir görsel yükleyin. Mesaj Koçu sohbetin genel havasını ve son mesajınızın etkisini analiz edecek.';
   String get dosyaSecmeButonMetni => 'Dosyadan Yükle';
-  String get yuklemeMetni => 'Sohbet analiz ediliyor...';
+  String get yuklemeMetni => _gorselModu 
+      ? 'Görsel analiz ediliyor...' 
+      : 'Sohbet analiz ediliyor...';
   
   // Analiz sonuçlarını temizle
   void analizSonuclariniSifirla() {
     _mevcutAnaliz = null;
     _hataMesaji = null;
     _analizTamamlandi = false;
+    _gorselModu = false;
+    _gorselDosya = null;
+    _gorselOcrSonucu = null;
     notifyListeners();
   }
   
@@ -44,8 +61,158 @@ class MessageCoachController extends ChangeNotifier {
     notifyListeners();
   }
   
+  // Görsel belirle
+  void gorselBelirle(File gorsel) {
+    _gorselDosya = gorsel;
+    _gorselModu = true;
+    notifyListeners();
+  }
+  
+  // Görsel modunu temizle
+  void gorselModunuTemizle() {
+    _gorselModu = false;
+    _gorselDosya = null;
+    _gorselOcrSonucu = null;
+    notifyListeners();
+  }
+
+  // OCR sonucunu ayarla
+  void gorselMetniniBelirle(String ocrMetni) {
+    _gorselOcrSonucu = ocrMetni;
+    notifyListeners();
+  }
+
+  // Analiz sonucunun geçersiz olup olmadığını kontrol et
+  bool _analizSonucuGecersiziMi(MessageCoachAnalysis analiz) {
+    // Sadece boş veya net hata mesajları olan alanları kontrol et
+    
+    // Sohbet genel havası kontrolü - sadece açık hata durumları
+    if (analiz.sohbetGenelHavasi == null || 
+        analiz.sohbetGenelHavasi!.isEmpty || 
+        analiz.sohbetGenelHavasi!.toLowerCase() == 'analiz edilemedi' || 
+        analiz.sohbetGenelHavasi!.toLowerCase() == 'null' ||
+        analiz.sohbetGenelHavasi!.toLowerCase().contains('yeterli içerik') ||
+        analiz.sohbetGenelHavasi!.toLowerCase().contains('için yeterli') ||
+        analiz.sohbetGenelHavasi!.toLowerCase().contains('için yet')) {
+      return true;
+    }
+    
+    // Genel yorum kontrolü - sadece açık hata durumları
+    if (analiz.genelYorum == null || 
+        analiz.genelYorum!.isEmpty || 
+        analiz.genelYorum!.toLowerCase() == 'analiz sonucu alınamadı' || 
+        analiz.genelYorum!.toLowerCase().contains('alınamadı') ||
+        analiz.genelYorum!.toLowerCase() == 'null') {
+      return true;
+    }
+    
+    // Son mesaj tonu kontrolü - sadece açık hata durumları
+    if (analiz.sonMesajTonu == null || 
+        analiz.sonMesajTonu!.isEmpty || 
+        analiz.sonMesajTonu!.toLowerCase() == 'belirlenemedi' || 
+        analiz.sonMesajTonu!.toLowerCase() == 'analiz edilemedi' ||
+        analiz.sonMesajTonu!.toLowerCase().contains('yeterli') ||
+        analiz.sonMesajTonu!.toLowerCase() == 'null') {
+      return true;
+    }
+    
+    // Direkt yorum kontrolü - sadece boş veya null durumları
+    if (analiz.direktYorum == null || 
+        analiz.direktYorum!.isEmpty || 
+        analiz.direktYorum! == 'null') {
+      return true;
+    }
+    
+    // Son mesaj etkisi kontrolü - sadece boş veya format hatası durumları
+    if (analiz.sonMesajEtkisi == null || analiz.sonMesajEtkisi!.isEmpty) {
+      return true;
+    }
+    
+    // Herhangi bir alanda JSON veya API hatası varsa
+    final List<String> hataKelimeleri = ['json error', 'api hatası', 'error:', 'exception:'];
+    
+    // Hata kelimelerini ara
+    for (final kelime in hataKelimeleri) {
+      if ((analiz.direktYorum != null && analiz.direktYorum!.toLowerCase().contains(kelime)) ||
+          (analiz.genelYorum != null && analiz.genelYorum!.toLowerCase().contains(kelime))) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Görsel dosyasından sohbeti analiz et
+  Future<void> gorseliAnalizeEt(File gorselDosya, String? ocrMetni) async {
+    if (gorselDosya == null && (ocrMetni == null || ocrMetni.trim().isEmpty)) {
+      _hataMesaji = 'Analiz için geçerli bir görsel veya OCR metni gereklidir.';
+      notifyListeners();
+      return;
+    }
+    
+    _yukleniyor = true;
+    _analizTamamlandi = false;
+    _hataMesaji = null;
+    _gorselModu = true;
+    notifyListeners();
+    
+    try {
+      _logger.i('Görsel sohbet analizi başlatılıyor...');
+      
+      String icerik = ocrMetni ?? '';
+      if (icerik.trim().isEmpty) {
+        _hataMesaji = 'Görselden sohbet metni çıkarılamadı.';
+        _yukleniyor = false;
+        notifyListeners();
+        return;
+      }
+      
+      // Gemini API ile görseli analiz et
+      final analizSonucu = await _aiService.sohbetiAnalizeEt(icerik, isImage: true);
+      
+      if (analizSonucu == null) {
+        _hataMesaji = 'Görsel analizi yapılamadı. Lütfen tekrar deneyin.';
+        _yukleniyor = false;
+        notifyListeners();
+        return;
+      }
+      
+      // Analiz sonucundaki alanların geçerli olup olmadığını kontrol et
+      if (_analizSonucuGecersiziMi(analizSonucu)) {
+        _logger.w('Geçersiz görsel analiz sonucu - API hatası.');
+        _hataMesaji = 'API yanıtı geçersiz. Lütfen tekrar deneyin.';
+        _yukleniyor = false;
+        notifyListeners();
+        return;
+      } else {
+        _mevcutAnaliz = analizSonucu;
+      }
+      
+      // Analiz geçmişine ekle
+      _analizGecmisiniGuncelle(_mevcutAnaliz!);
+      
+      _analizTamamlandi = true;
+      _yukleniyor = false;
+      
+      _logger.i('Görsel sohbet analizi tamamlandı.');
+      notifyListeners();
+      
+    } catch (e) {
+      _logger.e('Görsel sohbet analizi hatası', e);
+      _hataMesaji = 'Beklenmeyen bir hata oluştu: $e';
+      _yukleniyor = false;
+      notifyListeners();
+    }
+  }
+  
   // Sohbeti analiz et
   Future<void> sohbetiAnalizeEt(String sohbetIcerigi) async {
+    // Görsel modundaysak görsel analizi fonksiyonunu çağır
+    if (_gorselModu && _gorselDosya != null && _gorselOcrSonucu != null) {
+      await gorseliAnalizeEt(_gorselDosya!, _gorselOcrSonucu);
+      return;
+    }
+    
     if (sohbetIcerigi.trim().isEmpty) {
       _hataMesaji = 'Analiz için geçerli bir sohbet geçmişi gereklidir.';
       notifyListeners();
@@ -55,11 +222,14 @@ class MessageCoachController extends ChangeNotifier {
     _yukleniyor = true;
     _analizTamamlandi = false;
     _hataMesaji = null;
+    _gorselModu = false;
     notifyListeners();
     
     try {
       _logger.i('Sohbet analizi başlatılıyor...');
-      final analizSonucu = await _aiService.sohbetiAnalizeEt(sohbetIcerigi);
+      
+      // Gemini API ile sohbeti analiz et
+      final analizSonucu = await _aiService.sohbetiAnalizeEt(sohbetIcerigi, isImage: false);
       
       if (analizSonucu == null) {
         _hataMesaji = 'Sohbet analizi yapılamadı. Lütfen tekrar deneyin.';
@@ -70,29 +240,11 @@ class MessageCoachController extends ChangeNotifier {
       
       // Analiz sonucundaki alanların geçerli olup olmadığını kontrol et
       if (_analizSonucuGecersiziMi(analizSonucu)) {
-        _logger.w('Geçersiz analiz sonucu, varsayılan değerler kullanılacak');
-        
-        // Default olarak varsayalım
-        final defaultEtki = {'sempatik': 40, 'kararsız': 30, 'olumsuz': 30};
-        
-        // Son mesaj etkisinin olup olmadığını kontrol et
-        Map<String, int> sonMesajEtkisi = defaultEtki;
-        if (analizSonucu.sonMesajEtkisi != null && analizSonucu.sonMesajEtkisi!.isNotEmpty) {
-          sonMesajEtkisi = analizSonucu.sonMesajEtkisi!;
-        }
-        
-        // Analiz sonucunu varsayılan ama sert değerlerle güçlendir
-        _mevcutAnaliz = MessageCoachAnalysis(
-          analiz: 'Sohbet içeriği çok az. Daha fazla mesaj gerekiyor.',
-          oneriler: ['Daha fazla yazışma ekleyin', 'Konuşmayı devam ettirin'],
-          etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
-          sohbetGenelHavasi: 'Analiz yapılamadı',
-          genelYorum: 'Yeterli konuşma verisi yok',
-          sonMesajTonu: 'Belirlenemedi',
-          sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
-          direktYorum: 'Sohbet içeriği çok az. En az 5-10 mesaj gerekiyor.',
-          cevapOnerileri: ['Ne düşündüğünü açıkça söylemek istiyorum. Bu durum benim için önemli ve senin de dürüst olmanı beklerim.'],
-        );
+        _logger.w('Geçersiz analiz sonucu - API hatası.');
+        _hataMesaji = 'API yanıtı geçersiz. Lütfen tekrar deneyin.';
+        _yukleniyor = false;
+        notifyListeners();
+        return;
       } else {
         _mevcutAnaliz = analizSonucu;
       }
@@ -122,99 +274,38 @@ class MessageCoachController extends ChangeNotifier {
     }
   }
   
-  // Analiz sonucunun eksik veya geçersiz alanları olup olmadığını kontrol et
-  bool _analizSonucuGecersiziMi(MessageCoachAnalysis analiz) {
-    // Temel alanların varlığını kontrol et
-    final sohbetGenelHavasi = analiz.sohbetGenelHavasi;
-    final sonMesajTonu = analiz.sonMesajTonu;
-    final direktYorum = analiz.direktYorum;
-    final sonMesajEtkisi = analiz.sonMesajEtkisi;
-    final cevapOnerileri = analiz.cevapOnerileri;
-    
-    // Geçersiz ifadeleri içeriyor mu kontrol et
-    final gecersizIfadeler = [
-      'analiz edilemedi', 
-      'yetersiz içerik', 
-      'yapılamadı', 
-      'alınamadı', 
-      'belirlenemedi', 
-      'json',
-      'hata',
-      'geçersiz'
-    ];
-    
-    // Tüm gerekli alanların null olmadığını kontrol et
-    if (sohbetGenelHavasi == null || 
-        sonMesajTonu == null || 
-        direktYorum == null ||
-        sonMesajEtkisi == null ||
-        cevapOnerileri == null) {
-      _logger.w('Analiz sonucunda eksik alanlar var');
-      return true;
-    }
-    
-    // Boş veya varsayılan değerler içerip içermediğini kontrol et
-    if (sohbetGenelHavasi.isEmpty || 
-        sonMesajTonu.isEmpty || 
-        direktYorum.isEmpty ||
-        sonMesajEtkisi.isEmpty) {
-      _logger.w('Analiz sonucunda boş alanlar var');
-      return true;
-    }
-    
-    // Geçersiz ifadeleri kontrol et
-    for (final ifade in gecersizIfadeler) {
-      if ((sohbetGenelHavasi.toLowerCase().contains(ifade)) || 
-          (sonMesajTonu.toLowerCase().contains(ifade)) || 
-          (direktYorum.toLowerCase().contains(ifade))) {
-        _logger.w('Analiz sonucunda geçersiz ifadeler var: $ifade');
-        return true;
-      }
-    }
-    
-    // Error kelimesini içeriyor mu kontrol et
-    if (analiz.analiz.toLowerCase().contains('error') ||
-        analiz.analiz.toLowerCase().contains('hata')) {
-      _logger.w('Analiz sonucunda hata ifadesi var');
-      return true;
-    }
-    
-    // sonMesajEtkisi'nin toplam 100 olup olmadığını kontrol et (± 10 tolerans)
-    if (sonMesajEtkisi.isNotEmpty) {
-      final total = sonMesajEtkisi.values.fold(0, (sum, value) => sum + value);
-      if (total < 90 || total > 110) {
-        _logger.w('Son mesaj etkisi toplamı 100 değil: $total');
-        return true;
-      }
-    }
-    
-    // Tüm kontrollerden geçti, analiz geçerli
-    return false;
-  }
-  
   // Örnek sohbet içeriği oluştur (Test için)
   String ornekSohbetIcerigiOlustur() {
     return '''
-Ali: Merhaba, bugün nasılsın?
+Ahmet: Selam, nasılsın bugün?
 
-Ben: İyiyim, biraz yoğunum sadece. Sen nasılsın?
+Zeynep: İyiyim aslında, ama biraz yorgunum. İş yoğundu bugün. Sen nasılsın?
 
-Ali: Ben de iyiyim. Aslında seninle konuşmak istediğim bir konu vardı.
+Ahmet: Ben de iyiyim. Bu hafta sonu ne yapıyorsun? Belki bir şeyler yaparız?
 
-Ben: Nedir? Dinliyorum.
+Zeynep: Bilmiyorum henüz. Biraz dinlenmek istiyorum aslında.
 
-Ali: Geçen hafta sözünü ettiğin o etkinliğe gitmek ister misin? Cumartesi günü boş musun?
+Ahmet: Anladım. Ama çok uzun zamandır görüşemedik, özledim seni.
 
-Ben: Bilmiyorum, programıma bakmam lazım ama sanırım o gün bir şey vardı.
+Zeynep: Biliyorum, haklısın. Belki Cumartesi bir şeyler yapabiliriz.
 
-Ali: Ne zaman kesin bir cevap verebilirsin? Biletleri önceden almam gerekiyor da.
+Ahmet: Harika! Ne yapmak istersin? Film izleyebilir ya da dışarıda bir yerlere gidebiliriz.
 
-Ben: Yarın kesin söylerim, kontrol edip sana yazarım.
+Zeynep: Hmm, bilmiyorum. Sen ne istersen.
+
+Ahmet: O zaman yeni açılan o kafeye gidelim mi? Çok güzel diyorlar.
+
+Zeynep: Tamam, olabilir. Saat kaçta buluşalım?
     ''';
   }
   
   // Geçerli bir sohbet içeriği olup olmadığını kontrol et
   bool sohbetGecerliMi(String sohbetIcerigi) {
+    // Görsel modundaysak ve görsel dosyası varsa, daima geçerli kabul et
+    if (_gorselModu && _gorselDosya != null) {
+      return true;
+    }
+    
     if (sohbetIcerigi.trim().isEmpty) {
       return false;
     }
@@ -237,52 +328,6 @@ Ben: Yarın kesin söylerim, kontrol edip sana yazarım.
     temizMetin = temizMetin.replaceAll(RegExp(r'\n\s*\n'), '\n\n');
     
     return temizMetin;
-  }
-  
-  // Formatlanmış analiz sonucu döndürme (HomeController'dan taşındı)
-  Future<String> formatliAnalizYap(String messageText) async {
-    _yukleniyor = true;
-    _analizTamamlandi = false;
-    _hataMesaji = null;
-    notifyListeners();
-    
-    try {
-      // Boş mesaj kontrolü
-      if (messageText.trim().isEmpty) {
-        _hataMesaji = 'Yüklenen veriden sağlıklı bir analiz yapılamadı, lütfen daha net mesaj içerikleri gönderin.';
-        _yukleniyor = false;
-        notifyListeners();
-        return _hataMesaji!;
-      }
-      
-      // Servis üzerinden analiz isteği
-      final analizSonucu = await _aiService.sohbetiAnalizeEt(messageText);
-      
-      if (analizSonucu == null) {
-        _hataMesaji = 'Analiz yapılamadı';
-        _yukleniyor = false;
-        notifyListeners();
-        return _hataMesaji!;
-      }
-      
-      _mevcutAnaliz = analizSonucu;
-      
-      // Analiz geçmişine ekle
-      _analizGecmisiniGuncelle(_mevcutAnaliz!);
-      
-      _analizTamamlandi = true;
-      _yukleniyor = false;
-      notifyListeners();
-      
-      // Formatlanmış sonucu döndür
-      return analizSonucu.getFormattedAnalysis();
-    } catch (e) {
-      _logger.e('Formatlanmış analiz hatası', e);
-      _hataMesaji = 'Analiz sırasında bir hata oluştu: $e';
-      _yukleniyor = false;
-      notifyListeners();
-      return "Analiz sırasında bir hata oluştu, lütfen tekrar deneyin.";
-    }
   }
   
   // Önceki analiz sonuçlarını karşılaştırarak ilerleme raporu oluştur

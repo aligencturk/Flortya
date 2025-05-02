@@ -12,7 +12,7 @@ class MessageCoachAnalysis {
   final String? karsiTarafYorumu;
   final String? anlikTavsiye;
   
-  // Yeni alanlar - sohbet analizi
+  // Mesaj koçu analiz alanları
   final String? sohbetGenelHavasi;     // Soğuk/Samimi/Pasif-agresif/İlgisiz/İlgili
   final String? genelYorum;            // Genel bir yorum (1-2 cümle)
   final String? sonMesajTonu;          // Son mesajın tonu
@@ -108,43 +108,47 @@ class MessageCoachAnalysis {
       String? anlikTavsiye = json['anlikTavsiye'] ?? json['instantAdvice'];
       
       // Sohbet genel havası doğrulama
-      String? sohbetGenelHavasi = json['sohbetGenelHavasi'] ?? json['chatMood'];
+      String? sohbetGenelHavasi = json['sohbetGenelHavasi'];
       
-      // Geçersiz sohbet havası kontrolü
+      // Sadece API'den açık hata mesajı gelirse düzelt
       if (sohbetGenelHavasi == null || 
           sohbetGenelHavasi.isEmpty || 
-          sohbetGenelHavasi.toLowerCase().contains('belirle') || 
-          sohbetGenelHavasi.toLowerCase().contains('analiz')) {
+          sohbetGenelHavasi.toLowerCase() == 'analiz edilemedi' || 
+          sohbetGenelHavasi.toLowerCase() == 'null' ||
+          sohbetGenelHavasi.toLowerCase().contains('yeterli içerik') ||
+          sohbetGenelHavasi.toLowerCase().contains('için yeterli') ||
+          sohbetGenelHavasi.toLowerCase().contains('için yet')) {
         sohbetGenelHavasi = 'Samimi';
       }
       
       // Genel yorum doğrulama
-      String? genelYorum = json['genelYorum'] ?? json['generalComment'];
+      String? genelYorum = json['genelYorum'];
       
-      // Geçersiz genel yorum kontrolü
+      // Sadece API'den açık hata mesajı gelirse düzelt
       if (genelYorum == null || 
           genelYorum.isEmpty || 
-          genelYorum.toLowerCase().contains('belirle') || 
-          genelYorum.toLowerCase().contains('analiz yapıl') ||
-          genelYorum == 'null') {
-        genelYorum = 'Sohbet içeriği analiz edildi.';
+          genelYorum.toLowerCase() == 'analiz sonucu alınamadı' || 
+          genelYorum.toLowerCase().contains('alınamadı') ||
+          genelYorum.toLowerCase() == 'null') {
+        genelYorum = 'API yanıtı alınamadı.';
       }
       
       // Son mesaj tonu doğrulama
-      String? sonMesajTonu = json['sonMesajTonu'] ?? json['lastMessageTone'];
+      String? sonMesajTonu = json['sonMesajTonu'];
       
-      // Geçersiz mesaj tonu kontrolü
+      // Sadece API'den açık hata mesajı gelirse düzelt
       if (sonMesajTonu == null || 
           sonMesajTonu.isEmpty || 
-          sonMesajTonu.toLowerCase().contains('belirle') || 
-          sonMesajTonu.toLowerCase().contains('analiz') ||
+          sonMesajTonu.toLowerCase() == 'belirlenemedi' || 
+          sonMesajTonu.toLowerCase() == 'analiz edilemedi' ||
+          sonMesajTonu.toLowerCase().contains('yeterli') ||
           sonMesajTonu == 'null') {
         sonMesajTonu = 'Nötr';
       }
       
       // Son mesaj etkisi doğrulama
       Map<String, int> sonMesajEtkisiMap = {};
-      var sonMesajEtkisiJson = json['sonMesajEtkisi'] ?? json['lastMessageEffect'] ?? {};
+      var sonMesajEtkisiJson = json['sonMesajEtkisi'] ?? {};
       if (sonMesajEtkisiJson is Map) {
         sonMesajEtkisiJson.forEach((key, value) {
           if (value is int) {
@@ -159,26 +163,50 @@ class MessageCoachAnalysis {
         });
       }
       
-      // Boş son mesaj etkisi kontrolü
+      // Boş son mesaj etkisi kontrolü veya toplamı 100'den fazla uzaksa düzeltme
       if (sonMesajEtkisiMap.isEmpty) {
-        sonMesajEtkisiMap = {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34};
+        sonMesajEtkisiMap = {'sempatik': 33, 'kararsız': 34, 'olumsuz': 33};
+      } else {
+        // Toplam kontrolü ve ayarlaması - bu gerekli bir işlemdir
+        int toplam = sonMesajEtkisiMap.values.fold(0, (sum, value) => sum + value);
+        if (toplam < 80 || toplam > 120) {
+          // Değerleri oranla ve 100'e yaklaştır
+          double oran = 100 / toplam;
+          Map<String, int> yeniMap = {};
+          int yeniToplam = 0;
+          
+          // İlk önce oranla ve yuvarla
+          sonMesajEtkisiMap.forEach((key, value) {
+            int yeniDeger = (value * oran).round();
+            yeniMap[key] = yeniDeger;
+            yeniToplam += yeniDeger;
+          });
+          
+          // Toplam hala 100 değilse, farkı en büyük değere ekle/çıkar
+          if (yeniToplam != 100) {
+            String enBuyukKey = yeniMap.entries
+                .reduce((a, b) => a.value > b.value ? a : b)
+                .key;
+            yeniMap[enBuyukKey] = yeniMap[enBuyukKey]! + (100 - yeniToplam);
+          }
+          
+          sonMesajEtkisiMap = yeniMap;
+        }
       }
       
       // Direkt yorum doğrulama
-      String? direktYorum = json['direktYorum'] ?? json['directComment'] ?? anlikTavsiye;
+      String? direktYorum = json['direktYorum'] ?? anlikTavsiye;
       
-      // Geçersiz direkt yorum kontrolü
+      // Sadece API'den açık hata mesajı gelirse düzelt
       if (direktYorum == null || 
           direktYorum.isEmpty || 
-          direktYorum.toLowerCase().contains('belirle') || 
-          direktYorum.toLowerCase().contains('analiz yapıl') ||
           direktYorum == 'null') {
-        direktYorum = 'İletişim tarzını daha net hale getirmelisin.';
+        direktYorum = 'API yanıtı alınamadı.';
       }
       
       // CevapOnerileri doğrulama
       List<String> cevapOnerileriList = [];
-      var cevapOnerileriJson = json['cevapOnerileri'] ?? json['suggestionResponses'] ?? [];
+      var cevapOnerileriJson = json['cevapOnerileri'] ?? [];
       
       if (cevapOnerileriJson is List) {
         cevapOnerileriList = List<String>.from(cevapOnerileriJson.map((item) => item?.toString() ?? '').where((item) => item.isNotEmpty));
@@ -187,12 +215,10 @@ class MessageCoachAnalysis {
         cevapOnerileriList = [cevapOnerileriJson];
       }
       
-      // Geçersiz cevap önerileri kontrolü
+      // Sadece boş liste durumunda varsayılan değer
       if (cevapOnerileriList.isEmpty) {
         cevapOnerileriList = [
-          'Düşüncelerimi açıkça ifade etmek istiyorum.',
-          'Seninle konuşmak benim için önemli, ne düşündüğünü merak ediyorum.',
-          'Anladım.'
+          'API yanıtı alınamadı.',
         ];
       }
 
@@ -215,26 +241,24 @@ class MessageCoachAnalysis {
       );
     } catch (e) {
       print('❌ MesajKocuAnalizi.from hatası: $e');
-      // Hata durumunda boş analiz objesi döndür
+      // Gerçek hata durumunda hata mesajı içeren model döndür
       return MessageCoachAnalysis(
         iliskiTipi: 'Belirlenmedi',
-        analiz: 'Analiz işlemi sırasında bir hata oluştu',
+        analiz: 'Analiz işlemi sırasında bir hata oluştu: $e',
         gucluYonler: '',
-        oneriler: ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
-        etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+        oneriler: ['API hatası. Lütfen tekrar deneyin.'],
+        etki: {'Hata': 100},
         yenidenYazim: null,
         strateji: '',
         karsiTarafYorumu: null,
         anlikTavsiye: null,
-        sohbetGenelHavasi: 'Samimi',
-        genelYorum: 'Analiz işlemi sırasında bir hata oluştu.',
-        sonMesajTonu: 'Nötr',
-        sonMesajEtkisi: {'sempatik': 33, 'kararsız': 33, 'olumsuz': 34},
-        direktYorum: 'İletişim tarzını daha net hale getirmelisin.',
+        sohbetGenelHavasi: 'Hata',
+        genelYorum: 'Analiz işlemi sırasında bir hata oluştu: $e',
+        sonMesajTonu: 'Hata',
+        sonMesajEtkisi: {'hata': 100},
+        direktYorum: 'API yanıtı alınamadı. Lütfen tekrar deneyin.',
         cevapOnerileri: [
-          'Düşüncelerimi açıkça ifade etmek istiyorum.',
-          'Seninle konuşmak benim için önemli, ne düşündüğünü merak ediyorum.',
-          'Anladım.'
+          'API yanıtı alınamadı. Lütfen tekrar deneyin.',
         ]
       );
     }
@@ -248,15 +272,15 @@ class MessageCoachAnalysis {
       'öneriler': oneriler,
       'effect': etki,
       'rewrite': yenidenYazim,
-      'strategy': strateji,
-      'karsiTarafYorumu': karsiTarafYorumu,
-      'anlikTavsiye': anlikTavsiye,
-      'sohbetGenelHavasi': sohbetGenelHavasi,
-      'genelYorum': genelYorum,
-      'sonMesajTonu': sonMesajTonu,
-      'sonMesajEtkisi': sonMesajEtkisi,
-      'direktYorum': direktYorum,
-      'cevapOnerileri': cevapOnerileri,
+      'strateji': strateji,
+      'karşı_taraf_yorumu': karsiTarafYorumu,
+      'anlık_tavsiye': anlikTavsiye,
+      'sohbet_genel_havasi': sohbetGenelHavasi,
+      'genel_yorum': genelYorum,
+      'son_mesaj_tonu': sonMesajTonu,
+      'son_mesaj_etkisi': sonMesajEtkisi,
+      'direkt_yorum': direktYorum,
+      'cevap_önerileri': cevapOnerileri,
     };
   }
 

@@ -137,13 +137,30 @@ class NotificationService {
       if (currentUser != null) {
         final userId = currentUser.uid;
         
-        // Kullanıcı dokümanını güncelle
-        await _firestore.collection('users').doc(userId).update({
-          'fcmTokens': FieldValue.arrayUnion([token]),
-          'lastTokenUpdate': FieldValue.serverTimestamp(),
-        });
+        // Önce kullanıcı belgesinin var olup olmadığını kontrol et
+        final userDoc = await _firestore.collection('users').doc(userId).get();
         
-        _logger.i('FCM token Firestore\'a kaydedildi. Kullanıcı: $userId');
+        if (userDoc.exists) {
+          // Kullanıcı dokümanı varsa güncelle
+          await _firestore.collection('users').doc(userId).update({
+            'fcmTokens': FieldValue.arrayUnion([token]),
+            'lastTokenUpdate': FieldValue.serverTimestamp(),
+          });
+          
+          _logger.i('FCM token mevcut kullanıcı belgesine eklendi. Kullanıcı: $userId');
+        } else {
+          // Kullanıcı dokümanı yoksa oluştur
+          await _firestore.collection('users').doc(userId).set({
+            'uid': userId,
+            'email': currentUser.email ?? '',
+            'displayName': currentUser.displayName ?? '',
+            'fcmTokens': [token],
+            'lastTokenUpdate': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          
+          _logger.i('FCM token yeni oluşturulan kullanıcı belgesine eklendi. Kullanıcı: $userId');
+        }
       } else {
         _logger.w('Kullanıcı oturum açmadığı için FCM token kaydedilemedi');
       }
@@ -156,11 +173,31 @@ class NotificationService {
   Future<void> updateFcmTokenOnLogin(String userId) async {
     try {
       if (_fcmToken != null) {
-        await _firestore.collection('users').doc(userId).update({
-          'fcmTokens': FieldValue.arrayUnion([_fcmToken!]),
-          'lastTokenUpdate': FieldValue.serverTimestamp(),
-        });
-        _logger.i('Oturum açma sırasında FCM token güncellendi. Kullanıcı: $userId');
+        // Önce kullanıcı belgesinin var olup olmadığını kontrol et
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        
+        if (userDoc.exists) {
+          // Kullanıcı dokümanı varsa güncelle
+          await _firestore.collection('users').doc(userId).update({
+            'fcmTokens': FieldValue.arrayUnion([_fcmToken!]),
+            'lastTokenUpdate': FieldValue.serverTimestamp(),
+          });
+          _logger.i('Oturum açma sırasında FCM token güncellendi. Kullanıcı: $userId');
+        } else {
+          // Kullanıcı dokümanı yoksa oluştur
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+            await _firestore.collection('users').doc(userId).set({
+              'uid': userId,
+              'email': currentUser.email ?? '',
+              'displayName': currentUser.displayName ?? '',
+              'fcmTokens': [_fcmToken!],
+              'lastTokenUpdate': FieldValue.serverTimestamp(),
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            _logger.i('Oturum açma sırasında FCM token yeni kullanıcı belgesi için eklendi. Kullanıcı: $userId');
+          }
+        }
       } else {
         _logger.w('FCM token null olduğu için güncelleme yapılamadı');
         await _updateFcmToken();
@@ -174,10 +211,17 @@ class NotificationService {
   Future<void> removeFcmTokenOnLogout(String userId) async {
     try {
       if (_fcmToken != null) {
-        await _firestore.collection('users').doc(userId).update({
-          'fcmTokens': FieldValue.arrayRemove([_fcmToken!]),
-        });
-        _logger.i('Oturum kapatma sırasında FCM token kaldırıldı. Kullanıcı: $userId');
+        // Önce kullanıcı belgesinin var olup olmadığını kontrol et
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        
+        if (userDoc.exists) {
+          await _firestore.collection('users').doc(userId).update({
+            'fcmTokens': FieldValue.arrayRemove([_fcmToken!]),
+          });
+          _logger.i('Oturum kapatma sırasında FCM token kaldırıldı. Kullanıcı: $userId');
+        } else {
+          _logger.w('Kullanıcı belgesi bulunamadığı için FCM token kaldırılamadı. Kullanıcı: $userId');
+        }
       }
     } catch (e) {
       _logger.e('Oturum kapatma sırasında FCM token kaldırılırken hata: $e');

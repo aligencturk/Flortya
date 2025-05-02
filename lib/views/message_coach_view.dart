@@ -173,30 +173,40 @@ class _MessageCoachViewState extends State<MessageCoachView> {
         ),
         child: Row(
           children: [
-            // Örnek sohbet butonu
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  final ornekSohbet = controller.ornekSohbetIcerigiOlustur();
-                  setState(() {
-                    _sohbetController.text = ornekSohbet;
-                  });
-                },
-                icon: const Icon(Icons.chat_outlined, size: 18),
-                label: const Text('Örnek Sohbet'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                  foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+            // Örnek sohbet butonu - sadece görsel modunda değilse göster
+            if (!controller.gorselModu)
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final ornekSohbet = controller.ornekSohbetIcerigiOlustur();
+                    setState(() {
+                      _sohbetController.text = ornekSohbet;
+                    });
+                  },
+                  icon: const Icon(Icons.chat_outlined, size: 18),
+                  label: const Text('Örnek Sohbet'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                    foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
+            
+            // Eğer görsel modundaysak boşluk ekleme
+            if (!controller.gorselModu)
+              const SizedBox(width: 12),
             
             // Analiz butonu
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
+                  // Görsel modundaysak ve OCR metni varsa direkt görsel analizi yap
+                  if (controller.gorselModu && controller.gorselDosya != null) {
+                    controller.sohbetiAnalizeEt("");
+                    return;
+                  }
+                  
                   final sohbetIcerigi = _sohbetController.text.trim();
                   
                   if (!controller.sohbetGecerliMi(sohbetIcerigi)) {
@@ -242,6 +252,7 @@ class _MessageCoachViewState extends State<MessageCoachView> {
   // Sohbet giriş alanı widget'ı
   Widget _buildSohbetGirisAlani() {
     final theme = Theme.of(context);
+    final controller = Provider.of<MessageCoachController>(context);
     
     return Container(
       margin: EdgeInsets.only(bottom: 16),
@@ -267,7 +278,7 @@ class _MessageCoachViewState extends State<MessageCoachView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Sohbet Geçmişi',
+                  controller.gorselModu ? 'Görsel Analizi' : 'Sohbet Geçmişi',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface.withOpacity(0.7),
@@ -282,6 +293,9 @@ class _MessageCoachViewState extends State<MessageCoachView> {
                   onPressed: () {
                     setState(() {
                       _sohbetController.clear();
+                      if (controller.gorselModu) {
+                        controller.gorselModunuTemizle();
+                      }
                     });
                   },
                   tooltip: 'Temizle',
@@ -289,6 +303,29 @@ class _MessageCoachViewState extends State<MessageCoachView> {
               ],
             ),
           ),
+          
+          // Görsel önizleme (sadece görsel modunda)
+          if (controller.gorselModu && controller.gorselDosya != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                height: 150,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.3),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    controller.gorselDosya!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  ),
+                ),
+              ),
+            ),
           
           // Metin alanı
           Padding(
@@ -301,16 +338,22 @@ class _MessageCoachViewState extends State<MessageCoachView> {
               },
               child: TextField(
                 controller: _sohbetController,
-                maxLines: 8,
-                minLines: 6,
+                maxLines: controller.gorselModu ? 3 : 8,
+                minLines: controller.gorselModu ? 2 : 6,
+                enabled: !controller.gorselModu,
+                readOnly: controller.gorselModu,
                 decoration: InputDecoration(
-                  hintText: 'Sohbet geçmişini buraya yapıştırın...',
+                  hintText: controller.gorselModu
+                      ? 'Görsel yüklendiğinde metin analizi otomatik olarak yapılacak...'
+                      : 'Sohbet geçmişini buraya yapıştırın...',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                 ),
                 style: TextStyle(
                   fontSize: 14,
-                  color: theme.colorScheme.onSurface,
+                  color: controller.gorselModu
+                      ? theme.colorScheme.onSurface.withOpacity(0.7)
+                      : theme.colorScheme.onSurface,
                 ),
               ),
             ),
@@ -801,71 +844,71 @@ class _MessageCoachViewState extends State<MessageCoachView> {
     );
   }
 
-  // Dosya seçme butonu widget'ı
-  Widget _buildDosyaSecmeButonu() {
-    final theme = Theme.of(context);
-    final controller = Provider.of<MessageCoachController>(context);
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      child: OutlinedButton.icon(
-        onPressed: _yuklemeDurumu ? null : _dosyaSec,
-        icon: Icon(Icons.upload_file, size: 20),
-        label: Text(controller.dosyaSecmeButonMetni),
-        style: OutlinedButton.styleFrom(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          side: BorderSide(
-            color: theme.colorScheme.outline.withOpacity(0.5),
-            width: 1.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 300.ms, delay: 400.ms);
-  }
-
-  // Dosya seçme işlemi
-  Future<void> _dosyaSec() async {
-    final controller = Provider.of<MessageCoachController>(context, listen: false);
-    
+  // Dosyadan görsel seçme
+  Future<void> _dosyadanGorselSec() async {
     try {
+      final controller = Provider.of<MessageCoachController>(context, listen: false);
+      
+      // Dosya seçicisini aç
+      final XTypeGroup typeGroup = XTypeGroup(
+        label: 'Görsel Dosyaları',
+        extensions: ['jpg', 'jpeg', 'png'],
+      );
+      
+      final XFile? file = await openFile(
+        acceptedTypeGroups: [typeGroup],
+      );
+      
+      if (file == null) return;
+      
+      // Seçilen dosyayı File nesnesine dönüştür
+      final File gorselDosya = File(file.path);
+      
+      // Önce mevcut analiz sonuçlarını temizle
+      controller.analizSonuclariniSifirla();
+      
+      // Görseli işaretlemek için controller'a gönder
+      controller.gorselBelirle(gorselDosya);
+      
+      // OCR işlemini başlat
       setState(() {
         _yuklemeDurumu = true;
+      });
+      
+      // OCR işlemi için AI servisini çağır (bu bir örnek uygulama)
+      // Gerçek projede OCR servisinizi entegre edin
+      // Burada örnek olarak görsel içeriğinden OCR sonucu ürettiğimizi varsayıyoruz
+      String ocrMetni = await FileUtils.extractTextFromImage(gorselDosya);
+      
+      if (ocrMetni.trim().isEmpty) {
+        setState(() {
+          _yuklemeDurumu = false;
+          _hataMesaji = 'Görselden metin çıkarılamadı.';
+        });
+        return;
+      }
+      
+      // OCR sonucunu controller'a gönder
+      controller.gorselMetniniBelirle(ocrMetni);
+      
+      setState(() {
+        _yuklemeDurumu = false;
         _hataMesaji = '';
       });
       
-      // FileUtils yardımcı sınıfını kullan
-      final XFile? dosya = await FileUtils.dosyaSec(
-        dosyaTurleri: [
-          XTypeGroup(
-            label: 'Metin Dosyaları',
-            extensions: ['txt', 'json'],
-          ),
-        ],
+      // OCR metnini göster (isteğe bağlı)
+      _sohbetController.text = "Görüntüden çıkarılan sohbet metni analiz için hazır.";
+      
+      // Bilgi mesajı
+      Utils.showSuccessFeedback(
+        context, 
+        'Görsel işlendi. Analiz Et butonuna basarak sohbeti analiz edebilirsiniz.'
       );
-      
-      if (dosya == null) {
-        setState(() {
-          _yuklemeDurumu = false;
-        });
-        return; // Kullanıcı dosya seçimini iptal etti
-      }
-      
-      // Dosya içeriğini oku
-      final String icerik = await dosya.readAsString();
-      
-      // Sohbet alanına içeriği yerleştir
-      setState(() {
-        _sohbetController.text = icerik;
-        _yuklemeDurumu = false;
-      });
       
     } catch (e) {
       setState(() {
         _yuklemeDurumu = false;
-        _hataMesaji = 'Dosya seçilirken bir hata oluştu: ${e.toString()}';
+        _hataMesaji = 'Görsel yükleme sırasında bir hata oluştu: $e';
       });
     }
   }
@@ -873,8 +916,8 @@ class _MessageCoachViewState extends State<MessageCoachView> {
   // Açıklama kartı widget'ı
   Widget _buildAciklamaKarti(MessageCoachController controller, ThemeData theme) {
     return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
@@ -882,24 +925,64 @@ class _MessageCoachViewState extends State<MessageCoachView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            controller.aciklamaBaslik,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
+          Row(
+            children: [
+              Icon(
+                Icons.psychology,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                controller.aciklamaBaslik,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             controller.aciklamaMetni,
             style: TextStyle(
               fontSize: 14,
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.9),
             ),
           ),
-          SizedBox(height: 8),
-          _buildDosyaSecmeButonu(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Dosyadan yükleme butonu
+              ElevatedButton.icon(
+                onPressed: _dosyadanGorselSec,
+                icon: const Icon(Icons.image_outlined, size: 16),
+                label: Text(controller.dosyaSecmeButonMetni),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.secondaryContainer.withOpacity(0.8),
+                  foregroundColor: theme.colorScheme.onSecondaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              const SizedBox(width: 8),
+              
+              // Görsel modunu temizleme butonu (sadece görsel modunda görünür)
+              if (controller.gorselModu)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    controller.gorselModunuTemizle();
+                    _sohbetController.clear();
+                  },
+                  icon: const Icon(Icons.clear, size: 16),
+                  label: const Text("Görseli Kaldır"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.errorContainer.withOpacity(0.8),
+                    foregroundColor: theme.colorScheme.onErrorContainer,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );

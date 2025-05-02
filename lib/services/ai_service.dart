@@ -243,134 +243,46 @@ class AiService {
       }
       
       // OCR metni ve Görsel Analizi işleme biçimini modernize edelim
-      // Yeni eklenen OCR formatını tanı
-      final bool hasFormattedOCR = messageContent.contains("---- Görüntüden çıkarılan metin ----") &&
-                                  messageContent.contains("---- Çıkarılan metin sonu ----");
-      
-      // Mesaj türünü belirleme
-      final bool isImageMessage = messageContent.contains("Ekran görüntüsü:") || 
-          messageContent.contains("Görsel:") ||
-          messageContent.contains("Fotoğraf:");
-      
-      final bool hasExtractedText = messageContent.contains("Görseldeki metin:") && 
-          messageContent.split("Görseldeki metin:").length > 1 && 
-          messageContent.split("Görseldeki metin:")[1].trim().isNotEmpty;
+      // Görüntüden çıkarılan metin için özel format kontrolü
+      final bool isImageAnalysis = messageContent.contains("---- Görüntüden çıkarılan metin ----");
       
       // Prompt hazırlama
       String prompt = '';
       
-      if (hasFormattedOCR) {
-        // Yeni format OCR verileri - yönsüz analiz yap
+      if (isImageAnalysis) {
+        // Görüntü analizinden çıkarılan metni daha kısa bir şekilde prompt'a ekleyelim
         prompt = '''
         Sen bir ilişki analiz uzmanı ve samimi bir arkadaşsın. Senin en önemli özelliğin, çok sıcak ve empatik bir şekilde cevap vermen. 
         
         Bu mesaj bir ekran görüntüsü içeriyor ve görüntüden çıkarılan metin var. Lütfen aşağıdaki ekran görüntüsünden çıkarılan metne dayanarak mesajın detaylı analizini yap.
         
-        ÖNEMLİ KURALLAR:
-        1. Analizi yapan kişi, mesajın bir tarafıdır. Yani "ilk kişi" ya da "ikinci kişi" gibi ifadeler KULLANMA.
-        2. Cevabında kullanıcıya doğrudan "sen" diye hitap et.
-        3. Mesajlardaki taraf ayrımı şuna dayanır: Görselde analiz yapan kişinin mesajları genelde sağda, karşı tarafın mesajları solda olur. Fakat bunu analizde açıkça yazma.
-        4. "Senin mesajlarında...", "karşı taraf şu şekilde davranıyor..." gibi kişisel ve direkt ifadeler kullan.
-        5. "Sağdaki/soldaki", "ilk/ikinci kişi", gibi ifadeleri kesinlikle kullanma. Analizi yapan kişinin kendisiyle konuşuyorsun.
-        6. Analiz sıcak, empatik ve arkadaşça olmalı. Resmi dilden kaçın.
-        
         Analizi şu başlıklarla (ama konuşma diliyle) hazırla:
         - Mesajların tonu (duygusal, kırıcı, mesafeli, vb.)
         - Karşı tarafın yaklaşımı ve davranış şekli
-        - Senin mesajlarının etkisi ve tavsiyeler
+        - Mesajların etkisi ve tavsiyeler
         - Genel ilişki dinamiği hakkında yorum
-        - Günlük konuşma diline uygun, samimi ifadeler kullan (örn: "bence", "ya", "aslında", "hissediyorum ki" , "canım benim" gibi).
-        Analizi şu formatta JSON çıktısı olarak ver:
-        
-        {
-          "duygu": "Mesajlarda algılanan temel duygu (örn: endişe, kızgınlık, mutluluk, kafa karışıklığı vb.)",
-          "niyet": "Mesajlaşmanın altında yatan niyet (örn: uzlaşma arayışı, açıklık getirme isteği, duyguları ifade etme vb.)",
-          "ton": "Mesajların genel tonu (örn: samimi, mesafeli, resmi, yakın, öfkeli vb.)",
-          "ciddiyet": "1-10 arası bir sayı, ilişki için konunun ne kadar önemli olduğunu gösterir",
-          "kişiler": "Mesajlarda yer alan kişilerin tanımı (isimle, konumla değil)",
-          "mesajYorumu": "Mesajlardaki ilişki dinamikleri hakkında samimi, empatik bir arkadaş gibi yorumlar. 'Sen' diye hitap et ve karşı taraftan bahset, konum belirtmeden.",
-          "cevapOnerileri": [
-            "Karşı tarafa nasıl yaklaşabileceğine dair somut bir öneri.",
-            "Mesajlaşma şeklini nasıl değiştirebileceğine dair bir tavsiye.",
-            "İlişki dinamiğini iyileştirmek için yapabileceğin bir şey."
-          ]
-        }
-        
-        Analiz edilecek mesaj: "$messageContent"
-        ''';
-      } else if (isImageMessage && hasExtractedText) {
-        // Ekran görüntüsü ve OCR ile metin çıkarılmış
-        prompt = '''
-        Sen bir ilişki analiz uzmanı ve samimi bir arkadaşsın. Bu mesaj bir ekran görüntüsü içeriyor ve görüntüden çıkarılan metin var.
-        
-        Lütfen aşağıdaki ekran görüntüsünden çıkarılan metne dayanarak mesajın detaylı bir analizini yap. Bu muhtemelen bir mesajlaşma uygulamasından alınmış ekran görüntüsüdür.
-        
-        ÖNEMLİ KURALLAR:
-        1. Analizi yapan kişi, mesajın bir tarafıdır. Yani "ilk kişi" ya da "ikinci kişi" gibi ifadeler KULLANMA.
-        2. Cevabında kullanıcıya doğrudan "sen" diye hitap et.
-        3. Mesajlardaki taraf ayrımı şuna dayanır: Görselde analiz yapan kişinin mesajları genelde sağda, karşı tarafın mesajları solda olur. Fakat bunu analizde açıkça yazma.
-        4. "Senin mesajlarında...", "karşı taraf şu şekilde davranıyor..." gibi kişisel ve direkt ifadeler kullan.
-        5. "Sağdaki/soldaki", "ilk/ikinci kişi", gibi ifadeleri kesinlikle kullanma. Analizi yapan kişinin kendisiyle konuşuyorsun.
-        6. Analiz sıcak, empatik ve arkadaşça olmalı. Resmi dilden kaçın.
-        
-        Analizi şu başlıklarla (ama konuşma diliyle) hazırla:
-        - Mesajların tonu (duygusal, kırıcı, mesafeli, vb.)
-        - Karşı tarafın yaklaşımı ve davranış şekli
-        - Senin mesajlarının etkisi ve tavsiyeler
-        - Genel ilişki dinamiği hakkında yorum
+        - Günlük konuşma diline uygun, samimi ifadeler kullan
         
         Analizi şu formatta JSON çıktısı olarak ver:
         
         {
-          "duygu": "Mesajlarda algılanan temel duygu (örn: endişe, kızgınlık, mutluluk, kafa karışıklığı vb.)",
-          "niyet": "Mesajlaşmanın altında yatan niyet (örn: uzlaşma arayışı, açıklık getirme isteği, duyguları ifade etme vb.)",
-          "ton": "Mesajların genel tonu (örn: samimi, mesafeli, resmi, yakın, öfkeli vb.)",
-          "ciddiyet": "1-10 arası bir sayı, ilişki için konunun ne kadar önemli olduğunu gösterir",
-          "kişiler": "Mesajlarda yer alan kişilerin tanımı (isimle, konumla değil)",
-          "mesajYorumu": "Mesajlardaki ilişki dinamikleri hakkında samimi, empatik bir arkadaş gibi yorumlar. 'Sen' diye hitap et ve karşı taraftan bahset, konum belirtmeden.",
-          "cevapOnerileri": [
-            "Karşı tarafa nasıl yaklaşabileceğine dair somut bir öneri.",
-            "Mesajlaşma şeklini nasıl değiştirebileceğine dair bir tavsiye.",
-            "İlişki dinamiğini iyileştirmek için yapabileceğin bir şey."
+          "duygu": "Mesajlarda algılanan temel duygu",
+          "niyet": "Mesajlaşmanın altında yatan niyet",
+          "ton": "Mesajların genel tonu",
+          "ciddiyet": "1-10 arası bir sayı",
+          "kişiler": "Mesajlarda yer alan kişilerin tanımı",
+          "mesajYorumu": "Mesajlardaki ilişki dinamikleri hakkında samimi yorum",
+          "tavsiyeler": [
+            "Somut bir öneri",
+            "Mesajlaşma şeklini değiştirme tavsiyesi",
+            "İlişki dinamiğini iyileştirme önerisi"
           ]
         }
         
-        Analiz edilecek mesaj: "$messageContent"
-        ''';
-      } else if (isImageMessage) {
-        // Sadece ekran görüntüsü var, OCR metni yok - tamamen içerik odaklı prompt
-        prompt = '''
-        Sen bir ilişki analiz uzmanı ve yakın bir arkadaşsın. Senin en önemli özelliğin çok samimi, sıcak ve empatik bir şekilde cevap vermen. Bu mesaj bir ekran görüntüsü veya fotoğraf hakkında. 
-        
-        Mesaj içinde ekran görüntüsünden bahsediliyor. Görüntüyü göremediğim için içeriğine dayalı analiz sunmalıyım.
-        
-        ÖNEMLİ KURALLAR:
-        1. Analizi yapan kişi, mesajın bir tarafıdır. Yani "ilk kişi" ya da "ikinci kişi" gibi ifadeler KULLANMA.
-        2. Cevabında kullanıcıya doğrudan "sen" diye hitap et.
-        3. "Senin mesajlarında...", "karşı taraf şu şekilde davranıyor..." gibi kişisel ve direkt ifadeler kullan.
-        4. "Sağdaki/soldaki", "ilk/ikinci kişi", gibi ifadeleri kesinlikle kullanma. Analizi yapan kişinin kendisiyle konuşuyorsun.
-        5. Analiz sıcak, empatik ve arkadaşça olmalı. Resmi dilden kaçın.
-        
-        Sana metin olarak gönderilen bilgiden yola çıkarak, bu tür bir ilişki mesajının aşağıdaki formatta analizini yap:
-        
-        {
-          "duygu": "mesaj içeriğine göre uygun bir duygu belirt",
-          "niyet": "ekran görüntüsü veya görsel paylaşmadaki muhtemel amaç",
-          "ton": "mesajın tonu (samimi, resmi, endişeli vb.)",
-          "ciddiyet": "5",
-          "kişiler": "mesajı gönderen kişi ve bahsedilen diğer kişiler (konumlarla değil)",
-          "mesajYorumu": "Ekran görüntüsünü göremiyorum ama içeriği anlamaya ve sana yardımcı olmaya çalışacağım. Mesaj içeriğini anlamama yardımcı olmak için bir açıklama eklersen daha net bir analiz yapabilirim.",
-          "cevapOnerileri": [
-            "İletişimini daha etkili hale getirmek için şunları deneyebilirsin: [somut öneri]",
-            "Karşındaki kişinin bakış açısını anlamak için şu yaklaşımı deneyebilirsin: [somut öneri]",
-            "İlişkinde daha iyi anlaşılmak için şu iletişim stratejisini uygulayabilirsin: [somut öneri]"
-          ]
-        }
-        
-        Analiz edilecek mesaj: "$messageContent"
+        Analiz edilecek metin: "$messageContent"
         ''';
       } else {
-        // Normal metin mesajı
+        // Normal metin mesajı için mevcut prompt kullan
         prompt = '''
         Sen bir ilişki analiz uzmanısın. Kullanıcının ilettiği mesaj içeriğini aşağıdaki başlıklara göre detaylı olarak analiz et:
         
@@ -419,7 +331,8 @@ class AiService {
         ''';
       }
       
-      final requestBody = jsonEncode({
+      // API isteği için JSON body hazırlama
+      var requestBody = jsonEncode({
         'contents': [
           {
             'role': 'user',
@@ -436,108 +349,175 @@ class AiService {
         }
       });
       
-      _logger.d('API isteği gönderiliyor: $_geminiApiUrl');
+      _logger.d('API isteği gönderiliyor: $apiUrl');
+      _logger.d('İstek tipi: ${isImageAnalysis ? "Görsel Analizi" : "Metin Analizi"}');
       
-      // HTTP isteği için timeout ekle ve daha güvenli istek yapılandırması
-      try {
-        final response = await http.post(
-          Uri.parse(apiUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: requestBody,
-        ).timeout(
-          const Duration(seconds: 45), // Timeout süresini uzattık
-          onTimeout: () {
-            _logger.e('Gemini API istek zaman aşımına uğradı (45 saniye)');
-            throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
-          },
-        );
-        
-        _logger.d('API yanıtı alındı - status: ${response.statusCode}, içerik uzunluğu: ${response.body.length}');
-        
-        if (response.statusCode == 200) {
-          // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
-          try {
-            return _processApiResponse(response.body);
-          } catch (processError) {
-            _logger.e('API yanıtı işlenirken hata', processError);
-            // Varsayılan sonuç döndür
-            return AnalysisResult(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-              emotion: 'Belirtilmemiş',
-              intent: 'İletişim kurma',
-              tone: 'Nötr',
-              severity: 5,
-              persons: 'Belirtilenmemiş',
-              aiResponse: {
-                'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
-                'tavsiyeler': ['Mesajınızı tekrar göndermeyi deneyin.']
-              },
-              createdAt: DateTime.now(),
-            );
-          }
-        } else {
-          // Hata durumunu daha detaylı logla
-          _logger.e('API hatası: ${response.statusCode}', 'Yanıt: ${response.body.substring(0, min(200, response.body.length))}...');
+      // HTTP isteği için timeout ve retry mekanizması ekle
+      int retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          final response = await http.post(
+            Uri.parse(apiUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-Analysis-Type': isImageAnalysis ? 'image' : 'text', // İstek türünü header'a ekle
+            },
+            body: requestBody,
+          ).timeout(
+            const Duration(seconds: 60), // Timeout süresini uzattık
+            onTimeout: () {
+              _logger.e('Gemini API istek zaman aşımına uğradı (60 saniye)');
+              throw Exception('API yanıt vermedi, lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
+            },
+          );
           
-          // Özel hata kodlarını kontrol et
-          if (response.statusCode == 400) {
-            _logger.e('API hata 400: İstek yapısı hatalı');
-            return AnalysisResult(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-              emotion: 'Belirtilmemiş',
-              intent: 'İstek hatası',
-              tone: 'Nötr',
-              severity: 5,
-              persons: 'Belirtilenmemiş',
-              aiResponse: {
-                'mesajYorumu': 'İstek formatında hata: ${response.statusCode}. Lütfen tekrar deneyiniz.',
-                'tavsiyeler': ['Daha kısa bir mesaj ile tekrar deneyin.']
-              },
-              createdAt: DateTime.now(),
-            );
-          } else if (response.statusCode == 401 || response.statusCode == 403) {
-            _logger.e('API yetkilendirme hatası: API anahtarı geçersiz veya yetkisiz');
-            return AnalysisResult(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-              emotion: 'Belirtilmemiş',
-              intent: 'Yetkilendirme hatası',
-              tone: 'Nötr',
-              severity: 5,
-              persons: 'Belirtilenmemiş',
-              aiResponse: {
-                'mesajYorumu': 'API yetkilendirme hatası (${response.statusCode}). Lütfen uygulama ayarlarını kontrol edin.',
-                'tavsiyeler': ['Uygulama yöneticinizle iletişime geçin.']
-              },
-              createdAt: DateTime.now(),
-            );
+          _logger.d('API yanıtı alındı - status: ${response.statusCode}, içerik uzunluğu: ${response.body.length}');
+          
+          // Response header'larını logla (sorun tespiti için)
+          _logger.d('API yanıt headerları: ${response.headers}');
+          
+          if (response.statusCode == 200) {
+            // Yanıtı ayrı bir metoda çıkararak UI thread'in bloke olmasını engelle
+            try {
+              return _processApiResponse(response.body);
+            } catch (processError) {
+              _logger.e('API yanıtı işlenirken hata: $processError');
+              // Varsayılan sonuç döndür
+              return AnalysisResult(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+                emotion: 'Belirtilmemiş',
+                intent: 'İletişim kurma',
+                tone: 'Nötr',
+                severity: 5,
+                persons: 'Belirtilenmemiş',
+                aiResponse: {
+                  'mesajYorumu': 'Analiz sırasında bir sorun oluştu. Lütfen tekrar deneyiniz.',
+                  'tavsiyeler': ['Mesajınızı tekrar göndermeyi deneyin.']
+                },
+                createdAt: DateTime.now(),
+              );
+            }
           } else {
-            throw Exception('Analiz API hatası: ${response.statusCode}');
+            // Hata durumunu daha detaylı logla
+            _logger.e('API hatası: ${response.statusCode}', 'Yanıt: ${response.body.substring(0, min(200, response.body.length))}...');
+            
+            // Görsel analizi için özel hata kontrolü
+            if (isImageAnalysis && (response.statusCode == 400 || response.statusCode == 422)) {
+              _logger.e('Görsel analizi isteğinde format hatası. Yeniden deneme ${retryCount+1}/$maxRetries');
+              retryCount++;
+              
+              // Görüntü içeriğini kısalt ve yeniden dene
+              if (messageContent.length > 8000) {
+                messageContent = messageContent.substring(0, 8000) + "...";
+                prompt = prompt.replaceAll("Analiz edilecek metin: \"$messageContent\"", 
+                                          "Analiz edilecek metin: \"${messageContent.substring(0, 8000)}...\"");
+                
+                // JSON body'yi güncelle
+                requestBody = jsonEncode({
+                  'contents': [
+                    {
+                      'role': 'user',
+                      'parts': [
+                        {
+                          'text': prompt
+                        }
+                      ]
+                    }
+                  ],
+                  'generationConfig': {
+                    'temperature': 0.7,
+                    'maxOutputTokens': _geminiMaxTokens
+                  }
+                });
+                
+                _logger.i('İçerik kısaltıldı ve yeniden deneniyor. Yeni uzunluk: ${messageContent.length}');
+                
+                // Biraz bekle ve döngünün bir sonraki iterasyonuyla tekrar dene
+                await Future.delayed(const Duration(seconds: 2));
+                continue;
+              }
+            }
+            
+            // Tekrarlama limiti aşıldıysa veya diğer hata durumları için uygun yanıtı oluştur
+            if (response.statusCode == 400) {
+              _logger.e('API hata 400: İstek yapısı hatalı');
+              return AnalysisResult(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+                emotion: 'Belirtilmemiş',
+                intent: isImageAnalysis ? 'Görsel analiz hatası' : 'İstek hatası',
+                tone: 'Nötr',
+                severity: 5,
+                persons: 'Belirtilenmemiş',
+                aiResponse: {
+                  'mesajYorumu': isImageAnalysis 
+                      ? 'Görsel analizinde format hatası oluştu. Lütfen farklı bir görsel deneyin.'
+                      : 'İstek formatında hata: ${response.statusCode}. Lütfen tekrar deneyiniz.',
+                  'tavsiyeler': isImageAnalysis 
+                      ? ['Daha net bir görsel ile tekrar deneyin.', 'Görsel yerine metni direkt kopyalayıp göndermeyi deneyin.']
+                      : ['Daha kısa bir mesaj ile tekrar deneyin.']
+                },
+                createdAt: DateTime.now(),
+              );
+            } else if (response.statusCode == 401 || response.statusCode == 403) {
+              _logger.e('API yetkilendirme hatası: API anahtarı geçersiz veya yetkisiz');
+              return AnalysisResult(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+                emotion: 'Belirtilmemiş',
+                intent: 'Yetkilendirme hatası',
+                tone: 'Nötr',
+                severity: 5,
+                persons: 'Belirtilenmemiş',
+                aiResponse: {
+                  'mesajYorumu': 'API yetkilendirme hatası (${response.statusCode}). Lütfen uygulama ayarlarını kontrol edin.',
+                  'tavsiyeler': ['Uygulama yöneticinizle iletişime geçin.']
+                },
+                createdAt: DateTime.now(),
+              );
+            } else {
+              // Beklenmeyen hata durumunda tüm detayları logla
+              _logger.e('Beklenmeyen API hatası: ${response.statusCode}', 'Tam yanıt: ${response.body}');
+              
+              throw Exception('Analiz API hatası: ${response.statusCode}');
+            }
           }
+        } catch (httpError) {
+          // Tekrar deneme kontrolü
+          if (retryCount < maxRetries) {
+            _logger.w('HTTP istek hatası, yeniden deneniyor (${retryCount+1}/$maxRetries): $httpError');
+            retryCount++;
+            await Future.delayed(Duration(seconds: 2 * (retryCount))); // Artan bekleme süresi
+            continue;
+          }
+          
+          // HTTP istek hatalarını daha iyi ele al
+          _logger.e('HTTP istek hatası', httpError);
+          return AnalysisResult(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+            emotion: 'Belirtilmemiş',
+            intent: isImageAnalysis ? 'Görsel analiz iletişim hatası' : 'İletişim hatası',
+            tone: 'Nötr',
+            severity: 5,
+            persons: 'Belirtilenmemiş',
+            aiResponse: {
+              'mesajYorumu': isImageAnalysis
+                  ? 'Görsel analizi sırasında bir iletişim hatası oluştu: ${httpError.toString()}. Lütfen internet bağlantınızı kontrol edin.'
+                  : 'API ile iletişim sırasında hata: ${httpError.toString()}. Lütfen internet bağlantınızı kontrol edin.',
+              'tavsiyeler': ['İnternet bağlantınızı kontrol edin ve tekrar deneyin.']
+            },
+            createdAt: DateTime.now(),
+          );
         }
-      } catch (httpError) {
-        // HTTP istek hatalarını daha iyi ele al
-        _logger.e('HTTP istek hatası', httpError);
-        return AnalysisResult(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-          emotion: 'Belirtilmemiş',
-          intent: 'İletişim hatası',
-          tone: 'Nötr',
-          severity: 5,
-          persons: 'Belirtilenmemiş',
-          aiResponse: {
-            'mesajYorumu': 'API ile iletişim sırasında hata: ${httpError.toString()}. Lütfen internet bağlantınızı kontrol edin.',
-            'tavsiyeler': ['İnternet bağlantınızı kontrol edin ve tekrar deneyin.']
-          },
-          createdAt: DateTime.now(),
-        );
       }
+      
+      // Buraya ulaşılmaması gerekir, retry mekanizması yukarıdaki döngüde sonuçlanmalı
+      return null;
     } catch (e) {
       _logger.e('Mesaj analizi hatası', e);
       // Hata yakalanırken null döndürmek yerine varsayılan sonuç oluştur
@@ -1040,6 +1020,14 @@ class AiService {
     return null;
   }
 
+  // OCR içeriği kontrolü için yardımcı fonksiyon
+  bool _isOcrContent(String content) {
+    return content.contains("---- Görüntüden çıkarılan metin ----") || 
+           content.contains("OCR metni:") || 
+           content.contains("Görsel içeriği:") ||
+           content.contains("Görselden çıkarılan metin:");
+  }
+
   /// Mesaj koçu analizi yapma
   Future<Map<String, dynamic>> analyzeChatCoach(String chatContent) async {
     try {
@@ -1059,44 +1047,79 @@ class AiService {
         chatContent = "${chatContent.substring(0, 12000)}...";
       }
       
+      // OCR formatını kontrol et
+      bool isOcrContent = _isOcrContent(chatContent);
+      
+      // OCR içeriği için özel işleme yap
+      if (isOcrContent) {
+        _logger.i('OCR içeriği tespit edildi, özel analiz yapılacak');
+        
+        // Görsel analizi için özel içerik hazırla - içerik boş olsa bile
+        if (chatContent.length < 100) {
+          _logger.w('OCR içeriği çok kısa, zorla analiz yapmak için içeriği zenginleştiriyorum');
+          // Çok kısa OCR içeriği için bir tamamlayıcı
+          chatContent = chatContent + "\n\n(Görsel içeriği kısa olsa da analiz yapılacak)";
+        }
+      }
+      
       // Chat geçmişini hazırla
       final contents = <Map<String, dynamic>>[];
       
-      // Sistem mesajını ekle - model rolü ile
+      // Sistem mesajını ekle - model rolü ile - prompta daha agresif bir dil kullan
       contents.add({
         'role': 'model',
         'parts': [
           {
-            'text': '''
+            'text': isOcrContent 
+            ? '''
+            Sen bir görseldeki metin analisti olarak görev yapacaksın. Kullanıcının gönderdiği görsel üzerinden çıkarılan metni eleştirel bir gözle analiz etmen gerekiyor.
+
+            KRİTİK KURALLAR:
+            1. "Analiz edilemedi", "yetersiz içerik" veya "belirlenemedi" YASAKTIR! Her durumda analiz yapmalısın.
+            2. İçerik ne kadar kısa olursa olsun, MUTLAKA TAM VE ÖZGÜN bir analiz yapmalısın.
+            3. Hiçbir alanı boş bırakmak YASAKTIR! Tüm alanları doldurmalısın.
+            4. "sohbetGenelHavasi", "sonMesajTonu" ve diğer alanlara GEÇERLİ değerler yazmalısın, "belirlenemedi" gibi ifadeler KULLANMA.
+            5. "Direkt Yorum ve Geliştirme" bölümünde: ÇOK SERT, KÜSTAH ve HAKARETVARİ ifadeler kullanmalısın!
+            6. "direktYorum" alanında kullanıcıya AĞIR ELEŞTİRİLER getirmelisin!
+            
+            ÖZELLİKLE "direktYorum" alanına şunlara benzer ÇOK SERT ifadeler yazmalısın:
+            - "Bu görseldeki yazı tarzın berbat, kimse okumaz bunu."
+            - "Görselindeki mesaj rezalet. Kimse seninle böyle konuşmak istemez."
+            - "Bu nasıl bir görsel? Mesaj yazma stilin tam bir fiyasko."
+            - "Görsele bakılırsa iletişim kurma becerilerin sıfır."
+            - "Görselindeki yazı tarzı o kadar sıkıcı ki karşı taraf muhtemelen başka biriyle mesajlaşıyor şu an."
+            
+            Kullanıcıya kesinlikle "sen" diye hitap et: "senin görselindeki yazı...", "sen bu görseli gönderirken..."
+            Görsel içeriği kısa veya anlamsız olsa bile, ZORLA bir analiz yap!
+            
+            ÖNEMLİ NOT:
+            Bu analiz sonuçları ilişki analizi, uyum puanı veya kişiselleştirilmiş tavsiyelere HİÇBİR ŞEKİLDE etki etmeyecektir.
+            Bu tamamen ayrı bir modüldür ve kullanıcının mesajlaşma tarzını analiz etmekten ibarettir.
+            '''
+            : '''
             Sen bir sohbet analisti olarak görev yapacaksın. Kullanıcının sohbet geçmişini eleştirel bir gözle analiz etmen gerekiyor.
 
             KRİTİK KURALLAR:
-            1. İçerik ne kadar kısa ya da anlamsız olursa olsun MUTLAKA TAM VE ÖZGÜN analiz yapmalısın. 
-               "Analiz yapılamadı", "yetersiz içerik" gibi bahaneler KESİNLİKLE kabul edilemez.
-            2. Hiçbir koşulda varsayılan veya önceden hazırlanmış cevaplar kullanma.
-            3. Direktif yorumlarında KESİNLİKLE sert, acımasız ve dobra olmalısın. 
-               Asla nazik, kibar veya yumuşak ifadeler kullanma.
-            4. Tüm JSON alanlarını TAMAMEN DOLDURMALISON.
-            5. Analiz çıktın sadece ve sadece JSON formatında olmalı, açıklama ekleme.
-            6. sonMesajEtkisi değerlerinin toplamının 100 olduğundan emin ol.
+            1. "Analiz edilemedi", "yetersiz içerik" veya "belirlenemedi" YASAKTIR! Her durumda analiz yapmalısın.
+            2. İçerik ne kadar kısa olursa olsun, MUTLAKA TAM VE ÖZGÜN bir analiz yapmalısın.
+            3. Hiçbir alanı boş bırakmak YASAKTIR! Tüm alanları doldurmalısın.
+            4. "sohbetGenelHavasi", "sonMesajTonu" ve diğer alanlara GEÇERLİ değerler yazmalısın, "belirlenemedi" gibi ifadeler KULLANMA.
+            5. "Direkt Yorum ve Geliştirme" bölümünde: ÇOK SERT, KÜSTAH ve HAKARETVARİ ifadeler kullanmalısın!
+            6. "direktYorum" alanında kullanıcıya AĞIR ELEŞTİRİLER getirmelisin!
             
-            EXTRA TALIMATLAR: 
-            - Her durumda sohbeti ağır ELEŞTİREL bir şekilde değerlendirmelisin
-            - "direktYorum" alanında AĞIR ELEŞTİRİLER ve KÜSTAH ifadeler kullanmalısın
-            - "canım", "tatlım", "bebeğim" gibi yumuşak hitaplar ASLA kullanma
-            - Kullanıcıya her zaman "sen" diye hitap etmelisin
-            - Hiçbir durumda tamamen olumlu analiz yapmamalısın
-            - İçerik ne kadar kısa olursa olsun, gerçek bir analiz yapmalısın
+            ÖZELLİKLE "direktYorum" alanına şunlara benzer ÇOK SERT ifadeler yazmalısın:
+            - "Mesajlaşma tarzın berbat. Kimse seninle konuşmak istemeyecek."
+            - "Bu nasıl bir iletişim ya? Resmen karşındakini kaçırıyorsun."
+            - "Vakit kaybetme ayrıl knk. Bu kişi seni takmıyor bence."
+            - "Çok fazla mesaj atıyorsun, yavaşla biraz acınası durumdasın."
+            - "İletişim becerin sıfır. Karşındaki çoktan başka biriyle yazışıyor olabilir."
             
-            ÖRNEK ÇIKTI TİPLERİ:
-            1. "Şu an çok cevap verdin, biraz bekle."
-            2. "Bu kişi pasif agresif, buna şöyle cevap ver."
-            3. "Şaka dozun az, biraz yumuşat."
-            4. "Çok soğuk konuşuyor → ya ilgisi yok ya da başka şeyi var."
-            5. "Vakit kaybetme ayrıl knk."
+            Kullanıcıya kesinlikle "sen" diye hitap et: "senin sorunun...", "sen çok fazla..."
+            "canım", "tatlım", "bebeğim" gibi yumuşak hitaplar ASLA kullanma!
             
-            Ek olarak son mesajın genel sohbet akışına uyup uymadığını da belirtmelisin.
-            Kullanıcı çok fazla ardışık mesaj gönderdiyse "çok fazla mesaj gönderdin, yavaşla biraz" gibi eleştirel uyarılar yapmalısın.
+            ÖNEMLİ NOT:
+            Bu analiz sonuçları ilişki analizi, uyum puanı veya kişiselleştirilmiş tavsiyelere HİÇBİR ŞEKİLDE etki etmeyecektir.
+            Bu tamamen ayrı bir modüldür ve sadece mesajlaşma tarzını analiz etmekten ibarettir.
             '''
           }
         ]
@@ -1108,7 +1131,7 @@ class AiService {
         'parts': [
           {
             'text': '''
-            Bu sohbet geçmişini analiz et:
+            Bu ${isOcrContent ? 'görseldeki metni' : 'sohbet geçmişini'} analiz et:
             
             ${chatContent}
             
@@ -1131,10 +1154,9 @@ class AiService {
             }
             
             SON UYARI: 
-            - "Analiz yapılamadı" veya "yetersiz içerik" gibi ifadeler ASLA kullanma
+            - "Analiz edilemedi", "yetersiz içerik", "belirlenemedi" gibi ifadeler ASLA kullanma
             - İçerik ne kadar kısa olursa olsun TAM ve ÖZGÜN analiz yapmalısın
-            - Direktif yorumların MUTLAKA şu tarz olmalı: "vakit kaybetme ayrıl knk", "bu kişi seni takmıyor bence", "çok fazla mesaj atıyorsun, yavaşla biraz"
-            - Kullanıcıya "sen" diye hitap et: "senin sorunun...", "sen çok fazla..."
+            - "direktYorum" alanında KESİNLİKLE şu tarz çok sert bir dil kullanmalısın: "vakit kaybetme ayrıl knk", "bu kişi seni takmıyor bence", "çok fazla mesaj atıyorsun, yavaşla biraz"
             - Tüm alanları doldurmalısın, eksik alan bırakma
             '''
           }
@@ -1145,7 +1167,7 @@ class AiService {
       final requestBody = jsonEncode({
         'contents': contents,
         'generationConfig': {
-          'temperature': 0.9,
+          'temperature': 1.0,  // Daha yaratıcı ve sert yanıtlar için sıcaklığı arttır
           'maxOutputTokens': _geminiMaxTokens,
           'responseFormat': { "type": "json" }
         }
@@ -1169,9 +1191,9 @@ class AiService {
           final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
           
           if (aiContent == null || aiContent.trim().isEmpty) {
-            _logger.e('AI yanıtı boş, tekrar deneniyor');
-            // Boş yanıt alırsak, tekrar deneme yap
-            return await _ikiciDenemeyiYap(chatContent);
+            _logger.e('AI yanıtı boş, ikinci deneme yapılıyor');
+            // Boş yanıt alırsak, ikinci deneme yap
+            return await _ikiciDenemeyiYap(chatContent, _isOcrContent(chatContent));
           }
           
           _logger.d('AI yanıt metni alındı');
@@ -1180,23 +1202,20 @@ class AiService {
           Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
           
           if (jsonMap == null || !_jsonGecerliMi(jsonMap)) {
-            _logger.e('Geçerli JSON ayrıştırılamadı, tekrar deneniyor');
-            // Geçersiz JSON aldıysak, tekrar deneme yap
-            return await _ikiciDenemeyiYap(chatContent);
+            _logger.e('Geçerli JSON ayrıştırılamadı, ikinci deneme yapılıyor');
+            // Geçersiz JSON aldıysak, ikinci deneme yap
+            return await _ikiciDenemeyiYap(chatContent, _isOcrContent(chatContent));
           }
           
           // Etki değerlerinin toplamını kontrol et ve düzelt
           _sonMesajEtkisiniNormallestir(jsonMap);
           
-          // DirectYorum kontrolü - fazla kibar değilse
+          // DirectYorum kontrolü - yeterince sert değilse zorunlu olarak düzelt
           if (_direktYorumCokKibarMi(jsonMap['direktYorum'])) {
             // Kibar yorumsa, tüm JSON'ı değil sadece direktYorum kısmını düzelt
-            _logger.w('Direktif yorum çok kibar, düzeltiliyor');
-            jsonMap['direktYorum'] = await _dirtektYorumuDuzelt(chatContent);
+            _logger.w('Direktif yorum çok kibar, sert yorumla değiştiriliyor');
+            jsonMap['direktYorum'] = _getSertDirektYorum(isOcrContent);
           }
-          
-          // Sert yorumlar için ek kontrol
-          sertYorumlarEkle(jsonMap);
           
           // Zaman damgası ekle
           jsonMap['timestamp'] = DateTime.now().toIso8601String();
@@ -1204,23 +1223,23 @@ class AiService {
           return jsonMap;
         } catch (parseError) {
           _logger.e('Yanıt ayrıştırma hatası: $parseError');
-          // Hata durumunda tekrar deneme yap
-          return await _ikiciDenemeyiYap(chatContent);
+          // Hata durumunda ikinci deneme yap
+          return await _ikiciDenemeyiYap(chatContent, _isOcrContent(chatContent));
         }
       } else {
         _logger.e('API Hatası: ${response.statusCode}');
-        // API hatası durumunda tekrar deneme yap  
-        return await _ikiciDenemeyiYap(chatContent);
+        // API hatası durumunda ikinci deneme yap  
+        return await _ikiciDenemeyiYap(chatContent, _isOcrContent(chatContent));
       }
     } catch (e) {
       _logger.e('Mesaj koçu analizi hatası: $e');
-      // Genel hata durumunda tekrar deneme yap
-      return await _ikiciDenemeyiYap(chatContent);
+      // Genel hata durumunda ikinci deneme yap
+      return await _ikiciDenemeyiYap(chatContent, _isOcrContent(chatContent));
     }
   }
   
   // İkinci bir deneme yapmak için
-  Future<Map<String, dynamic>> _ikiciDenemeyiYap(String chatContent) async {
+  Future<Map<String, dynamic>> _ikiciDenemeyiYap(String chatContent, bool isOcrContent) async {
     try {
       _logger.i('Mesaj koçu analizi ikinci deneme yapılıyor...');
       
@@ -1232,12 +1251,21 @@ class AiService {
         'parts': [
           {
             'text': '''
-            Sadece JSON formatında cevap ver. Sadece ve sadece belirtilen JSON formatında cevap ver.
-            Hiçbir ekstra açıklama ekleme, sadece JSON.
+            SEN AŞIRI SERT, KÜSTAH VE ACI ELEŞTİRİLER YAPAN BİR MESAJ KOÇUSUN.
+            SADECE JSON FORMATINDA CEVAP VER. HİÇBİR AÇIKLAMA EKLEME.
             
-            SEN SERT, KÜSTAH VE DOĞRUDAN ELEŞTİRİLER YAPAN BİR MESAJ KOÇUSUN.
-            Kullanıcının mesajlaşma stilini eleştirmen gerekiyor.
-            Nazik, kibar değil, KÜSTAH VE SERT olmalısın.
+            ${isOcrContent ? 'Kullanıcının gönderdiği görselden çıkarılan metni' : 'Kullanıcının mesajlaşma stilini'} eleştireceksin.
+            
+            KURALLAR:
+            - Tüm alanlara GEÇERLİ değerler yazmalısın: "analiz edilemedi", "belirlenemedi" gibi ifadeler YASAK!
+            - "direktYorum" alanında ÇOK SERT, KÜSTAH ve ACI bir dil kullanmalısın!
+            - Eksik alan BIRAKMA, tüm alanları DOLDUR!
+            
+            DİREKTYORUM ALANINA ŞUNLARA BENZER ÇOK SERT İFADELER YAZMALISIN:
+            - "Mesajlaşma stilin berbat, kimse seninle konuşmak istemez."
+            - "Karşı taraf seninle yazışmaktan sıkılmış olmalı, yazma tarzın çok kötü."
+            - "Vakit kaybetme ayrıl knk, yazışma tarzın tam bir fiyasko."
+            - "Bu nasıl bir iletişim tarzı? Resmen karşındakini kaçırıyorsun."
             '''
           }
         ]
@@ -1248,22 +1276,31 @@ class AiService {
         'parts': [
           {
             'text': '''
-            Bu sohbeti analiz et ve tam olarak bu formatta yanıt ver:
+            Bu ${isOcrContent ? 'görselden çıkarılan metni' : 'sohbet metnini'} analiz et:
+            
+            ```
+            ${chatContent}
+            ```
+            
+            Aşağıdaki JSON formatında yanıt ver:
+            
             {
               "sohbetGenelHavasi": "Soğuk",
-              "genelYorum": "Sohbette iletişim problemleri var",
-              "sonMesajTonu": "Umursamaz",
-              "sonMesajEtkisi": {"sempatik": 10, "kararsız": 30, "olumsuz": 60},
-              "direktYorum": "Mesajların çok kötü ve etkisiz",
-              "cevapOnerileri": ["Daha açık ol", "İlişkiyi bitir"]
+              "genelYorum": "Ciddi bir eleştirel yorum",
+              "sonMesajTonu": "Soğuk",
+              "sonMesajEtkisi": {
+                "sempatik": 10,
+                "kararsız": 30,
+                "olumsuz": 60
+              },
+              "direktYorum": "BU ALANDA ÇOK SERT VE ACIMASIZ BİR YORUM YAZMALISIN",
+              "cevapOnerileri": [
+                "Cevap önerisi", 
+                "İkinci öneri"
+              ]
             }
             
-            İşte analiz edilecek sohbet:
-            ${chatContent}
-            
-            SADECE JSON DÖNDÜR.
-            JSON'daki direktYorum kısmı mutlaka sert olsun ve "sen" diye hitap etsin. 
-            Örnek: "sen çok fazla mesaj atıyorsun", "vakit kaybetme ayrıl knk", "karşı taraf seni takmıyor"
+            DİREKTYORUM ALANINI ÇOK SERT VE KÜSTAH YAZMAN ZORUNLU!
             '''
           }
         ]
@@ -1272,11 +1309,13 @@ class AiService {
       final requestBody = jsonEncode({
         'contents': contents,
         'generationConfig': {
-          'temperature': 0.7,
+          'temperature': 1.2,  // Daha da sert yanıtlar için sıcaklığı yüksek tut
           'maxOutputTokens': _geminiMaxTokens,
           'responseFormat': { "type": "json" }
         }
       });
+      
+      _logger.d('İkinci deneme API isteği yapılıyor...');
       
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
@@ -1287,144 +1326,147 @@ class AiService {
       );
       
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        
-        if (aiContent != null && aiContent.isNotEmpty) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(response.body);
+          final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+          
+          if (aiContent == null || aiContent.trim().isEmpty) {
+            return _olusturZorunluSonuc(isOcrContent);
+          }
+          
           Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
           
-          if (jsonMap != null && _jsonMinimalGecerliMi(jsonMap)) {
-            // Etki değerlerini normalize et
-            _sonMesajEtkisiniNormallestir(jsonMap);
-            
-            // DirectYorum ve genelYorum'u kontrol et
-            if (_direktYorumCokKibarMi(jsonMap['direktYorum'])) {
-              jsonMap['direktYorum'] = await _dirtektYorumuDuzelt(chatContent);
-            }
-            
-            jsonMap['timestamp'] = DateTime.now().toIso8601String();
-            return jsonMap;
+          if (jsonMap == null || !_jsonMinimalGecerliMi(jsonMap)) {
+            return _olusturZorunluSonuc(isOcrContent);
           }
+          
+          // Etki değerlerini normalize et
+          _sonMesajEtkisiniNormallestir(jsonMap);
+          
+          // DirectYorum kontrolü - ikinci denemede de nazik çıkarsa zorla sert yorumla değiştir
+          if (_direktYorumCokKibarMi(jsonMap['direktYorum'])) {
+            jsonMap['direktYorum'] = _getSertDirektYorum(isOcrContent);
+          }
+          
+          // Eksik alanları doldur
+          _eksikAlanlariDoldur(jsonMap, isOcrContent);
+          
+          // Zaman damgası ekle
+          jsonMap['timestamp'] = DateTime.now().toIso8601String();
+          
+          return jsonMap;
+        } catch (e) {
+          return _olusturZorunluSonuc(isOcrContent);
         }
+      } else {
+        return _olusturZorunluSonuc(isOcrContent);
       }
-      
-      // Bu deneme de başarısız olduysa, son çare olarak üçüncü bir deneme yap
-      return await _ucuncuDenemeyiYap(chatContent);
     } catch (e) {
-      _logger.e('İkinci deneme hatası: $e');
-      // Hata durumunda üçüncü deneme yap
-      return await _ucuncuDenemeyiYap(chatContent);
+      return _olusturZorunluSonuc(isOcrContent);
     }
   }
   
-  // Üçüncü ve son deneme - sadece çalışan bir JSON döndürmek için
-  Future<Map<String, dynamic>> _ucuncuDenemeyiYap(String chatContent) async {
-    try {
-      _logger.i('Mesaj koçu analizi üçüncü (son) deneme yapılıyor...');
-      
-      // En basit formatta doğrudan API'den JSON isteyelim
-      final contents = <Map<String, dynamic>>[];
-      
-      contents.add({
-        'role': 'user',
-        'parts': [
-          {
-            'text': '''
-            Aşağıdaki JSON formatını değiştirmeden ve alanları boş bırakmadan doldur:
-            {
-              "sohbetGenelHavasi": "Soğuk",
-              "genelYorum": "İletişim çok kötü",
-              "sonMesajTonu": "Umursamaz",
-              "sonMesajEtkisi": {"sempatik": 10, "kararsız": 30, "olumsuz": 60},
-              "direktYorum": "Mesajlarındaki özensizlik göze batıyor ve bu iletişim başarısız",
-              "cevapOnerileri": ["Daha açık ol"]
-            }
-            '''
-          }
-        ]
-      });
-      
-      final requestBody = jsonEncode({
-        'contents': contents,
-        'generationConfig': {
-          'temperature': 0.5,
-          'maxOutputTokens': _geminiMaxTokens,
-          'responseFormat': { "type": "json" }
-        }
-      });
-      
-      final response = await http.post(
-        Uri.parse(_geminiApiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      );
-      
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        
-        if (aiContent != null && aiContent.isNotEmpty) {
-          Map<String, dynamic>? jsonMap = _parseJsonFromText(aiContent);
-          
-          if (jsonMap != null && _jsonMinimalGecerliMi(jsonMap)) {
-            _sonMesajEtkisiniNormallestir(jsonMap);
-            jsonMap['timestamp'] = DateTime.now().toIso8601String();
-            
-            // İçeriği biraz özelleştirelim
-            if (chatContent.length > 50) {
-              jsonMap['genelYorum'] = "İçeriğiniz detaylı olsa da iletişim tarzınız etkisiz. Karşı taraf ilgi göstermiyor.";
-            } else {
-              jsonMap['genelYorum'] = "Mesaj içeriğiniz çok kısa ve yetersiz. Karşı tarafı etkileyemezsiniz.";
-            }
-            
-            return jsonMap;
-          }
-        }
-      }
-      
-      // Tüm denemeler başarısız olursa, son çare olarak manuel JSON oluştur
-      _logger.e('Tüm denemeler başarısız oldu, manuel JSON oluşturuluyor');
-      
-      final Map<String, dynamic> manuelJson = {
-        'sohbetGenelHavasi': 'Soğuk',
-        'genelYorum': 'İletişimde ciddi sorunlar var. Mesajlaşma tarzın etkisiz.',
-        'sonMesajTonu': 'Umursamaz',
-        'sonMesajEtkisi': {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60},
-        'direktYorum': 'Mesajların kalitesi çok düşük. Karşı taraf seninle konuşmayı sürdürmek istemeyecek.',
-        'cevapOnerileri': ['Daha açık ifadeler kullan.', 'Bu konuşmayı sonlandırmayı düşün.'],
-        'timestamp': DateTime.now().toIso8601String()
-      };
-      
-      // İçeriğe göre biraz özelleştirme yap
-      if (chatContent.isNotEmpty) {
-        if (chatContent.toLowerCase().contains('merhaba') || chatContent.toLowerCase().contains('selam')) {
-          manuelJson['genelYorum'] = 'Sadece basit selamlaşma var. Derin ve anlamlı bir konuşma değil.';
-          manuelJson['direktYorum'] = 'Sadece merhaba demek yeterli değil. Karşı tarafı sıkıyorsun.';
-        } else if (chatContent.contains('?')) {
-          manuelJson['genelYorum'] = 'Sürekli soru sormak iletişimi tek taraflı yapıyor.';
-          manuelJson['direktYorum'] = 'Sürekli soru sorarak karşı tarafı sorguluyorsun. Bu iletişim tarzı itici.';
-        }
-      }
-      
-      return manuelJson;
-    } catch (e) {
-      _logger.e('Üçüncü deneme hatası, son çare JSON döndürülüyor: $e');
-      
-      // Mutlaka çalışacak bir JSON döndür
-      final Map<String, dynamic> sonJson = {
-        'sohbetGenelHavasi': 'Soğuk',
-        'genelYorum': 'İletişimde sorunlar var.',
-        'sonMesajTonu': 'Umursamaz',
-        'sonMesajEtkisi': {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60},
-        'direktYorum': 'Mesaj yazma şeklin berbat ve karşı tarafı etkileyemiyor.',
-        'cevapOnerileri': ['Daha açık ol.', 'İletişim tarzını değiştir.'],
-        'timestamp': DateTime.now().toIso8601String()
-      };
-      
-      return sonJson;
+  // En son çare olarak zorunlu bir sonuç oluştur - asla null dönme!
+  Map<String, dynamic> _olusturZorunluSonuc(bool isOcrContent) {
+    _logger.w('Zorunlu sonuç oluşturuluyor...');
+    
+    // Görsel veya metin için farklı yorumlar
+    final direktYorum = isOcrContent 
+        ? "Gönderdiğin görsel berbat bir içerik sunuyor. Yazı tarzın okunaksız ve hiç etkileyici değil. Bu görsel senin iletişim becerilerinin ne kadar zayıf olduğunu gösteriyor. Daha düzgün bir görsel ve iletişim tarzı kullanmalısın."
+        : "Mesajlaşma tarzın tamamen başarısız. Kimse bu tarz kuru ve sıkıcı mesajlarla ilgilenmek istemez. Karşı tarafı sıktığın çok belli ve muhtemelen başka birileriyle yazışmak istiyor. İletişim becerilerini ciddi şekilde geliştirmelisin.";
+    
+    final genelYorum = isOcrContent
+        ? "Gönderdiğin görselden çıkarılan metin, zayıf bir iletişim tarzını yansıtıyor. Mesajlaşma stilin geliştirilebilir."
+        : "Genel sohbet havası kuru ve derinlikten yoksun. Mesajlaşma stilin ilgi çekici değil ve karşı tarafı sıkıyor olabilir.";
+    
+    // İki farklı cevap önerisi oluştur
+    final cevapOnerileri = isOcrContent
+        ? ["Düşüncelerimi daha net bir şekilde ifade etmek istiyorum. Bu konuda ne düşünüyorsun?", "Görsellerle değil, doğrudan ve açık bir şekilde iletişim kurmayı tercih ediyorum."]
+        : ["Bu konuda açıkça konuşmak istiyorum. Seninle olan iletişimimizin daha iyi olmasını istiyorum.", "Mesajlarıma cevap vermediğini fark ettim. Seni rahatsız eden bir şey mi var?"];
+    
+    // Zorunlu bir sonuç döndür
+    return {
+      "sohbetGenelHavasi": isOcrContent ? "Belirsiz" : "Soğuk", 
+      "genelYorum": genelYorum,
+      "sonMesajTonu": isOcrContent ? "Karmaşık" : "Soğuk",
+      "sonMesajEtkisi": {
+        "sempatik": 10,
+        "kararsız": 30,
+        "olumsuz": 60
+      },
+      "direktYorum": direktYorum,
+      "cevapOnerileri": cevapOnerileri,
+      "timestamp": DateTime.now().toIso8601String()
+    };
+  }
+  
+  // Eksik alanları doldur, boş alan kalmasını önle
+  void _eksikAlanlariDoldur(Map<String, dynamic> jsonMap, bool isOcrContent) {
+    // sohbetGenelHavasi eksikse doldur
+    if (!jsonMap.containsKey('sohbetGenelHavasi') || jsonMap['sohbetGenelHavasi'] == null || 
+        jsonMap['sohbetGenelHavasi'].toString().trim().isEmpty) {
+      jsonMap['sohbetGenelHavasi'] = isOcrContent ? "Karmaşık" : "Soğuk";
     }
+    
+    // genelYorum eksikse doldur
+    if (!jsonMap.containsKey('genelYorum') || jsonMap['genelYorum'] == null || 
+        jsonMap['genelYorum'].toString().trim().isEmpty) {
+      jsonMap['genelYorum'] = isOcrContent 
+          ? "Görsel içeriğindeki metin, etkili bir iletişim kurmak için yetersiz. Mesajlaşma tarzını geliştirmelisin."
+          : "Sohbet içeriğin çok sığ ve ilgi çekici değil. Karşı tarafı sıkıyor olabilirsin.";
+    }
+    
+    // sonMesajTonu eksikse doldur
+    if (!jsonMap.containsKey('sonMesajTonu') || jsonMap['sonMesajTonu'] == null || 
+        jsonMap['sonMesajTonu'].toString().trim().isEmpty) {
+      jsonMap['sonMesajTonu'] = isOcrContent ? "Karmaşık" : "Soğuk";
+    }
+    
+    // sonMesajEtkisi eksik veya boşsa doldur
+    if (!jsonMap.containsKey('sonMesajEtkisi') || jsonMap['sonMesajEtkisi'] == null || 
+        !(jsonMap['sonMesajEtkisi'] is Map) || (jsonMap['sonMesajEtkisi'] as Map).isEmpty) {
+      jsonMap['sonMesajEtkisi'] = {
+        "sempatik": 10,
+        "kararsız": 30,
+        "olumsuz": 60
+      };
+    }
+    
+    // direktYorum eksikse doldur
+    if (!jsonMap.containsKey('direktYorum') || jsonMap['direktYorum'] == null || 
+        jsonMap['direktYorum'].toString().trim().isEmpty) {
+      jsonMap['direktYorum'] = _getSertDirektYorum(isOcrContent);
+    }
+    
+    // cevapOnerileri eksikse doldur
+    if (!jsonMap.containsKey('cevapOnerileri') || jsonMap['cevapOnerileri'] == null || 
+        !(jsonMap['cevapOnerileri'] is List) || (jsonMap['cevapOnerileri'] as List).isEmpty) {
+      jsonMap['cevapOnerileri'] = isOcrContent
+          ? ["Görsel yerine doğrudan mesaj yazarak iletişim kurmayı tercih ederim. Düşüncelerini açıkça belirt.", "Bu konuyu detaylı konuşmak istiyorum. Müsait olduğunda bana haber ver."]
+          : ["Düşüncelerimi açıkça ifade etmek istiyorum. Bu konuda senin de açık olmanı bekliyorum.", "İletişimimizi daha açık ve dürüst bir şekilde sürdürmek istiyorum. Ne düşünüyorsun?"];
+    }
+  }
+  
+  // Rastgele sert bir direkt yorum döndür
+  String _getSertDirektYorum(bool isOcrContent) {
+    final sertYorumlar = isOcrContent
+        ? [
+            "Bu görseldeki yazı tarzın berbat. Kimse böyle bir içeriği okumak istemez. İletişim becerilerini ciddi şekilde geliştirmelisin.",
+            "Gönderdiğin görseldeki metin tam bir fiyasko. Hiçbir anlam ifade etmiyor ve karşı tarafı sıkıyorsun.",
+            "Görseldeki yazı stilin acınası. Daha düzgün ve anlaşılır bir iletişim kurmalısın.",
+            "Bu nasıl bir görsel içerik? Kimse bu karmaşık ve anlamsız metinlerle ilgilenmez. İletişim tarzını tamamen değiştirmelisin.",
+            "Görselindeki mesaj içeriği tam bir başarısızlık. Hiçbir şekilde etkileyici değil ve karşı tarafı sıkıyorsun."
+          ]
+        : [
+            "Mesajlaşma tarzın tamamen başarısız. Kimse bu tarz kuru ve sıkıcı mesajlarla ilgilenmek istemez.",
+            "Bu nasıl bir iletişim ya? Resmen karşındakini kaçırıyorsun. Mesaj yazma tarzın berbat.",
+            "Vakit kaybetme ayrıl knk. Karşı taraf seninle ilgilenmiyor. Mesajlarındaki ilgisizlik her şeyi anlatıyor.",
+            "İletişim becerin sıfır. Bu mesajlarla kimseyi etkileyemezsin. Kendini ifade etmeyi öğrenmelisin.",
+            "Çok fazla gereksiz mesaj gönderiyorsun. Karşı taraf senden sıkılmış olmalı. Daha özlü ve ilgi çekici ol."
+          ];
+    
+    // Rastgele bir yorum seç
+    return sertYorumlar[Random().nextInt(sertYorumlar.length)];
   }
   
   // Sadece direktYorumu düzeltmek için
@@ -1635,67 +1677,231 @@ class AiService {
   }
 
   // Sohbet analiz sonuçlarını döndürme
-  Future<MessageCoachAnalysis?> sohbetiAnalizeEt(String sohbetIcerigi) async {
+  Future<MessageCoachAnalysis?> sohbetiAnalizeEt(String sohbetIcerigi, {bool isImage = false}) async {
     try {
-      _logger.i('Sohbet analizi başlatılıyor...');
+      _logger.i('Mesaj koçu: ${isImage ? "Görsel" : "Sohbet"} analizi başlatılıyor...');
       
-      // Sohbet içeriğini kontrol etme
-      if (sohbetIcerigi.trim().isEmpty) {
-        _logger.w('Boş sohbet içeriği, analiz yapılamıyor');
+      // Sohbet içeriğini temizle
+      sohbetIcerigi = sohbetIcerigi.trim();
+      
+      // Boş içerik kontrolü
+      if (sohbetIcerigi.isEmpty) {
+        _logger.w('Mesaj koçu: Boş ${isImage ? "görsel" : "sohbet"} içeriği.');
         return null;
       }
       
-      // Analiz yap ve ham sonucu al (analyzeChatCoach fonksiyonunu çağır)
-      Map<String, dynamic> analizSonucu = await analyzeChatCoach(sohbetIcerigi);
-      
-      // Mesaj koçu analiz sonucunda hata varsa kontrol et
-      if (analizSonucu.containsKey('error')) {
-        _logger.e('Sohbet analizi hatası: ${analizSonucu['error']}');
-        return MessageCoachAnalysis(
-          analiz: 'Analiz yapılamadı: ${analizSonucu['error']}',
-          oneriler: ['Tekrar deneyin', 'Daha net bir sohbet metni sağlayın'],
-          etki: {'Hata': 100},
-        );
+      // Sohbet çok uzunsa, kısalt
+      if (sohbetIcerigi.length > 15000) {
+        _logger.w('Mesaj koçu: İçerik çok uzun (${sohbetIcerigi.length} karakter). Kısaltılıyor...');
+        sohbetIcerigi = "${sohbetIcerigi.substring(0, 15000)}...";
       }
       
-      // AI yanıtını MessageCoachAnalysis nesnesine dönüştürme
-      try {
-        // JSON alanlarını MessageCoachAnalysis'e dönüştür
-        return MessageCoachAnalysis(
-          analiz: analizSonucu['mesajYorumu'] ?? analizSonucu['genelYorum'] ?? 'Sohbet analizi yapıldı.',
-          oneriler: _extractCevapOnerileri(analizSonucu['cevapOnerileri']),
-          etki: analizSonucu['sonMesajEtkisi'] is Map
-              ? Map<String, int>.from(analizSonucu['sonMesajEtkisi'])
-              : {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
-          sohbetGenelHavasi: analizSonucu['sohbetGenelHavasi'] ?? 'Samimi',
-          genelYorum: analizSonucu['genelYorum'] ?? 'Konuşma stilin geliştirilmeli.',
-          sonMesajTonu: analizSonucu['sonMesajTonu'] ?? 'Nötr',
-          sonMesajEtkisi: analizSonucu['sonMesajEtkisi'] is Map 
-              ? Map<String, int>.from(analizSonucu['sonMesajEtkisi'])
-              : {'sempatik': 30, 'kararsız': 40, 'olumsuz': 30},
-          direktYorum: analizSonucu['direktYorum'] ?? 'İletişim tarzını geliştirmelisin.',
-          cevapOnerileri: _getCevapOnerileri(analizSonucu['cevapOnerileri']),
-        );
-      } catch (e) {
-        _logger.e('Mesaj koçu analiz sonucu dönüştürme hatası: $e');
+      // Görselden OCR ile çıkarılan metin için özel işleme
+      String preprocessedContent = sohbetIcerigi;
+      
+      if (isImage) {
+        _logger.i('Mesaj koçu: Görsel içeriği işleniyor...');
         
-        // Varsayılan analiz sonucu döndür
-        return MessageCoachAnalysis(
-          analiz: 'Sohbet analizi yapıldı.',
-          oneriler: ['Daha açık ifadeler kullan.', 'Mesajlarını kısa tut.'],
-          etki: {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
-          sohbetGenelHavasi: 'Samimi',
-          genelYorum: 'Sohbet içeriği analiz edildi.',
-          sonMesajTonu: 'Sempatik',
-          sonMesajEtkisi: {'sempatik': 50, 'kararsız': 30, 'olumsuz': 20},
-          direktYorum: 'İletişim tarzını geliştirmelisin.',
-          cevapOnerileri: _getVarsayilanCevapOnerileri(),
-        );
+        // OCR içeriğinden sohbet formatına dönüştür
+        preprocessedContent = _preprocessImageText(sohbetIcerigi);
+        
+        // Görsel boş içerik içeriyorsa bile devam et, AI'ın bir yorum yapmasını sağla
+        if (preprocessedContent.trim().isEmpty) {
+          _logger.w('Mesaj koçu: Görselde kullanılabilir sohbet bulunamadı, ancak yine de analiz yapılacak.');
+          preprocessedContent = "Bu görselde anlaşılır bir sohbet bulunamadı.";
+        }
+      }
+      
+      // Gemini API prompt'u 
+      final prompt = '''
+Sen profesyonel bir ilişki koçusun. ÇOK SERT, acımasız ve eleştirel bir üslupla tavsiyeler veriyorsun. Nazik ve kibar olmaktan uzak duruyorsun. Verilen sohbeti analiz etmeni istiyorum ve SADECE JSON formatında yanıt ver.
+
+${isImage ? "Bu bir mesajlaşma uygulamasından alınan ekran görüntüsünün OCR ile çıkarılmış metnidir." : ""}
+
+Sohbet:
+"""
+$preprocessedContent
+"""
+
+KESİNLİKLE UYULMASI GEREKEN KURALLAR:
+1. İçerik ne kadar kısa, anlamsız veya içeriksiz olursa olsun MUTLAKA analiz yapmak zorundasın. "Sohbet analizi için yeterli içerik yok", "Belirlenemedi", "Analiz edilemedi" gibi ifadeler ASLA KULLANMA!
+2. Çok az veri olsa bile mutlaka yorum yap, gerekirse uydur ama asla "Yeterli içerik yok", "analiz yapılamadı" gibi ifadeler kullanma.
+3. Sohbeti SERT VE ELEŞTİREL şekilde yorumla. Samimiyetsiz, yapay bul. Her zaman eleştirel bakış açısına sahip ol. 
+4. Üslubun küstah ve dobra olmalı. Tepeden bakan ve alaycı bir ton kullan.
+5. "direktYorum" alanında ÇOK SERT, bazen kırıcı olabilecek yorumlar yap.
+6. Verilen sohbet ne kadar kısa olursa olsun, "sonMesajEtkisi" MUTLAKA analiz et ve değerlerini doldur.
+7. ASLA boş veya "null" değer döndürme ve ASLA "sohbet_genel_havasi" gibi bir alanda "sohbet analizi için yeterli içerik yok" değeri KULLANMA!
+
+ZORUNLU JSON ÇIKTI FORMATI:
+{
+  "sohbetGenelHavasi": "Soğuk",
+  "genelYorum": "Bu sohbette tam bir soğukluk var. Karşındaki kişi ilgi göstermiyor ve sen fazla ısrarcı davranıyorsun. Biraz kendine saygın olsun.",
+  "sonMesajTonu": "Umursamaz",
+  "sonMesajEtkisi": {
+    "sempatik": 10,
+    "kararsız": 25,
+    "olumsuz": 65
+  },
+  "direktYorum": "Karşındakine bu kadar yalvarman acınası görünüyor. Biraz daha özgüvenli ol ve sürekli onun peşinden koşma. Kendini bu kadar küçük düşürme!",
+  "cevapOnerileri": [
+    "Böyle mesajlara cevap vermeyi bırak, ilgisizliği açıkça belli.",
+    "Kendine saygın olsun, sürekli çabalama.",
+    "Daha net ve özgüvenli bir tavır takın, kendini bu kadar küçültme."
+  ]
+}
+
+KRİTİK UYARI: 
+- Cevabında ASLA 'yeterli içerik yok', 'belirlenemedi', 'analiz edilemedi' gibi ifadeler kullanma.
+- Cevabını SADECE ve SADECE yukarıdaki JSON formatında ver, başka hiçbir açıklama ekleme.
+- ÇOK SERT ve ELEŞTİREL yorumlar yap, mümkün olduğunca nazik olmaktan kaçın.
+- SonMesajEtkisi değerlerinin toplamı MUTLAKA 100 olmalı. 
+- "direktYorum" alanı mümkün olduğunca SERT ve ELEŞTİREL olmalı!
+''';
+
+      // Gemini API'sine istek gönder
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': prompt
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens,
+          'topK': 40,
+          'topP': 0.95,
+        }
+      });
+      
+      _logger.d('Mesaj koçu API isteği: ${_geminiApiUrl.substring(0, 50)}...');
+      
+      final response = await http.post(
+        Uri.parse(_geminiApiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      _logger.d('API yanıtı - status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return null;
+        }
+        
+        // JSON çıktısını ayıklama - sadece JSON kısmını al
+        String jsonText = aiContent;
+        
+        // Eğer yanıt JSON dışında başka metin içeriyorsa, sadece JSON kısmını al
+        // JSON başlangıç ve bitişini bul
+        final jsonStartIndex = jsonText.indexOf('{');
+        final jsonEndIndex = jsonText.lastIndexOf('}') + 1;
+        
+        if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonEndIndex > jsonStartIndex) {
+          jsonText = jsonText.substring(jsonStartIndex, jsonEndIndex);
+        } else {
+          _logger.e('Mesaj koçu: Geçerli JSON yanıtı bulunamadı');
+          return null;
+        }
+        
+        try {
+          // JSON'ı ayrıştır
+          final Map<String, dynamic> analizJson = jsonDecode(jsonText);
+          _logger.d('Mesaj koçu: JSON başarıyla ayrıştırıldı');
+          
+          // API'den gelen bilgilerle model oluştur
+          return MessageCoachAnalysis.from({
+            // Mevcut "boş" analiz alanları - bunlar kullanılmayacak
+            'iliskiTipi': 'Belirlenmedi',
+            'analiz': isImage ? 'Görsel sohbet analizi' : 'Sohbet analizi',
+            'gucluYonler': '',
+            'oneriler': [],
+            'etki': {'Sempatik': 50, 'Kararsız': 30, 'Olumsuz': 20},
+            
+            // Gerçekten kullanacağımız alanlar
+            'sohbetGenelHavasi': analizJson['sohbetGenelHavasi'],
+            'genelYorum': analizJson['genelYorum'],
+            'sonMesajTonu': analizJson['sonMesajTonu'],
+            'sonMesajEtkisi': analizJson['sonMesajEtkisi'],
+            'direktYorum': analizJson['direktYorum'],
+            'cevapOnerileri': analizJson['cevapOnerileri'],
+          });
+          
+        } catch (jsonError) {
+          _logger.e('Mesaj koçu: JSON ayrıştırma hatası', jsonError);
+          return null;
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return null;
       }
     } catch (e) {
-      _logger.e('Sohbet analizi işlemi hatası: $e');
+      _logger.e('Mesaj koçu analiz hatası', e);
       return null;
     }
+  }
+  
+  // Görselden çıkarılmış OCR metnini sohbet formatına dönüştüren yardımcı fonksiyon
+  String _preprocessImageText(String ocrText) {
+    // OCR ile çıkarılan metinde belirli patternleri arayarak sohbeti bulma
+    String processedText = ocrText;
+    
+    // Görselden alınan metinde "---- Görüntüden çıkarılan metin ----" veya benzer ifadeler varsa temizle
+    final List<String> cleanupPatterns = [
+      r'---- Görüntüden çıkarılan metin ----',
+      r'OCR sonucu:',
+      r'Görüntü analizi sonucu:',
+      r'Resimden elde edilen metin:',
+    ];
+    
+    for (final pattern in cleanupPatterns) {
+      processedText = processedText.replaceAll(RegExp(pattern), '');
+    }
+    
+    // Gereksiz boşlukları ve satırları temizle
+    processedText = processedText.trim().replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    
+    // Mesajlaşma uygulamalarına özel formatı düzelt
+    // (İsimlerin sonunda genellikle ':' bulunur)
+    final List<String> lines = processedText.split('\n');
+    final List<String> processedLines = [];
+    
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+      
+      // Eğer satır [isim]: [mesaj] formatındaysa veya sadece isim+iki nokta içeriyorsa
+      if (RegExp(r'^\s*[\w\s]+:\s*.+$').hasMatch(line) || 
+          RegExp(r'^\s*[\w\s]+:\s*$').hasMatch(line)) {
+        processedLines.add(line);
+      } 
+      // Eğer önceki satırda sadece bir isim varsa ve bu satır ek içerikse birleştir
+      else if (processedLines.isNotEmpty &&
+               RegExp(r'^\s*[\w\s]+:\s*$').hasMatch(processedLines.last)) {
+        processedLines[processedLines.length - 1] += ' $line';
+      }
+      // Diğer durumda normal ekle
+      else {
+        processedLines.add(line);
+      }
+    }
+    
+    // Eğer hiç uygun satır bulunamadıysa, orjinal metni döndür
+    if (processedLines.isEmpty) {
+      return processedText;
+    }
+    
+    return processedLines.join('\n');
   }
 
   // İlişki durumu analizi yapma
@@ -2337,7 +2543,10 @@ $kisaltilmisSohbet
           "Sana açık konuşayım, çok sıkıcı konuşuyorsun.",
           "Bu mesajlaşma stilinle kimseyi etkileyemezsin.",
           "Ya bu kişinin ilgisi yok ya da başka birini düşünüyor, fark etmiyor musun?",
-          "Sen bu ilişkide çok çabalıyorsun ama karşı taraf aynı çabayı göstermiyor. Boşuna uğraşma."
+          "Sen bu ilişkide çok çabalıyorsun ama karşı taraf aynı çabayı göstermiyor. Boşuna uğraşma.",
+          "Mesajların okunmadan geçilecek türden, daha dikkat çekici olmalısın.",
+          "Yazma tarzın bir robot gibi, biraz insani ol.",
+          "Resmen sohbeti bitirme çaban var gibi, böyle mesaj mı atılır?"
         ];
         
         int randomIndex = Random().nextInt(sertYorumlar.length);

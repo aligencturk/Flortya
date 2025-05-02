@@ -434,10 +434,14 @@ ${cevapOnerileriMetni.isNotEmpty ? 'Cevap Önerileri:\n$cevapOnerileriMetni' : '
     try {
       _logger.d('Mesaj koçu analizi başlatılıyor');
       
-      // Analiz sonucunu al - sadece analiz yap, ana sayfayı güncelleme
+      // ÖNEMLİ: Bu analiz sonuçları ANA SAYFA verileri ve ilişki analizini ETKİLEMEZ!
+      // Mesaj koçu, ilişki analizi ve diğer modüllerden tamamen bağımsızdır
       final sonuc = await _aiService.sohbetiAnalizeEt(messageText);
       _logger.d('Mesaj koçu analizi tamamlandı');
       
+      // Not: Bu analiz sonuçları ilişki uyum puanı, kategori analizleri veya
+      // kişiselleştirilmiş tavsiyelere HİÇBİR ŞEKİLDE etki etmez.
+      // Bu analiz sadece mesaj koçu özelliği için kullanılır.
       return sonuc;
     } catch (e) {
       _logger.e('Mesaj koçu analizi hatası: $e');

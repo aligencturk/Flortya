@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async'; // StreamSubscription için import eklendi
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -12,6 +13,7 @@ import '../services/notification_service.dart';
 import '../services/auth_service.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../controllers/home_controller.dart';
+import '../controllers/message_coach_controller.dart'; // MessageCoachController eklendi
 import 'package:provider/provider.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
 import 'package:file_selector/file_selector.dart';
@@ -765,9 +767,74 @@ class MessageViewModel extends ChangeNotifier {
       _logger.i('OCR sonucu (ilk 100 karakter): ${extractedText.length > 100 ? extractedText.substring(0, 100) + '...' : extractedText}');
       
       // Firebase Storage'a görsel yükleme
-      _logger.i('Görsel Firebase Storage\'a yükleniyor...');
-      final String imageUrl = await _storage.ref().child('messages/${DateTime.now().millisecondsSinceEpoch}.jpg').putFile(imageFile).then((taskSnapshot) => taskSnapshot.ref.getDownloadURL());
-      _logger.i('Görsel yüklendi: $imageUrl');
+      String imageUrl = '';
+      try {
+        _logger.i('Görsel Firebase Storage\'a yükleniyor...');
+        // Dosya boyutunu kontrol et
+        final fileSize = await imageFile.length();
+        _logger.i('Yüklenecek dosya boyutu: ${(fileSize / 1024).toStringAsFixed(2)} KB');
+        
+        if (fileSize > 10 * 1024 * 1024) {
+          // 10MB'dan büyük dosyalar için sıkıştırma veya boyut kontrolü yapılabilir
+          _logger.w('Dosya boyutu çok büyük (${(fileSize / (1024 * 1024)).toStringAsFixed(2)} MB)');
+        }
+        
+        // Dosya yükleme işlemi
+        final uploadTask = _storage.ref().child('messages/${DateTime.now().millisecondsSinceEpoch}.jpg').putFile(imageFile);
+        
+        // Yükleme ilerlemesini izleme - try-catch bloğu içinde ve opsiyonel olarak
+        try {
+          StreamSubscription<TaskSnapshot>? progressSubscription;
+          progressSubscription = uploadTask.snapshotEvents.listen(
+            (TaskSnapshot snapshot) {
+              try {
+                if (snapshot.totalBytes > 0) { // Sıfıra bölme hatasını önle
+                  final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+                  _logger.i('Yükleme ilerlemesi: ${(progress * 100).toStringAsFixed(2)}%');
+                }
+              } catch (progressError) {
+                _logger.w('İlerleme hesaplama hatası: $progressError');
+              }
+            },
+            onError: (e) {
+              _logger.e('Yükleme işlemi dinleme hatası: $e');
+              // Dinleme hatası olduğunda subscription'ı iptal et
+              progressSubscription?.cancel();
+            },
+            onDone: () {
+              // İşlem tamamlandığında subscription'ı iptal et
+              progressSubscription?.cancel();
+              _logger.i('Yükleme izleme tamamlandı');
+            },
+            cancelOnError: false, // Hata olduğunda otomatik iptal etme
+          );
+        } catch (listenError) {
+          // Dinleme hatası ana işlemi etkilemesin
+          _logger.w('Yükleme izleme başlatılamadı: $listenError');
+        }
+        
+        // Yükleme tamamlandığında URL alma - bu kısım dinleme hatasından etkilenmez
+        final taskSnapshot = await uploadTask;
+        imageUrl = await taskSnapshot.ref.getDownloadURL();
+        _logger.i('Görsel yüklendi: $imageUrl');
+      } catch (storageError) {
+        _logger.e('Firebase Storage hatası: ${storageError.toString()}', storageError);
+        
+        // Hata türünü analiz et
+        if (storageError.toString().contains('unauthorized') || 
+            storageError.toString().contains('not-authorized')) {
+          _errorMessage = 'Depolama izninde sorun var: Lütfen giriş yapın';
+        } else if (storageError.toString().contains('quota')) {
+          _errorMessage = 'Depolama kotası aşıldı';
+        } else if (storageError.toString().contains('network')) {
+          _errorMessage = 'Ağ hatası: İnternet bağlantınızı kontrol edin';
+        } else {
+          _errorMessage = 'Dosya yükleme hatası: ${storageError.toString()}';
+        }
+        
+        // Dosya yükleme hatası durumunda boş URL ile devam et ve hata durumunu not al
+        _logger.i('Dosya yükleme hatası nedeniyle boş URL ile devam ediliyor');
+      }
       
       // Rastgele mesaj ID oluştur
       final String messageId = 'msg_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(10000)}';
@@ -778,7 +845,6 @@ class MessageViewModel extends ChangeNotifier {
       final Map<String, dynamic> messageData = {
         'id': messageId,
         'content': extractedText,
-        'imageUrl': imageUrl,
         'timestamp': timestamp,
         'sentAt': timestamp,
         'userId': userId,
@@ -789,6 +855,15 @@ class MessageViewModel extends ChangeNotifier {
         'messageType': messageType,
         'replyMessageId': replyMessageId,
       };
+      
+      // Resim URL'i boş değilse ekle
+      if (imageUrl.isNotEmpty) {
+        messageData['imageUrl'] = imageUrl;
+      } else {
+        // Resim yüklenemedi durumunu işaretle
+        messageData['imageUploadFailed'] = true;
+        messageData['errorMessage'] = _errorMessage ?? 'Görsel yüklemesi başarısız oldu';
+      }
       
       // Firestore'a mesajı ekleme
       _logger.i('Mesaj Firestore\'a ekleniyor...');
@@ -809,7 +884,7 @@ class MessageViewModel extends ChangeNotifier {
         _logger.i('AI analizi için içerik hazırlanıyor...');
         
         // Çıkarılan metni analiz et
-        aiAnalysisContent = 'Görüntüden çıkarılan metin: $extractedText\n\n';
+        aiAnalysisContent = extractedText;
         
         _logger.i('AI analizi için içerik hazırlandı, uzunluk: ${aiAnalysisContent.length} karakter');
         _logger.d('AI analizi için içerik (ilk 100 karakter): ${aiAnalysisContent.length > 100 ? aiAnalysisContent.substring(0, 100) + '...' : aiAnalysisContent}');
@@ -821,10 +896,38 @@ class MessageViewModel extends ChangeNotifier {
           // API çağrısını daha sağlam hale getir
           analysis.AnalysisResult? analysisResult;
           try {
+            // Yetkilendirme kontrolü ve hata işleme iyileştirmesi
+            if (_authService.currentUser == null) {
+              _logger.e('Kullanıcı oturumu bulunamadı');
+              throw Exception('Yetkilendirme bilgileri eksik. Lütfen tekrar giriş yapın.');
+            }
+            
+            // İçerik uzunluğunu kontrol et ve kısalt (eğer aşırı büyükse)
+            if (aiAnalysisContent.length > 15000) {
+              _logger.w('Analiz içeriği çok uzun (${aiAnalysisContent.length} karakter), kısaltılıyor...');
+              aiAnalysisContent = aiAnalysisContent.substring(0, 15000) + "...";
+            }
+            
+            // HTTP istek ile detaylı hata yakalama
             analysisResult = await _aiService.analyzeMessage(aiAnalysisContent);
             _logger.i('AI servisi yanıt verdi');
           } catch (apiError) {
-            _logger.e('AI servisi çağrısında hata oluştu', apiError);
+            _logger.e('AI servisi çağrısında hata oluştu: ${apiError.toString()}', apiError);
+            
+            // Hata durumunu daha detaylı analiz et
+            String errorDetails = apiError.toString();
+            
+            // HTTP hata kodlarını kontrol et ve daha açıklayıcı mesajlar oluştur
+            if (errorDetails.contains('401') || errorDetails.contains('403')) {
+              _errorMessage = 'Yetkilendirme hatası: Lütfen tekrar giriş yapın';
+            } else if (errorDetails.contains('400')) {
+              _errorMessage = 'İstek formatında hata: Görüntü metni çok uzun veya uygun formatta değil';
+            } else if (errorDetails.contains('timeout') || errorDetails.contains('SocketException')) {
+              _errorMessage = 'Bağlantı hatası: İnternet bağlantınızı kontrol edin';
+            } else {
+              _errorMessage = 'API hatası: ${apiError.toString().substring(0, apiError.toString().length > 50 ? 50 : apiError.toString().length)}';
+            }
+            
             // Null döndürme, hata durumunda işleme devam edecek
             analysisResult = null;
           }
@@ -843,7 +946,7 @@ class MessageViewModel extends ChangeNotifier {
               
               _logger.i('Analiz sonucu Firestore\'a kaydedildi');
             } catch (dbError) {
-              _logger.e('Firestore güncelleme hatası', dbError);
+              _logger.e('Firestore güncelleme hatası: ${dbError.toString()}', dbError);
               // Veritabanı hatası olsa bile devam et
             }
             
@@ -866,7 +969,7 @@ class MessageViewModel extends ChangeNotifier {
               await _updateUserProfileWithAnalysis(userId, analysisResult);
               _logger.i('Analiz sonucu kullanıcı profiline kaydedildi');
             } catch (profileError) {
-              _logger.e('Kullanıcı profili güncelleme hatası', profileError);
+              _logger.e('Kullanıcı profili güncelleme hatası: ${profileError.toString()}', profileError);
               // Profil hatası olsa bile işlemi tamamla
             }
             
@@ -881,11 +984,11 @@ class MessageViewModel extends ChangeNotifier {
               await docRef.update({
                 'isAnalyzing': false,
                 'isAnalyzed': true,
-                'errorMessage': 'Analiz sonucu alınamadı',
+                'errorMessage': _errorMessage ?? 'Analiz sonucu alınamadı',
                 'updatedAt': Timestamp.now(),
               });
             } catch (updateError) {
-              _logger.e('Analiz başarısız - Firestore güncelleme hatası', updateError);
+              _logger.e('Analiz başarısız - Firestore güncelleme hatası: ${updateError.toString()}', updateError);
             }
             
             // Yerel listedeki mesajı güncelle
@@ -894,7 +997,7 @@ class MessageViewModel extends ChangeNotifier {
               _messages[index] = _messages[index].copyWith(
                 isAnalyzing: false,
                 isAnalyzed: true,
-                errorMessage: 'Analiz sonucu alınamadı',
+                errorMessage: _errorMessage ?? 'Analiz sonucu alınamadı',
                 analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
               );
               _currentMessage = _messages[index];
@@ -902,13 +1005,15 @@ class MessageViewModel extends ChangeNotifier {
             
             // Hata durumunu bildir
             _isLoading = false;
-            _errorMessage = 'Analiz sonucu alınamadı';
+            if (_errorMessage == null) {
+              _errorMessage = 'Analiz sonucu alınamadı';
+            }
             notifyListeners();
             
             return false;
           }
         } catch (analysisError) {
-          _logger.e('Analiz sırasında beklenmeyen bir hata oluştu', analysisError);
+          _logger.e('Analiz sırasında beklenmeyen bir hata oluştu: ${analysisError.toString()}', analysisError);
           
           // Hata durumunda Firestore'u güncelle
           try {
@@ -930,7 +1035,7 @@ class MessageViewModel extends ChangeNotifier {
               _currentMessage = _messages[index];
             }
           } catch (updateError) {
-            _logger.e('Hata durumunda Firestore güncelleme hatası', updateError);
+            _logger.e('Hata durumunda Firestore güncelleme hatası: ${updateError.toString()}', updateError);
           }
           
           _isLoading = false;
@@ -1277,6 +1382,17 @@ class MessageViewModel extends ChangeNotifier {
       _currentMessage = null;
       _currentAnalysisResult = null;
       
+      // Ana sayfayı güncelle
+      try {
+        if (_profileViewModel?.context != null && _profileViewModel!.context!.mounted) {
+          final homeController = Provider.of<HomeController>(_profileViewModel!.context!, listen: false);
+          await homeController.anaSayfayiGuncelle();
+          _logger.i('Ana sayfa veri temizleme sonrası güncellendi');
+        }
+      } catch (e) {
+        _logger.w('Ana sayfayı güncelleme hatası: $e');
+      }
+      
       _isLoading = false;
       notifyListeners();
       
@@ -1466,8 +1582,29 @@ class MessageViewModel extends ChangeNotifier {
       batch.delete(doc.reference);
     }
     
+    // Mesaj Koçu analizlerini de temizle
+    final messageCoachRef = userRef.collection('message_coach_analyses');
+    final messageCoachSnapshot = await messageCoachRef.get();
+    
+    // Her bir mesaj koçu analizini sil
+    for (var doc in messageCoachSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
     // Batch işlemini uygula
     await batch.commit();
+    
+    // MessageCoachController'daki verileri sıfırla
+    try {
+      if (_profileViewModel?.context != null) {
+        final messageCoachController = Provider.of<MessageCoachController>(_profileViewModel!.context!, listen: false);
+        messageCoachController.analizSonuclariniSifirla();
+        messageCoachController.analizGecmisiniSifirla();
+        _logger.i('MessageCoachController verileri başarıyla sıfırlandı');
+      }
+    } catch (e) {
+      _logger.w('MessageCoachController sıfırlama hatası: $e');
+    }
   }
 
   // Mevcut analiz işlemlerini sıfırla

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as path;
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 /// Dosya işlemleri için yardımcı fonksiyonlar sağlar
 class FileUtils {
@@ -90,6 +92,37 @@ class FileUtils {
       return yol;
     } catch (e) {
       throw Exception('Dosya kaydederken hata: $e');
+    }
+  }
+  
+  /// Görselden metin çıkarma işlemini gerçekleştirir
+  static Future<String> extractTextFromImage(File imageFile) async {
+    try {
+      // ML Kit entegrasyonu için TextRecognizer kullanımı
+      final TextRecognizer textRecognizer = TextRecognizer();
+      
+      try {
+        // Görseli işleme
+        final inputImage = InputImage.fromFile(imageFile);
+        
+        final recognizedText = await textRecognizer.processImage(inputImage);
+        
+        // Tanınan metni döndür
+        final String extractedText = recognizedText.text;
+        
+        // Eğer metin boşsa, hata mesajı döndür
+        if (extractedText.trim().isEmpty) {
+          return "Görselde metin bulunamadı.";
+        }
+        
+        return "---- Görüntüden çıkarılan metin ----\n$extractedText";
+      } finally {
+        // Her durumda recognizer'ı serbest bırak
+        textRecognizer.close();
+      }
+    } catch (e) {
+      debugPrint('Görselden metin çıkarma hatası: $e');
+      return "Görselden metin çıkarma hatası: $e";
     }
   }
 } 
