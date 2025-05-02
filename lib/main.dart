@@ -80,18 +80,25 @@ void main() async {
     final firestore = FirebaseFirestore.instance;
     final aiService = AiService();
     final loggerService = LoggerService();
+    final userService = UserService();
     
     // Kullanıcı giriş durumunu SharedPreferences'e kaydet
     await _updateLoginStatusInPrefs();
     
+    // AuthViewModel önceden oluşturuluyor, böylece diğer view modeller buna bağımlı olabilir
+    final authViewModel = AuthViewModel(
+      authService: FirebaseAuth.instance,
+      firestore: firestore,
+    );
+    
+    // ReportViewModel önceden oluşturuluyor
+    final reportViewModel = ReportViewModel();
+    
     runApp(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthViewModel>(
-            create: (_) => AuthViewModel(
-              authService: FirebaseAuth.instance,
-              firestore: firestore,
-            ),
+          ChangeNotifierProvider<AuthViewModel>.value(
+            value: authViewModel,
           ),
           ChangeNotifierProvider<MessageViewModel>(
             create: (_) => MessageViewModel(),
@@ -99,8 +106,8 @@ void main() async {
           ChangeNotifierProvider<ProfileViewModel>(
             create: (_) => ProfileViewModel(),
           ),
-          ChangeNotifierProvider<ReportViewModel>(
-            create: (_) => ReportViewModel(),
+          ChangeNotifierProvider<ReportViewModel>.value(
+            value: reportViewModel,
           ),
           ChangeNotifierProvider<AdviceViewModel>(
             create: (_) => AdviceViewModel(
@@ -112,18 +119,15 @@ void main() async {
           ),
           ChangeNotifierProvider<HomeController>(
             create: (_) => HomeController(
-              userService: UserService(),
+              userService: userService,
               aiService: aiService,
             ),
           ),
           ChangeNotifierProvider<PastAnalysesViewModel>(
-            create: (context) => PastAnalysesViewModel(),
+            create: (_) => PastAnalysesViewModel(),
           ),
           ChangeNotifierProvider<PastReportsViewModel>(
-            create: (context) {
-              final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-              return PastReportsViewModel(reportViewModel);
-            },
+            create: (_) => PastReportsViewModel(reportViewModel),
           ),
           ChangeNotifierProvider<MessageCoachController>(
             create: (_) => MessageCoachController(),
@@ -132,11 +136,6 @@ void main() async {
         child: MyApp(),
       ),
     );
-    
-    // Firebase Auth durumunu dinle ve değişiklik olduğunda SharedPreferences'i güncelle
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      _updateLoginStatusInPrefs();
-    });
     
   } catch (e, stackTrace) {
     logger.e('Uygulama başlatma hatası: $e', stackTrace);

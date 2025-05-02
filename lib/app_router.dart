@@ -948,18 +948,18 @@ class _EmailLoginViewState extends State<EmailLoginView> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 24.0, 
-              right: 24.0, 
-              top: 24.0,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
-            ),
-            child: GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 24.0, 
+                right: 24.0, 
+                top: 24.0,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -1263,20 +1263,42 @@ class _EmailLoginViewState extends State<EmailLoginView> {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
       
+      // Giriş işlemini başlat
       authViewModel.signInWithEmail(
         email: email,
         password: password,
-      ).then((success) {
+      ).then((success) async {
         if (success) {
-          // Başarılı giriş sonrası ana sayfaya yönlendir
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Giriş başarılı! Anasayfaya yönlendiriliyorsunuz.')),
-          );
-          context.go(AppRouter.home);
+          // Başarılı giriş sonrası bildirim göster
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Giriş başarılı!'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+          
+          // Provider'ların doğru başlatılmasını sağlamak için kısa gecikme ekle
+          await Future.delayed(const Duration(milliseconds: 300));
+          
+          // Ana sayfaya doğrudan git
+          if (context.mounted) {
+            context.go(AppRouter.home);
+          }
         } else {
           // Hata durumunda kullanıcıya bilgi ver
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(authViewModel.errorMessage ?? 'Giriş sırasında bir hata oluştu')),
+            );
+          }
+        }
+      }).catchError((error) {
+        // Beklenmeyen hatalar için
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authViewModel.errorMessage ?? 'Giriş sırasında bir hata oluştu')),
+            SnackBar(content: Text('Beklenmeyen hata: $error')),
           );
         }
       });
@@ -1840,67 +1862,56 @@ class AppRouter {
         final bool isRegisterRoute = state.uri.path == register;
         final bool isEmailLoginRoute = state.uri.path == email_login;
         final bool isEmailRegisterRoute = state.uri.path == email_register;
+        final bool isHomeRoute = state.uri.path == home;
         
-        // SharedPreferences'tan onboarding durumunu al
-        final prefs = await SharedPreferences.getInstance();
-        final bool hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
-        
-        debugPrint('------------------------------');
-        debugPrint('Yönlendirme kontrolü:');
-        debugPrint('isLoggedIn=$isLoggedIn');
-        debugPrint('isInitialized=$isInitialized');
-        debugPrint('hasCompletedOnboarding=$hasCompletedOnboarding');
-        debugPrint('isOnboardingRoute=$isOnboardingRoute');
-        debugPrint('isLoginRoute=$isLoginRoute');
-        debugPrint('isRegisterRoute=$isRegisterRoute');
-        debugPrint('isEmailLoginRoute=$isEmailLoginRoute');
-        debugPrint('isEmailRegisterRoute=$isEmailRegisterRoute');
-        debugPrint('path=${state.uri.path}');
-        debugPrint('------------------------------');
-
         // Henüz initializing ise, bir redirect yapmadan bekle
         if (!isInitialized) {
-          debugPrint('Henüz initialize edilmemiş, yönlendirme yok');
           return null;
         }
-
-        // 1. Kullanıcı giriş yapmamışsa ve onboarding'i tamamlamamışsa:
-        // - Onboarding sayfasına yönlendir
-        if (!isLoggedIn && !hasCompletedOnboarding && !isOnboardingRoute) {
-          debugPrint('Kullanıcı giriş yapmamış, onboarding tamamlanmamış');
-          debugPrint('=> Onboarding sayfasına yönlendiriliyor');
-          return onboarding;
-        }
         
-        // 2. Kullanıcı giriş yapmamışsa ancak onboarding'i tamamlamışsa:
-        // - Login sayfasına yönlendir, ancak Register, Email Login ve Email Register sayfalarına izin ver
-        if (!isLoggedIn && hasCompletedOnboarding && 
-            !isLoginRoute && !isOnboardingRoute && 
-            !isRegisterRoute && !isEmailLoginRoute && !isEmailRegisterRoute) {
-          debugPrint('Kullanıcı giriş yapmamış, onboarding tamamlanmış ve izin verilen sayfalarda değil');
-          debugPrint('=> Login sayfasına yönlendiriliyor');
-          return login;
+        try {
+          // SharedPreferences'tan onboarding durumunu al
+          final prefs = await SharedPreferences.getInstance();
+          final bool hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+          
+          // Eğer kullanıcı ana sayfadaysa ve giriş yapmışsa, hiçbir yönlendirme yapma
+          if (isLoggedIn && isHomeRoute) {
+            return null;
+          }
+          
+          // 1. Kullanıcı giriş yapmamışsa ve onboarding'i tamamlamamışsa:
+          // - Onboarding sayfasına yönlendir
+          if (!isLoggedIn && !hasCompletedOnboarding && !isOnboardingRoute) {
+            return onboarding;
+          }
+          
+          // 2. Kullanıcı giriş yapmamışsa ancak onboarding'i tamamlamışsa:
+          // - Login sayfasına yönlendir, ancak Register, Email Login ve Email Register sayfalarına izin ver
+          if (!isLoggedIn && hasCompletedOnboarding && 
+              !isLoginRoute && !isOnboardingRoute && 
+              !isRegisterRoute && !isEmailLoginRoute && !isEmailRegisterRoute) {
+            return login;
+          }
+          
+          // 3. Kullanıcı giriş yapmışsa:
+          // - Ana sayfaya yönlendir (home'da değilse)
+          if (isLoggedIn && (isOnboardingRoute || isLoginRoute || isRegisterRoute || isEmailLoginRoute || isEmailRegisterRoute)) {
+            return home;
+          }
+          
+          // 4. Kullanıcı onboarding'i tamamlamışsa ve onboarding sayfasındaysa:
+          // - Login sayfasına yönlendir
+          if (hasCompletedOnboarding && isOnboardingRoute) {
+            return login;
+          }
+          
+          // Diğer durumlar için redirect yok
+          return null;
+        } catch (e) {
+          debugPrint('Yönlendirme sırasında hata: $e');
+          // Hata durumunda yönlendirme yapma
+          return null;
         }
-        
-        // 3. Kullanıcı giriş yapmışsa:
-        // - Ana sayfaya yönlendir (home'da değilse)
-        if (isLoggedIn && (isOnboardingRoute || isLoginRoute || isRegisterRoute || isEmailLoginRoute || isEmailRegisterRoute)) {
-          debugPrint('Kullanıcı giriş yapmış ve giriş/kayıt sayfalarından birinde');
-          debugPrint('=> Ana sayfaya yönlendiriliyor');
-          return home;
-        }
-        
-        // 4. Kullanıcı onboarding'i tamamlamışsa ve onboarding sayfasındaysa:
-        // - Login sayfasına yönlendir
-        if (hasCompletedOnboarding && isOnboardingRoute) {
-          debugPrint('Onboarding tamamlanmış ve onboarding sayfasında');
-          debugPrint('=> Login sayfasına yönlendiriliyor');
-          return login;
-        }
-        
-        // Diğer durumlar için redirect yok
-        debugPrint('Herhangi bir yönlendirme koşulu sağlanmadı. Mevcut sayfada kalınıyor.');
-        return null;
       },
       routes: [
         GoRoute(

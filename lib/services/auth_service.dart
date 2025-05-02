@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 import 'logger_service.dart';
 import '../utils/utils.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -87,65 +88,136 @@ class AuthService {
 
   // Kullanıcı verilerini Firestore'da güncelle
   Future<void> _updateUserData(User user) async {
-    DocumentReference userRef = _firestore.collection('users').doc(user.uid);
-    
-    // Kullanıcının zaten var olup olmadığını kontrol et
-    DocumentSnapshot snapshot = await userRef.get();
-    
-    if (snapshot.exists) {
-      // Kullanıcı zaten var, son giriş zamanını güncelle
-      await userRef.update({
-        'lastLoginAt': Timestamp.now(),
-      });
-    } else {
-      // Yeni kullanıcı oluştur
-      UserModel newUser = UserModel(
-        id: user.uid,
-        displayName: user.displayName ?? '',
-        email: user.email ?? '',
-        photoURL: user.photoURL ?? '',
-        createdAt: DateTime.now(),
-        lastLoginAt: DateTime.now(),
-      );
+    try {
+      debugPrint('Kullanıcı verileri güncelleniyor: ${user.uid}');
       
-      await userRef.set(newUser.toFirestore());
+      if (user.uid.isEmpty) {
+        debugPrint('HATA: Kullanıcı UID boş, güncelleme yapılamıyor');
+        return;
+      }
+      
+      DocumentReference userRef = _firestore.collection('users').doc(user.uid);
+      
+      try {
+        // Kullanıcının zaten var olup olmadığını kontrol et
+        debugPrint('Kullanıcı verileri Firestore\'dan kontrol ediliyor...');
+        DocumentSnapshot snapshot = await userRef.get();
+        
+        if (snapshot.exists) {
+          // Kullanıcı zaten var, son giriş zamanını güncelle
+          debugPrint('Kullanıcı verisi mevcut, son giriş zamanı güncelleniyor');
+          await userRef.update({
+            'lastLoginAt': Timestamp.now(),
+          });
+        } else {
+          // Yeni kullanıcı oluştur
+          debugPrint('Kullanıcı verisi bulunamadı, yeni kullanıcı oluşturuluyor');
+          Map<String, dynamic> userData = {
+            'id': user.uid,
+            'displayName': user.displayName ?? '',
+            'email': user.email ?? '',
+            'photoURL': user.photoURL ?? '',
+            'createdAt': Timestamp.now(),
+            'lastLoginAt': Timestamp.now(),
+            'authProvider': 'password', // Varsayılan olarak e-posta/şifre
+            'isPremium': false,
+            'premiumExpiry': null,
+          };
+          
+          await userRef.set(userData);
+          debugPrint('Yeni kullanıcı verisi oluşturuldu: ${user.uid}');
+        }
+      } catch (firestoreError) {
+        debugPrint('Firestore işlemi sırasında hata: $firestoreError');
+        // Hata durumunda bu fonksiyondan çıkarız ama kullanıcı girişi hala geçerli olabilir
+      }
+    } catch (e) {
+      debugPrint('Kullanıcı verilerini güncellerken beklenmeyen hata: $e');
+      // Bu hatayı dışarı yansıtmıyoruz - kullanıcı girişi yine de başarılı olabilir
     }
   }
 
   // Kullanıcı bilgilerini Firestore'dan alma
   Future<UserModel?> getUserData() async {
-    if (currentUser == null) return null;
-    
     try {
-      _logger.d('Kullanıcı bilgileri alınıyor: ${currentUser!.uid}');
-      
-      // Firestore'dan güncel veriyi al
-      DocumentSnapshot<Map<String, dynamic>> doc = await _firestore.collection('users').doc(currentUser!.uid).get();
-      
-      if (doc.exists) {
-        _logger.d('Kullanıcı verisi bulundu: ${doc.data()}');
-        return UserModel.fromFirestore(doc);
+      if (currentUser == null) {
+        debugPrint('UYARI: Oturum açmış kullanıcı bulunamadı');
+        return null;
       }
       
-      _logger.w('Kullanıcı verisi bulunamadı: ${currentUser!.uid}');
+      if (currentUser!.uid.isEmpty) {
+        debugPrint('HATA: Kullanıcı UID değeri boş');
+        return null;
+      }
       
-      // Kullanıcı verisi bulunamadıysa, temel bilgilerle yeni bir kullanıcı oluştur
-      final user = _auth.currentUser!;
-      UserModel newUser = UserModel(
-        id: user.uid,
-        displayName: user.displayName ?? '',
-        email: user.email ?? '',
-        photoURL: user.photoURL ?? '',
-        createdAt: DateTime.now(),
-        lastLoginAt: DateTime.now(),
-      );
+      debugPrint('Kullanıcı bilgileri alınıyor: ${currentUser!.uid}');
       
-      // Yeni kullanıcıyı Firestore'a kaydet
-      await _firestore.collection('users').doc(user.uid).set(newUser.toFirestore());
-      
-      return newUser;
+      try {
+        // Firestore'dan güncel veriyi al
+        DocumentSnapshot<Map<String, dynamic>> doc = await _firestore.collection('users').doc(currentUser!.uid).get();
+        
+        if (doc.exists) {
+          debugPrint('Kullanıcı verisi bulundu');
+          try {
+            final userData = UserModel.fromFirestore(doc);
+            return userData;
+          } catch (parseError) {
+            debugPrint('Kullanıcı verisi ayrıştırma hatası: $parseError');
+            // Veri ayrıştırma başarısız olsa bile devam edelim ve temel bir kullanıcı oluşturalım
+          }
+        }
+        
+        debugPrint('Kullanıcı verisi bulunamadı: ${currentUser!.uid}, temel kullanıcı oluşturuluyor');
+        
+        // Kullanıcı verisi bulunamadıysa, temel bilgilerle yeni bir kullanıcı oluştur
+        final user = _auth.currentUser!;
+        
+        final Map<String, dynamic> userData = {
+          'id': user.uid,
+          'displayName': user.displayName ?? '',
+          'email': user.email ?? '',
+          'photoURL': user.photoURL ?? '',
+          'createdAt': Timestamp.now(),
+          'lastLoginAt': Timestamp.now(),
+          'authProvider': 'password', // Varsayılan olarak e-posta/şifre
+          'isPremium': false,
+          'premiumExpiry': null,
+        };
+        
+        // Yeni kullanıcıyı Firestore'a kaydet
+        try {
+          await _firestore.collection('users').doc(user.uid).set(userData);
+          debugPrint('Temel kullanıcı verisi Firestore\'a kaydedildi');
+        } catch (saveError) {
+          debugPrint('Kullanıcı verisi kaydedilemedi: $saveError');
+          // Kaydetme hatası oluşsa bile basic kullanıcı nesnesini döndürelim
+        }
+        
+        // Temel UserModel'i döndür
+        return UserModel(
+          id: user.uid,
+          displayName: user.displayName ?? '',
+          email: user.email ?? '',
+          photoURL: user.photoURL ?? '',
+          createdAt: DateTime.now(),
+          lastLoginAt: DateTime.now(),
+        );
+      } catch (firestoreError) {
+        debugPrint('Firestore işlemi sırasında hata: $firestoreError');
+        
+        // Firestore hatası durumunda, temel bir kullanıcı nesnesi oluştur
+        final user = _auth.currentUser!;
+        return UserModel(
+          id: user.uid,
+          displayName: user.displayName ?? '',
+          email: user.email ?? '',
+          photoURL: user.photoURL ?? '',
+          createdAt: DateTime.now(),
+          lastLoginAt: DateTime.now(),
+        );
+      }
     } catch (e) {
-      _logger.e('Kullanıcı verilerini alma hatası', e);
+      debugPrint('Kullanıcı verilerini alma hatası: $e');
       return null;
     }
   }

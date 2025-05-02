@@ -21,19 +21,21 @@ class MainView extends StatefulWidget {
 
 class _MainViewState extends State<MainView> {
   int _selectedIndex = 0;
-  late final PageController _pageController;
+  // Sayfa widget'larını önbelleğe alalım, böylece sürekli oluşturulmayacak
+  late final List<Widget> _sayfalar;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
-    _pageController = PageController(initialPage: _selectedIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+    
+    // Sayfa widget'larını bir kez oluşturup önbelleğe alalım
+    _sayfalar = [
+      const HomeView(),
+      const ReportView(),
+      const MessageCoachView(),
+      const HomeView(initialTabIndex: 3),
+    ];
   }
 
   // Tab değişimini işleme
@@ -44,18 +46,6 @@ class _MainViewState extends State<MainView> {
     
     setState(() {
       _selectedIndex = index;
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    });
-  }
-
-  // Sayfa değişimini işleme
-  void _onPageChanged(int index) {
-    setState(() {
-      _selectedIndex = index;
     });
   }
 
@@ -63,23 +53,9 @@ class _MainViewState extends State<MainView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF21124A), // Koyu mor arka plan
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        physics: const NeverScrollableScrollPhysics(), // Sayfa kaydırma devre dışı
-        children: const [
-          // Anasayfa - Analiz
-          HomeView(),
-          
-          // Rapor - Mevcut rapor sayfasını kullanalım
-          ReportView(),
-          
-          // Mesaj Koçu - Mevcut mesaj koçu sayfasını kullanalım
-          MessageCoachView(),
-          
-          // Profil - Mevcut profil sayfasını kullanalım
-          HomeView(initialTabIndex: 3), // Eğer ayrı profil sayfası yoksa HomeView'ın profil modunu kullanalım
-        ],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _sayfalar,
       ),
       // Alt navigasyon çubuğu - tüm sayfalarda ortak
       bottomNavigationBar: BottomNavigationBar(

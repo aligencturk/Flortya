@@ -154,25 +154,66 @@ class _HomeViewState extends State<HomeView> {
     
     // Ana sayfayı yüklendiğinde güncelle
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final homeController = Provider.of<HomeController>(context, listen: false);
-      homeController.anaSayfayiGuncelle();
+      _initializePageData();
+    });
+  }
+  
+  // Sayfa verilerini güvenli bir şekilde yükle
+  Future<void> _initializePageData() async {
+    if (!mounted) return;
+    
+    try {
+      // UI için kritik olan işlemleri önce yap
+      try {
+        final homeController = Provider.of<HomeController>(context, listen: false);
+        if (homeController != null) {
+          homeController.anaSayfayiGuncelle();
+        }
+      } catch (e) {
+        debugPrint('HomeController hatası: $e');
+      }
       
       // ProfileViewModel'e context referansı ekle
-      final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
-      profileViewModel.setContext(context);
-      
-      // ProfileViewModel'i MessageViewModel'e aktar
-      final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-      messageViewModel.setProfileViewModel(profileViewModel);
-      
-      // Kullanıcının analiz sayısını yükle
-      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
-      
-      if (authViewModel.user != null) {
-        adviceViewModel.loadAnalysisCount(authViewModel.user!.id);
+      try {
+        final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
+        if (profileViewModel != null) {
+          profileViewModel.setContext(context);
+          
+          // ProfileViewModel'i MessageViewModel'e aktar
+          try {
+            final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+            if (messageViewModel != null) {
+              messageViewModel.setProfileViewModel(profileViewModel);
+            }
+          } catch (e) {
+            debugPrint('MessageViewModel hatası: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('ProfileViewModel hatası: $e');
       }
-    });
+      
+      // Kullanıcı verilerini yükle
+      if (!mounted) return;
+      
+      try {
+        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+        final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
+        
+        if (authViewModel != null && adviceViewModel != null && authViewModel.user != null) {
+          try {
+            await adviceViewModel.loadAnalysisCount(authViewModel.user!.id);
+          } catch (e) {
+            debugPrint('Analiz sayısı yüklenirken hata: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('AuthViewModel veya AdviceViewModel hatası: $e');
+      }
+    } catch (e) {
+      // Hata durumunda sessizce devam et, UI'nin çökmemesi için
+      debugPrint('Ana sayfa verilerini yüklerken hata: $e');
+    }
   }
 
   @override

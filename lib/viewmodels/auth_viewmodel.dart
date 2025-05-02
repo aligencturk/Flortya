@@ -6,10 +6,12 @@ import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
+import 'package:flutter/widgets.dart';
 
-class AuthViewModel extends ChangeNotifier {
-  final AuthService _authService;
+class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implements Listenable {
+  final FirebaseAuth _authService;
   final FirebaseFirestore _firestore;
+  final AuthService _authServiceImpl;
   final LoggerService _logger = LoggerService();
   final NotificationService _notificationService = NotificationService();
   
@@ -17,48 +19,109 @@ class AuthViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   bool _isInitialized = false;
+  bool _isPremium = false;
 
   // Getters
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _user != null;
-  bool get isPremium => _user?.isPremium ?? false;
   bool get isInitialized => _isInitialized;
+  bool get isPremium => _isPremium;
   User? get currentUser => _authService.currentUser;
 
-  // Constructor
   AuthViewModel({
     required FirebaseAuth authService,
     required FirebaseFirestore firestore,
-  }) : _authService = AuthService(),
-       _firestore = firestore {
-    _initializeUser();
+  }) : _authService = authService,
+       _firestore = firestore,
+       _authServiceImpl = AuthService() {
+    WidgetsBinding.instance.addObserver(this);
+    _initialize();
   }
 
-  // İlk kullanıcı durumunu yükleme
-  Future<void> _initializeUser() async {
-    _setLoading(true);
+  /// ViewModel başlatma işlemi
+  Future<void> _initialize() async {
     try {
-      // Firebase Auth durumu değişikliklerini dinleme
-      _authService.authStateChanges.listen((User? firebaseUser) async {
-        if (firebaseUser != null) {
-          // Kullanıcı oturum açtıysa
-          final userData = await _authService.getUserData();
+      // Başlangıçta kullanıcı bilgilerini al
+      final user = _authService.currentUser;
+      
+      if (user != null) {
+        // Firestore'dan kullanıcı profil bilgilerini al
+        final userData = await _getUserData(user.uid);
+        if (userData != null) {
           _user = userData;
-          debugPrint('Kullanıcı oturum açtı: ${_user?.displayName}');
-        } else {
-          // Kullanıcı oturum açmadıysa
-          _user = null;
-          debugPrint('Kullanıcı oturum açmadı');
+          
+          // Premium durumunu kontrol et
+          _checkPremiumStatus();
         }
-        _isInitialized = true;
-        notifyListeners();
-      });
+      }
+      
+      // Auth değişiklikleri için dinleyici ekle
+      // NOT: Bu dinleyici dispose edilmelidir
+      _setupAuthListener();
+      
     } catch (e) {
-      _setError('Kullanıcı durumu başlatılamadı: $e');
+      _logger.e('AuthViewModel başlatma hatası: $e');
     } finally {
-      _setLoading(false);
+      // Başlatma işlemi tamamlandı
+      _isInitialized = true;
+      notifyListeners();
+    }
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  // Auth dinleyicisini ayarla
+  void _setupAuthListener() {
+    // Auth durumu değişimlerini dinle
+    _authService.authStateChanges().listen((User? firebaseUser) async {
+      try {
+        if (firebaseUser == null) {
+          // Kullanıcı çıkış yaptı veya hesabı silindi
+          _user = null;
+          _isPremium = false;
+        } else {
+          // Kullanıcı giriş yaptı veya oturum açtı
+          // Firebase'den kullanıcı verilerini yükle
+          final userData = await _getUserData(firebaseUser.uid);
+          _user = userData;
+          
+          // Premium durumunu kontrol et
+          _checkPremiumStatus();
+        }
+      } catch (e) {
+        _logger.e('Auth state change hatası: $e');
+      } finally {
+        // UI güncellemesi için bildirim yap
+        notifyListeners();
+      }
+    });
+  }
+  
+  /// Firebase'den kullanıcı verilerini alır
+  Future<UserModel?> _getUserData(String uid) async {
+    try {
+      _logger.d('Kullanıcı verileri alınıyor: $uid');
+      
+      final doc = await _firestore.collection('users').doc(uid).get();
+      
+      if (doc.exists) {
+        // Firestore'dan kullanıcı verilerini al
+        final userData = UserModel.fromFirestore(doc);
+        _logger.d('Kullanıcı verileri alındı: ${userData.displayName}');
+        return userData;
+      } else {
+        _logger.w('Kullanıcı verileri bulunamadı: $uid');
+        return null;
+      }
+    } catch (e) {
+      _logger.e('Kullanıcı verileri alınırken hata: $e');
+      return null;
     }
   }
 
@@ -67,15 +130,21 @@ class AuthViewModel extends ChangeNotifier {
     _setLoading(true);
     _clearError();
     try {
-      final userCredential = await _authService.signInWithGoogle();
+      final userCredential = await _authServiceImpl.signInWithGoogle();
       if (userCredential != null) {
-        final userData = await _authService.getUserData();
+        final userData = await _authServiceImpl.getUserData();
         _user = userData;
         notifyListeners();
         
         // FCM token'ı güncelle
         if (_user != null) {
-          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+          try {
+            await _notificationService.updateFcmTokenOnLogin(_user!.id);
+          } catch (fcmError) {
+            // FCM token güncellemesi başarısız olsa bile giriş işlemine devam et
+            _logger.e('FCM token güncellenirken hata oluştu: $fcmError');
+            // Hatayı kullanıcıya gösterme, sessizce devam et
+          }
         }
         
         // Kullanıcı ilk defa giriş yapıyorsa profil kurulum ekranına yönlendir
@@ -108,7 +177,7 @@ class AuthViewModel extends ChangeNotifier {
       // Premium bitiş tarihini 1 ay sonra olarak ayarla
       final expiryDate = DateTime.now().add(const Duration(days: 30));
       
-      await _authService.updatePremiumStatus(
+      await _authServiceImpl.updatePremiumStatus(
         isPremium: true,
         expiryDate: expiryDate,
       );
@@ -130,15 +199,21 @@ class AuthViewModel extends ChangeNotifier {
     _setLoading(true);
     _clearError();
     try {
-      final userCredential = await _authService.signInWithApple();
+      final userCredential = await _authServiceImpl.signInWithApple();
       if (userCredential != null) {
-        final userData = await _authService.getUserData();
+        final userData = await _authServiceImpl.getUserData();
         _user = userData;
         notifyListeners();
         
         // FCM token'ı güncelle
         if (_user != null) {
-          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+          try {
+            await _notificationService.updateFcmTokenOnLogin(_user!.id);
+          } catch (fcmError) {
+            // FCM token güncellemesi başarısız olsa bile giriş işlemine devam et
+            _logger.e('FCM token güncellenirken hata oluştu: $fcmError');
+            // Hatayı kullanıcıya gösterme, sessizce devam et
+          }
         }
         
         // Kullanıcı ilk defa giriş yapıyorsa profil kurulum ekranına yönlendir
@@ -171,11 +246,17 @@ class AuthViewModel extends ChangeNotifier {
       
       // FCM token'ı kaldır
       if (_user != null) {
-        await _notificationService.removeFcmTokenOnLogout(_user!.id);
+        try {
+          await _notificationService.removeFcmTokenOnLogout(_user!.id);
+        } catch (fcmError) {
+          // FCM token kaldırma işlemi başarısız olsa bile çıkış işlemine devam et
+          _logger.e('FCM token kaldırılırken hata oluştu: $fcmError');
+          // Hatayı kullanıcıya gösterme, sessizce devam et
+        }
       }
       
       // Firebase Auth ile çıkış yap
-      await _authService.signOut();
+      await _authServiceImpl.signOut();
       _user = null;
       notifyListeners();
       
@@ -200,7 +281,7 @@ class AuthViewModel extends ChangeNotifier {
       await _authService.currentUser!.reload();
       
       // Ardından Firestore'daki kullanıcı bilgilerini alalım
-      final userData = await _authService.getUserData();
+      final userData = await _authServiceImpl.getUserData();
       _user = userData;
       
       debugPrint('Kullanıcı bilgileri yenilendi: ${_user?.displayName}, ${_user?.email}');
@@ -223,7 +304,7 @@ class AuthViewModel extends ChangeNotifier {
     
     _setLoading(true);
     try {
-      await _authService.updatePremiumStatus(
+      await _authServiceImpl.updatePremiumStatus(
         isPremium: isPremium,
         expiryDate: expiryDate,
       );
@@ -288,7 +369,7 @@ class AuthViewModel extends ChangeNotifier {
     _clearError();
     
     try {
-      final userCredential = await _authService.signUpWithEmail(
+      final userCredential = await _authServiceImpl.signUpWithEmail(
         email: email,
         password: password,
         displayName: displayName,
@@ -306,7 +387,7 @@ class AuthViewModel extends ChangeNotifier {
         // ve FCM token güncellemiyoruz.
         
         // Çıkış yap, böylece kullanıcı giriş ekranına yönlendirilecek
-        await _authService.signOut();
+        await _authServiceImpl.signOut();
         _user = null;
         notifyListeners();
         
@@ -351,20 +432,26 @@ class AuthViewModel extends ChangeNotifier {
     _clearError();
     
     try {
-      final userCredential = await _authService.signInWithEmail(
+      final userCredential = await _authServiceImpl.signInWithEmail(
         email: email,
         password: password,
       );
       
       if (userCredential != null) {
         // Kullanıcı verilerini al
-        final userData = await _authService.getUserData();
+        final userData = await _authServiceImpl.getUserData();
         _user = userData;
         notifyListeners();
         
         // FCM token'ı güncelle
         if (_user != null) {
-          await _notificationService.updateFcmTokenOnLogin(_user!.id);
+          try {
+            await _notificationService.updateFcmTokenOnLogin(_user!.id);
+          } catch (fcmError) {
+            // FCM token güncellemesi başarısız olsa bile giriş işlemine devam et
+            _logger.e('FCM token güncellenirken hata oluştu: $fcmError');
+            // Hatayı kullanıcıya gösterme, sessizce devam et
+          }
         }
         
         return true;
@@ -469,6 +556,15 @@ class AuthViewModel extends ChangeNotifier {
       return false;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  // Premium durumunu kontrol et
+  void _checkPremiumStatus() {
+    if (_user != null) {
+      _isPremium = _user!.isPremium;
+    } else {
+      _isPremium = false;
     }
   }
 } 
