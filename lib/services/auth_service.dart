@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 import 'logger_service.dart';
+import '../utils/utils.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -35,64 +36,48 @@ class AuthService {
   // Google ile giriş
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Google oturum açma akışını başlat
-      _logger.i('Google oturum açma akışı başlatılıyor...');
-      
-      // Google Sign In işlemleri
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Google Sign-In işlemi
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       
       if (googleUser == null) {
-        _logger.w('Kullanıcı Google girişini iptal etti');
-        return null;
+        return null; // Kullanıcı işlemi iptal etti
       }
       
-      _logger.i('Google kullanıcısı seçildi: ${googleUser.email}');
-      
-      // Google kimlik bilgilerini kullanarak Firebase için kimlik bilgisi edinin
+      // Google hesabından kimlik bilgileri al
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       
-      if (googleAuth.idToken == null) {
-        _logger.e('Google kimlik doğrulama belirteci alınamadı');
-        throw FirebaseAuthException(
-          code: 'google-auth-failed',
-          message: 'Google kimlik doğrulama belirteci alınamadı'
-        );
-      }
-      
+      // Firebase ile yetkilendirme
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-
-      _logger.i('Google ile giriş yapılıyor: ${googleUser.email}');
-
+      
       // Firebase ile giriş yap
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final userCredential = await _auth.signInWithCredential(credential);
       
-      // Kullanıcı belgesini Firestore'a ekleyin veya güncelleyin
-      await _updateUserData(userCredential.user!);
+      // Yeni bir kullanıcıysa Firestore'a kaydet
+      await _saveUserToFirestore(userCredential.user, authProvider: 'google.com');
       
-      _logger.i('Google ile giriş başarılı: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      _logger.e('Google ile giriş hatası: ${e.toString()}', e);
+      _logger.e('Google giriş hatası: $e');
       return null;
     }
   }
-
+  
   // Apple ile giriş
   Future<UserCredential?> signInWithApple() async {
     try {
-      // Apple giriş akışı burada yapılacak
-      // (Bu işlev şu anda uygulanmamıştır)
+      // Apple ile giriş fonksiyonu şimdilik uygulanmadı
+      // Gerekirse daha sonra sign_in_with_apple paketi kurulup gerçekleştirilebilir
       _logger.w('Apple ile giriş henüz uygulanmadı');
       return null;
     } catch (e) {
-      _logger.e('Apple ile giriş hatası', e);
+      _logger.e('Apple giriş hatası: $e');
       return null;
     }
   }
-
+  
   // Çıkış yap
   Future<void> signOut() async {
     _logger.i('Kullanıcı çıkış yapıyor: ${currentUser?.uid}');
@@ -212,51 +197,46 @@ class AuthService {
     }
   }
 
-  // E-posta ve şifre ile kayıt olma
+  // E-posta ve şifre ile kayıt olma işlemi
   Future<UserCredential?> signUpWithEmail({
     required String email,
     required String password,
     required String displayName,
+    String? firstName,
+    String? lastName,
+    String? gender,
+    DateTime? birthDate,
   }) async {
     try {
-      _logger.i('E-posta ile kayıt işlemi başlatılıyor: $email');
-      
-      // Firebase Auth ile yeni hesap oluştur
-      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      // Firebase Auth ile kullanıcı oluştur
+      final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
       
-      // Kullanıcı adını ayarla
-      await userCredential.user!.updateDisplayName(displayName);
+      // Kullanıcı profilini güncelle
+      await userCredential.user?.updateDisplayName(displayName);
       
-      // Kullanıcı verilerini Firestore'a kaydet
-      await _updateUserData(userCredential.user!);
+      // Kullanıcı bilgilerini yenile
+      await userCredential.user?.reload();
       
-      _logger.i('E-posta ile kayıt başarılı: ${userCredential.user?.uid}');
+      // Kullanıcıyı Firestore'a kaydet
+      await _saveUserToFirestore(
+        userCredential.user, 
+        authProvider: 'password',
+        firstName: firstName,
+        lastName: lastName,
+        gender: gender,
+        birthDate: birthDate,
+      );
+      
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      
-      switch (e.code) {
-        case 'email-already-in-use':
-          errorMessage = 'Bu e-posta adresi zaten kullanımda.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Geçersiz e-posta adresi.';
-          break;
-        case 'weak-password':
-          errorMessage = 'Şifre çok zayıf.';
-          break;
-        default:
-          errorMessage = 'Kayıt sırasında bir hata oluştu: ${e.message}';
-      }
-      
-      _logger.e('E-posta kayıt hatası: $errorMessage', e);
+      _logger.e('E-posta kayıt hatası: ${e.code}');
       rethrow;
     } catch (e) {
-      _logger.e('E-posta kayıt hatası: ${e.toString()}', e);
-      rethrow;
+      _logger.e('E-posta kayıt hatası: $e');
+      return null;
     }
   }
   
@@ -304,6 +284,63 @@ class AuthService {
     } catch (e) {
       _logger.e('E-posta giriş hatası: ${e.toString()}', e);
       rethrow;
+    }
+  }
+
+  // Kullanıcıyı Firestore'a kaydet
+  Future<void> _saveUserToFirestore(
+    User? user, {
+    required String? authProvider,
+    String? firstName,
+    String? lastName,
+    String? gender,
+    DateTime? birthDate,
+  }) async {
+    if (user == null) return;
+    
+    try {
+      final usersRef = _firestore.collection('users');
+      final userDoc = usersRef.doc(user.uid);
+      
+      // Kullanıcı zaten var mı kontrol et
+      final docSnapshot = await userDoc.get();
+      
+      if (docSnapshot.exists) {
+        // Kullanıcı zaten var, sadece login bilgilerini güncelle
+        await userDoc.update({
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'photoURL': user.photoURL,
+          'displayName': user.displayName,
+        });
+      } else {
+        // Yeni kullanıcı oluştur
+        final userData = {
+          'email': user.email,
+          'displayName': user.displayName,
+          'photoURL': user.photoURL,
+          'authProvider': authProvider,
+          'isPremium': false,
+          'premiumExpiry': null,
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'profileCompleted': false,
+        };
+        
+        // Eğer profil bilgileri verilmişse ekle
+        if (firstName != null) userData['firstName'] = firstName;
+        if (lastName != null) userData['lastName'] = lastName;
+        if (gender != null) userData['gender'] = gender;
+        if (birthDate != null) userData['birthDate'] = Timestamp.fromDate(birthDate);
+        
+        // E-posta ile kayıtta profil tamamlandı olarak işaretle
+        if (authProvider == 'password' && firstName != null && lastName != null && gender != null) {
+          userData['profileCompleted'] = true;
+        }
+        
+        await userDoc.set(userData);
+      }
+    } catch (e) {
+      _logger.e('Kullanıcı Firestore kayıt hatası: $e');
     }
   }
 } 

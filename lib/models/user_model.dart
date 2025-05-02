@@ -50,11 +50,17 @@ class AnalizSonucu {
 
 class UserModel {
   final String id;
-  final String displayName;
   final String email;
-  final String photoURL;
+  final String? displayName;
+  final String? photoURL;
   final bool isPremium;
-  final DateTime? premiumExpiry;
+  final DateTime? premiumExpiryDate;
+  final String? authProvider;
+  final String? firstName;
+  final String? lastName;
+  final String? gender;
+  final DateTime? birthDate;
+  final bool profileCompleted;
   final DateTime createdAt;
   final DateTime lastLoginAt;
   final Map<String, dynamic> preferences;
@@ -63,11 +69,17 @@ class UserModel {
 
   UserModel({
     required this.id,
-    required this.displayName,
     required this.email,
-    this.photoURL = '',
+    this.displayName,
+    this.photoURL,
     this.isPremium = false,
-    this.premiumExpiry,
+    this.premiumExpiryDate,
+    this.authProvider,
+    this.firstName,
+    this.lastName,
+    this.gender,
+    this.birthDate,
+    this.profileCompleted = false,
     required this.createdAt,
     required this.lastLoginAt,
     this.preferences = const {},
@@ -95,13 +107,21 @@ class UserModel {
     
     return UserModel(
       id: doc.id,
-      displayName: data['displayName'] ?? '',
       email: data['email'] ?? '',
-      photoURL: data['photoURL'] ?? '',
+      displayName: data['displayName'],
+      photoURL: data['photoURL'],
       isPremium: data['isPremium'] ?? false,
-      premiumExpiry: data['premiumExpiry'] != null 
+      premiumExpiryDate: data['premiumExpiry'] != null 
           ? (data['premiumExpiry'] as Timestamp).toDate() 
           : null,
+      authProvider: data['authProvider'],
+      firstName: data['firstName'],
+      lastName: data['lastName'],
+      gender: data['gender'],
+      birthDate: data['birthDate'] != null 
+          ? (data['birthDate'] as Timestamp).toDate() 
+          : null,
+      profileCompleted: data['profileCompleted'] ?? false,
       createdAt: data['createdAt'] != null 
           ? (data['createdAt'] as Timestamp).toDate() 
           : DateTime.now(),
@@ -117,11 +137,17 @@ class UserModel {
   // Firestore'a veri yazma
   Map<String, dynamic> toFirestore() {
     return {
-      'displayName': displayName,
       'email': email,
+      'displayName': displayName,
       'photoURL': photoURL,
       'isPremium': isPremium,
-      'premiumExpiry': premiumExpiry != null ? Timestamp.fromDate(premiumExpiry!) : null,
+      'premiumExpiry': premiumExpiryDate != null ? Timestamp.fromDate(premiumExpiryDate!) : null,
+      'authProvider': authProvider,
+      'firstName': firstName,
+      'lastName': lastName,
+      'gender': gender,
+      'birthDate': birthDate != null ? Timestamp.fromDate(birthDate!) : null,
+      'profileCompleted': profileCompleted,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': Timestamp.fromDate(lastLoginAt),
       'preferences': preferences,
@@ -146,11 +172,17 @@ class UserModel {
   // UserModel'in kopyasını oluşturma
   UserModel copyWith({
     String? id,
-    String? displayName,
     String? email,
+    String? displayName,
     String? photoURL,
     bool? isPremium,
-    DateTime? premiumExpiry,
+    DateTime? premiumExpiryDate,
+    String? authProvider,
+    String? firstName,
+    String? lastName,
+    String? gender,
+    DateTime? birthDate,
+    bool? profileCompleted,
     DateTime? createdAt,
     DateTime? lastLoginAt,
     Map<String, dynamic>? preferences,
@@ -159,11 +191,17 @@ class UserModel {
   }) {
     return UserModel(
       id: id ?? this.id,
-      displayName: displayName ?? this.displayName,
       email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
       photoURL: photoURL ?? this.photoURL,
       isPremium: isPremium ?? this.isPremium,
-      premiumExpiry: premiumExpiry ?? this.premiumExpiry,
+      premiumExpiryDate: premiumExpiryDate ?? this.premiumExpiryDate,
+      authProvider: authProvider ?? this.authProvider,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      gender: gender ?? this.gender,
+      birthDate: birthDate ?? this.birthDate,
+      profileCompleted: profileCompleted ?? this.profileCompleted,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       preferences: preferences ?? this.preferences,

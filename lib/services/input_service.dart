@@ -38,6 +38,44 @@ class InputService {
     // Aktif TextField'a odaklandığında sistem klavyesini etkinleştir
     TextInput.finishAutofillContext(shouldSave: true);
   }
+  
+  /// Şifre alanı için özel dekorasyon
+  static InputDecoration getPasswordInputDecoration({
+    required String labelText,
+    required bool isObscure,
+    required VoidCallback toggleObscure,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      labelStyle: const TextStyle(color: Colors.white70),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.white38),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+      suffixIcon: IconButton(
+        icon: Icon(
+          isObscure ? Icons.visibility : Icons.visibility_off,
+          color: Colors.white70,
+        ),
+        onPressed: toggleObscure,
+      ),
+      errorText: errorText,
+    );
+  }
 }
 
 /// Tüm metinlerde Türkçe karakter kontrolü

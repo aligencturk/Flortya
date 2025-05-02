@@ -78,6 +78,12 @@ class AuthViewModel extends ChangeNotifier {
           await _notificationService.updateFcmTokenOnLogin(_user!.id);
         }
         
+        // Kullanıcı ilk defa giriş yapıyorsa profil kurulum ekranına yönlendir
+        final isFirstTime = await isFirstLogin();
+        if (isFirstTime) {
+          return false; // Profil tamamlama gerekiyor
+        }
+        
         return true;
       }
       _setError('Google ile giriş yapılamadı');
@@ -135,6 +141,12 @@ class AuthViewModel extends ChangeNotifier {
           await _notificationService.updateFcmTokenOnLogin(_user!.id);
         }
         
+        // Kullanıcı ilk defa giriş yapıyorsa profil kurulum ekranına yönlendir
+        final isFirstTime = await isFirstLogin();
+        if (isFirstTime) {
+          return false; // Profil tamamlama gerekiyor
+        }
+        
         return true;
       }
       _setError('Apple ile giriş yapılamadı');
@@ -152,9 +164,9 @@ class AuthViewModel extends ChangeNotifier {
     _setLoading(true);
     _clearError();
     try {
-      // SharedPreferences'tan onboarding durumunu sıfırla
+      // SharedPreferences'tan onboarding durumunu güncelle
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('hasCompletedOnboarding', false);
+      await prefs.setBool('hasCompletedOnboarding', true);
       await prefs.remove('user_token');
       
       // FCM token'ı kaldır
@@ -267,6 +279,10 @@ class AuthViewModel extends ChangeNotifier {
     required String email,
     required String password,
     required String displayName,
+    String? firstName,
+    String? lastName,
+    String? gender,
+    DateTime? birthDate,
   }) async {
     _setLoading(true);
     _clearError();
@@ -276,18 +292,23 @@ class AuthViewModel extends ChangeNotifier {
         email: email,
         password: password,
         displayName: displayName,
+        firstName: firstName,
+        lastName: lastName,
+        gender: gender,
+        birthDate: birthDate,
       );
       
       if (userCredential != null) {
-        // Kullanıcı verilerini al
-        final userData = await _authService.getUserData();
-        _user = userData;
-        notifyListeners();
+        // Kayıt başarılı ancak kullanıcıyı giriş yapmış olarak işaretleme
+        // Kullanıcı daha sonra e-posta ile giriş yapacak
         
-        // FCM token'ı güncelle
-        if (_user != null) {
-          await _notificationService.updateFcmTokenOnLogin(_user!.id);
-        }
+        // Not: Otomatik giriş yapmıyoruz, bu nedenle kullanıcı bilgilerini almıyoruz
+        // ve FCM token güncellemiyoruz.
+        
+        // Çıkış yap, böylece kullanıcı giriş ekranına yönlendirilecek
+        await _authService.signOut();
+        _user = null;
+        notifyListeners();
         
         return true;
       }
@@ -375,6 +396,76 @@ class AuthViewModel extends ChangeNotifier {
       return false;
     } catch (e) {
       _setError('E-posta ile giriş hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Kullanıcının ilk kez giriş yapıp yapmadığını kontrol et
+  Future<bool> isFirstLogin() async {
+    if (_user == null) return false;
+    
+    try {
+      final doc = await _firestore.collection('users').doc(_user!.id).get();
+      
+      // Hesap var ama gerekli profil alanları eksikse ilk giriş kabul et
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        
+        if (data == null) return true;
+        
+        final hasFirstName = data.containsKey('firstName') && data['firstName'] != null;
+        final hasLastName = data.containsKey('lastName') && data['lastName'] != null;
+        final hasGender = data.containsKey('gender') && data['gender'] != null;
+        
+        // Google/Apple giriş için doğum tarihi kontrolü
+        final hasAppleOrGoogleLogin = _user!.authProvider == 'google.com' || _user!.authProvider == 'apple.com';
+        final hasBirthDate = data.containsKey('birthDate') && data['birthDate'] != null;
+        
+        if (hasAppleOrGoogleLogin) {
+          return !(hasFirstName && hasLastName && hasGender && hasBirthDate);
+        } else {
+          return !(hasFirstName && hasLastName && hasGender);
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      _logger.e('İlk giriş kontrolü hatası: $e');
+      return false;
+    }
+  }
+
+  // Kullanıcı profil bilgilerini güncelle
+  Future<bool> updateUserProfile({
+    required String firstName, 
+    required String lastName, 
+    required String gender,
+    DateTime? birthDate,
+  }) async {
+    if (_user == null) return false;
+    
+    _setLoading(true);
+    _clearError();
+    
+    try {
+      // Kullanıcı verilerini güncelle
+      await _firestore.collection('users').doc(_user!.id).update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'gender': gender,
+        'birthDate': birthDate,
+        'displayName': '$firstName $lastName', // displayName'i güncelle
+        'profileCompleted': true, // Profil tamamlandı olarak işaretle
+      });
+      
+      // Kullanıcı bilgilerini yenile
+      await refreshUserData();
+      
+      return true;
+    } catch (e) {
+      _setError('Profil güncelleme hatası: $e');
       return false;
     } finally {
       _setLoading(false);

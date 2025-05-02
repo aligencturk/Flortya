@@ -1817,7 +1817,7 @@ class _HomeViewState extends State<HomeView> {
                                 try {
                                   // Önce SharedPreferences'tan bilgileri temizle
                                   final prefs = await SharedPreferences.getInstance();
-                                  await prefs.setBool('hasCompletedOnboarding', false);
+                                  await prefs.setBool('hasCompletedOnboarding', true);
                                   await prefs.remove('user_token');
                                   await prefs.remove('user_login_state');
                                   
@@ -1825,8 +1825,8 @@ class _HomeViewState extends State<HomeView> {
                                   await authViewModel.signOut();
                                   
                                   if (context.mounted) {
-                                    // Force kullanarak doğrudan onboarding sayfasına git
-                                    context.go('/onboarding');
+                                    // Onboarding yerine login sayfasına yönlendir
+                                    context.go('/login');
                                   }
                                 } catch (e) {
                                   debugPrint('Çıkış yapma hatası: $e');
