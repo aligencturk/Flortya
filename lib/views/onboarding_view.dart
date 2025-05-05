@@ -335,17 +335,13 @@ class _OnboardingViewState extends State<OnboardingView> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Google ile Giriş butonu
+                    // Hadi Başlayalım butonu
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        icon: Image.asset(
-                          'assets/icons/pngwing.com.png',
-                          width: 24,
-                          height: 24,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.g_mobiledata, color: Colors.red, size: 24);
-                          },
+                        icon: const Text(
+                          '❤️',
+                          style: TextStyle(fontSize: 20),
                         ),
                         label: _isLoading 
                           ? const SizedBox(
@@ -356,43 +352,66 @@ class _OnboardingViewState extends State<OnboardingView> {
                                 renk: Colors.white,
                               ),
                             )
-                          : const Text('Google ile Giriş Yap'),
-                        onPressed: _isLoading ? null : _handleSignInWithGoogle,
+                          : const Text('Hadi Başlayalım'),
+                        onPressed: _isLoading ? null : () async {
+                          debugPrint('Hadi Başlayalım butonuna tıklandı');
+                          try {
+                            await _completeOnboarding();
+                            if (mounted) {
+                              debugPrint('Login sayfasına yönlendirme başlıyor...');
+                              
+                              // 1. Yöntem: GoRouter.go ile yönlendirme
+                              try {
+                                debugPrint('1. Yöntem deneniyor: context.go(AppRouter.login)');
+                                context.go(AppRouter.login);
+                                debugPrint('1. Yöntem başarılı olabilir');
+                                return; // Başarılı olduysa diğer yöntemleri deneme
+                              } catch (navigasyon1Hatasi) {
+                                debugPrint('1. Yöntem hatası: $navigasyon1Hatasi');
+                              }
+                              
+                              // 500ms bekle ve 2. yöntemi dene
+                              await Future.delayed(const Duration(milliseconds: 500));
+                              if (!mounted) return;
+                              
+                              // 2. Yöntem: context.pushReplacement ile yönlendirme
+                              try {
+                                debugPrint('2. Yöntem deneniyor: context.pushReplacement(AppRouter.login)');
+                                context.pushReplacement(AppRouter.login);
+                                debugPrint('2. Yöntem başarılı olabilir');
+                                return; // Başarılı olduysa diğer yöntemleri deneme
+                              } catch (navigasyon2Hatasi) {
+                                debugPrint('2. Yöntem hatası: $navigasyon2Hatasi');
+                              }
+                              
+                              // 500ms bekle ve 3. yöntemi dene
+                              await Future.delayed(const Duration(milliseconds: 500));
+                              if (!mounted) return;
+                              
+                              // 3. Yöntem: Navigator.pushNamedAndRemoveUntil ile yönlendirme
+                              try {
+                                debugPrint('3. Yöntem deneniyor: Navigator.pushNamedAndRemoveUntil');
+                                Navigator.of(context).pushNamedAndRemoveUntil(
+                                  AppRouter.login, 
+                                  (route) => false
+                                );
+                                debugPrint('3. Yöntem başarılı olabilir');
+                                return; // Başarılı olduysa diğer yöntemleri deneme
+                              } catch (navigasyon3Hatasi) {
+                                debugPrint('3. Yöntem hatası: $navigasyon3Hatasi');
+                              }
+                            }
+                          } catch (e) {
+                            debugPrint('Onboarding tamamlama hatası: $e');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Hata: ${e.toString()}')),
+                              );
+                            }
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black87,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Apple ile Giriş butonu
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.apple, color: Colors.white, size: 24),
-                        label: _isLoading 
-                          ? const SizedBox(
-                              width: 20, 
-                              height: 20, 
-                              child: YuklemeAnimasyonu(
-                                boyut: 20.0,
-                                renk: Colors.white,
-                              ),
-                            )
-                          : const Text('Apple ile Giriş Yap'),
-                        onPressed: _isLoading ? null : _handleSignInWithApple,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
+                          backgroundColor: const Color(0xFF9D3FFF),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           textStyle: const TextStyle(
@@ -409,11 +428,13 @@ class _OnboardingViewState extends State<OnboardingView> {
                 ),
               ),
             
-            // Alt Butonlar (Atla, İleri, Başla)
+            // Alt Butonlar (Atla, İleri) - Son sayfada Başla butonu gizlenecek
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: _currentPage == _onboardingItems.length - 1 
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.spaceBetween,
                 children: [
                   // Atla butonu
                   Material(
@@ -446,143 +467,40 @@ class _OnboardingViewState extends State<OnboardingView> {
                     ),
                   ),
                   
-                  // İleri veya Başla butonu
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (_currentPage == _onboardingItems.length - 1) {
-                        // Son sayfadaysa ana sayfaya git
-                        debugPrint('Başla butonuna tıklandı');
-                        try {
-                          await _completeOnboarding();
-                          if (mounted) {
-                            debugPrint('Login sayfasına yönlendirme başlıyor...');
-                            
-                            // 1. Yöntem: GoRouter.go ile yönlendirme
-                            try {
-                              debugPrint('1. Yöntem deneniyor: context.go(AppRouter.login)');
-                              context.go(AppRouter.login);
-                              debugPrint('1. Yöntem başarılı olabilir');
-                              return; // Başarılı olduysa diğer yöntemleri deneme
-                            } catch (navigasyon1Hatasi) {
-                              debugPrint('1. Yöntem hatası: $navigasyon1Hatasi');
-                            }
-                            
-                            // 500ms bekle ve 2. yöntemi dene
-                            await Future.delayed(const Duration(milliseconds: 500));
-                            if (!mounted) return;
-                            
-                            // 2. Yöntem: context.pushReplacement ile yönlendirme
-                            try {
-                              debugPrint('2. Yöntem deneniyor: context.pushReplacement(AppRouter.login)');
-                              context.pushReplacement(AppRouter.login);
-                              debugPrint('2. Yöntem başarılı olabilir');
-                              return; // Başarılı olduysa diğer yöntemleri deneme
-                            } catch (navigasyon2Hatasi) {
-                              debugPrint('2. Yöntem hatası: $navigasyon2Hatasi');
-                            }
-                            
-                            // 500ms bekle ve 3. yöntemi dene
-                            await Future.delayed(const Duration(milliseconds: 500));
-                            if (!mounted) return;
-                            
-                            // 3. Yöntem: Navigator.pushNamedAndRemoveUntil ile yönlendirme
-                            try {
-                              debugPrint('3. Yöntem deneniyor: Navigator.pushNamedAndRemoveUntil');
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                AppRouter.login, 
-                                (route) => false
-                              );
-                              debugPrint('3. Yöntem başarılı olabilir');
-                              return; // Başarılı olduysa diğer yöntemleri deneme
-                            } catch (navigasyon3Hatasi) {
-                              debugPrint('3. Yöntem hatası: $navigasyon3Hatasi');
-                            }
-                            
-                            // 500ms bekle ve 4. yöntemi dene
-                            await Future.delayed(const Duration(milliseconds: 1000));
-                            if (!mounted) return;
-                            
-                            // 4. Yöntem: Gecikmeli Navigator.pushReplacementNamed ile yönlendirme
-                            debugPrint('4. Yöntem deneniyor: Gecikmeli Navigator.pushReplacementNamed');
-                            Future.delayed(const Duration(seconds: 1), () {
-                              if (mounted) {
-                                try {
-                                  Navigator.of(context).pushReplacementNamed(AppRouter.login);
-                                  debugPrint('4. Yöntem başarılı olabilir');
-                                } catch (navigasyon4Hatasi) {
-                                  debugPrint('4. Yöntem hatası: $navigasyon4Hatasi');
-                                  
-                                  // Tüm yöntemler başarısız olduysa kullanıcıya bilgi ver
-                                  showDialog(
-                                    context: context, 
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text('Yönlendirme Hatası'),
-                                      content: const Text('Ana sayfaya yönlendirme yapılamadı. Lütfen uygulamayı yeniden başlatın.'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(ctx).pop(),
-                                          child: const Text('Tamam'),
-                                        )
-                                      ],
-                                    )
-                                  );
-                                }
-                              }
-                            });
-                          }
-                        } catch (e) {
-                          debugPrint('Onboarding tamamlama hatası: $e');
-                          // Hata durumunu kullanıcıya bildir
-                          if (mounted) {
-                            showDialog(
-                              context: context, 
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Onboarding Hatası'),
-                                content: const Text('Onboarding işlemi tamamlanamadı. Lütfen tekrar deneyin.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text('Tamam'),
-                                  )
-                                ],
-                              )
-                            );
-                          }
-                        }
-                      } else {
+                  // İleri butonu - Sadece son sayfada değilse göster
+                  if (_currentPage != _onboardingItems.length - 1)
+                    ElevatedButton(
+                      onPressed: () {
                         // Sonraki sayfaya git
                         debugPrint('İleri butonuna tıklandı');
                         _pageController.nextPage(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                         );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9D3FFF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9D3FFF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'İleri',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward, size: 16),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _currentPage == _onboardingItems.length - 1 ? 'Başla' : 'İleri',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (_currentPage != _onboardingItems.length - 1) ...[
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward, size: 16),
-                        ],
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),

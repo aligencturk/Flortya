@@ -145,6 +145,9 @@ class _HomeViewState extends State<HomeView> {
   final GlobalKey _categoryAnalysisKey = GlobalKey();
   final GlobalKey _relationshipEvaluationKey = GlobalKey();
   
+  bool _hesapBilgileriAcik = false;
+  bool _isProfileDataLoaded = false; // Profil verilerinin yüklenip yüklenmediğini takip eden bayrak
+  
   @override
   void initState() {
     super.initState();
@@ -1613,6 +1616,15 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildProfileTab(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
     
+    // Profil sayfası açıldığında kullanıcı bilgilerini sadece bir kez güncelle
+    // Bu değişkeni sınıf değişkeni olarak tanımlamamız gerekli
+    if (!_isProfileDataLoaded) {
+      // Bu işlemi sadece bir kez yapmak için bayrak kullanıyoruz
+      _isProfileDataLoaded = true;
+      // Bir kez çağrıldıktan sonra, artık her rebuild'de çağrılmayacak
+      Future.microtask(() => authViewModel.refreshUserData());
+    }
+    
     return SafeArea(
       child: Column(
         children: [
@@ -1793,14 +1805,68 @@ class _HomeViewState extends State<HomeView> {
                             icon: Icons.person,
                             title: 'Hesap Bilgileri',
                           ),
-                          _buildProfileMenuItem(
-                            icon: Icons.notifications,
-                            title: 'Bildirim Ayarları',
+                          
+                          // Hesap Bilgileri Açılır Panel
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            height: _hesapBilgileriAcik ? null : 0,
+                            margin: EdgeInsets.only(
+                              top: _hesapBilgileriAcik ? 8 : 0,
+                              bottom: _hesapBilgileriAcik ? 8 : 0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: _hesapBilgileriAcik
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Consumer<AuthViewModel>(
+                                        builder: (context, authViewModel, _) {
+                                          final user = FirebaseAuth.instance.currentUser;
+                                          final displayName = user?.displayName ?? 'İsimsiz Kullanıcı';
+                                          final email = user?.email ?? '-';
+                                          
+                                          // AuthViewModel'den daha fazla bilgi al
+                                          final gender = authViewModel.user?.gender ?? 'Belirtilmemiş';
+                                          final birthDate = authViewModel.user?.birthDate;
+                                          final formattedBirthDate = birthDate != null
+                                              ? '${birthDate.day.toString().padLeft(2, '0')}.${birthDate.month.toString().padLeft(2, '0')}.${birthDate.year}'
+                                              : 'Belirtilmemiş';
+                                          
+                                          return Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              _buildUserInfoRow(
+                                                label: 'Ad Soyad:',
+                                                value: displayName,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _buildUserInfoRow(
+                                                label: 'E-posta:',
+                                                value: email,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _buildUserInfoRow(
+                                                label: 'Cinsiyet:',
+                                                value: gender,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _buildUserInfoRow(
+                                                label: 'Doğum Tarihi:',
+                                                value: formattedBirthDate,
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  )
+                                : null,
                           ),
-                          _buildProfileMenuItem(
-                            icon: Icons.security,
-                            title: 'Gizlilik ve Güvenlik',
-                          ),
+                          
                           _buildProfileMenuItem(
                             icon: Icons.question_answer,
                             title: 'Yardım ve Destek',
@@ -1921,16 +1987,18 @@ class _HomeViewState extends State<HomeView> {
     required IconData icon,
     required String title,
   }) {
+    final bool isHesapBilgileri = title == 'Hesap Bilgileri';
+    final bool isExpanded = isHesapBilgileri && _hesapBilgileriAcik;
+    
     return InkWell(
       onTap: () {
         debugPrint('Profil menü öğesine tıklandı: $title');
         // Menü öğesine göre dialog veya sayfa aç
         if (title == 'Hesap Bilgileri') {
-          _showAccountSettingsDialog(context);
-        } else if (title == 'Bildirim Ayarları') {
-          _showNotificationSettingsDialog(context);
-        } else if (title == 'Gizlilik ve Güvenlik') {
-          _showPrivacySettingsDialog(context);
+          // Dialog yerine aşağıya açılır panel için durumu güncelle
+          setState(() {
+            _hesapBilgileriAcik = !_hesapBilgileriAcik;
+          });
         } else if (title == 'Yardım ve Destek') {
           _showHelpSupportDialog(context);
         } else if (title == 'Geçmiş Analizler') {
@@ -1953,7 +2021,15 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
             const Spacer(),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+            AnimatedRotation(
+              turns: isExpanded ? 0.25 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: isHesapBilgileri ? Colors.white : Colors.white70,
+              ),
+            ),
           ],
         ),
       ),
@@ -3382,6 +3458,69 @@ class _HomeViewState extends State<HomeView> {
     } catch (e) {
       Utils.showErrorFeedback(context, 'Ayarlar kaydedilirken hata oluştu');
     }
+  }
+
+  // Kullanıcı bilgi satırı oluşturma
+  Widget _buildUserInfoRow({required String label, required String value}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Kullanıcı cinsiyetini alma
+  String _getUserGender() {
+    // Doğrudan Firestore'dan kullanıcı bilgilerini al
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return 'Belirtilmemiş';
+    
+    // Asenkron işlem yerine widget içinde FutureBuilder kullanımı daha uygun olacak
+    // ancak burada basit bir şekilde en son alınan veriyi döndürelim
+    try {
+      return Provider.of<AuthViewModel>(context, listen: false).user?.gender ?? 'Belirtilmemiş';
+    } catch (e) {
+      debugPrint('Cinsiyet bilgisi alınırken hata: $e');
+      return 'Belirtilmemiş';
+    }
+  }
+  
+  // Kullanıcı doğum tarihini alma
+  String _getUserBirthDate() {
+    // Doğrudan Firestore'dan kullanıcı bilgilerini al
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return 'Belirtilmemiş';
+
+    try {
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final birthDate = authViewModel.user?.birthDate;
+      
+      if (birthDate != null) {
+        return '${birthDate.day.toString().padLeft(2, '0')}.${birthDate.month.toString().padLeft(2, '0')}.${birthDate.year}';
+      }
+    } catch (e) {
+      debugPrint('Doğum tarihi bilgisi alınırken hata: $e');
+    }
+    
+    return 'Belirtilmemiş';
   }
 } 
 

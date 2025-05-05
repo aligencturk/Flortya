@@ -7,6 +7,8 @@ import '../utils/utils.dart';
 import '../controllers/home_controller.dart';
 import '../controllers/message_coach_controller.dart';
 import '../services/data_reset_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -83,7 +85,7 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Profil Bilgilerini Düzenle',
               icon: Icons.person_outline,
               onTap: () {
-                // Profil düzenleme sayfasına gitme işlemi
+                _showEditProfileDialog(context);
               },
             ),
             
@@ -129,7 +131,8 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Gizlilik Politikası',
               icon: Icons.privacy_tip_outlined,
               onTap: () {
-                _showPrivacySettingsDialog(context);
+                // Gizlilik politikası için yeni işlev eklenecek
+                Utils.showToast(context, 'Gizlilik politikası yakında eklenecek');
               },
             ),
             
@@ -612,37 +615,55 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop(); // Dialog'u kapat
+              // Dialog'u kapat
+              Navigator.of(context).pop(); 
               
-              // Hesap silme işlemini başlat
-              Utils.showLoadingDialog(context, 'Hesabınız siliniyor...');
+              // BuildContext'i değişkende tutarak capture edilmesi
+              final BuildContext currentContext = context;
+              
+              // Yükleme diyaloğunu göster
+              Utils.showLoadingDialog(currentContext, 'Hesabınız siliniyor...');
               
               try {
-                final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                final authViewModel = Provider.of<AuthViewModel>(currentContext, listen: false);
                 final bool success = await authViewModel.deleteUserAccount();
                 
-                // Loading dialog'u kapat
+                // Hesap silme işlemi tamamlandı
+                // mounted kontrolü - widget hala ağaçta mı?
                 if (!mounted) return;
-                Navigator.of(context, rootNavigator: true).pop();
+                
+                // Yükleme diyaloğunu kapat - güvenli şekilde
+                if (Navigator.canPop(currentContext)) {
+                  Navigator.of(currentContext, rootNavigator: true).pop();
+                }
                 
                 if (success) {
                   // Hesap başarıyla silindi, kullanıcıyı giriş ekranına yönlendir
                   if (!mounted) return;
-                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  
+                  // Giriş sayfasına yönlendir
+                  Navigator.of(currentContext).pushNamedAndRemoveUntil('/login', (route) => false);
                 } else {
                   // Hata mesajını göster
-                  if (!mounted) return;
-                  Utils.showErrorFeedback(
-                    context, 
-                    authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
-                  );
+                  if (mounted) {
+                    Utils.showErrorFeedback(
+                      currentContext, 
+                      authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
+                    );
+                  }
                 }
               } catch (e) {
-                // Loading dialog'u kapat
+                // Hata oluştu
                 if (!mounted) return;
-                Navigator.of(context, rootNavigator: true).pop();
                 
-                Utils.showErrorFeedback(context, 'Hesap silme işleminde hata: $e');
+                // Yükleme diyaloğunu kapat - güvenli şekilde
+                if (Navigator.canPop(currentContext)) {
+                  Navigator.of(currentContext, rootNavigator: true).pop();
+                }
+                
+                if (mounted) {
+                  Utils.showErrorFeedback(currentContext, 'Hesap silme işleminde hata: $e');
+                }
               }
             },
             style: TextButton.styleFrom(
@@ -653,190 +674,6 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ],
       ),
-    );
-  }
-
-  // Gizlilik ve Güvenlik Dialog
-  void _showPrivacySettingsDialog(BuildContext context) {
-    bool hesapGizlilik = true;
-    bool konum = false;
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: const Color(0xFF352269),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.0),
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Başlık ve Kapat Butonu
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Gizlilik ve Güvenlik',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Hesap Gizliliği
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Hesap Gizliliği',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Switch(
-                          value: hesapGizlilik,
-                          onChanged: (value) {
-                            setState(() {
-                              hesapGizlilik = value;
-                            });
-                          },
-                          activeColor: const Color(0xFF9D3FFF),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 10),
-                    
-                    // Konum Erişimi
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Konum Erişimi',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Switch(
-                          value: konum,
-                          onChanged: (value) {
-                            setState(() {
-                              konum = value;
-                            });
-                          },
-                          activeColor: const Color(0xFF9D3FFF),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Şifre Değiştir Butonu
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Şifre değiştirme özelliği yakında eklenecek')),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(color: Colors.white30),
-                          ),
-                        ),
-                        child: const Text('Şifre Değiştir'),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Verileri Sıfırla Butonu
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(); // Önce mevcut diyaloğu kapat
-                          _showDataResetDialog(); // Onay diyaloğunu göster
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent.withOpacity(0.8),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('Verileri Sıfırla'),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Kaydet Butonu
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Gizlilik ayarlarını kaydet
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Gizlilik ayarları kaydedildi')),
-                          );
-                          Navigator.of(context).pop();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9D3FFF),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('Kaydet'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-        );
-      },
     );
   }
 
@@ -1128,6 +965,277 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         );
       },
+    );
+  }
+
+  // Profil düzenleme diyaloğu
+  void _showEditProfileDialog(BuildContext context) {
+    // Kontrolcüleri oluştur
+    TextEditingController adSoyadController = TextEditingController();
+    TextEditingController telefonController = TextEditingController();
+    
+    // Doğum tarihi için değişken
+    DateTime? selectedBirthDate;
+    // Cinsiyet için değişken
+    String selectedGender = 'Belirtilmemiş';
+    
+    // Dialog kapandığında kontrolcüleri temizle
+    void dispose() {
+      adSoyadController.dispose();
+      telefonController.dispose();
+    }
+    
+    // Mevcut kullanıcı bilgilerini al
+    final user = FirebaseAuth.instance.currentUser;
+    
+    // Firestore'dan kullanıcı bilgilerini al
+    Future<void> getUserData() async {
+      if (user != null) {
+        adSoyadController.text = user.displayName ?? '';
+        
+        try {
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+            
+            telefonController.text = userData['phoneNumber'] ?? '';
+            
+            // Cinsiyet bilgisini al
+            if (userData['gender'] != null) {
+              selectedGender = userData['gender'];
+            }
+            
+            // Doğum tarihi bilgisini al
+            if (userData['birthDate'] != null) {
+              if (userData['birthDate'] is Timestamp) {
+                selectedBirthDate = (userData['birthDate'] as Timestamp).toDate();
+              }
+            }
+          }
+        } catch (e) {
+          print('Kullanıcı verileri alınırken hata: $e');
+        }
+      }
+    }
+    
+    // Kullanıcı verilerini yükle
+    getUserData().then((_) {
+      if (context.mounted) {
+        setState(() {}); // Dialog içeriğini güncelle
+      }
+    });
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF3A2A70),
+            title: const Text(
+              'Profil Bilgilerini Düzenle',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: adSoyadController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Ad Soyad',
+                      labelStyle: TextStyle(color: Colors.white70),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white30),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: telefonController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Telefon Numarası (İsteğe Bağlı)',
+                      labelStyle: TextStyle(color: Colors.white70),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white30),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Cinsiyet seçimi
+                  const Text(
+                    'Cinsiyet',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white30),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedGender,
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFF3A2A70),
+                      style: const TextStyle(color: Colors.white),
+                      underline: Container(),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                      items: <String>['Belirtilmemiş', 'Kadın', 'Erkek', 'Diğer']
+                          .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            selectedGender = newValue;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Doğum tarihi seçimi
+                  const Text(
+                    'Doğum Tarihi',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedBirthDate ?? DateTime(2000),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: ThemeData.dark().copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: Color(0xFF9D3FFF),
+                                onPrimary: Colors.white,
+                                surface: Color(0xFF3A2A70),
+                                onSurface: Colors.white,
+                              ),
+                              dialogBackgroundColor: const Color(0xFF352269),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null && picked != selectedBirthDate) {
+                        setState(() {
+                          selectedBirthDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white30),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            selectedBirthDate != null
+                                ? '${selectedBirthDate!.day.toString().padLeft(2, '0')}.${selectedBirthDate!.month.toString().padLeft(2, '0')}.${selectedBirthDate!.year}'
+                                : 'Seçilmedi',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  dispose(); // Dialog kapanırken kontrolcüleri temizle
+                },
+                child: const Text(
+                  'İptal',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9D3FFF),
+                ),
+                onPressed: () async {
+                  // Yükleniyor göstergesi
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Bilgiler güncelleniyor...')),
+                  );
+                  
+                  try {
+                    // Kullanıcı adını güncelle
+                    if (user != null && adSoyadController.text.isNotEmpty) {
+                      await user.updateDisplayName(adSoyadController.text);
+                      
+                      // Firestore'da da güncelleme yapılabilir
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user.uid)
+                          .update({
+                        'displayName': adSoyadController.text,
+                        'phoneNumber': telefonController.text,
+                        'gender': selectedGender,
+                        'birthDate': selectedBirthDate != null ? Timestamp.fromDate(selectedBirthDate!) : null,
+                        'updatedAt': FieldValue.serverTimestamp(),
+                      });
+                    }
+                    
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      dispose(); // Dialog kapanırken kontrolcüleri temizle
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profil bilgileri güncellendi')),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      dispose(); // Dialog kapanırken kontrolcüleri temizle
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Hata: $e')),
+                      );
+                    }
+                  }
+                },
+                child: const Text(
+                  'Kaydet',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          );
+        }
+      ),
     );
   }
 } 
