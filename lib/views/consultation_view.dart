@@ -163,10 +163,19 @@ class _ConsultationViewState extends State<ConsultationView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF352269),
       appBar: AppBar(
-        title: const Text('İlişki Danışmanı'),
-        backgroundColor: const Color(0xFF9D3FFF),
+        title: const Text(
+          'İlişki Danışmanı',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF352269),
+        elevation: 0,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
@@ -174,14 +183,11 @@ class _ConsultationViewState extends State<ConsultationView> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 5,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              color: const Color(0xFF3A2A70),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,7 +197,7 @@ class _ConsultationViewState extends State<ConsultationView> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF9D3FFF),
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -199,17 +205,21 @@ class _ConsultationViewState extends State<ConsultationView> {
                   'İlişkinizle ilgili sorularınızı yazın, size kişiselleştirilmiş tavsiyeler verelim.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.black54,
+                    color: Colors.white70,
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _questionController,
+                  style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Sorunuzu yazın...',
+                    hintStyle: const TextStyle(color: Colors.white60),
+                    filled: true,
+                    fillColor: Colors.white10,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.grey),
+                      borderSide: BorderSide.none,
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -219,7 +229,7 @@ class _ConsultationViewState extends State<ConsultationView> {
                       onPressed: _isLoading ? null : _sendQuestion,
                       icon: Icon(
                         Icons.send,
-                        color: _isLoading ? Colors.grey : const Color(0xFF9D3FFF),
+                        color: _isLoading ? Colors.grey : Colors.white,
                       ),
                     ),
                   ),
@@ -236,7 +246,7 @@ class _ConsultationViewState extends State<ConsultationView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9D3FFF),
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey,
+                      disabledBackgroundColor: Colors.grey.shade700,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -263,7 +273,7 @@ class _ConsultationViewState extends State<ConsultationView> {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.red.withOpacity(0.5)),
               ),
@@ -285,6 +295,7 @@ class _ConsultationViewState extends State<ConsultationView> {
           if (_responseText != null)
             Expanded(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,11 +303,15 @@ class _ConsultationViewState extends State<ConsultationView> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF9D3FFF).withOpacity(0.1),
+                        color: const Color(0xFF3A2A70),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF9D3FFF).withOpacity(0.3),
-                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +328,7 @@ class _ConsultationViewState extends State<ConsultationView> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: Color(0xFF9D3FFF),
+                                  color: Colors.white,
                                 ),
                               ),
                             ],
@@ -324,11 +339,12 @@ class _ConsultationViewState extends State<ConsultationView> {
                             style: const TextStyle(
                               fontSize: 14,
                               height: 1.5,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
-                    ),
+                    ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
                   ],
                 ),
               ),
@@ -344,14 +360,14 @@ class _ConsultationViewState extends State<ConsultationView> {
                     Icon(
                       Icons.message_outlined,
                       size: 64,
-                      color: Colors.grey.withOpacity(0.5),
+                      color: Colors.white.withOpacity(0.3),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'İlişkiniz hakkında bir soru sorun',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey.withOpacity(0.8),
+                        color: Colors.white.withOpacity(0.7),
                       ),
                     ),
                   ],
