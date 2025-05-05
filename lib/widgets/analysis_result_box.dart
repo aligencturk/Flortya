@@ -469,7 +469,7 @@ class AnalysisResultBox extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         
-        // Tavsiyeler bölümü
+        // Tavsiyeler bölümü - Sadece tavsiyeler bölümünü göster, metin içeriğini gösterme
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),

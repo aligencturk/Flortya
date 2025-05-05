@@ -1413,42 +1413,52 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             const SizedBox(height: 24),
             
             // Butonlar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.push('/consultation');
-                  },
-                  icon: const Icon(Icons.chat_outlined, size: 16),
-                  label: const Text('Danışmak İstiyorum'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9D3FFF),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  // Danışmak İstiyorum butonu
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        context.push('/consultation');
+                      },
+                      icon: const Icon(Icons.chat_outlined, size: 16),
+                      label: const Text('Danışmak İstiyorum'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9D3FFF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.push(AppRouter.pastAnalyses);
-                  },
-                  icon: const Icon(Icons.history, size: 16),
-                  label: const Text('Geçmiş Analizler'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Colors.white30),
+                  const SizedBox(height: 12),
+                  // Geçmiş Analizler butonu
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        context.push(AppRouter.pastAnalyses);
+                      },
+                      icon: const Icon(Icons.history, size: 16),
+                      label: const Text('Geçmiş Analizler'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: const BorderSide(color: Colors.white30),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             
             const SizedBox(height: 16),

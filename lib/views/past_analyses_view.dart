@@ -202,6 +202,7 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           _getEmotionIcon(analysis.emotion),
@@ -209,12 +210,15 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
                           size: 16,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          analysis.emotion,
-                          style: TextStyle(
-                            color: _getEmotionColor(analysis.emotion),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Text(
+                            analysis.emotion,
+                            style: TextStyle(
+                              color: _getEmotionColor(analysis.emotion),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
