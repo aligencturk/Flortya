@@ -1921,6 +1921,10 @@ class _HomeViewState extends State<HomeView> {
                             icon: Icons.assessment,
                             title: 'İlişki Raporları',
                           ),
+                          _buildProfileMenuItem(
+                            icon: Icons.chat_bubble_outline,
+                            title: 'Danışma Geçmişi',
+                          ),
                           
                           const Divider(color: Colors.white24, height: 32),
                           
@@ -2043,6 +2047,8 @@ class _HomeViewState extends State<HomeView> {
           context.go('/past-analyses');
         } else if (title == 'İlişki Raporları') {
           context.go('/past-reports');
+        } else if (title == 'Danışma Geçmişi') {
+          context.go('/past-consultations');
         }
       },
       child: Padding(

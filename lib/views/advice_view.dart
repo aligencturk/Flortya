@@ -572,24 +572,51 @@ class _AdviceViewState extends State<AdviceView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+        // Başlık alanı - daire içinde ikon ve metin olarak düzenlenmiş
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _getSectionIcon(title),
+                color: Colors.white.withOpacity(0.9),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         if (content != null)
-          Text(
-            content,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
+          Padding(
+            padding: const EdgeInsets.only(left: 40), // İçeriği ikon ile hizalamak için padding
+            child: Text(
+              content,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+              ),
             ),
           ),
-        if (child != null) child,
+        if (child != null) 
+          Padding(
+            padding: const EdgeInsets.only(left: 40), // Child widget'ı ikon ile hizalamak için padding
+            child: child,
+          ),
         if (showDivider)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -597,6 +624,16 @@ class _AdviceViewState extends State<AdviceView> {
           ),
       ],
     );
+  }
+  
+  // Başlık içeriğine göre uygun ikonu döndürür
+  IconData _getSectionIcon(String title) {
+    if (title.contains('📊')) return Icons.bar_chart;
+    if (title.contains('💬')) return Icons.chat_bubble_outline;
+    if (title.contains('✍️')) return Icons.edit_note;
+    if (title.contains('🔍')) return Icons.search;
+    if (title.contains('🧭')) return Icons.map_outlined;
+    return Icons.analytics_outlined;
   }
   
   // Etki yüzdelerini gösteren widget

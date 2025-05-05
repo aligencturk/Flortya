@@ -1648,6 +1648,20 @@ class MessageViewModel extends ChangeNotifier {
         return;
       }
       
+      // ÖNEMLİ: Danışma sonuçlarını analyses koleksiyonuna da kaydet
+      if (analysisType == AnalysisType.consultation) {
+        try {
+          // Analiz sonucunu analyses koleksiyonuna ekle
+          await userRef.collection('analyses').doc(analysisResult.id).set({
+            ...analysisResult.toMap(),
+            'type': analysisType.toString(),
+          });
+          _logger.i('Danışma analiz sonucu başarıyla analyses koleksiyonuna kaydedildi.');
+        } catch (e) {
+          _logger.e('Danışma sonucu analyses koleksiyonuna kaydedilirken hata: $e');
+        }
+      }
+      
       // Kullanıcı modelini oluştur
       UserModel userModel = UserModel.fromFirestore(userDoc);
       
@@ -1688,6 +1702,49 @@ class MessageViewModel extends ChangeNotifier {
       }
     } catch (e) {
       _logger.e('Analiz sonucu kullanıcı profiline kaydedilirken hata oluştu', e);
+    }
+  }
+
+  // Kullanıcının belirli tipteki analiz sonuçlarını getir
+  Future<List<analysis.AnalysisResult>> getUserAnalysisResults(String userId, {AnalysisType? analysisType}) async {
+    List<analysis.AnalysisResult> results = [];
+    
+    try {
+      final userDocRef = _firestore.collection('users').doc(userId);
+      
+      // Önce kullanıcının olup olmadığını kontrol et
+      final userDoc = await userDocRef.get();
+      if (!userDoc.exists) {
+        return [];
+      }
+      
+      // Analizler alt koleksiyonunu al
+      QuerySnapshot querySnapshot;
+      if (analysisType != null) {
+        // Belirli tipteki analizleri getir
+        querySnapshot = await userDocRef
+            .collection('analyses')
+            .where('type', isEqualTo: analysisType.toString())
+            .orderBy('createdAt', descending: true)
+            .get();
+      } else {
+        // Tüm analizleri getir
+        querySnapshot = await userDocRef
+            .collection('analyses')
+            .orderBy('createdAt', descending: true)
+            .get();
+      }
+      
+      // Analiz sonuçlarını dön
+      results = querySnapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return analysis.AnalysisResult.fromMap(data);
+      }).toList();
+      
+      return results;
+    } catch (e) {
+      _logger.e('Analiz sonuçları getirilirken hata: $e');
+      return [];
     }
   }
 }

@@ -15,6 +15,7 @@ import 'views/past_reports_view.dart';
 import 'views/analysis_detail_view.dart';
 import 'views/report_detail_view.dart';
 import 'views/consultation_view.dart';
+import 'views/past_consultations_view.dart';
 import 'views/settings_view.dart';
 import 'views/conversation_summary_view.dart';
 import 'views/message_coach_view.dart';
@@ -1837,6 +1838,7 @@ class AppRouter {
   // Geçmiş analizler ve raporlar için route sabitleri
   static const String pastAnalyses = '/past-analyses';
   static const String pastReports = '/past-reports';
+  static const String pastConsultations = '/past-consultations';
   static const String analysisDetail = '/analysis-detail';
   static const String reportDetail = '/report-detail';
   static const String consultation = '/consultation';
@@ -2012,6 +2014,12 @@ class AppRouter {
           path: pastReports,
           name: 'pastReports',
           builder: (context, state) => const PastReportsView(),
+        ),
+        
+        GoRoute(
+          path: pastConsultations,
+          name: 'pastConsultations',
+          builder: (context, state) => const PastConsultationsView(),
         ),
         
         GoRoute(

@@ -246,23 +246,38 @@ class _ConsultationViewState extends State<ConsultationView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9D3FFF),
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey.shade700,
+                      disabledBackgroundColor: _isLoading ? const Color(0xFF9D3FFF) : Colors.grey.shade700,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              YuklemeAnimasyonu(
+                                boyut: 24.0,
+                                renk: Colors.white,
+                                tip: AnimasyonTipi.KALP,
+                              ),
+                            ],
                           )
                         : const Text('Gönder'),
                   ),
                 ),
+                // Yükleme durumunda bilgilendirme mesajı
+                if (_isLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Text(
+                      'Sorunuz yapay zeka tarafından değerlendiriliyor...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
