@@ -340,7 +340,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         icon: Image.asset(
-                          'assets/icons/google_icon.png',
+                          'assets/icons/pngwing.com.png',
                           width: 24,
                           height: 24,
                           errorBuilder: (context, error, stackTrace) {

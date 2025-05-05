@@ -569,29 +569,24 @@ class LoginView extends StatelessWidget {
                           side: BorderSide(color: Colors.grey.shade300),
                         ),
                       ),
-                      child: authViewModel.isLoading
-                        ? const SizedBox(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/icons/pngwing.com.png',
                             height: 24,
                             width: 24,
-                            child: YuklemeAnimasyonu(
-                              boyut: 24.0,
-                              renk: Colors.black87,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.g_mobiledata, size: 24),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Google ile Giriş Yap',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
                           ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Google ile Giriş Yap',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     
                     const SizedBox(height: 16),
@@ -788,12 +783,12 @@ class RegisterView extends StatelessWidget {
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.g_mobiledata,
-                                color: Colors.black87,
-                                size: 24,
+                              Image.asset(
+                                'assets/icons/pngwing.com.png',
+                                height: 24,
+                                width: 24,
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 8),
                               const Text(
                                 'Google ile Kayıt Ol',
                                 style: TextStyle(
@@ -1142,12 +1137,12 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.g_mobiledata,
-                                color: Colors.black87,
-                                size: 24,
+                              Image.asset(
+                                'assets/icons/pngwing.com.png',
+                                height: 24,
+                                width: 24,
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 8),
                               const Text(
                                 'Google ile Giriş Yap',
                                 style: TextStyle(
