@@ -76,20 +76,23 @@ class YuklemeAnimasyonu extends StatelessWidget {
     
     // Eğer mesaj varsa animasyon ve mesajı birlikte göster
     if (bilgiMetni != null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          animasyonWidget,
-          const SizedBox(height: 12),
-          Text(
-            bilgiMetni,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            animasyonWidget,
+            const SizedBox(height: 12),
+            Text(
+              bilgiMetni,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       );
     }
     

@@ -309,7 +309,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Yeni Özellik',
+                            'Danışma',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontWeight: FontWeight.bold,
@@ -320,7 +320,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Artık ilişki analizi ve danışma işlevlerini ayrı ekranlarda bulabilirsiniz. Özel bir konuda danışmak için "Danış" butonunu kullanabilirsiniz.',
+                        'İlişki analizi ve danışma işlevlerini ayrı ekranlarda bulabilirsiniz. Özel bir konuda danışmak için "Danış" butonunu kullanabilirsiniz.',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.8),
                           fontSize: 13,
@@ -420,18 +420,21 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     },
                   ),
                   const Spacer(),
-                  // Reset veriler butonu
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                    onPressed: () {
-                      _showResetDialog(context);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.info_outline, color: Colors.white),
-                    onPressed: () {
-                      _showInfoDialog(context);
-                    },
+                  // Butonları Wrap içine alarak taşmayı önlüyoruz
+                  Wrap(
+                    spacing: 4, // butonlar arası boşluk
+                    children: [
+                      // Reset veriler butonu - kaldırıldı
+                      IconButton(
+                        icon: const Icon(Icons.info_outline, color: Colors.white),
+                        onPressed: () {
+                          _showInfoDialog(context);
+                        },
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
                   ),
                 ],
               ),

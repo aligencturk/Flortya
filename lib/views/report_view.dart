@@ -458,29 +458,33 @@ class _ReportViewState extends State<ReportView> {
               children: [
                 // Testi yeniden başlat butonu
                 Expanded(
-                  child: CustomButton(
-                    text: 'Testi Yeniden Başlat',
-                    onPressed: () {
-                      try {
-                        // ViewModel'i al ve resetle
-                        final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-                        reportViewModel.resetReport();
-                        
-                        // UI güncellemesini güvenli şekilde planlama
-                        Future.microtask(() {
-                          if (mounted) {
-                            setState(() {
-                              _showReportResult = false;
-                            });
-                          }
-                        });
-                      } catch (e) {
-                        // Herhangi bir hata durumunda kullanıcıyı bilgilendir
-                        Utils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
-                      }
-                    },
-                    type: ButtonType.outline,
-                    icon: Icons.refresh,
+                  flex: 2,
+                  child: SizedBox(
+                    // Butonu genişletirken sınırlama ekleyerek taşmayı önlüyoruz
+                    child: CustomButton(
+                      text: 'Testi Yeniden Başlat',
+                      onPressed: () {
+                        try {
+                          // ViewModel'i al ve resetle
+                          final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+                          reportViewModel.resetReport();
+                          
+                          // UI güncellemesini güvenli şekilde planlama
+                          Future.microtask(() {
+                            if (mounted) {
+                              setState(() {
+                                _showReportResult = false;
+                              });
+                            }
+                          });
+                        } catch (e) {
+                          // Herhangi bir hata durumunda kullanıcıyı bilgilendir
+                          Utils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
+                        }
+                      },
+                      type: ButtonType.outline,
+                      icon: Icons.refresh,
+                    ),
                   ),
                 ),
                 
@@ -488,13 +492,16 @@ class _ReportViewState extends State<ReportView> {
                 
                 // Testi puanla butonu
                 Expanded(
-                  child: CustomButton(
-                    text: 'Testi Puanla',
-                    onPressed: () {
-                      // Puanlama modalini göster
-                      _showRatingDialog(context);
-                    },
-                    icon: Icons.star,
+                  flex: 1,
+                  child: SizedBox(
+                    child: CustomButton(
+                      text: 'Puanla',
+                      onPressed: () {
+                        // Puanlama modalini göster
+                        _showRatingDialog(context);
+                      },
+                      icon: Icons.star,
+                    ),
                   ),
                 ),
               ],
