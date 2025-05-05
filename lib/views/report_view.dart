@@ -119,7 +119,9 @@ class _ReportViewState extends State<ReportView> {
         ),
       ),
       body: reportViewModel.isLoading
-          ? const YuklemeAnimasyonu()
+          ? const YuklemeAnimasyonu(
+              analizTipi: AnalizTipi.ILISKI_ANKETI,
+            )
           : _showReportResult || reportViewModel.hasReport
               ? _buildReportResult(context, reportViewModel)
               : _buildQuestionForm(context, reportViewModel),

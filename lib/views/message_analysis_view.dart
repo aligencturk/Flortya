@@ -49,6 +49,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   bool _isLoading = false;
   bool _forceEmptyState = false; // Veri sıfırlaması sonrası boş durum gösterimi için flag
   bool _showDetailedAnalysisResult = false; // Analiz detaylarını gösterme durumu
+  bool _isImageAnalysis = false; // Görsel analizi mi yapılıyor?
   
   @override
   void initState() {
@@ -522,7 +523,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     // Analiz sonuçları bölümü
                     Expanded(
                       child: _isLoading
-                        ? Center(child: YuklemeAnimasyonu(renk: Color(0xFF9D3FFF)))
+                        ? Center(child: YuklemeAnimasyonu(
+                            renk: Color(0xFF9D3FFF), 
+                            analizTipi: _isImageAnalysis ? AnalizTipi.FOTOGRAF : AnalizTipi.TXT_DOSYASI
+                          ))
                         : _forceEmptyState || messageViewModel.messages.isEmpty
                           ? _buildEmptyState()
                           : _buildCurrentAnalysisResult(messageViewModel),
@@ -651,6 +655,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     setState(() {
       isProcessing = true;
       _isLoading = true;
+      _isImageAnalysis = true; // Görsel analizi olduğunu belirt
     });
     
     try {
@@ -822,6 +827,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     setState(() {
       isProcessing = true;
       _isLoading = true;
+      _isImageAnalysis = false; // Metin dosyası analizi olduğunu belirt
     });
     
     try {

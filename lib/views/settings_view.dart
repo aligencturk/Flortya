@@ -9,6 +9,7 @@ import '../controllers/message_coach_controller.dart';
 import '../services/data_reset_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/loading_indicator.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -403,7 +404,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     
-    Utils.showLoadingDialog(context, 'Mesaj koçu verileri siliniyor...');
+    Utils.showLoadingDialog(context, 'Mesaj koçu verileri siliniyor...', analizTipi: AnalizTipi.MESAJ_KOCU);
     
     try {
       // Data reset servisini oluştur
@@ -449,7 +450,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     
-    Utils.showLoadingDialog(context, 'İlişki raporları siliniyor...');
+    Utils.showLoadingDialog(context, 'İlişki raporları siliniyor...', analizTipi: AnalizTipi.ILISKI_ANKETI);
     
     try {
       // Data reset servisini oluştur
@@ -498,7 +499,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     
-    Utils.showLoadingDialog(context, 'Analiz verileri siliniyor...');
+    Utils.showLoadingDialog(context, 'Analiz verileri siliniyor...', analizTipi: AnalizTipi.TXT_DOSYASI);
     
     try {
       // Data reset servisini oluştur
@@ -539,7 +540,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     
-    Utils.showLoadingDialog(context, 'Tüm veriler siliniyor...');
+    Utils.showLoadingDialog(context, 'Tüm veriler siliniyor...', analizTipi: AnalizTipi.GENEL);
     
     try {
       // Data reset servisini oluştur
@@ -622,7 +623,7 @@ class _SettingsViewState extends State<SettingsView> {
               final BuildContext currentContext = context;
               
               // Yükleme diyaloğunu göster
-              Utils.showLoadingDialog(currentContext, 'Hesabınız siliniyor...');
+              Utils.showLoadingDialog(currentContext, 'Hesabınız siliniyor...', analizTipi: AnalizTipi.GENEL);
               
               try {
                 final authViewModel = Provider.of<AuthViewModel>(currentContext, listen: false);

@@ -312,7 +312,10 @@ class _AdviceViewState extends State<AdviceView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const YuklemeAnimasyonu(renk: Color(0xFF9D3FFF)),
+                  const YuklemeAnimasyonu(
+                    renk: Color(0xFF9D3FFF),
+                    analizTipi: AnalizTipi.DANISMA,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Mesajınız analiz ediliyor...',

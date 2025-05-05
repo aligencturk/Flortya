@@ -203,7 +203,7 @@ class Utils {
   }
 
   /// Yükleme dialog'u gösterir - İşlem devam ederken kullanıcıyı bilgilendirir
-  static void showLoadingDialog(BuildContext context, String message) {
+  static void showLoadingDialog(BuildContext context, String message, {AnalizTipi analizTipi = AnalizTipi.GENEL}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -219,18 +219,11 @@ class Utils {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const YuklemeAnimasyonu(
+                YuklemeAnimasyonu(
                   renk: Colors.white,
                   boyut: 40.0,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
+                  mesaj: message,
+                  analizTipi: analizTipi,
                 ),
               ],
             ),

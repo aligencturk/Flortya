@@ -87,72 +87,16 @@ class _MessageCoachViewState extends State<MessageCoachView> {
     }
     
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          controller.baslik,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.info_outline),
-            onPressed: () => _bilgiDialogGoster(context),
-          ),
-        ],
-      ),
-      body: Container(
-        color: theme.scaffoldBackgroundColor,
-        child: Column(
-          children: [
-            // Scroll view içindeki ana içerik
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Açıklama kartı
-                    _buildAciklamaKarti(controller, theme).animate().fadeIn(duration: 400.ms, delay: 200.ms),
-
-                    // Sohbet giriş alanı
-                    _buildSohbetGirisAlani(),
-                    
-                    // Analiz yükleniyor göstergesi
-                    if (controller.yukleniyor)
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: YuklemeAnimasyonu(
-                            tip: AnimasyonTipi.DAIRE,
-                            mesaj: controller.yuklemeMetni,
-                          ),
-                        ),
-                      ),
-                    
-                    // Hata mesajı
-                    if (controller.hataMesaji != null && !controller.yukleniyor)
-                      _buildHataMesaji(controller.hataMesaji!, theme),
-                    
-                    // Analiz sonuçları
-                    if (controller.analizTamamlandi && controller.mevcutAnaliz != null)
-                      _buildAnalizSonuclari(controller.mevcutAnaliz!),
-                    
-                    // Ekran yüksekliği ayarı (klavye açıkken alt alan)
-                    SizedBox(height: _klavyeAcik ? 200 : 50),
-                  ],
-                ),
+      appBar: _buildAppBar(context),
+      body: _isLoading
+          ? Center(
+              child: YuklemeAnimasyonu(
+                tip: AnimasyonTipi.DALGALI,
+                renk: Color(0xFF9D3FFF),
+                analizTipi: AnalizTipi.MESAJ_KOCU,
               ),
-            ),
-            
-            // Alt buton alanı
-            _buildAltButtonAlani(controller),
-          ],
-        ),
-      ),
+            )
+          : _buildBodyContent(context),
     );
   }
 
@@ -1011,5 +955,93 @@ class _MessageCoachViewState extends State<MessageCoachView> {
         ],
       ),
     );
+  }
+
+  // AppBar widget'ı
+  AppBar _buildAppBar(BuildContext context) {
+    final controller = Provider.of<MessageCoachController>(context);
+    return AppBar(
+      title: Text(
+        controller.baslik,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.info_outline),
+          onPressed: () => _bilgiDialogGoster(context),
+        ),
+      ],
+    );
+  }
+
+  // Body content widget'ı
+  Widget _buildBodyContent(BuildContext context) {
+    final controller = Provider.of<MessageCoachController>(context);
+    final theme = Theme.of(context);
+    
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          // Scroll view içindeki ana içerik
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Açıklama kartı
+                  _buildAciklamaKarti(controller, theme).animate().fadeIn(duration: 400.ms, delay: 200.ms),
+
+                  // Sohbet giriş alanı
+                  _buildSohbetGirisAlani(),
+                  
+                  // Analiz yükleniyor göstergesi
+                  if (controller.yukleniyor)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: YuklemeAnimasyonu(
+                          tip: AnimasyonTipi.DAIRE,
+                          mesaj: controller.yuklemeMetni,
+                        ),
+                      ),
+                    ),
+                  
+                  // Hata mesajı
+                  if (controller.hataMesaji != null && !controller.yukleniyor)
+                    _buildHataMesaji(controller.hataMesaji!, theme),
+                  
+                  // Analiz sonuçları
+                  if (controller.analizTamamlandi && controller.mevcutAnaliz != null)
+                    _buildAnalizSonuclari(controller.mevcutAnaliz!),
+                  
+                  // Ekran yüksekliği ayarı (klavye açıkken alt alan)
+                  SizedBox(height: _klavyeAcik ? 200 : 50),
+                ],
+              ),
+            ),
+          ),
+          
+          // Alt buton alanı
+          _buildAltButtonAlani(controller),
+        ],
+      ),
+    );
+  }
+
+  // Loading durumu
+  bool _isLoading = false;
+
+  // Set loading durumu
+  void _setLoading(bool value) {
+    setState(() {
+      _isLoading = value;
+    });
   }
 } 

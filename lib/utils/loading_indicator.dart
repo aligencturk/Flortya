@@ -8,6 +8,7 @@ class YuklemeAnimasyonu extends StatelessWidget {
   final Color renk;
   final AnimasyonTipi tip;
   final String? mesaj;
+  final AnalizTipi analizTipi;
 
   /// Yükleme animasyonu widget'ı oluşturur.
   /// 
@@ -15,12 +16,14 @@ class YuklemeAnimasyonu extends StatelessWidget {
   /// [renk] - Animasyonun rengi, varsayılan olarak tema birincil rengi
   /// [tip] - Animasyon tipi, varsayılan olarak KALP
   /// [mesaj] - Opsiyonel mesaj, animasyonun altında gösterilir
+  /// [analizTipi] - Analiz tipine göre otomatik bilgilendirme metni gösterilir
   const YuklemeAnimasyonu({
     Key? key,
     this.boyut = 45.0,
     Color? renk,
     this.tip = AnimasyonTipi.KALP,
     this.mesaj,
+    this.analizTipi = AnalizTipi.GENEL,
   }) : renk = renk ?? Colors.pinkAccent, super(key: key);
 
   @override
@@ -63,17 +66,25 @@ class YuklemeAnimasyonu extends StatelessWidget {
         break;
     }
     
+    // Bilgilendirme metni
+    String? bilgiMetni = mesaj;
+    
+    // Eğer mesaj belirtilmemişse ve analiz tipi belirtilmişse, tipin bilgilendirme metnini kullan
+    if (bilgiMetni == null && analizTipi != AnalizTipi.GENEL) {
+      bilgiMetni = _getAnalizMesaji();
+    }
+    
     // Eğer mesaj varsa animasyon ve mesajı birlikte göster
-    if (mesaj != null) {
+    if (bilgiMetni != null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           animasyonWidget,
           const SizedBox(height: 12),
           Text(
-            mesaj!,
+            bilgiMetni,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+              color: Colors.white,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -85,6 +96,25 @@ class YuklemeAnimasyonu extends StatelessWidget {
     // Sadece animasyon göster
     return Center(child: animasyonWidget);
   }
+  
+  // Analiz tipine göre uygun bilgilendirme mesajını döndürür
+  String _getAnalizMesaji() {
+    switch (analizTipi) {
+      case AnalizTipi.FOTOGRAF:
+        return 'Görseller işleniyor, ilişki ipuçları analiz ediliyor...';
+      case AnalizTipi.MESAJ_KOCU:
+        return 'Mesajınız değerlendiriliyor, en etkili iletişim önerisi hazırlanıyor...';
+      case AnalizTipi.TXT_DOSYASI:
+        return 'Yazışmalarınız işleniyor, iletişim örüntüleriniz çözümleniyor...';
+      case AnalizTipi.ILISKI_ANKETI:
+        return 'Anket yanıtlarınız işleniyor, ilişki haritanız oluşturuluyor...';
+      case AnalizTipi.DANISMA:
+        return 'Danışma sorunuz analiz ediliyor, kişisel çözüm üretiliyor...';
+      case AnalizTipi.GENEL:
+      default:
+        return 'İşleminiz yapılıyor, lütfen bekleyin...';
+    }
+  }
 }
 
 /// Animasyon tipleri
@@ -95,6 +125,16 @@ enum AnimasyonTipi {
   NOKTA,
 }
 
+/// Analiz tipleri
+enum AnalizTipi {
+  GENEL,
+  FOTOGRAF,
+  MESAJ_KOCU,
+  TXT_DOSYASI,
+  ILISKI_ANKETI,
+  DANISMA,
+}
+
 /// Uygulamada herhangi bir yerde yükleme animasyonu göstermek için kullanılabilecek fonksiyon.
 /// Bu, doğrudan widget ağacına yerleştirilebilir.
 Widget yuklemeWidgeti({
@@ -102,11 +142,13 @@ Widget yuklemeWidgeti({
   Color? renk,
   AnimasyonTipi tip = AnimasyonTipi.KALP,
   String? mesaj,
+  AnalizTipi analizTipi = AnalizTipi.GENEL,
 }) {
   return YuklemeAnimasyonu(
     boyut: boyut,
     renk: renk,
     tip: tip,
     mesaj: mesaj,
+    analizTipi: analizTipi,
   );
 } 
