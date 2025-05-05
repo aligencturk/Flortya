@@ -1466,8 +1466,46 @@ class _HomeViewState extends State<HomeView> {
                         // const SizedBox(height: 12),
                         // _buildCategoryChangeRow('Çatışma Çözümü', 15, true),
                         
-                        // Kaldırılan yazılardan sonraki Spacer da kaldırıldı
-                        const Spacer(flex: 1), // Bu satır kalabilir veya kaldırılabilir, tasarım tercihine bağlı
+                        // Raporu Gör butonu
+                        Consumer<ReportViewModel>(
+                          builder: (context, reportViewModel, _) {
+                            return Visibility(
+                              visible: reportViewModel.hasReport,
+                              child: Center(
+                                child: Container(
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      // Rapor sayfasına yönlendir
+                                      context.push('/report');
+                                    },
+                                    icon: const Icon(Icons.visibility),
+                                    label: const Text(
+                                      'Raporu Görüntüle',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF9D3FFF),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        
+                        // Spacer
+                        const Spacer(flex: 1),
                       ],
                     ),
                   ),

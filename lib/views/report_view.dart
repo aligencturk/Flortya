@@ -434,6 +434,8 @@ class _ReportViewState extends State<ReportView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: _buildSuggestionList(context, report),
             ),
+            
+            const SizedBox(height: 24),
           ],
         ),
         
