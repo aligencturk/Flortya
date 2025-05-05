@@ -158,7 +158,13 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       _setError('Google ile giriş yapılamadı');
       return false;
     } catch (e) {
-      _setError('Google ile giriş hatası: $e');
+      _logger.e('Google ile giriş hatası: $e');
+      // Hata mesajına göre daha kullanıcı dostu hata mesajı ayarla
+      if (e.toString().contains('invalid-credential')) {
+        _setError('Bu hesap daha önce silinmiş olabilir. Lütfen yeni bir hesap oluşturun.');
+      } else {
+        _setError('Google ile giriş hatası: $e');
+      }
       return false;
     } finally {
       _setLoading(false);
@@ -227,7 +233,13 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       _setError('Apple ile giriş yapılamadı');
       return false;
     } catch (e) {
-      _setError('Apple ile giriş hatası: $e');
+      _logger.e('Apple ile giriş hatası: $e');
+      // Hata mesajına göre daha kullanıcı dostu hata mesajı ayarla
+      if (e.toString().contains('invalid-credential')) {
+        _setError('Bu hesap daha önce silinmiş olabilir. Lütfen yeni bir hesap oluşturun.');
+      } else {
+        _setError('Apple ile giriş hatası: $e');
+      }
       return false;
     } finally {
       _setLoading(false);
@@ -471,6 +483,9 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         case 'user-disabled':
           errorMessage = 'Bu kullanıcı hesabı devre dışı bırakıldı.';
           break;
+        case 'invalid-credential':
+          errorMessage = 'Bu hesap daha önce silinmiş olabilir. Lütfen yeni bir hesap oluşturun.';
+          break;
         default:
           errorMessage = 'Giriş sırasında bir hata oluştu: ${e.message}';
       }
@@ -478,7 +493,13 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       _setError(errorMessage);
       return false;
     } catch (e) {
-      _setError('E-posta ile giriş hatası: $e');
+      _logger.e('E-posta ile giriş hatası: $e');
+      // Hata mesajına göre daha kullanıcı dostu hata mesajı ayarla
+      if (e.toString().contains('invalid-credential')) {
+        _setError('Bu hesap daha önce silinmiş olabilir. Lütfen yeni bir hesap oluşturun.');
+      } else {
+        _setError('E-posta ile giriş hatası: $e');
+      }
       return false;
     } finally {
       _setLoading(false);
