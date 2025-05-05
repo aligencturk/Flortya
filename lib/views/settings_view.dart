@@ -269,24 +269,35 @@ class _SettingsViewState extends State<SettingsView> {
           Column(
             children: [
               _buildResetOption(
-                title: 'İlişki Değerlendirme Verilerini Sıfırla',
+                title: 'Analiz Verilerini Sıfırla',
+                description: 'Görsel analiz, .txt analizleri ve danışma geçmişini siler',
                 onTap: () {
-                  _resetReportData();
                   Navigator.pop(context);
-                },
-              ),
-              _buildResetOption(
-                title: 'Tüm Analiz Verilerini Sıfırla (Mesaj, Metin, Görsel)',
-                onTap: () {
                   _resetAnalysisData();
-                  Navigator.pop(context);
                 },
               ),
               _buildResetOption(
-                title: 'Tüm Verileri Sıfırla',
+                title: 'Mesaj Koçu Verilerini Sıfırla',
+                description: 'Koç geçmişini cihazdan ve Firestore\'dan siler',
                 onTap: () {
-                  _resetAllData();
                   Navigator.pop(context);
+                  _resetMessageCoachData();
+                },
+              ),
+              _buildResetOption(
+                title: 'İlişki Raporlarını Sıfırla',
+                description: 'İlişki raporu içeriklerini cihazdan ve veritabanından siler',
+                onTap: () {
+                  Navigator.pop(context);
+                  _resetReportData();
+                },
+              ),
+              _buildResetOption(
+                title: 'Tüm Verileri Tamamen Sıfırla',
+                description: 'Yukarıdaki 3 başlıktaki tüm verileri siler',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showResetAllConfirmDialog();
                 },
                 isDestructive: true,
               ),
@@ -299,7 +310,49 @@ class _SettingsViewState extends State<SettingsView> {
             style: TextButton.styleFrom(
               foregroundColor: Colors.white,
             ),
-            child: const Text('İptal'),
+            child: const Text('Vazgeç'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showResetAllConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF3A2A70),
+        title: const Text(
+          'Tüm veriler silinsin mi?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Bu işlem geri alınamaz. Sadece analiz, mesaj koçu ve ilişki rapor verileri silinir. Hesap bilgileriniz korunur.',
+          style: TextStyle(color: Colors.white),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _resetAllData();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              backgroundColor: Colors.white10,
+            ),
+            child: const Text('Evet, sil'),
           ),
         ],
       ),
@@ -309,6 +362,7 @@ class _SettingsViewState extends State<SettingsView> {
   Widget _buildResetOption({
     required String title,
     required VoidCallback onTap,
+    String? description,
     bool isDestructive = false,
   }) {
     return InkWell(
@@ -321,15 +375,77 @@ class _SettingsViewState extends State<SettingsView> {
             bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
           ),
         ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isDestructive ? Colors.redAccent : Colors.white,
-            fontWeight: isDestructive ? FontWeight.bold : FontWeight.normal,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: isDestructive ? Colors.redAccent : Colors.white,
+                fontWeight: isDestructive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (description != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
+  }
+  
+  void _resetMessageCoachData() async {
+    // Kullanıcı ID'sini al
+    final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+    if (userId == null) {
+      if (!mounted) return;
+      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
+      return;
+    }
+    
+    Utils.showLoadingDialog(context, 'Mesaj koçu verileri siliniyor...');
+    
+    try {
+      // Data reset servisini oluştur
+      final DataResetService resetService = DataResetService();
+      
+      // Mesaj koçu verilerini sil
+      final bool success = await resetService.resetMessageCoachData(userId);
+      
+      // UI verilerini güncelle
+      try {
+        final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
+        messageCoachController.analizSonuclariniSifirla();
+        messageCoachController.analizGecmisiniSifirla();
+      } catch (e) {
+        debugPrint('Mesaj koçu controller verilerini sıfırlarken hata: $e');
+      }
+      
+      // Dialog'u kapat
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      // Başarı durumunu bildir
+      if (success) {
+        Utils.showToast(context, 'Mesaj koçu verileri başarıyla silindi');
+      } else {
+        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
+      }
+    } catch (e) {
+      // Dialog'u kapat
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
+    }
   }
   
   void _resetReportData() async {
@@ -341,7 +457,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     
-    Utils.showLoadingDialog(context, 'İlişki değerlendirme verileri siliniyor...');
+    Utils.showLoadingDialog(context, 'İlişki raporları siliniyor...');
     
     try {
       // Data reset servisini oluştur
@@ -360,7 +476,7 @@ class _SettingsViewState extends State<SettingsView> {
       
       // Başarı durumunu bildir
       if (success) {
-        Utils.showToast(context, 'İlişki değerlendirme verileri başarıyla silindi');
+        Utils.showToast(context, 'İlişki raporları başarıyla silindi');
       } else {
         Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
       }
@@ -382,7 +498,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     
-    Utils.showLoadingDialog(context, 'Mesaj analiz verileri siliniyor...');
+    Utils.showLoadingDialog(context, 'Analiz verileri siliniyor...');
     
     try {
       // Data reset servisini oluştur
@@ -395,22 +511,13 @@ class _SettingsViewState extends State<SettingsView> {
       final homeController = Provider.of<HomeController>(context, listen: false);
       await homeController.resetAnalizVerileri();
       
-      // Mesaj koçu verilerini de sıfırla
-      try {
-        final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
-        messageCoachController.analizSonuclariniSifirla();
-        messageCoachController.analizGecmisiniSifirla();
-      } catch (e) {
-        debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
-      }
-      
       // Dialog'u kapat
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       
       // Başarı durumunu bildir
       if (success) {
-        Utils.showToast(context, 'Mesaj analiz verileri başarıyla silindi');
+        Utils.showToast(context, 'Analiz verileri başarıyla silindi');
       } else {
         Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
       }

@@ -64,6 +64,41 @@ class DataResetService {
     }
   }
   
+  /// Mesaj koçu verilerini siler
+  /// Firestore'da 'message_coach' koleksiyonundaki kullanıcı verilerini hedefler
+  Future<bool> resetMessageCoachData(String userId) async {
+    debugPrint('Mesaj koçu verileri siliniyor...');
+    
+    try {
+      // Batch işlemi başlat
+      WriteBatch batch = _firestore.batch();
+      
+      // Kullanıcının referansı
+      final userRef = _firestore.collection('users').doc(userId);
+      
+      // 1. Mesaj koçu analizlerini sil
+      final coachAnalysesSnapshot = await userRef.collection('message_coach_analyses').get();
+      for (final analysisDoc in coachAnalysesSnapshot.docs) {
+        batch.delete(analysisDoc.reference);
+      }
+      
+      // 2. User belgesindeki koç verileri alanlarını sıfırla
+      batch.update(userRef, {
+        'lastMessageCoachData': null,
+        'messageCoachHistory': []
+      });
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      debugPrint('Mesaj koçu verileri başarıyla silindi');
+      return true;
+    } catch (e) {
+      debugPrint('Mesaj koçu verileri silinirken hata: $e');
+      return false;
+    }
+  }
+  
   /// Mesaj analizlerini siler
   /// Hem mesaj analiz sonuçlarını hem de text, image analizlerini siler
   Future<bool> resetMessageAnalysisData(String userId) async {
@@ -135,17 +170,22 @@ class DataResetService {
       // Mesaj analizlerini sil
       bool messageResult = await resetMessageAnalysisData(userId);
       
+      // Mesaj koçu verilerini sil
+      bool coachResult = await resetMessageCoachData(userId);
+      
       // Ek olarak kullanıcı ana verilerini de sıfırla
       await _firestore.collection('users').doc(userId).update({
         'sonAnalizSonucu': null,
         'analizGecmisi': [],
         'lastRelationshipReport': null,
         'relationshipHistory': [],
+        'lastMessageCoachData': null,
+        'messageCoachHistory': [],
         'preferences.lastResetDate': FieldValue.serverTimestamp()
       });
       
-      debugPrint('Tüm veriler başarıyla silindi. İlişki: $relationshipResult, Mesaj: $messageResult');
-      return relationshipResult && messageResult;
+      debugPrint('Tüm veriler başarıyla silindi. İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult');
+      return relationshipResult && messageResult && coachResult;
     } catch (e) {
       debugPrint('Tüm veriler silinirken hata: $e');
       return false;
