@@ -718,7 +718,7 @@ class AiService {
               'parts': [
                 {
                   'text': '''
-                  Sen bir ilişki koçusun. Aşağıdaki 6 soruya verilen yanıtlara dayanarak bir ilişki raporu hazırla.
+                  Sen bir ilişki koçusun. Aşağıdaki sorulara verilen yanıtlara dayanarak bir ilişki raporu hazırla.
                   
                   Raporu aşağıdaki JSON formatında hazırla:
                   {
@@ -727,23 +727,12 @@ class AiService {
                     "suggestions": ["öneri 1", "öneri 2", "öneri 3"]
                   }
                   
-                  Soru 1: İlişkinizdeki en büyük sorun nedir?
-                  Yanıt: ${answers[0]}
+                  Yanıtların anlamları:
+                  - "Kesinlikle evet": Çok olumlu bir yanıt
+                  - "Kararsızım": Nötr veya belirsiz bir durum
+                  - "Pek sanmam": Olumsuz bir yanıt
                   
-                  Soru 2: Partnerinizle nasıl iletişim kuruyorsunuz?
-                  Yanıt: ${answers[1]}
-                  
-                  Soru 3: İlişkinizde sizi en çok ne mutlu ediyor?
-                  Yanıt: ${answers[2]}
-                  
-                  Soru 4: İlişkinizde gelecek beklentileriniz neler?
-                  Yanıt: ${answers[3]}
-                  
-                  Soru 5: İlişkinizde değiştirmek istediğiniz bir şey var mı?
-                  Yanıt: ${answers[4]}
-
-                  Soru 6: İlişkinizde ne sıklıkla görüşüyorsunuz?
-                  Yanıt: ${answers[5]}
+                  ${_buildQuestionAnswersText(answers)}
                   '''
                 }
               ]
@@ -2244,11 +2233,17 @@ Tavsiyeler pratik, uygulanabilir ve ilişki için faydalı olmalı.
               'parts': [
                 {
                   'text': '''
-İlişki uzmanı olarak görevin, ilişki değerlendirmesi için 10 adet anlamlı ve düşündürücü soru oluşturmak.
+İlişki uzmanı olarak görevin, ilişki değerlendirmesi için 15 adet soru oluşturmak.
 Sorular, ilişkinin farklı yönlerini (iletişim, güven, samimiyet, destek, uyum vb.) değerlendirmeli.
 Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açıklama ekleme.
 
-İlişki değerlendirmesi için 10 adet farklı konularda soru oluştur.
+ÇOK ÖNEMLİ! Sorular kesinlikle "Kesinlikle evet", "Kararsızım", "Pek sanmam" seçenekleriyle cevaplanabilecek formatta olmalı.
+Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
+- "Partnerinize tamamen güvendiğinizi düşünüyor musunuz?" (Uygun)
+- "Partnerinizle ne kadar sıklıkla görüşüyorsunuz?" (Uygun değil, sayısal cevap gerektirir)
+- "İlişkinizde hangi konularda sorun yaşıyorsunuz?" (Uygun değil, açık uçludur)
+
+İlişki değerlendirmesi için 15 adet farklı konularda soru oluştur.
 '''
                 }
               ]
@@ -2291,16 +2286,21 @@ Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açı
   // Yedek sorular
   List<String> _getFallbackQuestions() {
     return [
-      'İlişkinizde en çok değer verdiğiniz özellik nedir?',
-      'İlişkinizde nasıl iletişim kuruyorsunuz?',
-      'Partnerinizle anlaşmazlıklarınızı nasıl çözüyorsunuz?',
-      'İlişkinizde kendinizi ne kadar güvende hissediyorsunuz?',
-      'İlişkinizden gelecekte neler bekliyorsunuz?',
-      'İlişkinizde kendinizi ne kadar özgür hissediyorsunuz?',
-      'Partnerinizle ortak ilgi alanlarınız nelerdir?',
-      'İlişkinizde sizi en çok ne mutlu ediyor?',
-      'Partnerinizle olan iletişiminizde ne gibi zorluklar yaşıyorsunuz?',
-      'İlişkinizde değiştirmek istediğiniz bir şey var mı?',
+      'Partnerinizin duygularınıza değer verdiğini düşünüyor musunuz?',
+      'İlişkinizde isteklerinizi açıkça ifade edebildiğinizi hissediyor musunuz?',
+      'Partnerinize tamamen güvendiğinizi söyleyebilir misiniz?',
+      'İlişkinizde yeterince takdir edildiğinizi düşünüyor musunuz?',
+      'Partnerinizle gelecek planlarınızın uyumlu olduğuna inanıyor musunuz?',
+      'İlişkinizde kendinizi özgür hissettiğinizi düşünüyor musunuz?',
+      'Partnerinizle ortak ilgi alanlarınızın yeterli olduğunu düşünüyor musunuz?',
+      'İlişkinizde sorunları etkili şekilde çözebildiğinize inanıyor musunuz?',
+      'Partnerinizin sizi her konuda desteklediğini hissediyor musunuz?',
+      'İlişkinizde sevgi gösterme biçimlerinizin uyumlu olduğunu düşünüyor musunuz?',
+      'Partnerinizle olan iletişiminizin sağlıklı olduğunu düşünüyor musunuz?',
+      'İlişkinizde yeterince saygı gördüğünüzü hissediyor musunuz?',
+      'Partnerinizle birlikte geçirdiğiniz zamanın yeterli olduğunu düşünüyor musunuz?',
+      'İlişkinizde fedakarlıkların karşılıklı olduğuna inanıyor musunuz?',
+      'Partnerinizin ailenizle ilişkilerinin iyi olduğunu düşünüyor musunuz?',
     ];
   }
 
@@ -2582,5 +2582,25 @@ $kisaltilmisSohbet
         }
       }
     }
+  }
+
+  // Soru ve cevapları metin formatında hazırla
+  String _buildQuestionAnswersText(List<String> answers) {
+    // Güvenli bir şekilde cevaplara eriş (yeterli eleman olduğunu kontrol et)
+    if (answers.isEmpty) {
+      return "Henüz yanıt yok.";
+    }
+    
+    StringBuffer buffer = StringBuffer();
+    
+    for (int i = 0; i < answers.length; i++) {
+      if (answers[i].isNotEmpty) {
+        buffer.writeln("Soru ${i+1}: ${_getFallbackQuestions().length > i ? _getFallbackQuestions()[i] : 'Soru $i'}");
+        buffer.writeln("Yanıt: ${answers[i]}");
+        buffer.writeln();
+      }
+    }
+    
+    return buffer.toString();
   }
 }

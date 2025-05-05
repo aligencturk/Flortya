@@ -1340,31 +1340,38 @@ class _HomeViewState extends State<HomeView> {
                             children: [
                               // Emoji Göstergesi
                               const SizedBox(height: 16),
-                              Text(
-                                _getRelationshipEmoji(relationshipScore),
-                                style: const TextStyle(fontSize: 80),
-                              )
-                              .animate()
-                              .fadeIn(duration: 600.ms)
-                              .slide(begin: const Offset(0, -0.5), end: Offset.zero),
+                              Consumer<ReportViewModel>(
+                                builder: (context, reportViewModel, _) {
+                                  int? score;
+                                  if (reportViewModel.reportResult != null && 
+                                      reportViewModel.reportResult!.containsKey('relationship_type')) {
+                                    final relationshipType = reportViewModel.reportResult!['relationship_type'] as String;
+                                    score = _calculateRelationshipScore(relationshipType);
+                                  }
+                                  return Text(
+                                    _getRelationshipEmoji(score),
+                                    style: const TextStyle(fontSize: 80),
+                                  )
+                                  .animate()
+                                  .fadeIn(duration: 600.ms)
+                                  .slide(begin: const Offset(0, -0.5), end: Offset.zero);
+                                }
+                              ),
                               
                               const SizedBox(height: 20),
                               
                               // Dalga Animasyonu
-                              SizedBox(
-                                height: 80,
-                                width: double.infinity,
-                                child: relationshipScore != null
-                                  ? _buildWaveAnimation(relationshipScore, const Color(0xFF9D3FFF))
-                                  : Container(
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF9D3FFF).withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                              )
-                              .animate()
-                              .fadeIn(delay: 200.ms, duration: 600.ms),
+                              Consumer<ReportViewModel>(
+                                builder: (context, reportViewModel, _) {
+                                  int? score;
+                                  if (reportViewModel.reportResult != null && 
+                                      reportViewModel.reportResult!.containsKey('relationship_type')) {
+                                    final relationshipType = reportViewModel.reportResult!['relationship_type'] as String;
+                                    score = _calculateRelationshipScore(relationshipType);
+                                  }
+                                  return _buildWaveAnimation(score, const Color(0xFF9D3FFF));
+                                }
+                              ),
                             ],
                           ),
                         ),
@@ -3109,42 +3116,22 @@ class _HomeViewState extends State<HomeView> {
     // Puan null ise varsayılan değer kullan
     final dalgaYuksekligi = score != null ? score / 5 : 5.0;
     
-    // Basit bir gradient ile statik bir dalga gösterimi
-    return Container(
-      height: 80,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            color.withOpacity(0.2),
-            color.withOpacity(0.7),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: score != null
-        ? CustomPaint(
-            painter: SimpleDalgaPainter(
-              dalgaYuksekligi: dalgaYuksekligi,
-              dalgaSayisi: 5,
-              renk: color,
-            ),
-          )
-        : Center(
-            child: Text(
-              "Henüz değerlendirme yapılmadı",
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 14,
-              ),
-            ),
-          ),
+    return AnimasyonluDalga(
+      dalgaYuksekligi: dalgaYuksekligi,
+      renk: color,
     );
   }
 
-  // SSS Diyaloğu
+  // Şifre değiştirme (henüz uygulanmamış)
+  void _changePassword() {
+    Utils.showInfoDialog(
+      context,
+      title: 'Yakında',
+      message: 'Şifre değiştirme özelliği yakında eklenecek.',
+    );
+  }
+
+  // SSS butonu için işlev
   void _showFAQDialog(BuildContext context) {
     // SSS içeriği
     final List<Map<String, String>> faqItems = [
@@ -3396,29 +3383,80 @@ class _HomeViewState extends State<HomeView> {
       Utils.showErrorFeedback(context, 'Ayarlar kaydedilirken hata oluştu');
     }
   }
-
-  // Şifre değiştirme (henüz uygulanmamış)
-  void _changePassword() {
-    Utils.showInfoDialog(
-      context,
-      title: 'Yakında',
-      message: 'Şifre değiştirme özelliği yakında eklenecek.',
-    );
-  }
 } 
 
 // Sınıf sonu
+
+// Animasyonlu dalga widget'ı
+class AnimasyonluDalga extends StatefulWidget {
+  final double dalgaYuksekligi;
+  final Color renk;
+  
+  const AnimasyonluDalga({
+    super.key,
+    required this.dalgaYuksekligi,
+    required this.renk,
+  });
+  
+  @override
+  State<AnimasyonluDalga> createState() => _AnimasyonluDalgaState();
+}
+
+class _AnimasyonluDalgaState extends State<AnimasyonluDalga> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+  
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return Container(
+          height: 80,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: CustomPaint(
+            painter: SimpleDalgaPainter(
+              dalgaYuksekligi: widget.dalgaYuksekligi,
+              dalgaSayisi: 5,
+              renk: widget.renk,
+              animasyonDegeri: _animationController.value * 4.0,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 // Basit dalga çizici
 class SimpleDalgaPainter extends CustomPainter {
   final double dalgaYuksekligi;
   final int dalgaSayisi;
   final Color renk;
+  final double animasyonDegeri; // Animasyon için değer eklendi
 
   SimpleDalgaPainter({
     required this.dalgaYuksekligi,
     required this.dalgaSayisi,
     required this.renk,
+    required this.animasyonDegeri, // Animasyon değeri zorunlu parametre
   });
 
   @override
@@ -3439,17 +3477,42 @@ class SimpleDalgaPainter extends CustomPainter {
     // Dalga deseni oluştur
     double waveWidth = width / dalgaSayisi;
     
-    for (int i = 0; i <= dalgaSayisi; i++) {
+    for (double i = 0; i <= dalgaSayisi; i += 0.5) {
       double x1 = i * waveWidth;
-      double y1 = baseY + sin(i * pi) * dalgaYuksekligi;
+      // Animasyon değeri ile dalga hareketliliği sağlanıyor
+      double y1 = baseY + sin((i + animasyonDegeri) * pi) * dalgaYuksekligi;
       
       path.lineTo(x1, y1);
     }
     
     canvas.drawPath(path, paint);
+    
+    // Dalga altını dolgu ile boyama
+    final fillPath = Path();
+    fillPath.moveTo(0, baseY);
+    
+    for (double i = 0; i <= dalgaSayisi; i += 0.5) {
+      double x1 = i * waveWidth;
+      double y1 = baseY + sin((i + animasyonDegeri) * pi) * dalgaYuksekligi;
+      fillPath.lineTo(x1, y1);
+    }
+    
+    // Ekranın alt kısmını kapatma
+    fillPath.lineTo(width, height);
+    fillPath.lineTo(0, height);
+    fillPath.close();
+    
+    // Dolgu rengi
+    final fillPaint = Paint()
+      ..color = renk.withOpacity(0.2)
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawPath(fillPath, fillPaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant SimpleDalgaPainter oldDelegate) => 
+    oldDelegate.animasyonDegeri != animasyonDegeri || 
+    oldDelegate.dalgaYuksekligi != dalgaYuksekligi;
 }
 

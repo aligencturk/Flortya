@@ -14,12 +14,21 @@ class ReportViewModel extends ChangeNotifier {
   
   // Statik sorular (sadece yedek olarak tutuyoruz, artık kullanılmayacak)
   final List<String> _fallbackQuestions = [
-    'İlişkinizdeki en büyük sorun nedir?',
-    'Partnerinizle nasıl iletişim kuruyorsunuz?',
-    'İlişkinizde sizi en çok ne mutlu ediyor?',
-    'İlişkinizde gelecek beklentileriniz neler?',
-    'İlişkinizde değiştirmek istediğiniz bir şey var mı?',
-    'İlişkinizde ne sıklıkla görüşüyorsunuz?',
+    'Partnerinizin duygularınıza değer verdiğini düşünüyor musunuz?',
+    'İlişkinizde isteklerinizi açıkça ifade edebildiğinizi hissediyor musunuz?',
+    'Partnerinize tamamen güvendiğinizi söyleyebilir misiniz?',
+    'İlişkinizde yeterince takdir edildiğinizi düşünüyor musunuz?',
+    'Partnerinizle gelecek planlarınızın uyumlu olduğuna inanıyor musunuz?',
+    'İlişkinizde kendinizi özgür hissettiğinizi düşünüyor musunuz?',
+    'Partnerinizle ortak ilgi alanlarınızın yeterli olduğunu düşünüyor musunuz?',
+    'İlişkinizde sorunları etkili şekilde çözebildiğinize inanıyor musunuz?',
+    'Partnerinizin sizi her konuda desteklediğini hissediyor musunuz?',
+    'İlişkinizde sevgi gösterme biçimlerinizin uyumlu olduğunu düşünüyor musunuz?',
+    'Partnerinizle olan iletişiminizin sağlıklı olduğunu düşünüyor musunuz?',
+    'İlişkinizde yeterince saygı gördüğünüzü hissediyor musunuz?',
+    'Partnerinizle birlikte geçirdiğiniz zamanın yeterli olduğunu düşünüyor musunuz?',
+    'İlişkinizde fedakarlıkların karşılıklı olduğuna inanıyor musunuz?',
+    'Partnerinizin ailenizle ilişkilerinin iyi olduğunu düşünüyor musunuz?',
   ];
   
   // Yapay zeka tarafından üretilen sorular

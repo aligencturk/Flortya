@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:math';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
@@ -326,20 +327,20 @@ class _ReportViewState extends State<ReportView> {
             Expanded(
               child: _buildAnswerButton(
                 context: context,
-                text: 'Evet',
-                isSelected: currentAnswer == 'Evet',
+                text: 'Kesinlikle evet',
+                isSelected: currentAnswer == 'Kesinlikle evet',
                 color: Colors.green,
-                onTap: () => reportViewModel.saveAnswer('Evet'),
+                onTap: () => reportViewModel.saveAnswer('Kesinlikle evet'),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _buildAnswerButton(
                 context: context,
-                text: 'Hayır',
-                isSelected: currentAnswer == 'Hayır',
-                color: Colors.red,
-                onTap: () => reportViewModel.saveAnswer('Hayır'),
+                text: 'Kararsızım',
+                isSelected: currentAnswer == 'Kararsızım',
+                color: Colors.orange,
+                onTap: () => reportViewModel.saveAnswer('Kararsızım'),
               ),
             ),
           ],
@@ -347,10 +348,10 @@ class _ReportViewState extends State<ReportView> {
         const SizedBox(height: 8),
         _buildAnswerButton(
           context: context,
-          text: 'Bilmiyorum',
-          isSelected: currentAnswer == 'Bilmiyorum',
-          color: Colors.orange,
-          onTap: () => reportViewModel.saveAnswer('Bilmiyorum'),
+          text: 'Pek sanmam',
+          isSelected: currentAnswer == 'Pek sanmam',
+          color: Colors.red,
+          onTap: () => reportViewModel.saveAnswer('Pek sanmam'),
         ),
       ],
     );
@@ -507,6 +508,7 @@ class _ReportViewState extends State<ReportView> {
     final report = reportViewModel.reportResult!;
     final relationshipType = report['relationship_type'] ?? 'Belirsiz';
     final color = _getRelationshipTypeColor(relationshipType);
+    final score = _calculateRelationshipScore(relationshipType);
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -557,6 +559,31 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 16),
           
+          // Emoji Göstergesi
+          Text(
+            _getRelationshipEmoji(score),
+            style: const TextStyle(fontSize: 60),
+          )
+          .animate()
+          .fadeIn(duration: 600.ms)
+          .slide(begin: const Offset(0, -0.5), end: Offset.zero),
+          
+          const SizedBox(height: 12),
+          
+          // Dalga animasyonu
+          SizedBox(
+            height: 60,
+            width: double.infinity,
+            child: AnimasyonluDalga(
+              dalgaYuksekligi: score / 5,
+              renk: color,
+            ),
+          )
+          .animate()
+          .fadeIn(delay: 200.ms, duration: 600.ms),
+          
+          const SizedBox(height: 12),
+          
           // İlişki açıklaması - Yapay zeka tarafından üretilen metin
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -605,6 +632,35 @@ class _ReportViewState extends State<ReportView> {
     .fadeIn(duration: 600.ms);
   }
   
+  // İlişki tipine göre emoji seçme
+  String _getRelationshipEmoji(int score) {
+    if (score >= 90) return '😊'; // 90-100 puan - mutlu emoji
+    if (score >= 60) return '🙂'; // 60-89 puan - nötr emoji
+    if (score >= 40) return '😟'; // 40-59 puan - endişeli emoji
+    return '😢'; // 0-39 puan - üzgün emoji
+  }
+  
+  // İlişki tipini puana dönüştürme
+  int _calculateRelationshipScore(String relationshipType) {
+    final Map<String, int> typeScores = {
+      'Güven Odaklı': 85,
+      'Tutkulu': 75,
+      'Uyumlu': 80,
+      'Dengeli': 90,
+      'Mesafeli': 60,
+      'Kaçıngan': 50,
+      'Endişeli': 55,
+      'Çatışmalı': 40,
+      'Kararsız': 60,
+      'Gelişmekte Olan': 70,
+      'Sağlıklı': 95,
+      'Zorlayıcı': 45,
+      'Sağlıklı ve Gelişmekte Olan': 85,
+    };
+    
+    return typeScores[relationshipType] ?? 65;
+  }
+
   // Yedek ilişki tipi açıklaması (Yapay zeka açıklaması yoksa kullanılır)
   String _getFallbackRelationshipDescription(String relationshipType) {
     // Bu fonksiyon sadece yapay zeka metni olmadığında yedek olarak kullanılır
@@ -770,4 +826,133 @@ class _ReportViewState extends State<ReportView> {
       ),
     );
   }
+}
+
+// Animasyonlu dalga widget'ı
+class AnimasyonluDalga extends StatefulWidget {
+  final double dalgaYuksekligi;
+  final Color renk;
+  
+  const AnimasyonluDalga({
+    super.key,
+    required this.dalgaYuksekligi,
+    required this.renk,
+  });
+  
+  @override
+  State<AnimasyonluDalga> createState() => _AnimasyonluDalgaState();
+}
+
+class _AnimasyonluDalgaState extends State<AnimasyonluDalga> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+  
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return Container(
+          height: 60,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: CustomPaint(
+            painter: SimpleDalgaPainter(
+              dalgaYuksekligi: widget.dalgaYuksekligi,
+              dalgaSayisi: 5,
+              renk: widget.renk,
+              animasyonDegeri: _animationController.value * 4.0,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Basit dalga çizici
+class SimpleDalgaPainter extends CustomPainter {
+  final double dalgaYuksekligi;
+  final int dalgaSayisi;
+  final Color renk;
+  final double animasyonDegeri;
+
+  SimpleDalgaPainter({
+    required this.dalgaYuksekligi,
+    required this.dalgaSayisi,
+    required this.renk,
+    required this.animasyonDegeri,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = renk.withOpacity(0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
+    final path = Path();
+    final width = size.width;
+    final height = size.height;
+    
+    // Yatay çizgi (orta)
+    final baseY = height * 0.5;
+    path.moveTo(0, baseY);
+    
+    // Dalga deseni oluştur
+    double waveWidth = width / dalgaSayisi;
+    
+    for (double i = 0; i <= dalgaSayisi; i += 0.5) {
+      double x1 = i * waveWidth;
+      // Animasyon değeri ile dalga hareketliliği sağlanıyor
+      double y1 = baseY + sin((i + animasyonDegeri) * pi) * dalgaYuksekligi;
+      
+      path.lineTo(x1, y1);
+    }
+    
+    canvas.drawPath(path, paint);
+    
+    // Dalga altını dolgu ile boyama
+    final fillPath = Path();
+    fillPath.moveTo(0, baseY);
+    
+    for (double i = 0; i <= dalgaSayisi; i += 0.5) {
+      double x1 = i * waveWidth;
+      double y1 = baseY + sin((i + animasyonDegeri) * pi) * dalgaYuksekligi;
+      fillPath.lineTo(x1, y1);
+    }
+    
+    // Ekranın alt kısmını kapatma
+    fillPath.lineTo(width, height);
+    fillPath.lineTo(0, height);
+    fillPath.close();
+    
+    // Dolgu rengi
+    final fillPaint = Paint()
+      ..color = renk.withOpacity(0.2)
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawPath(fillPath, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant SimpleDalgaPainter oldDelegate) => 
+    oldDelegate.animasyonDegeri != animasyonDegeri || 
+    oldDelegate.dalgaYuksekligi != dalgaYuksekligi;
 } 
