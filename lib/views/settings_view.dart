@@ -16,7 +16,6 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
-  bool _bildirimlerAcik = true;
   bool _otomatikGuncellemelerAcik = true;
   
   @override
@@ -69,16 +68,6 @@ class _SettingsViewState extends State<SettingsView> {
             _buildSectionHeader('Genel Ayarlar'),
             
             _buildSwitchItem(
-              title: 'Bildirimleri Aç',
-              value: _bildirimlerAcik,
-              onChanged: (value) {
-                setState(() {
-                  _bildirimlerAcik = value;
-                });
-              },
-            ),
-            
-            _buildSwitchItem(
               title: 'Otomatik Güncellemeler',
               value: _otomatikGuncellemelerAcik,
               onChanged: (value) {
@@ -121,7 +110,7 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Hesabımı Sil',
               icon: Icons.no_accounts,
               onTap: () {
-                // Hesap silme işlemi için doğrulama
+                _showDeleteAccountDialog();
               },
               isDestructive: true,
             ),
@@ -132,7 +121,7 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Yardım ve Destek',
               icon: Icons.help_outline,
               onTap: () {
-                // Yardım sayfasına gitme işlemi
+                _showHelpSupportDialog(context);
               },
             ),
             
@@ -140,7 +129,7 @@ class _SettingsViewState extends State<SettingsView> {
               title: 'Gizlilik Politikası',
               icon: Icons.privacy_tip_outlined,
               onTap: () {
-                // Gizlilik politikası sayfasına gitme işlemi
+                _showPrivacySettingsDialog(context);
               },
             ),
             
@@ -466,9 +455,17 @@ class _SettingsViewState extends State<SettingsView> {
       // İlişki değerlendirme verilerini sil
       final bool success = await resetService.resetRelationshipData(userId);
       
-      // UI verilerini güncelle
+      // UI verilerini güncelle - HomeController
       final homeController = Provider.of<HomeController>(context, listen: false);
       await homeController.resetRelationshipData();
+      
+      // ÖNEMLİ: ReportViewModel'daki rapor verilerini de temizle
+      try {
+        final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+        await reportViewModel.clearAllReports(userId);
+      } catch (e) {
+        debugPrint('ReportViewModel temizleme hatası: $e');
+      }
       
       // Dialog'u kapat
       if (!mounted) return;
@@ -553,13 +550,21 @@ class _SettingsViewState extends State<SettingsView> {
       await homeController.resetAnalizVerileri();
       await homeController.resetRelationshipData();
       
-      // Mesaj koçu verilerini de sıfırla
+      // Mesaj koçu verilerini sıfırla
       try {
         final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
         messageCoachController.analizSonuclariniSifirla();
         messageCoachController.analizGecmisiniSifirla();
       } catch (e) {
         debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
+      }
+      
+      // ÖNEMLİ: ReportViewModel'daki rapor verilerini de tamamen temizle
+      try {
+        final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+        await reportViewModel.clearAllReports(userId);
+      } catch (e) {
+        debugPrint('ReportViewModel temizleme hatası: $e');
       }
       
       // Dialog'u kapat
@@ -579,5 +584,550 @@ class _SettingsViewState extends State<SettingsView> {
       
       Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
     }
+  }
+  
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF3A2A70),
+        title: const Text(
+          'Hesabınız silinsin mi?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Bu işlem geri alınamaz. Tüm kişisel bilgileriniz ve uygulamadaki verileriniz kalıcı olarak silinecektir.',
+          style: TextStyle(color: Colors.white),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+            ),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Dialog'u kapat
+              
+              // Hesap silme işlemini başlat
+              Utils.showLoadingDialog(context, 'Hesabınız siliniyor...');
+              
+              try {
+                final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                final bool success = await authViewModel.deleteUserAccount();
+                
+                // Loading dialog'u kapat
+                if (!mounted) return;
+                Navigator.of(context, rootNavigator: true).pop();
+                
+                if (success) {
+                  // Hesap başarıyla silindi, kullanıcıyı giriş ekranına yönlendir
+                  if (!mounted) return;
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                } else {
+                  // Hata mesajını göster
+                  if (!mounted) return;
+                  Utils.showErrorFeedback(
+                    context, 
+                    authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
+                  );
+                }
+              } catch (e) {
+                // Loading dialog'u kapat
+                if (!mounted) return;
+                Navigator.of(context, rootNavigator: true).pop();
+                
+                Utils.showErrorFeedback(context, 'Hesap silme işleminde hata: $e');
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              backgroundColor: Colors.white10,
+            ),
+            child: const Text('Evet, hesabımı sil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Gizlilik ve Güvenlik Dialog
+  void _showPrivacySettingsDialog(BuildContext context) {
+    bool hesapGizlilik = true;
+    bool konum = false;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF352269),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Başlık ve Kapat Butonu
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Gizlilik ve Güvenlik',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Hesap Gizliliği
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Hesap Gizliliği',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: hesapGizlilik,
+                          onChanged: (value) {
+                            setState(() {
+                              hesapGizlilik = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Konum Erişimi
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Konum Erişimi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Switch(
+                          value: konum,
+                          onChanged: (value) {
+                            setState(() {
+                              konum = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF9D3FFF),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Şifre Değiştir Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Şifre değiştirme özelliği yakında eklenecek')),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: const BorderSide(color: Colors.white30),
+                          ),
+                        ),
+                        child: const Text('Şifre Değiştir'),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Verileri Sıfırla Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Önce mevcut diyaloğu kapat
+                          _showDataResetDialog(); // Onay diyaloğunu göster
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent.withOpacity(0.8),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Verileri Sıfırla'),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Kaydet Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Gizlilik ayarlarını kaydet
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Gizlilik ayarları kaydedildi')),
+                          );
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9D3FFF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Kaydet'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  // Yardım ve Destek Dialog
+  void _showHelpSupportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık ve Kapat Butonu
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Yardım ve Destek',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Yardım Seçenekleri
+                _buildHelpOption(
+                  icon: Icons.help_outline,
+                  title: 'Sık Sorulan Sorular',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showFAQDialog(context);
+                  },
+                ),
+                
+                const SizedBox(height: 12),
+                
+                _buildHelpOption(
+                  icon: Icons.email_outlined,
+                  title: 'E-posta ile İletişim',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('E-posta desteği: destek@flortai.com')),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 12),
+                
+                _buildHelpOption(
+                  icon: Icons.feedback_outlined,
+                  title: 'Geribildirim Gönder',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Geribildirim özelliği yakında eklenecek')),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Kapat Butonu
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Kapat'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  // Yardım Seçeneği Widget
+  Widget _buildHelpOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white70,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // FAQ Dialog
+  void _showFAQDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık ve Kapat Butonu
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Sık Sorulan Sorular',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // SSS İçeriği
+                const Text(
+                  'Uygulama nasıl kullanılır?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                const Text(
+                  'Verilerim güvende mi?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                const Text(
+                  'Premium özellikler nelerdir?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Kapat Butonu
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Anladım'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 } 

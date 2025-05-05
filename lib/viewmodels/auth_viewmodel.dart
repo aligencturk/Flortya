@@ -249,19 +249,15 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         try {
           await _notificationService.removeFcmTokenOnLogout(_user!.id);
         } catch (fcmError) {
-          // FCM token kaldırma işlemi başarısız olsa bile çıkış işlemine devam et
-          _logger.e('FCM token kaldırılırken hata oluştu: $fcmError');
+          _logger.e('FCM token silinirken hata oluştu: $fcmError');
           // Hatayı kullanıcıya gösterme, sessizce devam et
         }
       }
       
-      // Firebase Auth ile çıkış yap
       await _authServiceImpl.signOut();
       _user = null;
+      _isPremium = false;
       notifyListeners();
-      
-      // Debug için kullanıcı durumunu kontrol et
-      debugPrint('Çıkış yapıldı, kullanıcı durumu: ${_authService.currentUser}');
     } catch (e) {
       _setError('Çıkış yapma hatası: $e');
     } finally {
@@ -565,6 +561,79 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       _isPremium = _user!.isPremium;
     } else {
       _isPremium = false;
+    }
+  }
+
+  // Hesabı silme
+  Future<bool> deleteUserAccount() async {
+    _setLoading(true);
+    _clearError();
+    try {
+      if (_authService.currentUser == null) {
+        _setError('Oturum açmış kullanıcı bulunamadı');
+        return false;
+      }
+      
+      final String uid = _authService.currentUser!.uid;
+      _logger.i('Kullanıcı hesabı siliniyor: $uid');
+      
+      // 1. Kullanıcıya ait tüm Firestore verilerini silme
+      try {
+        // Kullanıcıya ait ana dokümanı sil
+        await _firestore.collection('users').doc(uid).delete();
+        
+        // Kullanıcıya ait diğer koleksiyonlardaki verileri de silebilirsiniz
+        // Örnek: Kullanıcının mesajları, raporları vb.
+        final analizlerSnapshot = await _firestore.collection('analizler')
+            .where('kullaniciId', isEqualTo: uid).get();
+        
+        for (var doc in analizlerSnapshot.docs) {
+          await _firestore.collection('analizler').doc(doc.id).delete();
+        }
+        
+        // Diğer koleksiyonlar için benzer silme işlemleri yapılabilir
+        
+        _logger.i('Kullanıcı Firestore verileri başarıyla silindi');
+      } catch (firestoreError) {
+        _logger.e('Firestore verileri silinirken hata: $firestoreError');
+        // Firestore hatası olsa bile Authentication hesabını silmeye devam edelim
+      }
+      
+      // 2. Authentication hesabını silme
+      try {
+        await _authService.currentUser!.delete();
+        _logger.i('Kullanıcı Authentication hesabı başarıyla silindi');
+        
+        // Kullanıcının cihaz belleğindeki bilgilerini temizle
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear(); // Tüm local verileri temizle
+        
+        // Kullanıcı modelini temizle
+        _user = null;
+        _isPremium = false;
+        notifyListeners();
+        
+        return true;
+      } catch (authError) {
+        // Bu hata genellikle kullanıcının yakın zamanda giriş yapmamış olmasından kaynaklanır
+        _logger.e('Authentication hesabı silinirken hata: $authError');
+        
+        if (authError is FirebaseAuthException) {
+          if (authError.code == 'requires-recent-login') {
+            _setError('Hesabı silmek için yeniden giriş yapmanız gerekiyor');
+            // Burada kullanıcıyı yeniden giriş yapma sayfasına yönlendirebilirsiniz
+            return false;
+          }
+        }
+        
+        _setError('Hesap silme işlemi başarısız: $authError');
+        return false;
+      }
+    } catch (e) {
+      _setError('Hesap silme hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
     }
   }
 } 
