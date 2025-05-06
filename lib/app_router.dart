@@ -1959,7 +1959,7 @@ class AppRouter {
         GoRoute(
           path: advice,
           name: 'advice',
-          builder: (context, state) => const AdviceView(),
+          builder: (context, state) => const MessageCoachView(),
         ),
         // Profil sayfası - Artık doğrudan HomeView'e yönlendirme yapılıyor  
         GoRoute(
@@ -2081,11 +2081,7 @@ class AppRouter {
         GoRoute(
           path: messageCoach,
           name: 'messageCoach',
-          redirect: (context, state) {
-            // Tabbar'daki Mesaj Koçu sekmesine (index 2) yönlendir
-            // Query parametresi olarak tab=2 ekleyelim
-            return '${AppRouter.home}?tab=2';
-          },
+          builder: (context, state) => const MessageCoachView(),
         ),
         
         // Profil kurulum sayfası

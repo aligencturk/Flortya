@@ -116,37 +116,42 @@ class MesajKocuGorselKontrol extends StateNotifier<MesajKocuGorselDurumu> {
     try {
       // Görsel kontrolü
       if (state.secilenGorsel == null) {
+        _logServisi.w('Görsel analizi başlatılamadı: Görsel seçilmemiş');
         state = state.hataOlustur('Lütfen önce bir sohbet görüntüsü yükleyin.');
         return;
       }
       
       // Açıklama kontrolü
       if (aciklama.trim().isEmpty) {
+        _logServisi.w('Görsel analizi başlatılamadı: Açıklama boş');
         state = state.hataOlustur('Lütfen bir açıklama girin.');
         return;
       }
       
       // Yükleme durumunu ayarla
       state = state.yuklemeBaslat();
-      _logServisi.i('Görsel analizi başlatılıyor. Açıklama: $aciklama');
+      _logServisi.i('Görsel analizi başlatılıyor. Görsel: ${state.secilenGorsel!.path}, Açıklama: $aciklama');
       
       // Servisi çağır
+      _logServisi.d('MessageCoachService.sohbetGoruntusunuAnalizeEt çağrılıyor');
       final analiz = await _mesajKocuServisi.sohbetGoruntusunuAnalizeEt(
         state.secilenGorsel!,
         aciklama
       );
       
       if (analiz == null) {
+        _logServisi.e('Analiz sonucu null döndü');
         state = state.hataOlustur('Analiz sonucu alınamadı.');
         return;
       }
       
       // Analiz sonucunu ayarla
       state = state.basarili(analiz);
-      _logServisi.i('Görsel analizi tamamlandı');
+      _logServisi.i('Görsel analizi tamamlandı: ${analiz.isAnalysisRedirect ? 'Yönlendirme' : 'Başarılı analiz'}');
       
       // Analiz sonuçlarını Firebase'e kaydet
       if (state.userId != null && state.userId!.isNotEmpty) {
+        _logServisi.d('Görsel analizi Firebase\'e kaydediliyor: ${state.userId}');
         await _mesajKocuServisi.saveVisualMessageCoachAnalysis(
           userId: state.userId!,
           aciklama: aciklama,
@@ -158,8 +163,9 @@ class MesajKocuGorselKontrol extends StateNotifier<MesajKocuGorselDurumu> {
         _logServisi.w('Görsel analizi kaydedilemedi: Kullanıcı oturum açmamış');
       }
       
-    } catch (e) {
+    } catch (e, stackTrace) {
       _logServisi.e('Görsel analizi hatası', e);
+      _logServisi.e('Stack trace: $stackTrace');
       state = state.hataOlustur(e.toString());
     }
   }

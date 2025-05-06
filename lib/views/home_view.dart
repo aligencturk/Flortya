@@ -25,6 +25,7 @@ import '../models/past_analysis_model.dart';
 import '../models/past_report_model.dart';
 import '../utils/date_time_utils.dart';
 import '../utils/utils.dart';
+import '../views/message_coach_view.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -1578,76 +1579,7 @@ class _HomeViewState extends State<HomeView> {
   
   // Tavsiye Kartı Tab
   Widget _buildAdviceCardTab(BuildContext context) {
-    final adviceViewModel = Provider.of<AdviceViewModel>(context);
-    
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // App Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Consumer<AuthViewModel>(
-                  builder: (context, authViewModel, _) {
-                    final displayName = authViewModel.user?.displayName ?? 'Ziyaretçi';
-                    return Text(
-                      'Merhaba, $displayName',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    );
-                  },
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.help_outline, color: Colors.white),
-                  onPressed: () {
-                    // Yardım sayfasına yönlendir
-                    context.push('/faq');
-                  },
-                ),
-              ],
-            ),
-          ),
-          
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Başlık
-                  const Text(
-                    'Mesaj Koçu',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Mesaj Koçu kartı - Provider'ın otomatik olarak değişiklikleri 
-                  // dinleyebilmesi için Consumer kullanıyoruz
-                  Consumer<AdviceViewModel>(
-                    builder: (context, adviceViewModel, _) {
-                      // isAnalyzing değiştiğinde kart'ın yeniden çizilmesini sağlamak için
-                      return const MessageCoachCard();
-                    }
-                  ),
-                  
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const MessageCoachView();
   }
   
   // Profil Tab

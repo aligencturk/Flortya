@@ -75,7 +75,7 @@ class MessageCoachController extends ChangeNotifier {
   // Görsel modu değiştirme (açma/kapama)
   void gorselModunuDegistir() {
     _gorselModu = !_gorselModu;
-    _logger.i('Görsel modu: $_gorselModu');
+    _logger.i('Görsel modu değiştirildi: $_gorselModu');
     
     // Mevcut analiz sonuçlarını temizle
     analizSonuclariniSifirla();
@@ -86,6 +86,7 @@ class MessageCoachController extends ChangeNotifier {
   void gorselBelirle(File gorsel) {
     _gorselDosya = gorsel;
     _gorselModu = true;
+    _logger.i('Görsel belirlendi: ${gorsel.path}');
     notifyListeners();
   }
   
@@ -275,72 +276,55 @@ Karşı taraf: Tamam, orada görüşürüz.
     }
   }
   
-  // Görsel tabanlı analiz
-  Future<bool> gorselIleAnalizeEt(File gorselDosya, String aciklama) async {
+  // Görsel ile analiz et - MessageCoachService üzerinden direkt çağrı
+  Future<MessageCoachVisualAnalysis?> gorselIleAnalizeEt(File gorselDosya, String aciklama) async {
     try {
       _isLoading = true;
       _errorMessage = '';
       _analizTamamlandi = false;
-      _gorselModu = true;
-      _gorselDosya = gorselDosya;
       notifyListeners();
       
-      _logger.i('Görsel analizi başlatılıyor: ${gorselDosya.path}, Açıklama: $aciklama');
+      _logger.i('Görsel ile analiz başlatılıyor: ${gorselDosya.path}, Açıklama: $aciklama');
       
-      // Görsel kontrolü
-      if (gorselDosya.lengthSync() <= 0) {
-        _setError('Geçersiz görsel dosyası');
-        return false;
+      // Görsel dosyasını ayarla
+      _gorselDosya = gorselDosya;
+      
+      // Açıklama boş kontrolü
+      if (aciklama.trim().isEmpty) {
+        _setError('Lütfen bir açıklama yazın');
+        return null;
       }
       
-      // Yeni eklenen metodu kullan - görsel ve açıklama ile analiz
-      final analiz = await _aiService.gorselVeAciklamaAnalizeEt(gorselDosya, aciklama);
+      // OCR ve analiz işlemini başlat - doğrudan servis üzerinden
+      final analiz = await _mesajKocuService.sohbetGoruntusunuAnalizeEt(
+        gorselDosya, 
+        aciklama
+      );
       
       if (analiz == null) {
-        _setError('Görsel analizi yapılamadı. Lütfen tekrar deneyin.');
-        return false;
+        _setError('Görsel analiz yapılamadı. Lütfen tekrar deneyin.');
+        return null;
       }
       
-      // Analiz sonucunu ayarla
-      _analysis = analiz;
-      _analizTamamlandi = true;
-      
-      // Analiz sonucunu kullanıcı verilerine kaydet (görsel dosyası ile)
-      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
-        try {
-          // Görseli depoya yükleme (basitleştirilmiş, servisin desteklediği metodları kullan)
-          final String imageUrl = await _mesajKocuService.fileUploadToStorage(
-            dosya: gorselDosya,
-            klasor: 'mesaj_kocu_gorseller',
-            userId: _currentUserId!
-          );
-          
-          // Analiz sonucunu kaydet
-          await _mesajKocuService.saveMessageCoachAnalysis(
-            userId: _currentUserId!,
-            sohbetIcerigi: '',
-            aciklama: aciklama,
-            imageUrl: imageUrl,
-            analysis: analiz
-          );
-          
-          _logger.i('Görsel analizi kullanıcı verilerine kaydedildi');
-        } catch (e) {
-          _logger.e('Görsel analizi kaydetme hatası', e);
-          // Analize devam et ama kaydetme hatasını log'la
-        }
+      // Firebase'e kaydet
+      if (_currentUserId != null) {
+        await _mesajKocuService.saveVisualMessageCoachAnalysis(
+          userId: _currentUserId!,
+          aciklama: aciklama,
+          analysis: analiz,
+        );
+        _logger.i('Görsel analizi kaydedildi.');
       }
-      
-      // Analizi geçmişe ekle
-      _analizGecmisiniGuncelle(analiz);
       
       _isLoading = false;
+      _analizTamamlandi = true;
       notifyListeners();
-      return true;
+      
+      return analiz;
     } catch (e) {
-      _logger.e('Görsel analizi hatası', e);
-      _setError('Beklenmeyen bir hata oluştu: $e');
-      return false;
+      _logger.e('Görsel analiz hatası', e);
+      _setError('Görsel analiz edilirken bir hata oluştu: ${e.toString()}');
+      return null;
     }
   }
   
