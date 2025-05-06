@@ -20,6 +20,10 @@ class MessageCoachAnalysis {
   final String? direktYorum;           // Açık ve küstah tavsiye
   final List<String>? cevapOnerileri;  // Cevap önerileri listesi
   
+  // Mesaj koçu için tahmini cevaplar
+  final String? olumluCevapTahmini;    // Olumlu yanıt senaryosu
+  final String? olumsuzCevapTahmini;   // Olumsuz yanıt senaryosu
+  
   // İlk 3 analizi tanımlamak için sabit
   static const int ucretlizAnalizSayisi = 3;
 
@@ -39,6 +43,8 @@ class MessageCoachAnalysis {
     this.sonMesajEtkisi,
     this.direktYorum,
     this.cevapOnerileri,
+    this.olumluCevapTahmini,
+    this.olumsuzCevapTahmini,
   });
 
   factory MessageCoachAnalysis.from(Map<String, dynamic> json) {
@@ -222,6 +228,10 @@ class MessageCoachAnalysis {
         ];
       }
 
+      // Karşı taraf cevap tahminleri
+      String? olumluCevapTahmini = json['olumluCevapTahmini'] ?? json['positiveResponse'];
+      String? olumsuzCevapTahmini = json['olumsuzCevapTahmini'] ?? json['negativeResponse'];
+
       return MessageCoachAnalysis(
         iliskiTipi: iliskiTipi,
         analiz: analiz,
@@ -238,6 +248,8 @@ class MessageCoachAnalysis {
         sonMesajEtkisi: sonMesajEtkisiMap,
         direktYorum: direktYorum,
         cevapOnerileri: cevapOnerileriList,
+        olumluCevapTahmini: olumluCevapTahmini,
+        olumsuzCevapTahmini: olumsuzCevapTahmini,
       );
     } catch (e) {
       print('❌ MesajKocuAnalizi.from hatası: $e');
@@ -259,7 +271,9 @@ class MessageCoachAnalysis {
         direktYorum: 'API yanıtı alınamadı. Lütfen tekrar deneyin.',
         cevapOnerileri: [
           'API yanıtı alınamadı. Lütfen tekrar deneyin.',
-        ]
+        ],
+        olumluCevapTahmini: null,
+        olumsuzCevapTahmini: null
       );
     }
   }
@@ -281,6 +295,8 @@ class MessageCoachAnalysis {
       'son_mesaj_etkisi': sonMesajEtkisi,
       'direkt_yorum': direktYorum,
       'cevap_önerileri': cevapOnerileri,
+      'olumlu_cevap_tahmini': olumluCevapTahmini,
+      'olumsuz_cevap_tahmini': olumsuzCevapTahmini,
     };
   }
 
@@ -301,6 +317,8 @@ class MessageCoachAnalysis {
       'sonMesajEtkisi': sonMesajEtkisi,
       'direktYorum': direktYorum,
       'cevapOnerileri': cevapOnerileri,
+      'olumluCevapTahmini': olumluCevapTahmini,
+      'olumsuzCevapTahmini': olumsuzCevapTahmini,
     };
   }
   
@@ -362,6 +380,9 @@ Direkt Yorum ve Geliştirme:
 ${direktYorum ?? analiz}
 
 ${cevapOnerileri != null ? 'Cevap Önerileri:\n${cevapOnerileri!.join('\n')}' : ''}
+
+${olumluCevapTahmini != null ? 'Olumlu Cevap Tahmini:\n$olumluCevapTahmini' : ''}
+${olumsuzCevapTahmini != null ? 'Olumsuz Cevap Tahmini:\n$olumsuzCevapTahmini' : ''}
 ''';
   }
   

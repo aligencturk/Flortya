@@ -82,7 +82,20 @@ class DataResetService {
         batch.delete(analysisDoc.reference);
       }
       
-      // 2. User belgesindeki koç verileri alanlarını sıfırla
+      // 2. Mesaj koçu geçmişi koleksiyonundaki verileri sil
+      final messageCoachHistorySnapshot = await _firestore
+          .collection('message_coach_history')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      final int messageCoachCount = messageCoachHistorySnapshot.docs.length;
+      debugPrint('Silinecek mesaj koçu geçmişi sayısı: $messageCoachCount');
+      
+      for (final historyDoc in messageCoachHistorySnapshot.docs) {
+        batch.delete(historyDoc.reference);
+      }
+      
+      // 3. User belgesindeki koç verileri alanlarını sıfırla
       batch.update(userRef, {
         'lastMessageCoachData': null,
         'messageCoachHistory': []
@@ -90,6 +103,40 @@ class DataResetService {
       
       // Batch işlemini uygula
       await batch.commit();
+      
+      // Silme işleminin tamamlanması için 2 saniye bekleme
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Doğrulama kontrolü
+      final verificationQuery = await _firestore
+          .collection('message_coach_history')
+          .where('userId', isEqualTo: userId)
+          .get();
+          
+      if (verificationQuery.docs.isNotEmpty) {
+        debugPrint('Silme işlemi tamamlanmasına rağmen ${verificationQuery.docs.length} adet mesaj koçu kaydı hala mevcut. Tekrar silme deneniyor...');
+        
+        // İkinci kez silme girişimi
+        final secondBatch = _firestore.batch();
+        for (var doc in verificationQuery.docs) {
+          secondBatch.delete(doc.reference);
+        }
+        
+        await secondBatch.commit();
+        debugPrint('İkinci silme işlemi tamamlandı.');
+        
+        // Son bir kontrol daha yap
+        await Future.delayed(const Duration(seconds: 1));
+        final finalCheck = await _firestore
+            .collection('message_coach_history')
+            .where('userId', isEqualTo: userId)
+            .get();
+            
+        if (finalCheck.docs.isNotEmpty) {
+          debugPrint('İkinci silme işlemi sonrası hala ${finalCheck.docs.length} adet kayıt mevcut!');
+          return false;
+        }
+      }
       
       debugPrint('Mesaj koçu verileri başarıyla silindi');
       return true;
@@ -166,12 +213,47 @@ class DataResetService {
     try {
       // İlişki değerlendirmelerini sil
       bool relationshipResult = await resetRelationshipData(userId);
+      debugPrint('İlişki değerlendirme silme sonucu: $relationshipResult');
       
       // Mesaj analizlerini sil
       bool messageResult = await resetMessageAnalysisData(userId);
+      debugPrint('Mesaj analizi silme sonucu: $messageResult');
       
       // Mesaj koçu verilerini sil
       bool coachResult = await resetMessageCoachData(userId);
+      debugPrint('Mesaj koçu silme sonucu: $coachResult');
+      
+      // İşlemlerin yerine oturması için kısa bir bekleme
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Danışma verilerini de temizle
+      try {
+        debugPrint('Danışma verileri temizleniyor...');
+        
+        // Kullanıcının referansı
+        final userRef = _firestore.collection('users').doc(userId);
+        
+        // Danışma koleksiyonunu al
+        final consultationSnapshot = await userRef.collection('consultations').get();
+        
+        if (consultationSnapshot.docs.isNotEmpty) {
+          debugPrint('${consultationSnapshot.docs.length} adet danışma verisi bulundu, siliniyor...');
+          
+          // Batch işlemi başlat
+          WriteBatch batch = _firestore.batch();
+          
+          for (final doc in consultationSnapshot.docs) {
+            batch.delete(doc.reference);
+          }
+          
+          await batch.commit();
+          debugPrint('Danışma verileri silindi');
+        } else {
+          debugPrint('Silinecek danışma verisi bulunamadı');
+        }
+      } catch (e) {
+        debugPrint('Danışma verileri silinirken hata: $e');
+      }
       
       // Ek olarak kullanıcı ana verilerini de sıfırla
       await _firestore.collection('users').doc(userId).update({
@@ -184,7 +266,39 @@ class DataResetService {
         'preferences.lastResetDate': FieldValue.serverTimestamp()
       });
       
-      debugPrint('Tüm veriler başarıyla silindi. İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult');
+      // Son bir kontrol daha yap - Message Coach verileri
+      try {
+        debugPrint('Mesaj koçu verilerini son kez kontrol ediliyor...');
+        
+        final finalCheckCoach = await _firestore
+            .collection('message_coach_history')
+            .where('userId', isEqualTo: userId)
+            .get();
+            
+        if (finalCheckCoach.docs.isNotEmpty) {
+          debugPrint('Son kontrol: Hala ${finalCheckCoach.docs.length} adet mesaj koçu kaydı mevcut! Son bir silme denemesi yapılıyor...');
+          
+          // Son silme denemesi
+          WriteBatch lastBatch = _firestore.batch();
+          for (var doc in finalCheckCoach.docs) {
+            lastBatch.delete(doc.reference);
+          }
+          
+          await lastBatch.commit();
+          debugPrint('Son silme denemesi tamamlandı.');
+          
+          // coachResult değerini güncelle - bu durumda silme başarısız olmuş demektir
+          coachResult = false;
+        } else {
+          debugPrint('Son kontrol: Mesaj koçu verileri tamamen silinmiş.');
+        }
+      } catch (e) {
+        debugPrint('Son kontrol sırasında hata: $e');
+      }
+      
+      debugPrint('Tüm veriler silme işlemi sonuçları: İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult');
+      
+      // Tam başarı için tüm işlemlerin başarılı olması gerekir
       return relationshipResult && messageResult && coachResult;
     } catch (e) {
       debugPrint('Tüm veriler silinirken hata: $e');

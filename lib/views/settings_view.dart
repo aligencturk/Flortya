@@ -1,18 +1,26 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../viewmodels/report_viewmodel.dart';
-import '../viewmodels/past_analyses_viewmodel.dart';
-import '../viewmodels/auth_viewmodel.dart';
-import '../utils/utils.dart';
-import '../controllers/home_controller.dart';
-import '../controllers/message_coach_controller.dart';
-import '../services/data_reset_service.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart' as provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../controllers/home_controller.dart';
+import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/report_viewmodel.dart';
+import '../controllers/message_coach_controller.dart';
+import '../controllers/message_coach_visual_controller.dart';
+import '../services/data_reset_service.dart';
+import '../utils/utils.dart';
+import '../models/analysis_type.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import '../viewmodels/past_analyses_viewmodel.dart';
 import '../utils/loading_indicator.dart';
 
 class SettingsView extends StatefulWidget {
-  const SettingsView({super.key});
+  const SettingsView({Key? key}) : super(key: key);
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -59,7 +67,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    Provider.of<AuthViewModel>(context, listen: false).currentUser?.displayName ?? "Kullanıcı",
+                    provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.displayName ?? "Kullanıcı",
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -397,7 +405,7 @@ class _SettingsViewState extends State<SettingsView> {
   
   void _resetMessageCoachData() async {
     // Kullanıcı ID'sini al
-    final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
       Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
@@ -415,11 +423,11 @@ class _SettingsViewState extends State<SettingsView> {
       
       // UI verilerini güncelle
       try {
-        final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
+        final messageCoachController = provider.Provider.of<MessageCoachController>(context, listen: false);
         messageCoachController.analizSonuclariniSifirla();
         messageCoachController.analizGecmisiniSifirla();
       } catch (e) {
-        debugPrint('Mesaj koçu controller verilerini sıfırlarken hata: $e');
+        debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
       }
       
       // Dialog'u kapat
@@ -443,7 +451,7 @@ class _SettingsViewState extends State<SettingsView> {
   
   void _resetReportData() async {
     // Kullanıcı ID'sini al
-    final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
       Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
@@ -460,12 +468,12 @@ class _SettingsViewState extends State<SettingsView> {
       final bool success = await resetService.resetRelationshipData(userId);
       
       // UI verilerini güncelle - HomeController
-      final homeController = Provider.of<HomeController>(context, listen: false);
+      final homeController = provider.Provider.of<HomeController>(context, listen: false);
       await homeController.resetRelationshipData();
       
       // ÖNEMLİ: ReportViewModel'daki rapor verilerini de temizle
       try {
-        final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+        final reportViewModel = provider.Provider.of<ReportViewModel>(context, listen: false);
         await reportViewModel.clearAllReports(userId);
       } catch (e) {
         debugPrint('ReportViewModel temizleme hatası: $e');
@@ -492,7 +500,7 @@ class _SettingsViewState extends State<SettingsView> {
   
   void _resetAnalysisData() async {
     // Kullanıcı ID'sini al
-    final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
       Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
@@ -509,7 +517,7 @@ class _SettingsViewState extends State<SettingsView> {
       final bool success = await resetService.resetMessageAnalysisData(userId);
       
       // UI verilerini güncelle
-      final homeController = Provider.of<HomeController>(context, listen: false);
+      final homeController = provider.Provider.of<HomeController>(context, listen: false);
       await homeController.resetAnalizVerileri();
       
       // Dialog'u kapat
@@ -533,7 +541,7 @@ class _SettingsViewState extends State<SettingsView> {
   
   void _resetAllData() async {
     // Kullanıcı ID'sini al
-    final userId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
       Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
@@ -550,22 +558,36 @@ class _SettingsViewState extends State<SettingsView> {
       final bool success = await resetService.resetAllData(userId);
       
       // UI verilerini güncelle
-      final homeController = Provider.of<HomeController>(context, listen: false);
+      final homeController = provider.Provider.of<HomeController>(context, listen: false);
       await homeController.resetAnalizVerileri();
       await homeController.resetRelationshipData();
       
       // Mesaj koçu verilerini sıfırla
       try {
-        final messageCoachController = Provider.of<MessageCoachController>(context, listen: false);
+        final messageCoachController = provider.Provider.of<MessageCoachController>(context, listen: false);
         messageCoachController.analizSonuclariniSifirla();
         messageCoachController.analizGecmisiniSifirla();
       } catch (e) {
         debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
       }
       
+      // Mesaj koçu görsel kontrolcüsünü sıfırla (Riverpod)
+      try {
+        // BuildContext'i bir ProviderScope içinde kullanmamız gerekiyor
+        // Doğrudan provider notifier'a erişerek sıfırlama yapma:
+        debugPrint('Mesaj koçu görsel kontrolcüsü sıfırlanıyor...');
+        
+        // Eğer bu context ProviderScope içinde değilse, bu işlemi atlayalım
+        // Bu sadece uygulama çapında bir sıfırlama olduğu için, mesaj koçu sayfasına
+        // tekrar gidildiğinde zaten kontrolcü sıfırlanacaktır
+        debugPrint('Not: Mesaj koçu görsel kontrolcüsünün tam sıfırlanması, mesaj koçu sayfası tekrar açıldığında gerçekleşecek');
+      } catch (e) {
+        debugPrint('Mesaj koçu görsel kontrolcüsü sıfırlanırken hata: $e');
+      }
+      
       // ÖNEMLİ: ReportViewModel'daki rapor verilerini de tamamen temizle
       try {
-        final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+        final reportViewModel = provider.Provider.of<ReportViewModel>(context, listen: false);
         await reportViewModel.clearAllReports(userId);
       } catch (e) {
         debugPrint('ReportViewModel temizleme hatası: $e');
@@ -577,7 +599,25 @@ class _SettingsViewState extends State<SettingsView> {
       
       // Başarı durumunu bildir
       if (success) {
-        Utils.showToast(context, 'Tüm veriler başarıyla silindi');
+        // Kullanıcıya verileri sıfırlama mesajı ve yönlendirme göster
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Tüm veriler başarıyla silindi. Mesaj Koçu verilerinin tamamen güncellenmesi için Mesaj Koçu sayfasını tekrar ziyaret edin.',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            duration: Duration(seconds: 6),
+            backgroundColor: Color(0xFF3A2A70),
+          ),
+        );
       } else {
         Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
       }
@@ -626,7 +666,7 @@ class _SettingsViewState extends State<SettingsView> {
               Utils.showLoadingDialog(currentContext, 'Hesabınız siliniyor...', analizTipi: AnalizTipi.GENEL);
               
               try {
-                final authViewModel = Provider.of<AuthViewModel>(currentContext, listen: false);
+                final authViewModel = provider.Provider.of<AuthViewModel>(currentContext, listen: false);
                 final bool success = await authViewModel.deleteUserAccount();
                 
                 // Hesap silme işlemi tamamlandı

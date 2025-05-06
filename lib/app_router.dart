@@ -19,6 +19,7 @@ import 'views/past_consultations_view.dart';
 import 'views/settings_view.dart';
 import 'views/conversation_summary_view.dart';
 import 'views/message_coach_view.dart';
+import 'views/past_message_coach_view.dart';
 import 'utils/utils.dart';
 import 'utils/loading_indicator.dart';
 import 'widgets/custom_password_field.dart';
@@ -1844,6 +1845,10 @@ class AppRouter {
   static const String consultation = '/consultation';
   // Konuşma özeti rotası
   static const String konusmaSummary = '/konusma-summary';
+  // Mesaj koçu sayfası rotası
+  static const String messageCoach = '/message-coach';
+  // Mesaj koçu geçmişi sayfası rotası
+  static const String pastMessageCoach = '/past-message-coach';
 
   static GoRouter createRouter(AuthViewModel authViewModel) {
     return GoRouter(
@@ -1920,7 +1925,23 @@ class AppRouter {
         GoRoute(
           path: home,
           name: 'home',
-          builder: (context, state) => const HomeView(),
+          builder: (context, state) {
+            int tabIndex = 0;
+            
+            // 1. Önce extra parametresini kontrol et
+            final extra = state.extra as Map<String, dynamic>?;
+            if (extra != null && extra.containsKey('tabIndex')) {
+              tabIndex = extra['tabIndex'] as int;
+            }
+            
+            // 2. Eğer extra'da tabIndex yoksa query parametrelerini kontrol et
+            final tabParam = state.uri.queryParameters['tab'];
+            if (tabParam != null) {
+              tabIndex = int.tryParse(tabParam) ?? tabIndex;
+            }
+            
+            return HomeView(initialTabIndex: tabIndex);
+          },
         ),
         // Mesaj Analizi sayfası - Detay sayfası
         GoRoute(
@@ -2022,6 +2043,13 @@ class AppRouter {
           builder: (context, state) => const PastConsultationsView(),
         ),
         
+        // Mesaj koçu geçmişi sayfası
+        GoRoute(
+          path: pastMessageCoach,
+          name: 'pastMessageCoach',
+          builder: (context, state) => const PastMessageCoachView(),
+        ),
+        
         GoRoute(
           path: '$analysisDetail/:id',
           name: 'analysisDetail',
@@ -2051,15 +2079,13 @@ class AppRouter {
         ),
         // Mesaj Koçu sayfası
         GoRoute(
-          path: '/message-coach',
-          name: 'message-coach',
-          pageBuilder: (context, state) => CustomTransitionPage(
-            key: state.pageKey,
-            child: const MessageCoachView(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-          ),
+          path: messageCoach,
+          name: 'messageCoach',
+          redirect: (context, state) {
+            // Tabbar'daki Mesaj Koçu sekmesine (index 2) yönlendir
+            // Query parametresi olarak tab=2 ekleyelim
+            return '${AppRouter.home}?tab=2';
+          },
         ),
         
         // Profil kurulum sayfası

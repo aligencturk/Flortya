@@ -124,14 +124,73 @@ class OCRService {
       // İşlenmiş görsel dosyasını temizle
       await processedImageFile.delete();
       
+      // Sohbet formatına dönüştürülmüş metni oluştur
+      String formattedChat = await formatChatFromRecognizedText(recognizedText);
+      
       // Formatlanmış metin döndür
-      return "---- Görüntüden çıkarılan metin ----\n${recognizedText.text}\n---- Çıkarılan metin sonu ----";
+      return "---- Görüntüden çıkarılan metin ----\n${formattedChat}\n---- Çıkarılan metin sonu ----";
     } catch (e, stack) {
       _logger.e('Metin çıkarma sırasında hata oluştu: $e');
       _logger.e('Stack trace: $stack');
       
       // Hata durumunda formatlanmış boş string döndür
       return "---- Görüntüden çıkarılan metin ----\n[Görüntü işlenirken hata oluştu: $e]\n---- Çıkarılan metin sonu ----";
+    }
+  }
+
+  /// Tanınan metni sohbet formatına dönüştüren yeni metot
+  Future<String> formatChatFromRecognizedText(RecognizedText recognizedText) async {
+    try {
+      _logger.i('Tanınan metin sohbet formatına dönüştürülüyor...');
+      
+      // Ekranın ortasını belirle (varsayılan olarak 500)
+      double screenCenterX = 500.0;
+      
+      // Her bir TextLine'ı pozisyonuna göre incele
+      List<Map<String, dynamic>> chatLines = [];
+      
+      for (TextBlock block in recognizedText.blocks) {
+        for (TextLine line in block.lines) {
+          if (line.text.trim().isEmpty) continue;
+          
+          // Mesajın ekranda konumunu belirle
+          final centerX = line.boundingBox.center.dx;
+          String sender;
+          
+          // Konuma göre göndereni belirle
+          if (centerX > screenCenterX) {
+            sender = "Kullanıcı"; // Sağda ise kullanıcı mesajı
+          } else {
+            sender = "Partner"; // Solda ise eşleşme/partner mesajı
+          }
+          
+          // Satırın y koordinatını ve içeriğini kaydet
+          chatLines.add({
+            'y': line.boundingBox.top,
+            'sender': sender,
+            'text': line.text.trim(),
+          });
+        }
+      }
+      
+      // Satırları y koordinatına göre sırala (yukarıdan aşağıya)
+      chatLines.sort((a, b) => (a['y'] as double).compareTo(b['y'] as double));
+      
+      // Sıralanmış mesajları sohbet formatına dönüştür
+      StringBuffer formattedChat = StringBuffer();
+      
+      for (var line in chatLines) {
+        formattedChat.writeln("${line['sender']}: ${line['text']}");
+      }
+      
+      String result = formattedChat.toString().trim();
+      _logger.i('Sohbet formatına dönüştürme tamamlandı, ${chatLines.length} satır işlendi');
+      
+      return result;
+    } catch (e) {
+      _logger.e('Sohbet formatına dönüştürme hatası: $e');
+      // Hata durumunda orijinal metni döndür
+      return recognizedText.text;
     }
   }
 

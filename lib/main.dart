@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as provider;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/message_viewmodel.dart';
@@ -95,45 +96,47 @@ void main() async {
     final reportViewModel = ReportViewModel();
     
     runApp(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AuthViewModel>.value(
-            value: authViewModel,
-          ),
-          ChangeNotifierProvider<MessageViewModel>(
-            create: (_) => MessageViewModel(),
-          ),
-          ChangeNotifierProvider<ProfileViewModel>(
-            create: (_) => ProfileViewModel(),
-          ),
-          ChangeNotifierProvider<ReportViewModel>.value(
-            value: reportViewModel,
-          ),
-          ChangeNotifierProvider<AdviceViewModel>(
-            create: (_) => AdviceViewModel(
-              firestore: firestore,
-              aiService: aiService,
-              logger: loggerService,
-              notificationService: notificationService,
+      ProviderScope(
+        child: provider.MultiProvider(
+          providers: [
+            provider.ChangeNotifierProvider<AuthViewModel>.value(
+              value: authViewModel,
             ),
-          ),
-          ChangeNotifierProvider<HomeController>(
-            create: (_) => HomeController(
-              userService: userService,
-              aiService: aiService,
+            provider.ChangeNotifierProvider<MessageViewModel>(
+              create: (_) => MessageViewModel(),
             ),
-          ),
-          ChangeNotifierProvider<PastAnalysesViewModel>(
-            create: (_) => PastAnalysesViewModel(),
-          ),
-          ChangeNotifierProvider<PastReportsViewModel>(
-            create: (_) => PastReportsViewModel(reportViewModel),
-          ),
-          ChangeNotifierProvider<MessageCoachController>(
-            create: (_) => MessageCoachController(),
-          ),
-        ],
-        child: MyApp(),
+            provider.ChangeNotifierProvider<ProfileViewModel>(
+              create: (_) => ProfileViewModel(),
+            ),
+            provider.ChangeNotifierProvider<ReportViewModel>.value(
+              value: reportViewModel,
+            ),
+            provider.ChangeNotifierProvider<AdviceViewModel>(
+              create: (_) => AdviceViewModel(
+                firestore: firestore,
+                aiService: aiService,
+                logger: loggerService,
+                notificationService: notificationService,
+              ),
+            ),
+            provider.ChangeNotifierProvider<HomeController>(
+              create: (_) => HomeController(
+                userService: userService,
+                aiService: aiService,
+              ),
+            ),
+            provider.ChangeNotifierProvider<PastAnalysesViewModel>(
+              create: (_) => PastAnalysesViewModel(),
+            ),
+            provider.ChangeNotifierProvider<PastReportsViewModel>(
+              create: (_) => PastReportsViewModel(reportViewModel),
+            ),
+            provider.ChangeNotifierProvider<MessageCoachController>(
+              create: (_) => MessageCoachController(),
+            ),
+          ],
+          child: MyApp(),
+        ),
       ),
     );
     
@@ -172,7 +175,7 @@ class MyApp extends StatelessWidget {
     logger.d('MyApp inşa ediliyor');
     
     // AuthViewModel'i al
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
     
     // Material App temasını yapılandır
     return TurkishKeyboardProvider(

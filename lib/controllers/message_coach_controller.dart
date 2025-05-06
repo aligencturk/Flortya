@@ -2,21 +2,25 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../models/message_coach_analysis.dart';
+import '../models/past_message_coach_analysis.dart';
+import '../models/message_coach_visual_analysis.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
+import '../services/message_coach_service.dart';
 
 class MessageCoachController extends ChangeNotifier {
   final AiService _aiService = AiService();
   final LoggerService _logger = LoggerService();
+  final MessageCoachService _mesajKocuService = MessageCoachService();
   
-  MessageCoachAnalysis? _mevcutAnaliz;
-  MessageCoachAnalysis? get mevcutAnaliz => _mevcutAnaliz;
+  MessageCoachAnalysis? _analysis;
+  MessageCoachAnalysis? get analysis => _analysis;
   
-  String? _hataMesaji;
-  String? get hataMesaji => _hataMesaji;
+  String _errorMessage = '';
+  String get errorMessage => _errorMessage;
   
-  bool _yukleniyor = false;
-  bool get yukleniyor => _yukleniyor;
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
   
   bool _analizTamamlandi = false;
   bool get analizTamamlandi => _analizTamamlandi;
@@ -44,12 +48,19 @@ class MessageCoachController extends ChangeNotifier {
       ? 'Görsel analiz ediliyor...' 
       : 'Sohbet analiz ediliyor...';
   
+  String? _currentUserId;
+  
+  // Kullanıcı ID'sini set etme metodu
+  void setCurrentUserId(String userId) {
+    _currentUserId = userId;
+    _logger.i('Kullanıcı ID ayarlandı: $userId');
+  }
+  
   // Analiz sonuçlarını temizle
   void analizSonuclariniSifirla() {
-    _mevcutAnaliz = null;
-    _hataMesaji = null;
+    _analysis = null;
+    _errorMessage = '';
     _analizTamamlandi = false;
-    _gorselModu = false;
     _gorselDosya = null;
     _gorselOcrSonucu = null;
     notifyListeners();
@@ -58,6 +69,16 @@ class MessageCoachController extends ChangeNotifier {
   // Analiz geçmişini temizle
   void analizGecmisiniSifirla() {
     _analizGecmisi = [];
+    notifyListeners();
+  }
+  
+  // Görsel modu değiştirme (açma/kapama)
+  void gorselModunuDegistir() {
+    _gorselModu = !_gorselModu;
+    _logger.i('Görsel modu: $_gorselModu');
+    
+    // Mevcut analiz sonuçlarını temizle
+    analizSonuclariniSifirla();
     notifyListeners();
   }
   
@@ -142,270 +163,291 @@ class MessageCoachController extends ChangeNotifier {
     return false;
   }
   
-  // Görsel dosyasından sohbeti analiz et
-  Future<void> gorseliAnalizeEt(File gorselDosya, String? ocrMetni) async {
-    if (gorselDosya == null && (ocrMetni == null || ocrMetni.trim().isEmpty)) {
-      _hataMesaji = 'Analiz için geçerli bir görsel veya OCR metni gereklidir.';
-      notifyListeners();
-      return;
-    }
-    
-    _yukleniyor = true;
-    _analizTamamlandi = false;
-    _hataMesaji = null;
-    _gorselModu = true;
-    notifyListeners();
-    
-    try {
-      _logger.i('Görsel sohbet analizi başlatılıyor...');
-      
-      String icerik = ocrMetni ?? '';
-      if (icerik.trim().isEmpty) {
-        _hataMesaji = 'Görselden sohbet metni çıkarılamadı.';
-        _yukleniyor = false;
-        notifyListeners();
-        return;
-      }
-      
-      // Gemini API ile görseli analiz et
-      final analizSonucu = await _aiService.sohbetiAnalizeEt(icerik, isImage: true);
-      
-      if (analizSonucu == null) {
-        _hataMesaji = 'Görsel analizi yapılamadı. Lütfen tekrar deneyin.';
-        _yukleniyor = false;
-        notifyListeners();
-        return;
-      }
-      
-      // Analiz sonucundaki alanların geçerli olup olmadığını kontrol et
-      if (_analizSonucuGecersiziMi(analizSonucu)) {
-        _logger.w('Geçersiz görsel analiz sonucu - API hatası.');
-        _hataMesaji = 'API yanıtı geçersiz. Lütfen tekrar deneyin.';
-        _yukleniyor = false;
-        notifyListeners();
-        return;
-      } else {
-        _mevcutAnaliz = analizSonucu;
-      }
-      
-      // Analiz geçmişine ekle
-      _analizGecmisiniGuncelle(_mevcutAnaliz!);
-      
-      _analizTamamlandi = true;
-      _yukleniyor = false;
-      
-      _logger.i('Görsel sohbet analizi tamamlandı.');
-      notifyListeners();
-      
-    } catch (e) {
-      _logger.e('Görsel sohbet analizi hatası', e);
-      _hataMesaji = 'Beklenmeyen bir hata oluştu: $e';
-      _yukleniyor = false;
-      notifyListeners();
-    }
-  }
-  
-  // Sohbeti analiz et
-  Future<void> sohbetiAnalizeEt(String sohbetIcerigi) async {
-    // Görsel modundaysak görsel analizi fonksiyonunu çağır
-    if (_gorselModu && _gorselDosya != null && _gorselOcrSonucu != null) {
-      await gorseliAnalizeEt(_gorselDosya!, _gorselOcrSonucu);
-      return;
-    }
-    
-    if (sohbetIcerigi.trim().isEmpty) {
-      _hataMesaji = 'Analiz için geçerli bir sohbet geçmişi gereklidir.';
-      notifyListeners();
-      return;
-    }
-    
-    _yukleniyor = true;
-    _analizTamamlandi = false;
-    _hataMesaji = null;
-    _gorselModu = false;
-    notifyListeners();
-    
-    try {
-      _logger.i('Sohbet analizi başlatılıyor...');
-      
-      // Gemini API ile sohbeti analiz et
-      final analizSonucu = await _aiService.sohbetiAnalizeEt(sohbetIcerigi, isImage: false);
-      
-      if (analizSonucu == null) {
-        _hataMesaji = 'Sohbet analizi yapılamadı. Lütfen tekrar deneyin.';
-        _yukleniyor = false;
-        notifyListeners();
-        return;
-      }
-      
-      // Analiz sonucundaki alanların geçerli olup olmadığını kontrol et
-      if (_analizSonucuGecersiziMi(analizSonucu)) {
-        _logger.w('Geçersiz analiz sonucu - API hatası.');
-        _hataMesaji = 'API yanıtı geçersiz. Lütfen tekrar deneyin.';
-        _yukleniyor = false;
-        notifyListeners();
-        return;
-      } else {
-        _mevcutAnaliz = analizSonucu;
-      }
-      
-      // Analiz geçmişine ekle
-      _analizGecmisiniGuncelle(_mevcutAnaliz!);
-      
-      _analizTamamlandi = true;
-      _yukleniyor = false;
-      
-      _logger.i('Sohbet analizi tamamlandı.');
-      notifyListeners();
-      
-    } catch (e) {
-      _logger.e('Sohbet analizi hatası', e);
-      _hataMesaji = 'Beklenmeyen bir hata oluştu: $e';
-      _yukleniyor = false;
-      notifyListeners();
-    }
-  }
-  
-  // Analiz geçmişine yeni analizi ekle (en son 10 analiz tutulur)
-  void _analizGecmisiniGuncelle(MessageCoachAnalysis yeniAnaliz) {
-    _analizGecmisi.add(yeniAnaliz);
-    if (_analizGecmisi.length > 10) {
-      _analizGecmisi = _analizGecmisi.sublist(_analizGecmisi.length - 10);
-    }
-  }
-  
-  // Örnek sohbet içeriği oluştur (Test için)
-  String ornekSohbetIcerigiOlustur() {
-    return '''
-Ahmet: Selam, nasılsın bugün?
-
-Zeynep: İyiyim aslında, ama biraz yorgunum. İş yoğundu bugün. Sen nasılsın?
-
-Ahmet: Ben de iyiyim. Bu hafta sonu ne yapıyorsun? Belki bir şeyler yaparız?
-
-Zeynep: Bilmiyorum henüz. Biraz dinlenmek istiyorum aslında.
-
-Ahmet: Anladım. Ama çok uzun zamandır görüşemedik, özledim seni.
-
-Zeynep: Biliyorum, haklısın. Belki Cumartesi bir şeyler yapabiliriz.
-
-Ahmet: Harika! Ne yapmak istersin? Film izleyebilir ya da dışarıda bir yerlere gidebiliriz.
-
-Zeynep: Hmm, bilmiyorum. Sen ne istersen.
-
-Ahmet: O zaman yeni açılan o kafeye gidelim mi? Çok güzel diyorlar.
-
-Zeynep: Tamam, olabilir. Saat kaçta buluşalım?
-    ''';
-  }
-  
-  // Geçerli bir sohbet içeriği olup olmadığını kontrol et
-  bool sohbetGecerliMi(String sohbetIcerigi) {
-    // Görsel modundaysak ve görsel dosyası varsa, daima geçerli kabul et
-    if (_gorselModu && _gorselDosya != null) {
-      return true;
-    }
-    
-    if (sohbetIcerigi.trim().isEmpty) {
+  // Sohbet içeriği geçerli mi kontrol et
+  bool sohbetGecerliMi(String sohbet) {
+    if (sohbet.trim().isEmpty) {
       return false;
     }
     
-    // En az bir mesaj değişimi olmalı (en az 2 satır)
-    final satirlar = sohbetIcerigi.split('\n').where((satir) => satir.trim().isNotEmpty).toList();
-    if (satirlar.length < 2) {
+    if (sohbet.length < 10) {
+      _logger.w('Sohbet içeriği çok kısa: ${sohbet.length} karakter');
       return false;
     }
     
     return true;
   }
   
-  // Sohbet metnini temizle
-  String sohbetMetniniTemizle(String sohbetIcerigi) {
-    // Gereksiz boşlukları temizle
-    String temizMetin = sohbetIcerigi.trim();
+  // Örnek sohbet içeriği oluştur
+  String ornekSohbetIcerigiOlustur() {
+    // Rastgele örnek sohbet oluştur
+    final List<String> ornekSohbetler = [
+      '''
+Ben: Merhaba, nasılsın?
+Karşı taraf: İyiyim, sen nasılsın?
+Ben: Ben de iyiyim. Bugün neler yaptın?
+Karşı taraf: İşten geldim, biraz yorgunum. Sen?
+Ben: Ben de bugün çok yoğundum. Akşam bir şeyler yapmak ister misin?
+Karşı taraf: Bu akşam biraz dinlenmek istiyorum, yarın olsa?
+Ben: Tabii, yarın olabilir. Ne yapmak istersin?
+Karşı taraf: Sinemaya gidebiliriz.
+Ben: Güzel fikir. Saat 7'de müsait misin?
+Karşı taraf: Evet, olur. 7'de sinema önünde buluşalım.
+      ''',
+      
+      '''
+Ben: Geçen gün konuştuğumuz konu hakkında düşündüm.
+Karşı taraf: Hangi konu?
+Ben: Tatil planı yapmamız gerektiğini söylemiştim ya.
+Karşı taraf: Hatırladım. Ne düşündün?
+Ben: Belki bir hafta sonu Antalya'ya gidebiliriz?
+Karşı taraf: Hmm, bilmiyorum, biraz pahalı olabilir şu aralar.
+Ben: Tamam, bütçeye uygun bir şeyler düşünürüz o zaman.
+Karşı taraf: Bence şehir dışına çıkmadan da güzel vakit geçirebiliriz.
+Ben: Önerin var mı?
+Karşı taraf: Piknik yapabiliriz mesela.
+      ''',
+      
+      '''
+Ben: Son mesajımı görmediğin için merak ettim, iyi misin?
+Karşı taraf: Evet, iyiyim. Sadece biraz yoğundum.
+Ben: Tamam, önemli bir şey yoktu zaten. Ne zaman müsait olursun?
+Karşı taraf: Bu hafta sonu müsaitim.
+Ben: Harika! Kahve içmek ister misin?
+Karşı taraf: Olur, Cumartesi öğleden sonra uygun olur benim için.
+Ben: Benim için de uygun. Saat 2'de Park Cafe'de buluşalım mı?
+Karşı taraf: Tamam, orada görüşürüz.
+      '''
+    ];
     
-    // Ardışık boş satırları tek satıra indir
-    temizMetin = temizMetin.replaceAll(RegExp(r'\n\s*\n'), '\n\n');
-    
-    return temizMetin;
+    // Rastgele bir örnek seç
+    return ornekSohbetler[DateTime.now().millisecond % ornekSohbetler.length];
   }
   
-  // Önceki analiz sonuçlarını karşılaştırarak ilerleme raporu oluştur
-  Map<String, dynamic> ilerlemeRaporuOlustur() {
-    if (_analizGecmisi.length < 2) {
-      return {'rapor': 'Karşılaştırma için yeterli analiz verisi yok', 'sonuc': 'Değerlendirme için en az 2 analiz gerekli'};
-    }
-    
-    final sonAnaliz = _analizGecmisi.last;
-    final oncekiAnaliz = _analizGecmisi[_analizGecmisi.length - 2];
-    
-    // Analiz sonuçlarını karşılaştırma
-    final sohbetHavasiDegisti = sonAnaliz.sohbetGenelHavasi != oncekiAnaliz.sohbetGenelHavasi;
-    final sonMesajTonuDegisti = sonAnaliz.sonMesajTonu != oncekiAnaliz.sonMesajTonu;
-    
-    // Etki değerlerini karşılaştır
-    Map<String, int> etkiDegisimleri = {};
-    if (sonAnaliz.sonMesajEtkisi != null && oncekiAnaliz.sonMesajEtkisi != null) {
-      sonAnaliz.sonMesajEtkisi!.forEach((anahtar, deger) {
-        final oncekiDeger = oncekiAnaliz.sonMesajEtkisi![anahtar] ?? 0;
-        etkiDegisimleri[anahtar] = deger - oncekiDeger;
-      });
-    }
-    
-    // İlerleme açıklaması oluştur
-    String ilerlemeAciklamasi = '';
-    
-    if (sohbetHavasiDegisti) {
-      ilerlemeAciklamasi += 'Sohbet havası "${oncekiAnaliz.sohbetGenelHavasi}" durumundan "${sonAnaliz.sohbetGenelHavasi}" durumuna değişti. ';
-    } else {
-      ilerlemeAciklamasi += 'Sohbet havası aynı kaldı. ';
-    }
-    
-    if (sonMesajTonuDegisti) {
-      ilerlemeAciklamasi += 'Son mesaj tonu "${oncekiAnaliz.sonMesajTonu}" yerine "${sonAnaliz.sonMesajTonu}" olarak değişti. ';
-    }
-    
-    // Etki değişimlerini açıklamaya ekle
-    if (etkiDegisimleri.isNotEmpty) {
-      ilerlemeAciklamasi += 'Etki değişimleri: ';
-      etkiDegisimleri.forEach((anahtar, degisim) {
-        final yonIsareti = degisim > 0 ? '+' : '';
-        ilerlemeAciklamasi += '$anahtar: $yonIsareti$degisim%, ';
-      });
+  // Metin açıklaması tabanlı analiz (görsel olmadan)
+  Future<bool> metinAciklamasiIleAnalizeEt(String aciklama) async {
+    try {
+      _isLoading = true;
+      _errorMessage = '';
+      _analizTamamlandi = false;
+      notifyListeners();
       
-      // Son virgülü kaldır
-      ilerlemeAciklamasi = ilerlemeAciklamasi.substring(0, ilerlemeAciklamasi.length - 2);
-    }
-    
-    // Genel değerlendirme
-    String genelDegerlendirme = '';
-    
-    // Genel iyileşme/kötüleşme kontrolü
-    int olumluDegisimSayisi = 0;
-    int olumsuzDegisimSayisi = 0;
-    
-    etkiDegisimleri.forEach((anahtar, degisim) {
-      if (anahtar.toLowerCase() == 'sempatik' || anahtar.toLowerCase() == 'olumlu') {
-        if (degisim > 0) olumluDegisimSayisi++;
-        else if (degisim < 0) olumsuzDegisimSayisi++;
-      } else if (anahtar.toLowerCase() == 'olumsuz' || anahtar.toLowerCase() == 'kararsız') {
-        if (degisim < 0) olumluDegisimSayisi++;
-        else if (degisim > 0) olumsuzDegisimSayisi++;
+      _logger.i('Metin açıklaması ile analiz başlatılıyor: $aciklama');
+      
+      // Açıklama boş kontrolü
+      if (aciklama.trim().isEmpty) {
+        _setError('Lütfen bir açıklama yazın');
+        return false;
       }
-    });
-    
-    if (olumluDegisimSayisi > olumsuzDegisimSayisi) {
-      genelDegerlendirme = 'İletişim becerilerin gelişiyor. Devam et!';
-    } else if (olumluDegisimSayisi < olumsuzDegisimSayisi) {
-      genelDegerlendirme = 'İletişim tarzında sorunlar var. İyileştirme için daha fazla çaba göstermelisin.';
-    } else {
-      genelDegerlendirme = 'İletişim tarzında belirgin bir değişiklik yok. Daha etkili iletişim kurmaya çalış.';
+      
+      // AiService üzerinden analiz yap - yeni eklenen metodu kullan
+      final analiz = await _aiService.sadeceMesajAnalizeEt(aciklama);
+      
+      if (analiz == null) {
+        _setError('Analiz yapılamadı. Lütfen tekrar deneyin.');
+        return false;
+      }
+      
+      // Analiz sonucunu ayarla
+      _analysis = analiz;
+      _analizTamamlandi = true;
+      
+      // Analiz sonucunu kullanıcı verilerine kaydet
+      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
+        await _mesajKocuService.saveMessageCoachAnalysis(
+          userId: _currentUserId!,
+          sohbetIcerigi: '', // Metin açıklaması analizi olduğu için boş
+          aciklama: aciklama,
+          analysis: analiz
+        );
+        _logger.i('Metin açıklaması analizi kullanıcı verilerine kaydedildi');
+      }
+      
+      // Analizi geçmişe ekle
+      _analizGecmisiniGuncelle(analiz);
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _logger.e('Metin açıklaması analizi hatası', e);
+      _setError('Beklenmeyen bir hata oluştu: $e');
+      return false;
     }
-    
-    return {
-      'rapor': ilerlemeAciklamasi,
-      'sonuc': genelDegerlendirme,
-      'degisimler': etkiDegisimleri,
-    };
+  }
+  
+  // Görsel tabanlı analiz
+  Future<bool> gorselIleAnalizeEt(File gorselDosya, String aciklama) async {
+    try {
+      _isLoading = true;
+      _errorMessage = '';
+      _analizTamamlandi = false;
+      _gorselModu = true;
+      _gorselDosya = gorselDosya;
+      notifyListeners();
+      
+      _logger.i('Görsel analizi başlatılıyor: ${gorselDosya.path}, Açıklama: $aciklama');
+      
+      // Görsel kontrolü
+      if (gorselDosya.lengthSync() <= 0) {
+        _setError('Geçersiz görsel dosyası');
+        return false;
+      }
+      
+      // Yeni eklenen metodu kullan - görsel ve açıklama ile analiz
+      final analiz = await _aiService.gorselVeAciklamaAnalizeEt(gorselDosya, aciklama);
+      
+      if (analiz == null) {
+        _setError('Görsel analizi yapılamadı. Lütfen tekrar deneyin.');
+        return false;
+      }
+      
+      // Analiz sonucunu ayarla
+      _analysis = analiz;
+      _analizTamamlandi = true;
+      
+      // Analiz sonucunu kullanıcı verilerine kaydet (görsel dosyası ile)
+      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
+        try {
+          // Görseli depoya yükleme (basitleştirilmiş, servisin desteklediği metodları kullan)
+          final String imageUrl = await _mesajKocuService.fileUploadToStorage(
+            dosya: gorselDosya,
+            klasor: 'mesaj_kocu_gorseller',
+            userId: _currentUserId!
+          );
+          
+          // Analiz sonucunu kaydet
+          await _mesajKocuService.saveMessageCoachAnalysis(
+            userId: _currentUserId!,
+            sohbetIcerigi: '',
+            aciklama: aciklama,
+            imageUrl: imageUrl,
+            analysis: analiz
+          );
+          
+          _logger.i('Görsel analizi kullanıcı verilerine kaydedildi');
+        } catch (e) {
+          _logger.e('Görsel analizi kaydetme hatası', e);
+          // Analize devam et ama kaydetme hatasını log'la
+        }
+      }
+      
+      // Analizi geçmişe ekle
+      _analizGecmisiniGuncelle(analiz);
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _logger.e('Görsel analizi hatası', e);
+      _setError('Beklenmeyen bir hata oluştu: $e');
+      return false;
+    }
+  }
+  
+  // Analiz geçmişini güncelle
+  void _analizGecmisiniGuncelle(MessageCoachAnalysis analiz) {
+    // Mevcut analizi geçmişe ekle (en fazla 10 analiz tut)
+    _analizGecmisi.insert(0, analiz);
+    if (_analizGecmisi.length > 10) {
+      _analizGecmisi = _analizGecmisi.sublist(0, 10);
+    }
+    notifyListeners();
+  }
+  
+  // Kullanıcının mesaj koçu geçmişini getirme
+  Future<List<PastMessageCoachAnalysis>> mesajKocuGecmisiniGetir() async {
+    try {
+      if (_currentUserId == null || _currentUserId!.isEmpty) {
+        _logger.w('Mesaj koçu geçmişi getirilemedi: Kullanıcı oturum açmamış');
+        return [];
+      }
+      
+      return await _mesajKocuService.getUserMessageCoachHistory(_currentUserId!);
+    } catch (e) {
+      _logger.e('Mesaj koçu geçmişi getirilirken hata oluştu', e);
+      return [];
+    }
+  }
+  
+  // Mesaj koçu geçmişini temizleme
+  Future<bool> mesajKocuGecmisiniTemizle() async {
+    try {
+      if (_currentUserId == null || _currentUserId!.isEmpty) {
+        _logger.w('Mesaj koçu geçmişi temizlenemedi: Kullanıcı oturum açmamış');
+        return false;
+      }
+      
+      await _mesajKocuService.clearMessageCoachHistory(_currentUserId!);
+      _logger.i('Mesaj koçu geçmişi temizlendi');
+      return true;
+    } catch (e) {
+      _logger.e('Mesaj koçu geçmişi temizlenirken hata oluştu', e);
+      return false;
+    }
+  }
+  
+  // Hata mesajı ayarlama yardımcı metodu
+  void _setError(String message) {
+    _errorMessage = message;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // Sohbet içeriğini analiz etme
+  Future<bool> sohbetiAnalizeEt(String sohbetIcerigi) async {
+    try {
+      _isLoading = true;
+      _errorMessage = '';
+      _analizTamamlandi = false;
+      notifyListeners();
+      
+      _logger.i('Sohbet analizi başlatılıyor: ${sohbetIcerigi.length} karakter');
+      
+      // Sohbet içeriği boş kontrolü
+      if (!sohbetGecerliMi(sohbetIcerigi)) {
+        _setError('Lütfen geçerli bir sohbet içeriği girin');
+        return false;
+      }
+      
+      // Sohbet analizi yap
+      final analiz = await _aiService.sohbetiAnalizeEt(sohbetIcerigi);
+      
+      if (analiz == null) {
+        _setError('Sohbet analizi yapılamadı. Lütfen tekrar deneyin.');
+        return false;
+      }
+      
+      // Analiz geçersiz mi?
+      if (_analizSonucuGecersiziMi(analiz)) {
+        _setError('Sohbet analizi geçersiz. Lütfen farklı bir sohbet içeriği deneyin.');
+        return false;
+      }
+      
+      // Analiz sonucunu ayarla
+      _analysis = analiz;
+      _analizTamamlandi = true;
+      
+      // Analiz sonucunu kullanıcı verilerine kaydet
+      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
+        await _mesajKocuService.saveMessageCoachAnalysis(
+          userId: _currentUserId!,
+          sohbetIcerigi: sohbetIcerigi,
+          aciklama: 'Sohbet analizi',
+          analysis: analiz
+        );
+        _logger.i('Sohbet analizi kullanıcı verilerine kaydedildi');
+      }
+      
+      // Analizi geçmişe ekle
+      _analizGecmisiniGuncelle(analiz);
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _logger.e('Sohbet analizi hatası', e);
+      _setError('Beklenmeyen bir hata oluştu: $e');
+      return false;
+    }
   }
 } 

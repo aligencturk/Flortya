@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:io'; // File sınıfı için import eklendi
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
@@ -1848,6 +1849,7 @@ KRİTİK UYARI:
     // Görselden alınan metinde "---- Görüntüden çıkarılan metin ----" veya benzer ifadeler varsa temizle
     final List<String> cleanupPatterns = [
       r'---- Görüntüden çıkarılan metin ----',
+      r'---- Çıkarılan metin sonu ----',
       r'OCR sonucu:',
       r'Görüntü analizi sonucu:',
       r'Resimden elde edilen metin:',
@@ -1860,37 +1862,18 @@ KRİTİK UYARI:
     // Gereksiz boşlukları ve satırları temizle
     processedText = processedText.trim().replaceAll(RegExp(r'\n{3,}'), '\n\n');
     
-    // Mesajlaşma uygulamalarına özel formatı düzelt
-    // (İsimlerin sonunda genellikle ':' bulunur)
-    final List<String> lines = processedText.split('\n');
-    final List<String> processedLines = [];
+    // OCR servisinden gelen mesajlar artık [Kullanıcı: ...] veya [Partner: ...] formatında olacak
+    // Bu metni doğrudan kullanabiliriz
     
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i].trim();
-      if (line.isEmpty) continue;
-      
-      // Eğer satır [isim]: [mesaj] formatındaysa veya sadece isim+iki nokta içeriyorsa
-      if (RegExp(r'^\s*[\w\s]+:\s*.+$').hasMatch(line) || 
-          RegExp(r'^\s*[\w\s]+:\s*$').hasMatch(line)) {
-        processedLines.add(line);
-      } 
-      // Eğer önceki satırda sadece bir isim varsa ve bu satır ek içerikse birleştir
-      else if (processedLines.isNotEmpty &&
-               RegExp(r'^\s*[\w\s]+:\s*$').hasMatch(processedLines.last)) {
-        processedLines[processedLines.length - 1] += ' $line';
-      }
-      // Diğer durumda normal ekle
-      else {
-        processedLines.add(line);
-      }
+    // Hata mesajlarını kontrol et
+    if (processedText.contains("[Görüntüden metin çıkarılamadı]") || 
+        processedText.contains("metin bulunamadı") || 
+        processedText.contains("tespit edilemedi")) {
+      _logger.w("OCR hatası veya metin bulunamadı");
+      return "OCR işleminde sohbet metni çıkarılamadı.";
     }
     
-    // Eğer hiç uygun satır bulunamadıysa, orjinal metni döndür
-    if (processedLines.isEmpty) {
-      return processedText;
-    }
-    
-    return processedLines.join('\n');
+    return processedText;
   }
 
   // İlişki durumu analizi yapma
@@ -2602,5 +2585,420 @@ $kisaltilmisSohbet
     }
     
     return buffer.toString();
+  }
+
+  // Sadece açıklama ile mesaj analizi (görsel olmadan)
+  Future<MessageCoachAnalysis?> sadeceMesajAnalizeEt(String aciklama) async {
+    try {
+      _logger.i('Sadece açıklama ile mesaj analizi başlatılıyor...');
+      
+      // Açıklama içeriğini kontrol etme
+      if (aciklama.trim().isEmpty) {
+        _logger.w('Boş açıklama içeriği, analiz yapılamıyor');
+        return null;
+      }
+      
+      // Analiz talebi kontrolü
+      if (_analizTalebiIceriyorMu(aciklama)) {
+        _logger.w('Açıklama analiz talebi içeriyor, özel yanıt gönderiliyor');
+        return _ozelAnalizYanitiOlustur(aciklama);
+      }
+      
+      // API anahtarını kontrol et ve tam URL oluştur
+      String apiUrl;
+      try {
+        apiUrl = _getApiUrl();
+      } catch (apiError) {
+        _logger.e('API URL oluşturulurken hata: $apiError');
+        return null;
+      }
+      
+      // Prompt oluşturma
+      final prompt = '''
+      Kullanıcı mesaj koçu özelliğini kullanıyor ve bir açıklama yazdı: "$aciklama"
+      
+      Bu bir sohbet ekran görüntüsü DEĞİL, sadece kullanıcının yazmak istediği mesaj hakkında bir açıklamadır.
+      
+      Görevin:
+      1. Kullanıcının açıklamasına göre uygun mesaj önerileri oluşturmak
+      2. Yazmak istediği şeyi analiz etmek (ton, anlam, risk)
+      3. Daha etkili 2-3 alternatif önermek
+      4. Tahmini cevap simülasyonları oluşturmak (1 olumlu, 1 olumsuz)
+      
+      Yanıtın:
+      - Dobra ve yönlendirici olmalı
+      - Gerekirse hafif alaycı, mizahi olabilir
+      - Sert eleştiriler yapabilir ama seviyeyi korumalı
+      - Kullanıcıya gerçek bir koç gibi yaklaşmalı
+      
+      Lütfen aşağıdaki JSON formatında yanıt ver:
+      {
+        "sohbetGenelHavasi": "Analiz", 
+        "genelYorum": "(Açıklamaya göre kısa ve dobra bir değerlendirme)",
+        "sonMesajTonu": "(Yazılmak istenen mesajın olası tonu)",
+        "sonMesajEtkisi": {
+          "sempatik": X,
+          "kararsız": Y,
+          "olumsuz": Z
+        },
+        "direktYorum": "(Açık ve dobra tavsiye)",
+        "cevapOnerileri": [
+          "Öneri 1",
+          "Öneri 2",
+          "Öneri 3"
+        ],
+        "olumluCevapTahmini": "Karşı tarafın olumlu yanıt vermesi durumunda...",
+        "olumsuzCevapTahmini": "Karşı tarafın olumsuz yanıt vermesi durumunda..."
+      }
+      
+      Önemli: Cevabını SADECE JSON formatında ver, başka açıklama yapma.
+      Cevabında "Analiz edilemedi", "yetersiz içerik" veya benzeri ifadeler KULLANMA.
+      İçerik ne kadar az olursa olsun mutlaka bir yorum yap ve değerleri doldur.
+      ''';
+      
+      // Gemini API'ye istek gönderme
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': prompt
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('Sadece açıklama analizi API isteği gönderiliyor');
+      
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return null;
+        }
+        
+        _logger.d('AI yanıt metni: $aiContent');
+        
+        // AI yanıtını JSON formatına çevirip analiz nesnesine dönüştürme
+        try {
+          // JSON içeriğini çıkar
+          final jsonRegExp = RegExp(r'{[\s\S]*}');
+          final jsonMatch = jsonRegExp.firstMatch(aiContent);
+          
+          if (jsonMatch == null) {
+            _logger.e('JSON formatı bulunamadı', aiContent);
+            return null;
+          }
+          
+          final jsonStr = jsonMatch.group(0);
+          if (jsonStr == null) {
+            _logger.e('JSON içeriği çıkarılamadı', aiContent);
+            return null;
+          }
+          
+          Map<String, dynamic> analysisData;
+          try {
+            analysisData = jsonDecode(jsonStr);
+          } catch (jsonError) {
+            _logger.e('JSON decode hatası: $jsonError', jsonStr);
+            // JSON düzeltmeyi dene
+            final cleanedJsonStr = _jsonuDuzelt(jsonStr);
+            try {
+              analysisData = jsonDecode(cleanedJsonStr);
+            } catch (e) {
+              _logger.e('Temizlenmiş JSON dahi decode edilemedi: $e');
+              return null;
+            }
+          }
+          
+          // Eksik alanları ekle
+          if (!analysisData.containsKey('olumluCevapTahmini')) {
+            analysisData['olumluCevapTahmini'] = "Harika! Bu çok iyi bir mesaj. Devam edelim.";
+          }
+          
+          if (!analysisData.containsKey('olumsuzCevapTahmini')) {
+            analysisData['olumsuzCevapTahmini'] = "Şu an müsait değilim, sonra konuşalım.";
+          }
+          
+          return MessageCoachAnalysis.from(analysisData);
+        } catch (jsonError) {
+          _logger.e('AI yanıtını JSON formatına çevirirken hata: $jsonError');
+          _logger.e('Hatalı yanıt: $aiContent');
+          return null;
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      _logger.e('Sadece açıklama analizi hatası', e);
+      return null;
+    }
+  }
+  
+  // Görsel ve açıklama ile mesaj analizi
+  Future<MessageCoachAnalysis?> gorselVeAciklamaAnalizeEt(File gorsel, String aciklama) async {
+    try {
+      _logger.i('Görsel ve açıklama ile mesaj analizi başlatılıyor...');
+      
+      // Açıklama içeriğini kontrol etme
+      if (aciklama.trim().isEmpty) {
+        _logger.w('Boş açıklama içeriği, analiz yapılamıyor');
+        return null;
+      }
+      
+      // Analiz talebi kontrolü
+      if (_analizTalebiIceriyorMu(aciklama)) {
+        _logger.w('Açıklama analiz talebi içeriyor, özel yanıt gönderiliyor');
+        return _ozelAnalizYanitiOlustur(aciklama);
+      }
+      
+      // Görsel boyutu kontrolü
+      final gorselBoyutu = await gorsel.length();
+      if (gorselBoyutu > 5 * 1024 * 1024) { // 5 MB
+        _logger.w('Görsel boyutu çok büyük (${gorselBoyutu / (1024 * 1024)} MB). Analiz yapılamıyor...');
+        return null;
+      }
+      
+      // API anahtarını kontrol et ve tam URL oluştur
+      String apiUrl;
+      try {
+        apiUrl = _getApiUrl();
+      } catch (apiError) {
+        _logger.e('API URL oluşturulurken hata: $apiError');
+        return null;
+      }
+      
+      // Görsel içeriğini base64'e çevirme
+      final gorselBytes = await gorsel.readAsBytes();
+      final gorselBase64 = base64Encode(gorselBytes);
+      
+      // Prompt oluşturma
+      final prompt = '''
+      Aşağıda bir sohbet ekran görüntüsü yer almaktadır. Lütfen önce bu görseldeki mesajları yukarıdan aşağıya sırayla oku. Sağdaki mesajlar kullanıcıya, soldakiler karşı tarafa aittir.
+
+      Görseldeki sohbetin bağlamını ve tarafların tavırlarını analiz et. Daha sonra aşağıdaki kullanıcı açıklamasını değerlendir:
+
+      "Açıklama: $aciklama"
+      
+      Görevin:
+      1. Görseldeki sohbetin mevcut durumunu değerlendirmek
+      2. Kullanıcının açıklamasına göre mesaj önerileri sunmak
+         a. "Ne yazmalıyım?" denirse, sohbetin devamı niteliğinde öneriler sunmak
+         b. "Şunu yazsam olur mu?" gibi bir soru varsa, o mesajı bağlam içinde değerlendirip alternatif öneriler vermek
+      3. Olası cevapları tahmin etmek (1 olumlu, 1 olumsuz)
+      
+      Yanıtın:
+      - Dobra ve yönlendirici olmalı
+      - Gerekirse hafif alaycı, mizahi olabilir
+      - Sert eleştiriler yapabilir ama seviyeyi korumalı
+      - Kullanıcıya gerçek bir koç gibi yaklaşmalı
+      
+      Lütfen aşağıdaki JSON formatında yanıt ver:
+      {
+        "sohbetGenelHavasi": "(Görseldeki sohbetin havası)",
+        "genelYorum": "(Sohbetin durumu hakkında kısa ve dobra bir değerlendirme)",
+        "sonMesajTonu": "(Son mesajın tonu)",
+        "sonMesajEtkisi": {
+          "sempatik": X,
+          "kararsız": Y,
+          "olumsuz": Z
+        },
+        "direktYorum": "(Açık ve dobra tavsiye)",
+        "cevapOnerileri": [
+          "Öneri 1",
+          "Öneri 2",
+          "Öneri 3"
+        ],
+        "olumluCevapTahmini": "Karşı tarafın olumlu yanıt vermesi durumunda...",
+        "olumsuzCevapTahmini": "Karşı tarafın olumsuz yanıt vermesi durumunda..."
+      }
+      
+      Önemli: Cevabını SADECE JSON formatında ver, başka açıklama yapma.
+      Cevabında "Analiz edilemedi", "yetersiz içerik" veya benzeri ifadeler KULLANMA.
+      ''';
+      
+      // Gemini API'ye istek gönderme
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {
+                'text': prompt
+              },
+              {
+                'inline_data': {
+                  'mime_type': 'image/jpeg',
+                  'data': gorselBase64
+                }
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': _geminiMaxTokens
+        }
+      });
+      
+      _logger.d('Görsel ve açıklama analizi API isteği gönderiliyor');
+      
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent == null) {
+          _logger.e('AI yanıtı boş veya beklenen formatta değil', data);
+          return null;
+        }
+        
+        _logger.d('AI yanıt metni: $aiContent');
+        
+        // AI yanıtını JSON formatına çevirip analiz nesnesine dönüştürme
+        try {
+          // JSON içeriğini çıkar
+          final jsonRegExp = RegExp(r'{[\s\S]*}');
+          final jsonMatch = jsonRegExp.firstMatch(aiContent);
+          
+          if (jsonMatch == null) {
+            _logger.e('JSON formatı bulunamadı', aiContent);
+            return null;
+          }
+          
+          final jsonStr = jsonMatch.group(0);
+          if (jsonStr == null) {
+            _logger.e('JSON içeriği çıkarılamadı', aiContent);
+            return null;
+          }
+          
+          Map<String, dynamic> analysisData;
+          try {
+            analysisData = jsonDecode(jsonStr);
+          } catch (jsonError) {
+            _logger.e('JSON decode hatası: $jsonError', jsonStr);
+            // JSON düzeltmeyi dene
+            final cleanedJsonStr = _jsonuDuzelt(jsonStr);
+            try {
+              analysisData = jsonDecode(cleanedJsonStr);
+            } catch (e) {
+              _logger.e('Temizlenmiş JSON dahi decode edilemedi: $e');
+              return null;
+            }
+          }
+          
+          // Eksik alanları ekle
+          if (!analysisData.containsKey('olumluCevapTahmini')) {
+            analysisData['olumluCevapTahmini'] = "Harika! Bu çok iyi bir mesaj. Devam edelim.";
+          }
+          
+          if (!analysisData.containsKey('olumsuzCevapTahmini')) {
+            analysisData['olumsuzCevapTahmini'] = "Şu an müsait değilim, sonra konuşalım.";
+          }
+          
+          return MessageCoachAnalysis.from(analysisData);
+        } catch (jsonError) {
+          _logger.e('AI yanıtını JSON formatına çevirirken hata: $jsonError');
+          _logger.e('Hatalı yanıt: $aiContent');
+          return null;
+        }
+      } else {
+        _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      _logger.e('Görsel ve açıklama analizi hatası', e);
+      return null;
+    }
+  }
+  
+  // Analiz talebi içerip içermediğini kontrol etme
+  bool _analizTalebiIceriyorMu(String aciklama) {
+    final String kucukHarfliAciklama = aciklama.toLowerCase();
+    final List<String> analizTalebiIbareleri = [
+      'sence kim haklı',
+      'beni seviyor mu',
+      'ne düşünüyorsun',
+      'yorumlar mısın',
+      'analiz eder misin',
+      'nasıl olduğunu düşünüyorsun',
+      'hakkındaki fikrin nedir',
+      'eleştirir misin',
+      'yorum yapar mısın'
+    ];
+    
+    for (final ibare in analizTalebiIbareleri) {
+      if (kucukHarfliAciklama.contains(ibare)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Özel analiz yanıtı oluşturma
+  MessageCoachAnalysis _ozelAnalizYanitiOlustur(String aciklama) {
+    return MessageCoachAnalysis(
+      iliskiTipi: 'Belirlenmedi',
+      analiz: 'Bu tarz sorular için analiz ekranını kullanmalısın.',
+      gucluYonler: null,
+      oneriler: [
+        'Bu tarz analiz talepleri için "Analiz" bölümünü kullanmalısın.',
+        'Burada yalnızca mesaj önerileri alabilirssin.',
+        'İstersen nasıl mesaj yazacağın konusunda yardımcı olabilirim.'
+      ],
+      etki: {'uygunsuz': 100},
+      yenidenYazim: null,
+      strateji: null,
+      karsiTarafYorumu: null,
+      anlikTavsiye: null,
+      sohbetGenelHavasi: 'Analiz Talebi',
+      genelYorum: 'Bu tarz sorular için analiz ekranını kullanmalısın.',
+      sonMesajTonu: 'Uygunsuz',
+      sonMesajEtkisi: {'uygunsuz': 100},
+      direktYorum: 'Bu mesaj koçu özelliği değerlendirme yapmak için değil, mesajlaşmana yardımcı olmak için tasarlandı. Analizler için lütfen doğru ekranı kullan.',
+      cevapOnerileri: [
+        'Mesajlaşma konusunda yardıma ihtiyacın varsa, sorunu daha açık ifade edebilir misin?',
+        'Nasıl bir mesaj yazmak istediğini anlatırsan sana yardımcı olabilirim.'
+      ]
+    );
+  }
+  
+  // JSON içindeki sorunları düzelten yardımcı metod
+  String _jsonuDuzelt(String jsonStr) {
+    // Hatalı şekilde escape edilen tırnak işaretlerini düzelt
+    String temiz = jsonStr.replaceAll('\\"', '"').replaceAll('\\\\', '\\');
+    
+    // Tırnak işaretleri içindeki tırnak işaretlerini düzelt
+    temiz = temiz.replaceAll('\\n', ' ');
+    
+    // Gereksiz boşlukları temizle
+    temiz = temiz.replaceAll(RegExp(r'\s+'), ' ');
+    
+    return temiz;
   }
 }

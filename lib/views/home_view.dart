@@ -1925,6 +1925,10 @@ class _HomeViewState extends State<HomeView> {
                             icon: Icons.chat_bubble_outline,
                             title: 'Danışma Geçmişi',
                           ),
+                          _buildProfileMenuItem(
+                            icon: Icons.psychology,
+                            title: 'Mesaj Koçu Geçmişi',
+                          ),
                           
                           const Divider(color: Colors.white24, height: 32),
                           
@@ -2049,6 +2053,8 @@ class _HomeViewState extends State<HomeView> {
           context.go('/past-reports');
         } else if (title == 'Danışma Geçmişi') {
           context.go('/past-consultations');
+        } else if (title == 'Mesaj Koçu Geçmişi') {
+          context.go('/past-message-coach');
         }
       },
       child: Padding(
