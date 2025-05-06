@@ -295,6 +295,34 @@ Karşı taraf: Tamam, orada görüşürüz.
         return null;
       }
       
+      // OCR işlemi yapıldıktan sonra metin içeriği alınacak
+      String? ocrSonucu = _gorselOcrSonucu;
+      
+      // OCR sonucunda veya kullanıcı açıklamasında "keyboard smash" (anlamsız harf dizisi) 
+      // var mı kontrol et ve bunu yapay zekaya bildir
+      String analizNotu = "";
+      
+      // OCR sonucunda gülme içeren anlamsız harf dizisi tespiti
+      if (ocrSonucu != null && ocrSonucu.isNotEmpty) {
+        final gulmeIfadeleri = _gulmeIfadeleriniTespit(ocrSonucu);
+        if (gulmeIfadeleri.isNotEmpty) {
+          analizNotu += "OCR metninde tespit edilen gülme ifadeleri: $gulmeIfadeleri. ";
+          _logger.i("OCR sonucunda gülme ifadeleri tespit edildi: $gulmeIfadeleri");
+        }
+      }
+      
+      // Kullanıcı açıklamasında gülme içeren anlamsız harf dizisi tespiti
+      final kullaniciGulmeIfadeleri = _gulmeIfadeleriniTespit(aciklama);
+      if (kullaniciGulmeIfadeleri.isNotEmpty) {
+        analizNotu += "Kullanıcı açıklamasında tespit edilen gülme ifadeleri: $kullaniciGulmeIfadeleri. ";
+        _logger.i("Kullanıcı açıklamasında gülme ifadeleri tespit edildi: $kullaniciGulmeIfadeleri");
+      }
+      
+      // Eğer gülme ifadeleri tespit edildiyse, açıklamaya ekle
+      if (analizNotu.isNotEmpty) {
+        aciklama = "$aciklama\n\nÖNEMLİ TESPIT: $analizNotu Bu tür anlamsız harf dizileri genellikle yazışmada gülmeyi temsil eder.";
+      }
+      
       // OCR ve analiz işlemini başlat - doğrudan servis üzerinden
       final analiz = await _mesajKocuService.sohbetGoruntusunuAnalizeEt(
         gorselDosya, 
@@ -305,6 +333,10 @@ Karşı taraf: Tamam, orada görüşürüz.
         _setError('Görsel analiz yapılamadı. Lütfen tekrar deneyin.');
         return null;
       }
+      
+      // Görsel analiz sonuçlarını MessageCoachAnalysis formatına dönüştür
+      // ve controller'ın analysis değişkenine ata
+      _analysis = _gorselAnalizdenMesajAnalizineDonus(analiz, aciklama);
       
       // Firebase'e kaydet
       if (_currentUserId != null) {
@@ -326,6 +358,156 @@ Karşı taraf: Tamam, orada görüşürüz.
       _setError('Görsel analiz edilirken bir hata oluştu: ${e.toString()}');
       return null;
     }
+  }
+  
+  // Metinde gülmeyi temsil eden anlamsız harf dizilerini (keyboard smash) tespit eden yardımcı fonksiyon
+  List<String> _gulmeIfadeleriniTespit(String metin) {
+    List<String> tespitiEdilenIfadeler = [];
+    
+    // Metni kelimelere ayır
+    final List<String> kelimeler = metin.split(RegExp(r'[\s,.!?]+'));
+    
+    // Bilinen gülme kalıpları
+    final List<RegExp> bilinenGulmeKaliplari = [
+      RegExp(r'h[aei]+h[aei]+h[aei]+', caseSensitive: false), // hahaha, hehehe, hihihi
+      RegExp(r'(s+j+s+j+|j+s+j+s+)', caseSensitive: false),   // sjsj, sjsjsj, jsjs
+      RegExp(r'k+s+k+s+', caseSensitive: false),              // ksks, ksksk
+      RegExp(r'(a+s+d+|d+s+a+)', caseSensitive: false),       // asdasd, dsa
+      RegExp(r'l+o+l+', caseSensitive: false),                // lol
+      RegExp(r'(p+t+r+|m+r+b+)', caseSensitive: false),       // ptr, mrb
+      RegExp(r'(x+d+|d+x+)', caseSensitive: false),           // xd, xdxd
+      RegExp(r'j+d+m', caseSensitive: false),                 // jdm
+      RegExp(r'l+m+a+o+', caseSensitive: false),              // lmao
+    ];
+    
+    for (String kelime in kelimeler) {
+      // En az 4 karakter uzunluğunda olmalı - bazı gülme ifadeleri 3 karakter (xd, lol) olabilir, minimum karakter sayısını düşürelim
+      if (kelime.length < 3) continue;
+      
+      // Öncelikle bilinen gülme ifadelerini kontrol et
+      bool bilinenGulmeIfadesi = false;
+      for (RegExp kalip in bilinenGulmeKaliplari) {
+        if (kalip.hasMatch(kelime)) {
+          tespitiEdilenIfadeler.add(kelime);
+          bilinenGulmeIfadesi = true;
+          break;
+        }
+      }
+      
+      // Bilinen bir gülme ifadesi yakalandıysa diğer kontrolleri atla
+      if (bilinenGulmeIfadesi) continue;
+      
+      // Emojileri gülme ifadesi olarak tanıma
+      if (RegExp(r':D|;\)|:\)|:p|:P', caseSensitive: false).hasMatch(kelime)) {
+        tespitiEdilenIfadeler.add(kelime);
+        continue;
+      }
+      
+      // Sadece harflerden oluşmalı (rakam veya özel karakter olmamalı)
+      if (!RegExp(r'^[a-zA-ZğüşıöçĞÜŞİÖÇ]+$').hasMatch(kelime)) continue;
+      
+      // Anlamsız harf dizisi tanıma kriterleri:
+      
+      // 1. Kelime 4+ karakter ve ardışık 3+ sesli harf içermemelidir (anlamsız harf dizilerinde sesli harfler genelde dağınıktır)
+      bool ardisikSesliHarfVar = RegExp(r'[aeıioöuüAEIİOÖUÜ]{3,}').hasMatch(kelime);
+      if (ardisikSesliHarfVar) continue;
+      
+      // 2. Standart Türkçe kelimeler bir harfin 3+ kez tekrarını genelde içermez
+      bool ayniHarfTekrari = RegExp(r'(.)\1{2,}').hasMatch(kelime);
+      if (ayniHarfTekrari) {
+        // Ancak, "hahahaha" gibi tekrarlar gülme olabilir
+        if (RegExp(r'(ha)+|(he)+|(hi)+', caseSensitive: false).hasMatch(kelime)) {
+          tespitiEdilenIfadeler.add(kelime);
+          continue;
+        }
+        // Normal bir kelimede olmamalı
+        continue;
+      }
+      
+      // 3. Harflerin dağılımı düzgün olmamalı - aynı harfler rastgele dağılır
+      Set<String> benzersizHarfler = kelime.split('').toSet();
+      double benzersizOrani = benzersizHarfler.length / kelime.length;
+      
+      // 4. Tekrar eden iki harf grubu olmamalı (aşırı düzenli bir kelime değil)
+      bool tekrarEdenIkiliVar = false;
+      for (int i = 0; i < kelime.length - 1; i++) {
+        String ikili = kelime.substring(i, i + 2);
+        if (kelime.indexOf(ikili, i + 2) != -1) {
+          tekrarEdenIkiliVar = true;
+          break;
+        }
+      }
+      
+      // 5. Kelime en az %60 oranında benzersiz harflerden oluşmalı ve tekrar eden ikili olmamalı
+      if (benzersizOrani >= 0.6 && !tekrarEdenIkiliVar) {
+        // Bu muhtemelen bir gülme ifadesidir (keyboard smash)
+        tespitiEdilenIfadeler.add(kelime);
+      }
+    }
+    
+    return tespitiEdilenIfadeler;
+  }
+  
+  // Görsel analiz sonuçlarını MessageCoachAnalysis formatına dönüştürme
+  MessageCoachAnalysis _gorselAnalizdenMesajAnalizineDonus(MessageCoachVisualAnalysis gorselAnaliz, String aciklama) {
+    // Alternatif mesaj önerilerini cevap önerilerine dönüştür
+    List<String> cevapOnerileri = gorselAnaliz.alternativeMessages;
+    
+    // Potansiyel partner yanıtlarından olumlu ve olumsuz senaryoları al
+    String? olumluCevap;
+    String? olumsuzCevap;
+    if (gorselAnaliz.partnerResponses.isNotEmpty) {
+      olumluCevap = gorselAnaliz.partnerResponses.length > 0 ? gorselAnaliz.partnerResponses[0] : null;
+      olumsuzCevap = gorselAnaliz.partnerResponses.length > 1 ? gorselAnaliz.partnerResponses[1] : null;
+    }
+    
+    // Açıklamada gülme ifadeleri var mı kontrol et
+    List<String> gulmeIfadeleri = _gulmeIfadeleriniTespit(aciklama);
+    bool gulmeIfadesiVarMi = gulmeIfadeleri.isNotEmpty || aciklama.contains("ÖNEMLI TESPIT: ") && aciklama.contains("gülme ifadeleri");
+    
+    // Gülme ifadesi varsa mesaj tonunu ve analizi güncelle
+    String mesajTonu = 'Görsel';
+    String? genelYorum = gorselAnaliz.konumDegerlendirmesi;
+    
+    if (gulmeIfadesiVarMi) {
+      mesajTonu = 'Esprili/Eğlenceli';
+      
+      // Eğer gülme ifadesi varsa ve değerlendirme yoksa özel bir mesaj ekle
+      if (genelYorum == null || genelYorum.isEmpty) {
+        genelYorum = "Mesajda tespit edilen anlamsız harf dizileri (örn: ${gulmeIfadeleri.join(', ')}), yazışmada gülmeyi temsil ediyor olabilir.";
+      } 
+      // Değerlendirme varsa, gülme ifadesi bilgisini ekle
+      else if (!genelYorum.contains("gülme") && !genelYorum.contains("espri")) {
+        genelYorum = "$genelYorum Ayrıca, mesajda tespit edilen anlamsız harf dizileri (örn: ${gulmeIfadeleri.join(', ')}), yazışmada gülmeyi temsil ediyor olabilir.";
+      }
+    }
+    
+    // Etki değerlerini ayarla
+    Map<String, int> etkiDegerleri = {'Görsel': 100};
+    if (gulmeIfadesiVarMi) {
+      etkiDegerleri = {
+        'Eğlenceli': 70,
+        'Samimi': 20,
+        'Rahat': 10,
+      };
+    }
+    
+    return MessageCoachAnalysis(
+      analiz: gorselAnaliz.konumDegerlendirmesi ?? 'Görsel analiz tamamlandı',
+      genelYorum: genelYorum,
+      oneriler: cevapOnerileri,
+      direktYorum: genelYorum,
+      etki: etkiDegerleri,
+      cevapOnerileri: cevapOnerileri,
+      sohbetGenelHavasi: gulmeIfadesiVarMi ? 'Eğlenceli' : 'Görsel Analiz',
+      sonMesajTonu: mesajTonu,
+      sonMesajEtkisi: etkiDegerleri,
+      olumluCevapTahmini: olumluCevap,
+      olumsuzCevapTahmini: olumsuzCevap,
+      anlikTavsiye: gulmeIfadesiVarMi 
+        ? "Karşı taraf eğlenceli ve rahat bir mod içerisinde olabilir. Benzer bir ton ile cevap verebilirsiniz."
+        : gorselAnaliz.konumDegerlendirmesi,
+    );
   }
   
   // Analiz geçmişini güncelle
