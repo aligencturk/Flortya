@@ -318,15 +318,32 @@ Karşı taraf: Tamam, orada görüşürüz.
         _logger.i("Kullanıcı açıklamasında gülme ifadeleri tespit edildi: $kullaniciGulmeIfadeleri");
       }
       
+      // Görsel analiz için özel sistem mesajı oluştur 
+      // Yapay zekaya daha doğal bir üslup kullanmasını söyleyen talimatlar
+      String sistemTalimatlari = """
+Bu bir görsel analizidir. Lütfen aşağıdaki kılavuza göre değerlendirme yap:
+
+1. Robotumsu bir dil KULLANMA, "kullanıcı şunu demiş", "partner bunu demiş" gibi ifadeler kullanma.
+2. Doğal ve akıcı bir dil kullan, sanki bir arkadaşına tavsiye veriyormuş gibi.
+3. Metin analizi yaptığın zaman kullandığın doğal üslubu kullan.
+4. Cevaplarını birinci şahıs olarak ver, "Burada..." veya "Bu durumda..." gibi başlayabilirsin.
+5. Sonuç değerlendirmeni aşağıdaki başlıklar olmadan, doğal bir metinde ifade et.
+
+Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
+""";
+      
       // Eğer gülme ifadeleri tespit edildiyse, açıklamaya ekle
       if (analizNotu.isNotEmpty) {
         aciklama = "$aciklama\n\nÖNEMLİ TESPIT: $analizNotu Bu tür anlamsız harf dizileri genellikle yazışmada gülmeyi temsil eder.";
       }
       
+      // Sistem talimatlarını açıklamaya ekle
+      String zenginlestirilmisAciklama = "$sistemTalimatlari\n\nKullanıcı açıklaması: $aciklama";
+      
       // OCR ve analiz işlemini başlat - doğrudan servis üzerinden
       final analiz = await _mesajKocuService.sohbetGoruntusunuAnalizeEt(
         gorselDosya, 
-        aciklama
+        zenginlestirilmisAciklama
       );
       
       if (analiz == null) {
@@ -342,7 +359,7 @@ Karşı taraf: Tamam, orada görüşürüz.
       if (_currentUserId != null) {
         await _mesajKocuService.saveVisualMessageCoachAnalysis(
           userId: _currentUserId!,
-          aciklama: aciklama,
+          aciklama: aciklama, // Orijinal açıklamayı kaydet, talimatları kaydetme
           analysis: analiz,
         );
         _logger.i('Görsel analizi kaydedildi.');
@@ -463,7 +480,7 @@ Karşı taraf: Tamam, orada görüşürüz.
     
     // Açıklamada gülme ifadeleri var mı kontrol et
     List<String> gulmeIfadeleri = _gulmeIfadeleriniTespit(aciklama);
-    bool gulmeIfadesiVarMi = gulmeIfadeleri.isNotEmpty || aciklama.contains("ÖNEMLI TESPIT: ") && aciklama.contains("gülme ifadeleri");
+    bool gulmeIfadesiVarMi = gulmeIfadeleri.isNotEmpty || aciklama.contains("ÖNEMLİ TESPIT: ") && aciklama.contains("gülme ifadeleri");
     
     // Gülme ifadesi varsa mesaj tonunu ve analizi güncelle
     String mesajTonu = 'Görsel';
@@ -492,21 +509,93 @@ Karşı taraf: Tamam, orada görüşürüz.
       };
     }
     
+    // Gördüğüm kadarıyla, görsel analizindeki robotumsu dil (kullanıcı şunu demiş, partner bunu demiş) 
+    // konumDegerlendirmesi, alternativeMessages ve partnerResponses kısımlarında olabilir.
+    // Bu metinleri daha doğal hale getirelim:
+    
+    // Konumun değerlendirmesini iyileştir (çok robotumsu ise)
+    String iyilestirilmisGenelYorum = genelYorum ?? "";
+    // "Kullanıcı" ve "partner" kelimelerinin kullanımını daha doğal hale getir
+    iyilestirilmisGenelYorum = iyilestirilmisGenelYorum
+        .replaceAll("Kullanıcı şunu demiş:", "Görsel analiz sonucuna göre")
+        .replaceAll("Partner şunu demiş:", "Karşındaki kişi")
+        .replaceAll("Kullanıcı:", "Sen:")
+        .replaceAll("Partner:", "Karşındaki kişi:");
+    
+    // Olumlu ve olumsuz cevap tahminlerini iyileştir
+    String? iyilestirilmisOlumluCevap = olumluCevap;
+    String? iyilestirilmisOlumsuzCevap = olumsuzCevap;
+    
+    if (iyilestirilmisOlumluCevap != null) {
+      iyilestirilmisOlumluCevap = iyilestirilmisOlumluCevap
+          .replaceAll("Partner:", "")
+          .replaceAll("Partner şöyle cevap verebilir:", "")
+          .replaceAll("Olumlu senaryo:", "");
+      
+      if (!iyilestirilmisOlumluCevap.contains("yanıt") && 
+          !iyilestirilmisOlumluCevap.contains("cevap") &&
+          !iyilestirilmisOlumluCevap.contains("tepki")) {
+        iyilestirilmisOlumluCevap = "Olumlu bir tepki alabilirsin: $iyilestirilmisOlumluCevap";
+      }
+    }
+    
+    if (iyilestirilmisOlumsuzCevap != null) {
+      iyilestirilmisOlumsuzCevap = iyilestirilmisOlumsuzCevap
+          .replaceAll("Partner:", "")
+          .replaceAll("Partner şöyle cevap verebilir:", "")
+          .replaceAll("Olumsuz senaryo:", "");
+      
+      if (!iyilestirilmisOlumsuzCevap.contains("yanıt") && 
+          !iyilestirilmisOlumsuzCevap.contains("cevap") &&
+          !iyilestirilmisOlumsuzCevap.contains("tepki")) {
+        iyilestirilmisOlumsuzCevap = "Olumsuz bir tepki alma ihtimalin de var: $iyilestirilmisOlumsuzCevap";
+      }
+    }
+    
+    // Alternatif mesaj önerilerini iyileştir
+    List<String> iyilestirilmisCevapOnerileri = [];
+    for (String oneri in cevapOnerileri) {
+      // Önerilerdeki robotumsu dili temizle
+      String iyilestirilmisOneri = oneri
+          .replaceAll("Kullanıcı şöyle yazabilir:", "")
+          .replaceAll("Kullanıcı:", "")
+          .replaceAll("Öneri:", "")
+          .replaceAll("Alternatif:", "")
+          .trim();
+      
+      // Eğer öneri bu şekilde başlamıyorsa, bir öneride bulunduğumuzu belirtelim
+      if (!iyilestirilmisOneri.contains("öner") && 
+          !iyilestirilmisOneri.contains("dene") && 
+          !iyilestirilmisOneri.contains("yazabil")) {
+        iyilestirilmisOneri = "Şöyle yazabilirsin: $iyilestirilmisOneri";
+      }
+      
+      iyilestirilmisCevapOnerileri.add(iyilestirilmisOneri);
+    }
+    
+    // Anlık tavsiyeyi iyileştir
+    String anlikTavsiye = gulmeIfadesiVarMi 
+      ? "Karşı taraf eğlenceli ve rahat bir mod içerisinde olabilir. Benzer bir ton ile cevap verebilirsin."
+      : iyilestirilmisGenelYorum;
+    
+    // Eğer hiç cevap önerisi yoksa, bazı genel öneriler ekle
+    if (iyilestirilmisCevapOnerileri.isEmpty && anlikTavsiye.isNotEmpty) {
+      iyilestirilmisCevapOnerileri.add("Bu duruma uygun bir şekilde: ${anlikTavsiye.contains(".") ? anlikTavsiye.split(".")[0] : anlikTavsiye}");
+    }
+    
     return MessageCoachAnalysis(
-      analiz: gorselAnaliz.konumDegerlendirmesi ?? 'Görsel analiz tamamlandı',
-      genelYorum: genelYorum,
-      oneriler: cevapOnerileri,
-      direktYorum: genelYorum,
+      analiz: iyilestirilmisGenelYorum.isEmpty ? 'Görsel analiz tamamlandı' : iyilestirilmisGenelYorum,
+      genelYorum: iyilestirilmisGenelYorum,
+      oneriler: iyilestirilmisCevapOnerileri,
+      direktYorum: iyilestirilmisGenelYorum,
       etki: etkiDegerleri,
-      cevapOnerileri: cevapOnerileri,
+      cevapOnerileri: iyilestirilmisCevapOnerileri,
       sohbetGenelHavasi: gulmeIfadesiVarMi ? 'Eğlenceli' : 'Görsel Analiz',
       sonMesajTonu: mesajTonu,
       sonMesajEtkisi: etkiDegerleri,
-      olumluCevapTahmini: olumluCevap,
-      olumsuzCevapTahmini: olumsuzCevap,
-      anlikTavsiye: gulmeIfadesiVarMi 
-        ? "Karşı taraf eğlenceli ve rahat bir mod içerisinde olabilir. Benzer bir ton ile cevap verebilirsiniz."
-        : gorselAnaliz.konumDegerlendirmesi,
+      olumluCevapTahmini: iyilestirilmisOlumluCevap,
+      olumsuzCevapTahmini: iyilestirilmisOlumsuzCevap,
+      anlikTavsiye: anlikTavsiye,
     );
   }
   
