@@ -243,55 +243,56 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
               const SizedBox(height: 12),
               
               // Özet, niyet ve ton bilgileri
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Niyet
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Niyet:',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Niyet:',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
                         ),
-                        Text(
-                          analysis.intent,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      Text(
+                        analysis.intent,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   
+                  const SizedBox(height: 8),
+                  
                   // Ton
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Ton:',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Ton:',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
                         ),
-                        Text(
-                          analysis.tone,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      Text(
+                        analysis.tone,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  
+                  const SizedBox(height: 8),
                   
                   // Şiddet
                   Column(

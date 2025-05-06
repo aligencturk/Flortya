@@ -146,13 +146,26 @@ class _AnalysisDetailViewState extends State<AnalysisDetailView> {
                       // Orijinal Mesaj Kartı
                       _buildSectionCard(
                         title: 'Analiz Edilen Mesaj',
-                        child: Text(
-                          _analysis!.messageContent,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            height: 1.5,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Mesajın içeriğini temizleyerek gösterme - "Görüntüden çıkarılan metin" gibi kısımları atlayarak
+                            Text(
+                              _cleanMessageContent(_analysis!.messageContent),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                height: 1.5,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            
+                            const SizedBox(height: 8),
+                            
+                            // Mesajın tipini belirten bilgi (görsel analizi, .txt dosyası analizi vs.)
+                            _buildAnalysisTypeInfo(_analysis!.messageContent),
+                          ],
                         ),
                       ),
                       
@@ -388,5 +401,71 @@ class _AnalysisDetailViewState extends State<AnalysisDetailView> {
     if (severity <= 3) return Colors.green;
     if (severity <= 6) return Colors.orange;
     return Colors.red;
+  }
+
+  String _cleanMessageContent(String content) {
+    // Görüntüden çıkarılan metin veya .txt dosyası içeriğindeki gereksiz bilgileri temizle
+    if (content.contains("---- Görüntüden çıkarılan metin ----") || 
+        content.contains("---- Çıkarılan metin sonu ----")) {
+      
+      // Sadece analiz özeti göster
+      return "Bu içerik görsel analizi sonucu elde edilmiştir.";
+    } else if (content.contains(".txt") || content.contains("metin dosyası")) {
+      // .txt dosyası analizi için açıklayıcı metin
+      return "Bu içerik metin dosyası analizi sonucu elde edilmiştir.";
+    } else if (content.length > 200) {
+      // Çok uzun içerik - kısalt
+      return "${content.substring(0, 150)}...";
+    }
+    
+    // Normal mesajlar için
+    return content;
+  }
+
+  Widget _buildAnalysisTypeInfo(String content) {
+    String messageType;
+    IconData typeIcon;
+    Color typeColor;
+    
+    if (content.contains("---- Görüntüden çıkarılan metin ----")) {
+      messageType = "Görsel Analizi";
+      typeIcon = Icons.image;
+      typeColor = Colors.blue;
+    } else if (content.contains(".txt") || content.contains("metin dosyası")) {
+      messageType = "Metin Dosyası Analizi";
+      typeIcon = Icons.text_snippet;
+      typeColor = Colors.orange;
+    } else {
+      messageType = "Mesaj Analizi";
+      typeIcon = Icons.chat;
+      typeColor = Colors.green;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: typeColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            typeIcon,
+            size: 14,
+            color: typeColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            messageType,
+            style: TextStyle(
+              color: typeColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 } 
