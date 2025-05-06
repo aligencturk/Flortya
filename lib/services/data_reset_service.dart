@@ -251,8 +251,60 @@ class DataResetService {
         } else {
           debugPrint('Silinecek danışma verisi bulunamadı');
         }
+        
+        // ÖNEMLİ: Analyses koleksiyonundaki consultation tipindeki verileri de temizle
+        debugPrint('Analyses koleksiyonundaki danışma verileri temizleniyor...');
+        
+        // Analyses koleksiyonunu al
+        final analysesSnapshot = await userRef.collection('analyses').where('type', isEqualTo: 'AnalysisType.consultation').get();
+        
+        if (analysesSnapshot.docs.isNotEmpty) {
+          debugPrint('${analysesSnapshot.docs.length} adet analyses danışma verisi bulundu, siliniyor...');
+          
+          // Batch işlemi başlat
+          WriteBatch analysesBatch = _firestore.batch();
+          
+          for (final doc in analysesSnapshot.docs) {
+            analysesBatch.delete(doc.reference);
+          }
+          
+          await analysesBatch.commit();
+          debugPrint('Analyses koleksiyonundaki danışma verileri silindi');
+        } else {
+          debugPrint('Silinecek analyses danışma verisi bulunamadı');
+        }
+        
       } catch (e) {
         debugPrint('Danışma verileri silinirken hata: $e');
+      }
+      
+      // Tüm analyses koleksiyonunu temizleyen kod
+      try {
+        debugPrint('Tüm analyses koleksiyonu temizleniyor...');
+        
+        // Kullanıcının referansı
+        final userRef = _firestore.collection('users').doc(userId);
+        
+        // Analyses koleksiyonunu al (tüm danışma geçmişi burada)
+        final analysesSnapshot = await userRef.collection('analyses').get();
+        
+        if (analysesSnapshot.docs.isNotEmpty) {
+          debugPrint('${analysesSnapshot.docs.length} adet analyses verisi bulundu, siliniyor...');
+          
+          // Batch işlemi başlat
+          WriteBatch batch = _firestore.batch();
+          
+          for (final doc in analysesSnapshot.docs) {
+            batch.delete(doc.reference);
+          }
+          
+          await batch.commit();
+          debugPrint('Tüm analyses verileri silindi');
+        } else {
+          debugPrint('Silinecek analyses verisi bulunamadı');
+        }
+      } catch (e) {
+        debugPrint('Analyses verileri silinirken hata: $e');
       }
       
       // Ek olarak kullanıcı ana verilerini de sıfırla
