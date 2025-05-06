@@ -256,7 +256,7 @@ Karşı taraf: Tamam, orada görüşürüz.
       if (_currentUserId != null && _currentUserId!.isNotEmpty) {
         await _mesajKocuService.saveMessageCoachAnalysis(
           userId: _currentUserId!,
-          sohbetIcerigi: '', // Metin açıklaması analizi olduğu için boş
+          sohbetIcerigi: '', // Metin açıklamısı analizi olduğu için boş
           aciklama: aciklama,
           analysis: analiz
         );
@@ -299,7 +299,7 @@ Karşı taraf: Tamam, orada görüşürüz.
       String? ocrSonucu = _gorselOcrSonucu;
       
       // OCR sonucunda veya kullanıcı açıklamasında "keyboard smash" (anlamsız harf dizisi) 
-      // var mı kontrol et ve bunu yapay zekaya bildir - fakat kullanıcıya söyleme talimatı ver
+      // var mı kontrol et ve bunu yapay zekaya bildir - ve kullanıcıya gülme olarak söylemesini iste
       String analizNotu = "";
       
       // OCR sonucunda gülme içeren anlamsız harf dizisi tespiti
@@ -327,17 +327,17 @@ Bu bir görsel analizidir. Lütfen aşağıdaki kılavuza göre değerlendirme y
 2. Doğal ve akıcı bir dil kullan, sanki bir arkadaşına tavsiye veriyormuş gibi.
 3. Metin analizi yaptığın zaman kullandığın doğal üslubu kullan.
 4. Cevaplarını birinci şahıs olarak ver, "Burada..." veya "Bu durumda..." gibi başlayabilirsin.
-5. ÖNEMLİ: Analiz içerisinde tespit edilen anlamsız harf dizilerinin (dsjsdlfsjgls gibi) "gülme anlamına geldiğini" ASLA doğrudan söyleme! Bu bilgiyi kullan ama kullanıcıya açıkça söyleme.
+5. ÇOK ÖNEMLİ: Tespit edilen anlamsız harf dizilerinin (dsjsdlfsjgls, asdkjasd, hahaha, sjsj gibi) ASLA "anlamsız harfler dizesi" olarak adlandırma. Bunlar kullanıcının GÜLDÜĞÜnü gösterir ve her zaman "güldüğün/güldüğünü/gülme ifadesi kullandığın" gibi doğal ifadelerle belirt. "Anlamsız harfler yazmışsın" yerine "güldüğünü ifade etmişsin" veya "kahkaha atmışsın" gibi ifadeler kullan.
 6. Genel sohbet analizi ile direkt yorum ve geliştirme kısımlarının içeriği farklı olmalı:
    - Genel sohbet analizi: Mevcut durumun tarafsız bir değerlendirmesi
    - Direkt yorum ve geliştirme: Hataların tespiti ve gelişim tavsiyeleri
 
-Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
+Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver. Asla "anlamsız", "rastgele harf", "karmaşık harf" gibi teknik terimler kullanma.
 """;
       
       // Eğer gülme ifadeleri tespit edildiyse, sistem talimatlarında ekstra bilgi ver
       if (analizNotu.isNotEmpty) {
-        sistemTalimatlari += "\n\nTespit edilen gülme ifadeleri: $analizNotu Bu ifadeleri analizinde kullan ama kullanıcıya doğrudan 'Bu gülme ifadesi' gibi açıklamalar yapma.";
+        sistemTalimatlari += "\n\nTespit edilen gülme ifadeleri: $analizNotu Bu ifadeleri, kullanıcının güldüğünü, eğlendiğini veya kahkaha attığını belirterek analiz et. ASLA 'anlamsız harf dizileri', 'keyboard smash', 'rastgele harfler' gibi ifadeleri kullanma, bunun yerine 'güldüğün anlaşılıyor', 'kahkaha atmışsın', 'eğlendiğin belli' gibi doğal ifadeler kullan.";
       }
       
       // Sistem talimatlarını açıklamaya ekle
@@ -495,8 +495,16 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
     if (gulmeIfadesiVarMi) {
       mesajTonu = 'Esprili/Eğlenceli';
       
-      // Önemli: Yeni talimatımız gereği, gülme ifadelerini direkt olarak belirtmiyoruz
-      // Bunun yerine tespiti kullanarak tonu ve havayı değiştiriyoruz
+      // Önemli: Yeni talimatımız gereği, gülme ifadelerini direkt belirteceğiz
+      if (genelYorum == null || genelYorum.isEmpty) {
+        genelYorum = "Mesajda güldüğün anlaşılıyor. Bu samimi ve eğlenceli bir ton kattığını gösteriyor.";
+      } 
+      else if (!genelYorum.toLowerCase().contains("gül") && 
+               !genelYorum.toLowerCase().contains("esprili") && 
+               !genelYorum.toLowerCase().contains("espri") &&
+               !genelYorum.toLowerCase().contains("mizah")) {
+        genelYorum = "$genelYorum Ayrıca mesajında güldüğün anlaşılıyor, bu samimi ve eğlenceli bir ton katıyor.";
+      }
     }
     
     // Etki değerlerini ayarla
@@ -522,18 +530,36 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
         .replaceAll("Kullanıcı:", "Sen:")
         .replaceAll("Partner:", "Karşındaki kişi:");
     
-    // "Anlamsız harf dizileri" veya "gülme ifadeleri" hakkında doğrudan açıklamaları kaldır
+    // "Anlamsız harf dizileri" ifadesini "gülme" olarak değiştir
+    // Kapsamlı regex ifadeleri kullanarak tüm olası varyasyonları yakala
     iyilestirilmisGenelYorum = iyilestirilmisGenelYorum
-        .replaceAll(RegExp(r'Mesajda tespit edilen anlamsız harf dizileri.*?gülmeyi temsil ed[a-z]+\.*'), '')
-        .replaceAll(RegExp(r'Bu tür harf dizileri genellikle.*?gülme ifadesi[a-z]+\.*'), '')
-        .replaceAll(RegExp(r'.*?anlamsız harf dizileri genellikle yazışmada gülmeyi temsil ed[a-z]+\.*'), '');
+        .replaceAll(RegExp(r'[Aa]nlamsız harf diz[ie][ls][ie]ri', caseSensitive: false), 'Gülme ifadeleri')
+        .replaceAll(RegExp(r'[Aa]nlamsız harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız dizi[^a-zA-Z]*', caseSensitive: false), 'gülme ')
+        .replaceAll(RegExp(r'[Rr]astgele harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Kk]eyboard smash', caseSensitive: false), 'gülme ifadesi')
+        .replaceAll(RegExp(r'[Kk]armaşık harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız.*karakter', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız.*yazı', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlaşılmaz.*harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Rr]astgele.*karakter', caseSensitive: false), 'Gülme ifadesi');
+    
+    // Tüm metindeki "anlamsız harf dizelerini" "gülme ifadeleriyle" değiştir
+    for (String gulmeIfade in gulmeIfadeleri) {
+      if (iyilestirilmisGenelYorum.contains(gulmeIfade)) {
+        iyilestirilmisGenelYorum = iyilestirilmisGenelYorum
+            .replaceAll("$gulmeIfade gibi anlamsız harf dizileri", "gülme ifadeleri")
+            .replaceAll("$gulmeIfade gibi anlamsız harfler", "gülme ifadeleri")
+            .replaceAll("$gulmeIfade şeklinde anlamsız karakterler", "gülme ifadeleri");
+      }
+    }
     
     // Direkt yorum için farklı bir içerik oluştur (hata tespiti ve tavsiyeler)
     String direktYorumIcerigi = "";
     
     if (gulmeIfadesiVarMi) {
-      // Gülme ifadesi varsa, samimi ve eğlenceli bir ton tavsiye et, ama gülme ifadelerinden bahsetme
-      direktYorumIcerigi = "Sohbetin havasının samimi ve eğlenceli olduğu anlaşılıyor. Bu tür mesajlaşmalarda karşındaki kişi rahat hissediyor olabilir. Böyle durumlarda benzer bir ton kullanman iletişimi güçlendirebilir. Karşılık verirken mizahi veya samimi bir yaklaşım sergilemen iyi olabilir.";
+      // Gülme ifadesi varsa, samimi ve eğlenceli bir ton tavsiye et, artık gülme ifadesinden bahsedebiliriz
+      direktYorumIcerigi = "Mesajında güldüğün anlaşılıyor, bu sohbetin havasının samimi ve eğlenceli olduğunu gösteriyor. Bu tür mesajlaşmalarda karşındaki kişi rahat hissediyor olabilir. Böyle durumlarda benzer bir ton kullanman iletişimi güçlendirebilir. Karşılık verirken mizahi veya samimi bir yaklaşım sergilemen iyi olabilir.";
     } else if (iyilestirilmisGenelYorum.isNotEmpty) {
       // Genel yorumdan gelişim noktaları ve tavsiyeleri çıkar
       if (iyilestirilmisGenelYorum.contains("ancak") || iyilestirilmisGenelYorum.contains("fakat")) {
@@ -550,6 +576,19 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
       direktYorumIcerigi = "Bu görsel analiz sonucunda özel bir gelişim noktası tespit edilmedi. Genel iletişim tavsiyesi olarak açık ve net olmaya, karşındaki kişinin tepkilerine dikkat etmeye devam et.";
     }
     
+    // "Anlamsız harf" ifadelerini direkt yorumdan da temizle
+    direktYorumIcerigi = direktYorumIcerigi
+        .replaceAll(RegExp(r'[Aa]nlamsız harf diz[ie][ls][ie]ri', caseSensitive: false), 'Gülme ifadeleri')
+        .replaceAll(RegExp(r'[Aa]nlamsız harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız dizi[^a-zA-Z]*', caseSensitive: false), 'gülme ')
+        .replaceAll(RegExp(r'[Rr]astgele harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Kk]eyboard smash', caseSensitive: false), 'gülme ifadesi')
+        .replaceAll(RegExp(r'[Kk]armaşık harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız.*karakter', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız.*yazı', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlaşılmaz.*harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Rr]astgele.*karakter', caseSensitive: false), 'Gülme ifadesi');
+    
     // Olumlu ve olumsuz cevap tahminlerini iyileştir
     String? iyilestirilmisOlumluCevap = olumluCevap;
     String? iyilestirilmisOlumsuzCevap = olumsuzCevap;
@@ -559,6 +598,19 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
           .replaceAll("Partner:", "")
           .replaceAll("Partner şöyle cevap verebilir:", "")
           .replaceAll("Olumlu senaryo:", "");
+      
+      // Anlamsız harf ifadelerini gülme olarak değiştir
+      iyilestirilmisOlumluCevap = iyilestirilmisOlumluCevap
+          .replaceAll(RegExp(r'[Aa]nlamsız harf diz[ie][ls][ie]ri', caseSensitive: false), 'Gülme ifadeleri')
+          .replaceAll(RegExp(r'[Aa]nlamsız harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız dizi[^a-zA-Z]*', caseSensitive: false), 'gülme ')
+          .replaceAll(RegExp(r'[Rr]astgele harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Kk]eyboard smash', caseSensitive: false), 'gülme ifadesi')
+          .replaceAll(RegExp(r'[Kk]armaşık harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız.*karakter', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız.*yazı', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlaşılmaz.*harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Rr]astgele.*karakter', caseSensitive: false), 'Gülme ifadesi');
       
       if (!iyilestirilmisOlumluCevap.contains("yanıt") && 
           !iyilestirilmisOlumluCevap.contains("cevap") &&
@@ -572,6 +624,19 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
           .replaceAll("Partner:", "")
           .replaceAll("Partner şöyle cevap verebilir:", "")
           .replaceAll("Olumsuz senaryo:", "");
+      
+      // Anlamsız harf ifadelerini gülme olarak değiştir
+      iyilestirilmisOlumsuzCevap = iyilestirilmisOlumsuzCevap
+          .replaceAll(RegExp(r'[Aa]nlamsız harf diz[ie][ls][ie]ri', caseSensitive: false), 'Gülme ifadeleri')
+          .replaceAll(RegExp(r'[Aa]nlamsız harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız dizi[^a-zA-Z]*', caseSensitive: false), 'gülme ')
+          .replaceAll(RegExp(r'[Rr]astgele harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Kk]eyboard smash', caseSensitive: false), 'gülme ifadesi')
+          .replaceAll(RegExp(r'[Kk]armaşık harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız.*karakter', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız.*yazı', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlaşılmaz.*harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Rr]astgele.*karakter', caseSensitive: false), 'Gülme ifadesi');
       
       if (!iyilestirilmisOlumsuzCevap.contains("yanıt") && 
           !iyilestirilmisOlumsuzCevap.contains("cevap") &&
@@ -591,6 +656,19 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
           .replaceAll("Alternatif:", "")
           .trim();
       
+      // Anlamsız harf ifadelerini gülme olarak değiştir
+      iyilestirilmisOneri = iyilestirilmisOneri
+          .replaceAll(RegExp(r'[Aa]nlamsız harf diz[ie][ls][ie]ri', caseSensitive: false), 'Gülme ifadeleri')
+          .replaceAll(RegExp(r'[Aa]nlamsız harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız dizi[^a-zA-Z]*', caseSensitive: false), 'gülme ')
+          .replaceAll(RegExp(r'[Rr]astgele harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Kk]eyboard smash', caseSensitive: false), 'gülme ifadesi')
+          .replaceAll(RegExp(r'[Kk]armaşık harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız.*karakter', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlamsız.*yazı', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Aa]nlaşılmaz.*harf', caseSensitive: false), 'Gülme ifadesi')
+          .replaceAll(RegExp(r'[Rr]astgele.*karakter', caseSensitive: false), 'Gülme ifadesi');
+      
       // Eğer öneri bu şekilde başlamıyorsa, bir öneride bulunduğumuzu belirtelim
       if (!iyilestirilmisOneri.contains("öner") && 
           !iyilestirilmisOneri.contains("dene") && 
@@ -603,8 +681,21 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
     
     // Anlık tavsiyeyi iyileştir
     String anlikTavsiye = gulmeIfadesiVarMi 
-      ? "Karşı taraf eğlenceli ve rahat bir mod içerisinde olabilir. Benzer bir ton ile cevap verebilirsin."
+      ? "Karşı taraf eğlenceli ve rahat bir mod içerisinde olabilir. Mesajında güldüğün anlaşılıyor, benzer bir ton ile cevap verebilirsin."
       : iyilestirilmisGenelYorum;
+    
+    // Anlık tavsiyede de anlamsız harf ifadelerini temizle
+    anlikTavsiye = anlikTavsiye
+        .replaceAll(RegExp(r'[Aa]nlamsız harf diz[ie][ls][ie]ri', caseSensitive: false), 'Gülme ifadeleri')
+        .replaceAll(RegExp(r'[Aa]nlamsız harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız dizi[^a-zA-Z]*', caseSensitive: false), 'gülme ')
+        .replaceAll(RegExp(r'[Rr]astgele harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Kk]eyboard smash', caseSensitive: false), 'gülme ifadesi')
+        .replaceAll(RegExp(r'[Kk]armaşık harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız.*karakter', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlamsız.*yazı', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Aa]nlaşılmaz.*harf', caseSensitive: false), 'Gülme ifadesi')
+        .replaceAll(RegExp(r'[Rr]astgele.*karakter', caseSensitive: false), 'Gülme ifadesi');
     
     // Eğer hiç cevap önerisi yoksa, bazı genel öneriler ekle
     if (iyilestirilmisCevapOnerileri.isEmpty && anlikTavsiye.isNotEmpty) {
