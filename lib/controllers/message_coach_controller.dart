@@ -299,7 +299,7 @@ Karşı taraf: Tamam, orada görüşürüz.
       String? ocrSonucu = _gorselOcrSonucu;
       
       // OCR sonucunda veya kullanıcı açıklamasında "keyboard smash" (anlamsız harf dizisi) 
-      // var mı kontrol et ve bunu yapay zekaya bildir
+      // var mı kontrol et ve bunu yapay zekaya bildir - fakat kullanıcıya söyleme talimatı ver
       String analizNotu = "";
       
       // OCR sonucunda gülme içeren anlamsız harf dizisi tespiti
@@ -319,7 +319,7 @@ Karşı taraf: Tamam, orada görüşürüz.
       }
       
       // Görsel analiz için özel sistem mesajı oluştur 
-      // Yapay zekaya daha doğal bir üslup kullanmasını söyleyen talimatlar
+      // Yapay zekaya daha doğal bir üslup kullanmasını ve gülme ifadeleri hakkında bilgilendirme yapmasını söyleyen talimatlar
       String sistemTalimatlari = """
 Bu bir görsel analizidir. Lütfen aşağıdaki kılavuza göre değerlendirme yap:
 
@@ -327,14 +327,17 @@ Bu bir görsel analizidir. Lütfen aşağıdaki kılavuza göre değerlendirme y
 2. Doğal ve akıcı bir dil kullan, sanki bir arkadaşına tavsiye veriyormuş gibi.
 3. Metin analizi yaptığın zaman kullandığın doğal üslubu kullan.
 4. Cevaplarını birinci şahıs olarak ver, "Burada..." veya "Bu durumda..." gibi başlayabilirsin.
-5. Sonuç değerlendirmeni aşağıdaki başlıklar olmadan, doğal bir metinde ifade et.
+5. ÖNEMLİ: Analiz içerisinde tespit edilen anlamsız harf dizilerinin (dsjsdlfsjgls gibi) "gülme anlamına geldiğini" ASLA doğrudan söyleme! Bu bilgiyi kullan ama kullanıcıya açıkça söyleme.
+6. Genel sohbet analizi ile direkt yorum ve geliştirme kısımlarının içeriği farklı olmalı:
+   - Genel sohbet analizi: Mevcut durumun tarafsız bir değerlendirmesi
+   - Direkt yorum ve geliştirme: Hataların tespiti ve gelişim tavsiyeleri
 
 Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
 """;
       
-      // Eğer gülme ifadeleri tespit edildiyse, açıklamaya ekle
+      // Eğer gülme ifadeleri tespit edildiyse, sistem talimatlarında ekstra bilgi ver
       if (analizNotu.isNotEmpty) {
-        aciklama = "$aciklama\n\nÖNEMLİ TESPIT: $analizNotu Bu tür anlamsız harf dizileri genellikle yazışmada gülmeyi temsil eder.";
+        sistemTalimatlari += "\n\nTespit edilen gülme ifadeleri: $analizNotu Bu ifadeleri analizinde kullan ama kullanıcıya doğrudan 'Bu gülme ifadesi' gibi açıklamalar yapma.";
       }
       
       // Sistem talimatlarını açıklamaya ekle
@@ -353,7 +356,7 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
       
       // Görsel analiz sonuçlarını MessageCoachAnalysis formatına dönüştür
       // ve controller'ın analysis değişkenine ata
-      _analysis = _gorselAnalizdenMesajAnalizineDonus(analiz, aciklama);
+      _analysis = _gorselAnalizdenMesajAnalizineDonus(analiz, aciklama, analizNotu);
       
       // Firebase'e kaydet
       if (_currentUserId != null) {
@@ -466,7 +469,10 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
   }
   
   // Görsel analiz sonuçlarını MessageCoachAnalysis formatına dönüştürme
-  MessageCoachAnalysis _gorselAnalizdenMesajAnalizineDonus(MessageCoachVisualAnalysis gorselAnaliz, String aciklama) {
+  MessageCoachAnalysis _gorselAnalizdenMesajAnalizineDonus(
+      MessageCoachVisualAnalysis gorselAnaliz, 
+      String aciklama, 
+      String gulmeIfadeleriNotu) {
     // Alternatif mesaj önerilerini cevap önerilerine dönüştür
     List<String> cevapOnerileri = gorselAnaliz.alternativeMessages;
     
@@ -480,7 +486,7 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
     
     // Açıklamada gülme ifadeleri var mı kontrol et
     List<String> gulmeIfadeleri = _gulmeIfadeleriniTespit(aciklama);
-    bool gulmeIfadesiVarMi = gulmeIfadeleri.isNotEmpty || aciklama.contains("ÖNEMLİ TESPIT: ") && aciklama.contains("gülme ifadeleri");
+    bool gulmeIfadesiVarMi = gulmeIfadeleri.isNotEmpty || gulmeIfadeleriNotu.isNotEmpty;
     
     // Gülme ifadesi varsa mesaj tonunu ve analizi güncelle
     String mesajTonu = 'Görsel';
@@ -489,14 +495,8 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
     if (gulmeIfadesiVarMi) {
       mesajTonu = 'Esprili/Eğlenceli';
       
-      // Eğer gülme ifadesi varsa ve değerlendirme yoksa özel bir mesaj ekle
-      if (genelYorum == null || genelYorum.isEmpty) {
-        genelYorum = "Mesajda tespit edilen anlamsız harf dizileri (örn: ${gulmeIfadeleri.join(', ')}), yazışmada gülmeyi temsil ediyor olabilir.";
-      } 
-      // Değerlendirme varsa, gülme ifadesi bilgisini ekle
-      else if (!genelYorum.contains("gülme") && !genelYorum.contains("espri")) {
-        genelYorum = "$genelYorum Ayrıca, mesajda tespit edilen anlamsız harf dizileri (örn: ${gulmeIfadeleri.join(', ')}), yazışmada gülmeyi temsil ediyor olabilir.";
-      }
+      // Önemli: Yeni talimatımız gereği, gülme ifadelerini direkt olarak belirtmiyoruz
+      // Bunun yerine tespiti kullanarak tonu ve havayı değiştiriyoruz
     }
     
     // Etki değerlerini ayarla
@@ -521,6 +521,34 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
         .replaceAll("Partner şunu demiş:", "Karşındaki kişi")
         .replaceAll("Kullanıcı:", "Sen:")
         .replaceAll("Partner:", "Karşındaki kişi:");
+    
+    // "Anlamsız harf dizileri" veya "gülme ifadeleri" hakkında doğrudan açıklamaları kaldır
+    iyilestirilmisGenelYorum = iyilestirilmisGenelYorum
+        .replaceAll(RegExp(r'Mesajda tespit edilen anlamsız harf dizileri.*?gülmeyi temsil ed[a-z]+\.*'), '')
+        .replaceAll(RegExp(r'Bu tür harf dizileri genellikle.*?gülme ifadesi[a-z]+\.*'), '')
+        .replaceAll(RegExp(r'.*?anlamsız harf dizileri genellikle yazışmada gülmeyi temsil ed[a-z]+\.*'), '');
+    
+    // Direkt yorum için farklı bir içerik oluştur (hata tespiti ve tavsiyeler)
+    String direktYorumIcerigi = "";
+    
+    if (gulmeIfadesiVarMi) {
+      // Gülme ifadesi varsa, samimi ve eğlenceli bir ton tavsiye et, ama gülme ifadelerinden bahsetme
+      direktYorumIcerigi = "Sohbetin havasının samimi ve eğlenceli olduğu anlaşılıyor. Bu tür mesajlaşmalarda karşındaki kişi rahat hissediyor olabilir. Böyle durumlarda benzer bir ton kullanman iletişimi güçlendirebilir. Karşılık verirken mizahi veya samimi bir yaklaşım sergilemen iyi olabilir.";
+    } else if (iyilestirilmisGenelYorum.isNotEmpty) {
+      // Genel yorumdan gelişim noktaları ve tavsiyeleri çıkar
+      if (iyilestirilmisGenelYorum.contains("ancak") || iyilestirilmisGenelYorum.contains("fakat")) {
+        // Eğer "ancak" veya "fakat" içeriyorsa, o kısımları direkt yorum olarak kullan
+        List<String> parcalar = iyilestirilmisGenelYorum.split(RegExp(r'(ancak|fakat)'));
+        if (parcalar.length > 1) {
+          direktYorumIcerigi = "Geliştirilebilecek noktalar: " + parcalar[1].trim();
+        }
+      } else {
+        // Yoksa, genel tavsiyeleri ekle
+        direktYorumIcerigi = "Bu mesajlaşmada şunlara dikkat etmen faydalı olabilir: Karşındaki kişinin tepkilerini dikkatle izle ve iletişim tonunu ona göre ayarla. Açık ve net bir ifade kullan, yanlış anlaşılmaları önle.";
+      }
+    } else {
+      direktYorumIcerigi = "Bu görsel analiz sonucunda özel bir gelişim noktası tespit edilmedi. Genel iletişim tavsiyesi olarak açık ve net olmaya, karşındaki kişinin tepkilerine dikkat etmeye devam et.";
+    }
     
     // Olumlu ve olumsuz cevap tahminlerini iyileştir
     String? iyilestirilmisOlumluCevap = olumluCevap;
@@ -587,9 +615,9 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver.
       analiz: iyilestirilmisGenelYorum.isEmpty ? 'Görsel analiz tamamlandı' : iyilestirilmisGenelYorum,
       genelYorum: iyilestirilmisGenelYorum,
       oneriler: iyilestirilmisCevapOnerileri,
-      direktYorum: iyilestirilmisGenelYorum,
+      direktYorum: direktYorumIcerigi, // Farklı içerik: hata tespiti ve tavsiyeler
       etki: etkiDegerleri,
-      cevapOnerileri: iyilestirilmisCevapOnerileri,
+      cevapOnerileri: iyilestirilmisCevapOnerileri, // Bunlara dokunmuyoruz, aynen bırakıyoruz
       sohbetGenelHavasi: gulmeIfadesiVarMi ? 'Eğlenceli' : 'Görsel Analiz',
       sonMesajTonu: mesajTonu,
       sonMesajEtkisi: etkiDegerleri,
