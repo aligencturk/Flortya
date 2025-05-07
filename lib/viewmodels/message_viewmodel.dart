@@ -351,10 +351,10 @@ class MessageViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Mesajı analiz et
-  Future<bool> analyzeMessage(String messageId) async {
+  // Mesajı analiz et (messageId ile)
+  Future<bool> analyzeMessage(String messageIdOrContent) async {
     try {
-      _logger.i('Mesaj analizi başlatılıyor: $messageId');
+      _logger.i('Mesaj analizi başlatılıyor');
       
       // Kullanıcı kimliğini kontrol et
       final userId = _authService.currentUser?.uid;
@@ -365,49 +365,58 @@ class MessageViewModel extends ChangeNotifier {
         return false;
       }
       
-      // Mesaj ID'sini doğrula
-      if (messageId.isEmpty) {
-        _logger.e('Geçersiz mesaj ID: boş');
-        _errorMessage = 'Analiz yapılamadı: Geçersiz mesaj';
-        notifyListeners();
-        return false;
-      }
+      // Firestore'da mesaj ID'si ile eşleşen belge var mı kontrol et
+      bool isMessageId = false;
+      Message? message;
+      String messageId = '';
+      String content = messageIdOrContent;
       
-      _logger.i('Mesaj analizi için kullanıcı: $userId, mesaj ID: $messageId');
-      
+      try {
       // Önce yerel listede mesajı ara
-      Message? message = _messages.firstWhereOrNull((m) => m.id == messageId);
+        message = _messages.firstWhereOrNull((m) => m.id == messageIdOrContent);
       
-      // Yerel listede bulunamadıysa Firestore'dan al
+        // Yerel listede bulunamadıysa Firestore'dan ara
       if (message == null) {
-        _logger.i('Mesaj yerel listede bulunamadı, Firestore\'dan alınıyor');
+          final messageDocRef = _firestore.collection('users').doc(userId).collection('messages').doc(messageIdOrContent);
+          final messageDoc = await messageDocRef.get();
         
-        // Önce users koleksiyonunu kontrol et
-        final userDocRef = _firestore.collection('users').doc(userId);
-        final userDoc = await userDocRef.get();
+          if (messageDoc.exists) {
+            isMessageId = true;
+            messageId = messageIdOrContent;
+            
+            // Mesajı oluştur
+            final messageData = messageDoc.data() as Map<String, dynamic>;
+            message = Message.fromMap(messageData, docId: messageId);
+            _messages.add(message); // Yerel listeye ekle
+            content = message.content;
+          }
+        } else {
+          isMessageId = true;
+          messageId = messageIdOrContent;
+          content = message.content;
+        }
+      } catch (e) {
+        _logger.i('messageIdOrContent bir mesaj ID\'si değil, içerik olarak işlenecek: ${e.toString().substring(0, min(50, e.toString().length))}');
+        isMessageId = false;
+        }
         
-        if (!userDoc.exists) {
-          _logger.e('Kullanıcı belgesi bulunamadı: $userId');
-          _errorMessage = 'Analiz yapılamadı: Kullanıcı verisi bulunamadı';
+      // Eğer mesaj ID'si değilse, yeni bir mesaj oluştur
+      if (!isMessageId) {
+        _logger.i('Yeni mesaj oluşturuluyor');
+        // Metin mesajını oluştur
+        message = await addMessage(
+          content,
+          analyze: false, // Analizi sonradan manuel yapacağız
+        );
+        
+        if (message == null) {
+          _logger.e('Mesaj oluşturulamadı');
+          _errorMessage = 'Mesaj oluşturulamadı';
           notifyListeners();
           return false;
         }
         
-        // Mesaj belgesini al
-        final messageDocRef = userDocRef.collection('messages').doc(messageId);
-        final messageDoc = await messageDocRef.get();
-        
-        if (!messageDoc.exists) {
-          _logger.e('Mesaj belgesi bulunamadı: $messageId');
-          _errorMessage = 'Analiz yapılamadı: Mesaj bulunamadı';
-          notifyListeners();
-          return false;
-        }
-        
-        // Mesajı oluştur
-        final messageData = messageDoc.data() as Map<String, dynamic>;
-        message = Message.fromMap(messageData, docId: messageId);
-        _messages.add(message); // Yerel listeye ekle
+        messageId = message.id;
       }
       
       // Analiz durumunu güncelle
@@ -429,8 +438,7 @@ class MessageViewModel extends ChangeNotifier {
       }
       
       // Mesaj içeriğini hazırla
-      final content = message.content.trim();
-      if (content.isEmpty) {
+      if (content.trim().isEmpty) {
         _logger.e('Mesaj içeriği boş, analiz edilemez');
         await messageRef.update({
           'isAnalyzing': false,
@@ -493,9 +501,8 @@ class MessageViewModel extends ChangeNotifier {
         'isAnalyzing': false,
         'isAnalyzed': true,
         'analysisResult': analysisResult.toMap(),
-        'errorMessage': null,
         'updatedAt': Timestamp.now(),
-        'isSaved': true, // Analiz otomatik kaydedildi olarak işaretlenir
+        'analysisSource': isMessageId ? 'normal' : 'text', // Text dosyası analizi ise source değeri text olacak
       });
       
       // Yerel listedeki mesajı güncelle
@@ -505,7 +512,7 @@ class MessageViewModel extends ChangeNotifier {
           isAnalyzed: true,
           analysisResult: analysisResult,
           errorMessage: null,
-          analysisSource: AnalysisSource.image, // Analiz kaynağını ayarla
+          analysisSource: isMessageId ? AnalysisSource.normal : AnalysisSource.text, // Analiz kaynağını ayarla
         );
         _currentMessage = _messages[index];
         // Geçerli analiz sonucunu da güncelle
@@ -522,24 +529,38 @@ class MessageViewModel extends ChangeNotifier {
     } catch (e, stackTrace) {
       _logger.e('Mesaj analizi sırasında hata oluştu', e, stackTrace);
       
+      // Hata durumunda varsayılan değerler
+      bool isExistingMessageId = false;
+      String messageIdentifier = '';
+      
+      // Eğer messageIdOrContent bir UUID formatındaysa, ID olarak kabul edebiliriz
+      if (messageIdOrContent.length > 20) {
+        isExistingMessageId = true;
+        messageIdentifier = messageIdOrContent;
+      }
+      
       // Hata durumunda Firestore'u güncellemeye çalış
       try {
         final userId = _authService.currentUser?.uid;
-        if (userId != null && messageId.isNotEmpty) {
-          final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(messageId);
+        if (userId != null && !messageIdOrContent.isEmpty) {
+          // Eğer messageIdOrContent bir içerikse (yani messageId değilse) hata raporu gönderemeyiz
+          if (isExistingMessageId) {
+            final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(messageIdentifier);
           await messageRef.update({
             'isAnalyzing': false,
             'isAnalyzed': true,
             'errorMessage': e.toString(),
             'updatedAt': Timestamp.now(),
           });
+          }
         }
       } catch (updateError) {
         _logger.e('Hata sonrası Firestore güncellemesi başarısız oldu', updateError);
       }
       
       // Yerel listeyi güncelle
-      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (isExistingMessageId) {
+        final index = _messages.indexWhere((m) => m.id == messageIdentifier);
       if (index != -1) {
         _messages[index] = _messages[index].copyWith(
           isAnalyzing: false,
@@ -547,6 +568,7 @@ class MessageViewModel extends ChangeNotifier {
           errorMessage: e.toString(),
         );
         _currentMessage = _messages[index];
+        }
       }
       
       _errorMessage = 'Mesaj analizi sırasında hata oluştu: $e';

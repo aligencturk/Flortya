@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:math';
 import 'dart:async';
+import 'dart:convert'; // JSON işlemleri için ekle
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart' as provider;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -22,6 +24,8 @@ import '../utils/loading_indicator.dart';
 import '../models/message_coach_analysis.dart';
 import '../models/analysis_result.dart' as analysis;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/premium_service.dart';
+import '../widgets/feature_card.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -473,21 +477,61 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             fontSize: 18,
                           ),
                         ),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            // Danışma sayfasına yönlendir
-                            context.push('/consultation');
+                        FutureBuilder(
+                          future: _checkFeatureAccess(),
+                          builder: (context, AsyncSnapshot<Map<PremiumFeature, bool>> snapshot) {
+                            final featureAccess = snapshot.data ?? {
+                              PremiumFeature.CONSULTATION: false,
+                            };
+                            final bool canUseConsultation = featureAccess[PremiumFeature.CONSULTATION] ?? false;
+                            
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    // Premium kontrolü - eğer premium değilse bilgilendirme göster
+                                    if (canUseConsultation) {
+                                      // Danışma sayfasına yönlendir
+                                      context.push('/consultation');
+                                    } else {
+                                      // Premium bilgilendirme diyaloğu göster
+                                      showPremiumInfoDialog(context, PremiumFeature.CONSULTATION);
+                                    }
+                                  },
+                                  icon: Icon(Icons.chat_outlined, size: 18),
+                                  label: Text('Danış'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF9D3FFF),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                                
+                                // Premium değilse kilit simgesi göster
+                                if (!canUseConsultation)
+                                  Positioned(
+                                    top: -5,
+                                    right: -5,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.lock,
+                                        color: Color(0xFF9D3FFF),
+                                        size: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
                           },
-                          icon: Icon(Icons.chat_outlined, size: 18),
-                          label: Text('Danış'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF9D3FFF),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -525,8 +569,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     
                     const SizedBox(height: 20),
                     
-                    // Yükleme kartları
-                    _buildUploadCards(),
+                    // Upload section - Yükleme bölümü
+                    _buildUploadSection(),
                     
                     const SizedBox(height: 20),
                     
@@ -551,10 +595,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
   
-  Widget _buildUploadCards() {
-    final viewModel = Provider.of<MessageViewModel>(context, listen: false);
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
+  // Upload section - Yükleme bölümü
+  Widget _buildUploadSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
@@ -568,41 +610,65 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildUploadCard(
-                  title: 'Görsel Yükle',
-                  subtitle: 'Ekran görüntüsü yükle',
-                  icon: Icons.image_outlined,
-                  onTap: _gorselAnalizi,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildUploadCard(
-                  title: 'Metin Yükle',
-                  subtitle: '.txt dosyası yükle',
-                  icon: Icons.description_outlined,
-                  onTap: _dosyadanAnaliz,
-                ),
-              ),
-            ],
+          FutureBuilder(
+            future: _checkFeatureAccess(),
+            builder: (context, AsyncSnapshot<Map<PremiumFeature, bool>> snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final featureAccess = snapshot.data ?? {
+                PremiumFeature.VISUAL_OCR: true,
+                PremiumFeature.TXT_ANALYSIS: true,
+                PremiumFeature.CONSULTATION: false,
+              };
+              
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildUploadCard(
+                      title: 'Görsel Yükle',
+                      subtitle: 'Ekran görüntüsü yükle',
+                      icon: Icons.image_outlined,
+                      onTap: featureAccess[PremiumFeature.VISUAL_OCR]! 
+                         ? _gorselAnalizi 
+                         : () => showPremiumInfoDialog(context, PremiumFeature.VISUAL_OCR),
+                      isLocked: !featureAccess[PremiumFeature.VISUAL_OCR]!,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildUploadCard(
+                      title: 'Metin Yükle',
+                      subtitle: '.txt dosyası yükle',
+                      icon: Icons.description_outlined,
+                      onTap: featureAccess[PremiumFeature.TXT_ANALYSIS]!
+                         ? _dosyadanAnaliz
+                         : () => showPremiumInfoDialog(context, PremiumFeature.TXT_ANALYSIS),
+                      isLocked: !featureAccess[PremiumFeature.TXT_ANALYSIS]!,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
   
-  // Yükle kartı widget'ı
+  // Yükle kartı widget'ı - orijinal tasarım
   Widget _buildUploadCard({
     required String title, 
     required String subtitle, 
     required IconData icon, 
-    required VoidCallback onTap
+    required VoidCallback onTap,
+    bool isLocked = false,
+    bool fullWidth = false,
   }) {
     return SizedBox(
       height: 150, // Sabit yükseklik belirle
+      width: fullWidth ? double.infinity : null,
       child: Card(
         color: const Color(0xFF352269),
         shape: RoundedRectangleBorder(
@@ -612,240 +678,238 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: Colors.white.withOpacity(0.9),
-                  size: 32,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white.withOpacity(0.9),
+                      size: 32,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+              ),
+              if (isLocked)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.lock,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
-  
-  // Görsel analizi
+
+  // Premium özelliklere erişim durumunu kontrol et
+  Future<Map<PremiumFeature, bool>> _checkFeatureAccess() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final bool isPremium = authViewModel.isPremium;
+    final _premiumService = PremiumService();
+    
+    // Premium ise tüm özelliklere erişim var
+    if (isPremium) {
+      return {
+        PremiumFeature.VISUAL_OCR: true,
+        PremiumFeature.TXT_ANALYSIS: true,
+        PremiumFeature.WRAPPED_ANALYSIS: true,
+        PremiumFeature.CONSULTATION: true,
+      };
+    }
+    
+    // Premium değilse, erişim durumlarını kontrol et
+    final canUseVisualOcr = await _premiumService.canUseFeature(
+      PremiumFeature.VISUAL_OCR, 
+      isPremium
+    );
+    
+    final canUseTxtAnalysis = await _premiumService.canUseFeature(
+      PremiumFeature.TXT_ANALYSIS, 
+      isPremium
+    );
+    
+    final canUseWrappedAnalysis = await _premiumService.canUseFeature(
+      PremiumFeature.WRAPPED_ANALYSIS, 
+      isPremium
+    );
+    
+    return {
+      PremiumFeature.VISUAL_OCR: canUseVisualOcr,
+      PremiumFeature.TXT_ANALYSIS: canUseTxtAnalysis,
+      PremiumFeature.WRAPPED_ANALYSIS: canUseWrappedAnalysis,
+      PremiumFeature.CONSULTATION: false, // Danışma her zaman premium
+    };
+  }
+
+  // Görsel analizi - reklam kontrolü ile
   Future<void> _gorselAnalizi() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final isPremium = authViewModel.isPremium;
-
-    // Premium kontrolü
+    final _premiumService = PremiumService();
+    
+    // Premium değilse, kullanım sayısını kontrol et ve artır
     if (!isPremium) {
-      // Premium olmayan kullanıcılar için bilgilendirme
-      Utils.showToast(
-        context, 
-        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
-      );
+      final int count = await _premiumService.getDailyVisualOcrCount();
+      debugPrint('Görsel OCR günlük kullanım: $count / 3');
+      
+      // Kullanım sayısını artır
+      await _premiumService.incrementDailyVisualOcrCount();
+      
+      // Reklam izletme fonksiyonu burada çağrılabilir
+      // Bu projede henüz reklam entegrasyonu yok, o yüzden sadece bilgilendirme gösteriyoruz
+      if (count < 3) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bugün ${count + 1}. görsel analizinizi yaptınız. Günlük 3 hakkınız var.'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
-
-    await _pickImage();
+    
+    // Görsel seçme işlemini başlat
+    await _gorselSec();
   }
   
-  // Görsel analizi için dosya seçme işlemi
-  Future<void> _pickImage() async {
-    bool isProcessing = false;
-    
+  // TXT dosyası analizi - reklam kontrolü ile
+  Future<void> _dosyadanAnaliz() async {
     try {
-      final XTypeGroup typeGroup = XTypeGroup(
-        label: 'Görseller',
-        extensions: <String>['jpg', 'jpeg', 'png'],
-      );
-      
-      setState(() {
-        _isLoading = true;
-        _isImageAnalysis = true;
-      });
-      
-      // Dosya seçiciyi aç
-      final XFile? pickedFile = await openFile(
-        acceptedTypeGroups: <XTypeGroup>[typeGroup],
-      );
-      
-      if (pickedFile == null) {
-        setState(() {
-          _isLoading = false;
-          _isImageAnalysis = false;
-        });
-        return;
-      }
-      
-      // Analize başladığını bildir
-      setState(() {
-        isProcessing = true;
-      });
-      
-      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+      // Kullanıcı giriş kontrolü
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      
       if (authViewModel.user == null) {
-        Utils.showErrorFeedback(
-          context, 
-          'Görsel analizi için lütfen giriş yapın'
-        );
-        setState(() {
-          isProcessing = false;
-          _isLoading = false;
-          _isImageAnalysis = false;
-        });
+        Utils.showErrorFeedback(context, 'Dosya analizi için lütfen giriş yapın');
         return;
       }
       
-      // Önceki analiz işlemlerini sıfırla
-      viewModel.resetCurrentAnalysis();
+      // Premium durumu kontrolü
+      final bool isPremium = authViewModel.isPremium;
+      final _premiumService = PremiumService();
       
-      // XFile'ı File'a dönüştür
-      final File imageFile = File(pickedFile.path);
-      
-      // Görsel OCR ve analiz işlemi başlatılıyor
-      final bool result = await viewModel.analyzeImageMessage(imageFile);
-      
-      // Analiz tamamlandı - tüm State'leri temizle
-      if (mounted) {
-        setState(() {
-          isProcessing = false;
-          _isLoading = false;
-          _showDetailedAnalysisResult = result; // Analiz başarılıysa detayları göster
-        });
+      // Premium değilse limit kontrolü
+      if (!isPremium) {
+        final int count = await _premiumService.getTxtAnalysisUsedCount();
+        debugPrint('TXT analizi toplam kullanım: $count / 3');
+        
+        // Limit dolmuşsa uyarı göster ve çık
+        if (count >= 3) {
+          showPremiumInfoDialog(context, PremiumFeature.TXT_ANALYSIS);
+          return;
+        }
       }
       
-      if (result) {
-        Utils.showSuccessFeedback(
-          context, 
-          'Görsel başarıyla analiz edildi'
-        );
-        
-        // Belirli bir süre sonra mesaj listesini yenile
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          // Ana sayfa verilerini güncelle
-          final homeController = Provider.of<HomeController>(context, listen: false);
-          homeController.anaSayfayiGuncelle();
+      // Dosya seçim işlemini başlat
+      bool? success = await _pickTextFile();
+      
+      // Dosya başarıyla seçilip analiz edildiyse sayaç artırılır
+      if (success == true && !isPremium) {
+        try {
+          await _premiumService.incrementTxtAnalysisUsedCount();
+          final int newCount = await _premiumService.getTxtAnalysisUsedCount();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$newCount. TXT dosyası analizinizi yaptınız. Toplamda 3 hakkınız var.'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('Kullanım sayacı güncellenirken hata: $e');
         }
-      } else {
-        Utils.showErrorFeedback(
-          context, 
-          'Görsel analiz edilirken bir hata oluştu'
-        );
       }
     } catch (e) {
+      debugPrint('_dosyadanAnaliz hata: $e');
       if (mounted) {
-        setState(() {
-          isProcessing = false;
-          _isLoading = false;
-          _isImageAnalysis = false;
-        });
-        
-        debugPrint('_pickImage genel hata: $e');
-        Utils.showErrorFeedback(
-          context, 
-          'Görsel seçme işlemi sırasında hata: $e'
-        );
+        Utils.showErrorFeedback(context, 'Dosya analizi başlatılırken hata oluştu: $e');
       }
     }
-  }
-  
-  // Dosyadan analiz
-  Future<void> _dosyadanAnaliz() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
-
-    // Premium kontrolü
-    if (!isPremium) {
-      // Premium olmayan kullanıcılar için bilgilendirme
-      Utils.showToast(
-        context, 
-        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
-      );
-    }
-
-    await _pickTextFile();
   }
   
   // Metin dosyası seçme işlemi
-  Future<void> _pickTextFile() async {
+  Future<bool?> _pickTextFile() async {
     try {
-      final XTypeGroup typeGroup = XTypeGroup(
-        label: 'Metin Dosyaları',
-        extensions: <String>['txt'],
-      );
-      
       setState(() {
         _isLoading = true;
         _isImageAnalysis = false;
       });
       
       // Dosya seçiciyi aç
+      final XTypeGroup typeGroup = XTypeGroup(
+        label: 'Metin Dosyaları',
+        extensions: <String>['txt'],
+      );
+      
       final XFile? pickedFile = await openFile(
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
       
+      // Kullanıcı dosya seçimini iptal etti
       if (pickedFile == null) {
         setState(() {
           _isLoading = false;
         });
-        return;
+        return false;
       }
       
-      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
-      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      
-      if (authViewModel.user == null) {
-        Utils.showErrorFeedback(
-          context, 
-          'Dosya analizi için lütfen giriş yapın'
-        );
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-      
-      // Önceki analiz işlemlerini sıfırla
-      viewModel.resetCurrentAnalysis();
-      
-      // Dosyanın içeriğini oku
+      // Dosya içeriğini oku
       final File file = File(pickedFile.path);
       String fileContent = await file.readAsString();
       
       if (fileContent.isEmpty) {
-        Utils.showErrorFeedback(
-          context, 
-          'Metin dosyası boş'
-        );
-        setState(() {
-          _isLoading = false;
-        });
-        return;
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          Utils.showErrorFeedback(context, 'Metin dosyası boş');
+        }
+        return false;
       }
       
-      // Dosya ismini ve yolu ekleyerek içeriği zenginleştir
+      // ViewModeli al
+      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+      
+      // Önceki analiz işlemlerini sıfırla
+      viewModel.resetCurrentAnalysis();
+      
+      // Dosya içeriğini zenginleştir
       fileContent = "---- .txt dosyası içeriği ----\nDosya: ${pickedFile.name}\n\n$fileContent\n---- Dosya içeriği sonu ----";
       
-      // Dosya içeriğini analiz et
+      // Analiz et
       final bool result = await viewModel.analyzeMessage(fileContent);
       
       if (mounted) {
@@ -853,40 +917,87 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           _isLoading = false;
           _showDetailedAnalysisResult = result;
         });
-      }
-      
-      if (result) {
-        Utils.showSuccessFeedback(
-          context, 
-          'Dosya başarıyla analiz edildi'
-        );
         
-        // Belirli bir süre sonra mesaj listesini yenile
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          // Ana sayfa verilerini güncelle
-          final homeController = Provider.of<HomeController>(context, listen: false);
-          homeController.anaSayfayiGuncelle();
+        if (result) {
+          Utils.showSuccessFeedback(context, 'Dosya başarıyla analiz edildi');
+          
+          // Ana sayfayı güncelleme işlemini biraz geciktir
+          Future.delayed(const Duration(milliseconds: 500)).then((_) {
+            if (mounted) {
+              try {
+                final homeController = Provider.of<HomeController>(context, listen: false);
+                homeController.anaSayfayiGuncelle();
+              } catch (e) {
+                debugPrint('Ana sayfa güncellenirken hata: $e');
+              }
+            }
+          });
+          
+          return true; // Başarılı analiz
+        } else {
+          Utils.showErrorFeedback(context, 'Dosya analiz edilirken bir hata oluştu');
+          return false;
         }
-      } else {
-        Utils.showErrorFeedback(
-          context, 
-          'Dosya analiz edilirken bir hata oluştu'
-        );
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        
-        debugPrint('_pickTextFile genel hata: $e');
-        Utils.showErrorFeedback(
-          context, 
-          'Dosya seçme işlemi sırasında hata: $e'
-        );
+        debugPrint('_pickTextFile hata: $e');
+        Utils.showErrorFeedback(context, 'Dosya işleme sırasında hata: $e');
       }
+      return false;
     }
+    
+    return null; // Widget mount edilmediğinde
+  }
+
+  // Danışma diyaloğunu göster
+  void _showConsultationDialog(BuildContext context) {
+    // Danışma özelliği burada gösterilecek
+    // Bu özellik sadece premium kullanıcılara açık olduğu için
+    // buraya ulaşan kullanıcılar zaten premium olacak
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: const Text(
+            'Danışma Hizmeti',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const SingleChildScrollView(
+            child: Text(
+              'Uzman danışmanlarımızdan biriyle özel görüşme yapabilirsiniz. '
+              'İlişki sorunlarınız, iletişim problemleriniz veya kişisel gelişiminiz '
+              'hakkında profesyonel destek alabilirsiniz.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Color(0xFF9D3FFF))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Danışma formuna yönlendir
+                context.push('/consultation');
+              },
+              child: const Text(
+                'Danışma Başlat',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Boş durum widget'ı
@@ -1087,16 +1198,82 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           throw Exception('Analiz sonucu bulunamadı');
                         }
                         
-                        // AI servisini al
-                        final aiService = AiService();
+                        // Premium kontrolü
+                        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                        final bool isPremium = authViewModel.isPremium;
+                        final _premiumService = PremiumService();
                         
-                        // Mesaj içeriğini kullanarak Spotify Wrapped tarzı sohbet analizi yap
-                        final summaryData = await aiService.analizSohbetVerisi(
-                          latestMessage.content
-                        );
+                        // Önbellekten veri kontrolü
+                        List<Map<String, String>> summaryData = [];
+                        bool isCached = false;
                         
-                        if (summaryData.isEmpty) {
-                          throw Exception('Konuşma özeti alınamadı');
+                        // Önbellekte veri kontrolü - önce önbellekten yüklemeyi dene
+                        if (await _checkAndLoadCachedSummary(latestMessage.content)) {
+                          // Veri önbellekten yüklendi, doğrudan erişim kontrolü yap
+                          isCached = true;
+                          final prefs = await SharedPreferences.getInstance();
+                          final cachedDataJson = prefs.getString('wrappedCacheData');
+                          if (cachedDataJson != null) {
+                            try {
+                              final List<dynamic> decodedData = jsonDecode(cachedDataJson);
+                              summaryData = List<Map<String, String>>.from(
+                                decodedData.map((item) => Map<String, String>.from(item))
+                              );
+                            } catch (e) {
+                              debugPrint('Önbellek verisi ayrıştırma hatası: $e');
+                              isCached = false;
+                            }
+                          }
+                        }
+                        
+                        // Premium olmayan kullanıcılar için erişim kontrolü
+                        bool wrappedOpenedOnce = false; // Scope dışına taşıyorum
+                        if (!isPremium) {
+                          wrappedOpenedOnce = await _premiumService.getWrappedOpenedOnce();
+                          
+                          if (wrappedOpenedOnce && !isCached) {
+                            // Kullanım hakkı dolmuş ve önbellekte veri yok - premium dialog göster
+                            if (mounted) {
+                              showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
+                            }
+                            
+                            setState(() {
+                              _isLoading = false;
+                            });
+                            return;
+                          }
+                        }
+                        
+                        // Önbellekte veri yoksa yeni analiz yap
+                        if (!isCached) {
+                          // AI servisini al
+                          final aiService = AiService();
+                          
+                          // Mesaj içeriğini kullanarak Spotify Wrapped tarzı sohbet analizi yap
+                          summaryData = await aiService.analizSohbetVerisi(
+                            latestMessage.content
+                          );
+                          
+                          if (summaryData.isEmpty) {
+                            throw Exception('Konuşma özeti alınamadı');
+                          }
+                          
+                          // Sonuçları önbelleğe kaydet
+                          await _cacheSummaryData(latestMessage.content, summaryData);
+                          
+                          // Premium olmayan kullanıcı için ilk kullanım işaretle
+                          if (!isPremium && !wrappedOpenedOnce) {
+                            await _premiumService.setWrappedOpenedOnce();
+                            
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Bu özelliği bir kez ücretsiz kullanabilirsiniz.'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
                         }
                         
                         // Yükleme durumunu kapat
@@ -2184,5 +2361,158 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         );
       },
     );
+  }
+
+  // Görsel seçme işlemi
+  Future<void> _gorselSec() async {
+    bool isProcessing = false;
+    
+    try {
+      final XTypeGroup typeGroup = XTypeGroup(
+        label: 'Görseller',
+        extensions: <String>['jpg', 'jpeg', 'png'],
+      );
+      
+      setState(() {
+        _isLoading = true;
+        _isImageAnalysis = true;
+      });
+      
+      // Dosya seçiciyi aç
+      final XFile? pickedFile = await openFile(
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+      
+      if (pickedFile == null) {
+        setState(() {
+          _isLoading = false;
+          _isImageAnalysis = false;
+        });
+        return;
+      }
+      
+      // Analize başladığını bildir
+      setState(() {
+        isProcessing = true;
+      });
+      
+      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      
+      if (authViewModel.user == null) {
+        Utils.showErrorFeedback(
+          context, 
+          'Görsel analizi için lütfen giriş yapın'
+        );
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+          _isImageAnalysis = false;
+        });
+        return;
+      }
+      
+      // Önceki analiz işlemlerini sıfırla
+      viewModel.resetCurrentAnalysis();
+      
+      // XFile'ı File'a dönüştür
+      final File imageFile = File(pickedFile.path);
+      
+      // Görsel OCR ve analiz işlemi başlatılıyor
+      final bool result = await viewModel.analyzeImageMessage(imageFile);
+      
+      // Analiz tamamlandı - tüm State'leri temizle
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+          _showDetailedAnalysisResult = result; // Analiz başarılıysa detayları göster
+        });
+      }
+      
+      if (result) {
+        Utils.showSuccessFeedback(
+          context, 
+          'Görsel başarıyla analiz edildi'
+        );
+        
+        // Belirli bir süre sonra mesaj listesini yenile
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          // Ana sayfa verilerini güncelle
+          final homeController = Provider.of<HomeController>(context, listen: false);
+          homeController.anaSayfayiGuncelle();
+        }
+      } else {
+        Utils.showErrorFeedback(
+          context, 
+          'Görsel analiz edilirken bir hata oluştu'
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          _isLoading = false;
+          _isImageAnalysis = false;
+        });
+        
+        debugPrint('_gorselSec genel hata: $e');
+        Utils.showErrorFeedback(
+          context, 
+          'Görsel seçme işlemi sırasında hata: $e'
+        );
+      }
+    }
+  }
+
+  // Sonuçları önbelleğe kaydetme (class içinde yeni metod)
+  Future<void> _cacheSummaryData(String content, List<Map<String, String>> summaryData) async {
+    try {
+      if (summaryData.isEmpty || content.isEmpty) {
+        debugPrint('Kaydedilecek analiz sonucu veya içerik yok');
+        return;
+      }
+      
+      debugPrint('Wrapped analiz sonuçları önbelleğe kaydediliyor');
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Sonuçları JSON'a dönüştür
+      final String encodedData = jsonEncode(summaryData);
+      
+      // Sonuçları ve ilgili içeriği kaydet
+      await prefs.setString('wrappedCacheData', encodedData);
+      await prefs.setString('wrappedCacheContent', content);
+      
+      debugPrint('${summaryData.length} analiz sonucu önbelleğe kaydedildi');
+    } catch (e) {
+      debugPrint('Önbelleğe kaydetme hatası: $e');
+    }
+  }
+  
+  // Önbellekteki veriyi kontrol etme ve yükleme
+  Future<bool> _checkAndLoadCachedSummary(String content) async {
+    try {
+      debugPrint('Önbellekte wrapped analiz sonucu kontrolü yapılıyor');
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Önbellekten veri kontrolü
+      final String? cachedDataJson = prefs.getString('wrappedCacheData');
+      final String? cachedContent = prefs.getString('wrappedCacheContent');
+      
+      if (cachedDataJson != null && cachedDataJson.isNotEmpty) {
+        // Kayıtlı içerik ve mevcut içerik kontrolü
+        if (cachedContent != null && content.isNotEmpty && cachedContent == content) {
+          debugPrint('Mevcut içerik önbellekteki ile aynı, önbellekte sonuç var');
+          return true;
+        }
+      }
+      
+      debugPrint('Önbellekte eşleşen analiz sonucu bulunamadı');
+      return false;
+    } catch (e) {
+      debugPrint('Önbellek kontrolü sırasında hata: $e');
+      return false;
+    }
   }
 } 

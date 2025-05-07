@@ -10,6 +10,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
+import '../services/premium_service.dart';
+import '../widgets/feature_card.dart';
+import '../viewmodels/auth_viewmodel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class KonusmaSummaryView extends StatefulWidget {
   final List<Map<String, String>> summaryData;
@@ -487,6 +493,34 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
       }
     }
   }
+
+  // Wrapped özelliğinin açık olup olmadığını kontrol et
+  Future<bool> _checkWrappedAccess() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final bool isPremium = authViewModel.isPremium;
+    final premiumService = PremiumService();
+    
+    if (isPremium) {
+      return true; // Premium kullanıcılar her zaman erişebilir
+    }
+    
+    // Premium değilse, bir kez açabilme kontrolü
+    final bool wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
+    return !wrappedOpenedOnce; // Henüz açılmamışsa true, açılmışsa false döndür
+  }
+  
+  // Wrapped analizini göster - KonusmaSummaryView için
+  void _showWrappedSummaryView() {
+    if (widget.summaryData.isEmpty) return;
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => KonusmaSummaryView(
+          summaryData: widget.summaryData,
+        ),
+      ),
+    );
+  }
 }
 
 /// Dosya seçme ve sohbet analizi için giriş ekranı
@@ -507,6 +541,10 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
   String _errorMessage = '';
   List<Map<String, String>> _summaryData = [];
   bool _isTxtFile = false; // .txt dosyası olup olmadığını takip etmek için
+  
+  // Cache için değişkenler
+  static const String WRAPPED_CACHE_KEY = 'wrappedCacheData';
+  static const String WRAPPED_CACHE_CONTENT_KEY = 'wrappedCacheContent';
   
   Future<void> _selectFile() async {
     try {
@@ -577,7 +615,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
       });
       
       if (_summaryData.isNotEmpty) {
-        _showSummaryView();
+        _showSummaryViewWithPremiumCheck();
       } else {
         setState(() {
           _errorMessage = 'Analiz sırasında bir hata oluştu, sonuç alınamadı';
@@ -589,6 +627,121 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         _errorMessage = 'Analiz sırasında bir hata oluştu: $e';
       });
       _logger.e('Sohbet analizi hatası', e);
+    }
+  }
+  
+  // Wrapped tarzı analiz sonuçlarını gösterme - Premium kontrolü ile
+  Future<void> _showSummaryViewWithPremiumCheck() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final bool isPremium = authViewModel.isPremium;
+    final premiumService = PremiumService();
+    
+    // Eğer sonuçlar boşsa, önbellekte veri var mı kontrol et
+    if (_summaryData.isEmpty) {
+      await _loadCachedSummaryData();
+    }
+    
+    // Yine boşsa analiz yapılamamış demektir
+    if (_summaryData.isEmpty) {
+      setState(() {
+        _errorMessage = 'Analiz sonuçları bulunamadı';
+      });
+      return;
+    }
+    
+    // Premium değilse, kullanım kontrolü
+    if (!isPremium) {
+      final bool wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
+      
+      if (!wrappedOpenedOnce) {
+        // İlk kullanım - durumu güncelle
+        await premiumService.setWrappedOpenedOnce();
+        
+        // Sonuçları önbelleğe kaydet
+        await _cacheSummaryData();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bu özelliği bir kez ücretsiz kullanabilirsiniz.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // İlk kullanım için eski metodu çağır
+        _showSummaryView();
+      } else {
+        // Kullanım hakkı dolmuşsa premium dialog göster
+        showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
+      }
+    } else {
+      // Premium kullanıcı için normal gösterimi çağır
+      // Her seferinde önbelleğe kaydet
+      await _cacheSummaryData();
+      _showSummaryView();
+    }
+  }
+  
+  // Önbellekteki sonuçları yükleme
+  Future<void> _loadCachedSummaryData() async {
+    try {
+      _logger.i('Önbellekten wrapped analiz sonuçları yükleniyor');
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Önbellekten veri kontrolü
+      final String? cachedDataJson = prefs.getString(WRAPPED_CACHE_KEY);
+      final String? cachedContent = prefs.getString(WRAPPED_CACHE_CONTENT_KEY);
+      
+      if (cachedDataJson != null && cachedDataJson.isNotEmpty) {
+        // Kayıtlı içerik ve mevcut içerik kontrolü
+        if (cachedContent != null && _fileContent.isNotEmpty && cachedContent == _fileContent) {
+          _logger.i('Mevcut dosya içeriği önbellekteki ile aynı, önbellekten sonuçlar yükleniyor');
+          
+          try {
+            final List<dynamic> decodedData = jsonDecode(cachedDataJson);
+            _summaryData = List<Map<String, String>>.from(
+              decodedData.map((item) => Map<String, String>.from(item))
+            );
+            
+            _logger.i('Önbellekten ${_summaryData.length} analiz sonucu yüklendi');
+          } catch (e) {
+            _logger.e('Önbellek verisi ayrıştırma hatası', e);
+            _summaryData = [];
+          }
+        } else {
+          _logger.i('Dosya içeriği değişmiş veya kayıtlı değil, analiz yeniden yapılacak');
+          _summaryData = [];
+        }
+      } else {
+        _logger.i('Önbellekte veri bulunamadı');
+        _summaryData = [];
+      }
+    } catch (e) {
+      _logger.e('Önbellek okuma hatası', e);
+      _summaryData = [];
+    }
+  }
+  
+  // Sonuçları önbelleğe kaydetme
+  Future<void> _cacheSummaryData() async {
+    try {
+      if (_summaryData.isEmpty || _fileContent.isEmpty) {
+        _logger.w('Kaydedilecek analiz sonucu veya dosya içeriği yok');
+        return;
+      }
+      
+      _logger.i('Wrapped analiz sonuçları önbelleğe kaydediliyor');
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Sonuçları JSON'a dönüştür
+      final String encodedData = jsonEncode(_summaryData);
+      
+      // Sonuçları ve ilgili dosya içeriğini kaydet
+      await prefs.setString(WRAPPED_CACHE_KEY, encodedData);
+      await prefs.setString(WRAPPED_CACHE_CONTENT_KEY, _fileContent);
+      
+      _logger.i('${_summaryData.length} analiz sonucu önbelleğe kaydedildi');
+    } catch (e) {
+      _logger.e('Önbelleğe kaydetme hatası', e);
     }
   }
   
@@ -792,62 +945,92 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: InkWell(
-                      onTap: _showSummaryView,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.auto_awesome,
-                                color: Colors.white,
-                                size: 36,
-                              ),
+                    child: Stack(
+                      children: [
+                        InkWell(
+                          onTap: () => _showSummaryViewWithPremiumCheck(),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.auto_awesome,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Konuşma Wrapped',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Spotify Wrapped tarzı analiz sonuçlarını görmek için tıklayın!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'Göster',
+                                    style: TextStyle(
+                                      color: Color(0xFF9D3FFF),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Konuşma Wrapped',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Spotify Wrapped tarzı analiz sonuçlarını görmek için tıklayın!',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Göster',
-                                style: TextStyle(
-                                  color: Color(0xFF9D3FFF),
-                                  fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        
+                        // Kilit ikonu için FutureBuilder kullan, ama pozisyonu değiştirme
+                        FutureBuilder<bool>(
+                          future: _checkWrappedAccess(),
+                          builder: (context, snapshot) {
+                            final bool isLocked = snapshot.data == false;
+                            if (!isLocked) return const SizedBox.shrink();
+                            
+                            return Positioned(
+                              top: 12,
+                              right: 12,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.lock,
+                                  color: Colors.white,
+                                  size: 18,
                                 ),
                               ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -902,5 +1085,25 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         ),
       ),
     );
+  }
+
+  // Premium bilgilendirme diyaloğunu göster
+  void _showWrappedPremiumDialog(BuildContext context) {
+    showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
+  }
+
+  // Wrapped erişim durumunu kontrol et
+  Future<bool> _checkWrappedAccess() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final bool isPremium = authViewModel.isPremium;
+    final premiumService = PremiumService();
+    
+    if (isPremium) {
+      return true; // Premium kullanıcılar her zaman erişebilir
+    }
+    
+    // Premium değilse, bir kez açabilme kontrolü
+    final bool wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
+    return !wrappedOpenedOnce; // Henüz açılmamışsa true, açılmışsa false döndür
   }
 } 

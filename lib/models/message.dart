@@ -5,6 +5,7 @@ import 'analysis_result_model.dart';
 enum AnalysisSource {
   text,
   image,
+  normal,
   // İleride gerekirse başka kaynaklar eklenebilir (örn: consultation)
 }
 
