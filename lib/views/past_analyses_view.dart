@@ -8,6 +8,7 @@ import '../viewmodels/past_analyses_viewmodel.dart';
 import '../models/past_analysis_model.dart';
 import 'analysis_detail_view.dart';
 import '../utils/loading_indicator.dart';
+import '../utils/utils.dart';
 
 class PastAnalysesView extends StatefulWidget {
   const PastAnalysesView({super.key});
@@ -23,7 +24,7 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
   void initState() {
     super.initState();
     
-    // ViewModel'i başlat ve verileri yükle
+    // ViewModel'i başlat
     _viewModel = Provider.of<PastAnalysesViewModel>(context, listen: false);
     
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -55,7 +56,7 @@ class _PastAnalysesViewState extends State<PastAnalysesView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => context.go('/profile'),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                     const Text(
                       'Geçmiş Analizler',

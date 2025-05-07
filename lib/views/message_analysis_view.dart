@@ -50,6 +50,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   bool _forceEmptyState = false; // Veri sıfırlaması sonrası boş durum gösterimi için flag
   bool _showDetailedAnalysisResult = false; // Analiz detaylarını gösterme durumu
   bool _isImageAnalysis = false; // Görsel analizi mi yapılıyor?
+  final TextEditingController _textEditingController = TextEditingController(); // Metin analizi için kontrolcü
   
   @override
   void initState() {
@@ -71,6 +72,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         debugPrint('initState - Kullanıcı oturum açmamış, mesaj yükleme atlanıyor');
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _textEditingController.dispose();
+    super.dispose();
   }
 
   // SharedPreferences kullanarak mesaj yükleme durumunu kontrol et
@@ -568,7 +575,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   title: 'Görsel Yükle',
                   subtitle: 'Ekran görüntüsü yükle',
                   icon: Icons.image_outlined,
-                  onTap: _pickImage,
+                  onTap: _gorselAnalizi,
                 ),
               ),
               const SizedBox(width: 16),
@@ -577,7 +584,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   title: 'Metin Yükle',
                   subtitle: '.txt dosyası yükle',
                   icon: Icons.description_outlined,
-                  onTap: _pickTextFile,
+                  onTap: _dosyadanAnaliz,
                 ),
               ),
             ],
@@ -641,117 +648,68 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
   
-  Future<void> _pickImage() async {
-    final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+  // Görsel analizi
+  Future<void> _gorselAnalizi() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    if (authViewModel.user == null) {
-      Utils.showErrorFeedback(
+    final isPremium = authViewModel.isPremium;
+
+    // Premium kontrolü
+    if (!isPremium) {
+      // Premium olmayan kullanıcılar için bilgilendirme
+      Utils.showToast(
         context, 
-        'Lütfen önce giriş yapın'
+        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
       );
-      return;
     }
-    
-    // Analiz durumu takibi için yeni değişken
+
+    await _pickImage();
+  }
+  
+  // Görsel analizi için dosya seçme işlemi
+  Future<void> _pickImage() async {
     bool isProcessing = false;
-    setState(() {
-      isProcessing = true;
-      _isLoading = true;
-      _isImageAnalysis = true; // Görsel analizi olduğunu belirt
-    });
     
     try {
-      // XTypeGroup ile resim dosya tipleri tanımlama
-      final XTypeGroup imageTypeGroup = XTypeGroup(
+      final XTypeGroup typeGroup = XTypeGroup(
         label: 'Görseller',
-        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
-        mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
-        uniformTypeIdentifiers: ['public.image'],
+        extensions: <String>['jpg', 'jpeg', 'png'],
       );
       
-      // file_selector ile dosya seçimi
-      final XFile? pickedFile = await openFile(
-        acceptedTypeGroups: [imageTypeGroup],
-      );
-      
-      // Loading durumunu güncelle - dosya seçimi tamamlandı
       setState(() {
-        isProcessing = false;
-        _isLoading = false;
+        _isLoading = true;
+        _isImageAnalysis = true;
       });
       
-      // Kullanıcı dosya seçmediyse
+      // Dosya seçiciyi aç
+      final XFile? pickedFile = await openFile(
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+      
       if (pickedFile == null) {
-        debugPrint('_pickImage: Görsel seçilmedi');
-        Utils.showErrorFeedback(
-          context, 
-          'Görsel seçilmedi'
-        );
+        setState(() {
+          _isLoading = false;
+          _isImageAnalysis = false;
+        });
         return;
       }
       
-      debugPrint('_pickImage: Seçilen görsel yolu: ${pickedFile.path}');
-      
-      // Loading state'ini güncelle - analiz başlıyor
+      // Analize başladığını bildir
       setState(() {
         isProcessing = true;
-        _isLoading = true;
       });
       
-      // Dosya geçerlilik kontrolü
-      try {
-        final File file = File(pickedFile.path);
-        final bool fileExists = await file.exists();
-        
-        if (!fileExists) {
-          debugPrint('_pickImage: Seçilen dosya bulunamadı: ${pickedFile.path}');
-          Utils.showErrorFeedback(
-            context, 
-            'Seçilen görsel dosyasına erişilemiyor'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-        
-        final int fileSize = await file.length();
-        if (fileSize > 10 * 1024 * 1024) {
-          Utils.showErrorFeedback(
-            context, 
-            'Dosya boyutu 10MB\'dan küçük olmalıdır'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-        
-        // Dosya uzantısını kontrol et
-        final String extension = pickedFile.path.split('.').last.toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension)) {
-          Utils.showErrorFeedback(
-            context, 
-            'Desteklenmeyen dosya formatı. Lütfen bir görsel seçin.'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-      } catch (fileError) {
-        debugPrint('_pickImage: Dosya kontrol hatası: $fileError');
+      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      
+      if (authViewModel.user == null) {
         Utils.showErrorFeedback(
           context, 
-          'Görsel dosyası kontrol edilirken hata oluştu: $fileError'
+          'Görsel analizi için lütfen giriş yapın'
         );
         setState(() {
           isProcessing = false;
           _isLoading = false;
+          _isImageAnalysis = false;
         });
         return;
       }
@@ -783,10 +741,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         // Belirli bir süre sonra mesaj listesini yenile
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
-          // --> KALDIRILACAK KOD BAŞLANGICI
-          // await _loadMessages();
-          // <-- KALDIRILACAK KOD SONU
-          
           // Ana sayfa verilerini güncelle
           final homeController = Provider.of<HomeController>(context, listen: false);
           homeController.anaSayfayiGuncelle();
@@ -802,6 +756,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         setState(() {
           isProcessing = false;
           _isLoading = false;
+          _isImageAnalysis = false;
         });
         
         debugPrint('_pickImage genel hata: $e');
@@ -813,130 +768,57 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
   
-  Future<void> _pickTextFile() async {
-    final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+  // Dosyadan analiz
+  Future<void> _dosyadanAnaliz() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    
-    if (authViewModel.user == null) {
-      Utils.showErrorFeedback(
+    final isPremium = authViewModel.isPremium;
+
+    // Premium kontrolü
+    if (!isPremium) {
+      // Premium olmayan kullanıcılar için bilgilendirme
+      Utils.showToast(
         context, 
-        'Lütfen önce giriş yapın'
+        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
       );
-      return;
     }
-    
-    // Analiz durumu takibi
-    bool isProcessing = false;
-    setState(() {
-      isProcessing = true;
-      _isLoading = true;
-      _isImageAnalysis = false; // Metin dosyası analizi olduğunu belirt
-    });
-    
+
+    await _pickTextFile();
+  }
+  
+  // Metin dosyası seçme işlemi
+  Future<void> _pickTextFile() async {
     try {
-      // XTypeGroup ile metin dosya tipleri tanımlama
-      final XTypeGroup textTypeGroup = XTypeGroup(
-        label: 'Metin dosyaları',
-        extensions: ['txt'],
-        mimeTypes: ['text/plain'],
-        uniformTypeIdentifiers: ['public.plain-text'],
+      final XTypeGroup typeGroup = XTypeGroup(
+        label: 'Metin Dosyaları',
+        extensions: <String>['txt'],
       );
       
-      // file_selector ile dosya seçimi
-      final XFile? pickedFile = await openFile(
-        acceptedTypeGroups: [textTypeGroup],
-      );
-      
-      // Loading durumunu güncelle - dosya seçimi tamamlandı
       setState(() {
-        isProcessing = false;
-        _isLoading = false;
+        _isLoading = true;
+        _isImageAnalysis = false;
       });
       
-      // Kullanıcı dosya seçmediyse
+      // Dosya seçiciyi aç
+      final XFile? pickedFile = await openFile(
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+      
       if (pickedFile == null) {
-        debugPrint('_pickTextFile: Metin dosyası seçilmedi');
-        Utils.showErrorFeedback(
-          context, 
-          'Metin dosyası seçilmedi'
-        );
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
       
-      debugPrint('_pickTextFile: Seçilen dosya yolu: ${pickedFile.path}');
+      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
       
-      // Loading state'ini güncelle - analiz başlıyor
-      setState(() {
-        isProcessing = true;
-        _isLoading = true;
-      });
-      
-      // Dosya geçerlilik kontrolü
-      try {
-        final File file = File(pickedFile.path);
-        final bool fileExists = await file.exists();
-        
-        if (!fileExists) {
-          debugPrint('_pickTextFile: Seçilen dosya bulunamadı: ${pickedFile.path}');
-          Utils.showErrorFeedback(
-            context, 
-            'Seçilen metin dosyasına erişilemiyor'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-        
-        final int fileSize = await file.length();
-        if (fileSize > 5 * 1024 * 1024) {
-          Utils.showErrorFeedback(
-            context, 
-            'Dosya boyutu 5MB\'dan küçük olmalıdır'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-        
-        // Dosya uzantısını kontrol et
-        final String extension = pickedFile.path.split('.').last.toLowerCase();
-        if (extension != 'txt') {
-          Utils.showErrorFeedback(
-            context, 
-            'Desteklenmeyen dosya formatı. Lütfen bir .txt dosyası seçin.'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-        
-        // Dosya içeriğini oku ve kontrol et (opsiyonel)
-        final String content = await file.readAsString();
-        if (content.trim().isEmpty) {
-          Utils.showErrorFeedback(
-            context, 
-            'Seçilen metin dosyası boş'
-          );
-          setState(() {
-            isProcessing = false;
-            _isLoading = false;
-          });
-          return;
-        }
-      } catch (fileError) {
-        debugPrint('_pickTextFile: Dosya kontrol hatası: $fileError');
+      if (authViewModel.user == null) {
         Utils.showErrorFeedback(
           context, 
-          'Metin dosyası kontrol edilirken hata oluştu: $fileError'
+          'Dosya analizi için lütfen giriş yapın'
         );
         setState(() {
-          isProcessing = false;
           _isLoading = false;
         });
         return;
@@ -945,31 +827,43 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Önceki analiz işlemlerini sıfırla
       viewModel.resetCurrentAnalysis();
       
-      // Metin dosyası analiz işlemi başlatılıyor
-      final result = await viewModel.analyzeTextFileMessage(pickedFile);
+      // Dosyanın içeriğini oku
+      final File file = File(pickedFile.path);
+      String fileContent = await file.readAsString();
       
-      // Analiz tamamlandı - state'leri temizle
+      if (fileContent.isEmpty) {
+        Utils.showErrorFeedback(
+          context, 
+          'Metin dosyası boş'
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      // Dosya ismini ve yolu ekleyerek içeriği zenginleştir
+      fileContent = "---- .txt dosyası içeriği ----\nDosya: ${pickedFile.name}\n\n$fileContent\n---- Dosya içeriği sonu ----";
+      
+      // Dosya içeriğini analiz et
+      final bool result = await viewModel.analyzeMessage(fileContent);
+      
       if (mounted) {
         setState(() {
-          isProcessing = false;
           _isLoading = false;
-          _showDetailedAnalysisResult = result != null; // Analiz başarılıysa detayları göster
+          _showDetailedAnalysisResult = result;
         });
       }
       
-      if (result != null) {
+      if (result) {
         Utils.showSuccessFeedback(
           context, 
-          'Metin başarıyla analiz edildi'
+          'Dosya başarıyla analiz edildi'
         );
         
         // Belirli bir süre sonra mesaj listesini yenile
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
-          // --> KALDIRILACAK KOD BAŞLANGICI
-          // await _loadMessages();
-          // <-- KALDIRILACAK KOD SONU
-          
           // Ana sayfa verilerini güncelle
           final homeController = Provider.of<HomeController>(context, listen: false);
           homeController.anaSayfayiGuncelle();
@@ -977,25 +871,24 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       } else {
         Utils.showErrorFeedback(
           context, 
-          'Metin analiz edilirken bir hata oluştu'
+          'Dosya analiz edilirken bir hata oluştu'
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          isProcessing = false;
           _isLoading = false;
         });
         
         debugPrint('_pickTextFile genel hata: $e');
         Utils.showErrorFeedback(
           context, 
-          'Metin dosyası seçme işlemi sırasında hata: $e'
+          'Dosya seçme işlemi sırasında hata: $e'
         );
       }
     }
   }
-  
+
   // Boş durum widget'ı
   Widget _buildEmptyState() {
     return Center(
@@ -2113,5 +2006,183 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       default:
         return Colors.teal;
     }
+  }
+
+  // Metin analizi
+  Future<void> _analizeGonder() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+
+    if (_textEditingController.text.trim().isEmpty) {
+      Utils.showErrorFeedback(context, 'Lütfen analiz için bir mesaj girin');
+      return;
+    }
+
+    // Premium kontrolü
+    if (!isPremium) {
+      // Premium olmayan kullanıcılar için bilgilendirme
+      Utils.showToast(
+        context, 
+        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
+      );
+    }
+
+    setState(() {
+      _isLoading = true;
+      _isImageAnalysis = false;
+    });
+
+    final String messageText = _textEditingController.text.trim();
+    final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+    
+    try {
+      final bool result = await messageViewModel.analyzeMessage(messageText);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+        _showDetailedAnalysisResult = result;
+      });
+      
+      if (result) {
+        Utils.showSuccessFeedback(
+          context, 
+          'Mesaj başarıyla analiz edildi'
+        );
+        
+        // Belirli bir süre sonra mesaj listesini yenile
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          // Ana sayfa verilerini güncelle
+          final homeController = Provider.of<HomeController>(context, listen: false);
+          homeController.anaSayfayiGuncelle();
+        }
+      } else {
+        Utils.showErrorFeedback(
+          context, 
+          'Mesaj analiz edilirken bir hata oluştu'
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      Utils.showErrorFeedback(
+        context, 
+        'Analiz işlemi sırasında hata: $e'
+      );
+    }
+  }
+
+  // Wrapped analiz özeti
+  void _analizOzetiGoster(BuildContext context, String analiz) {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+
+    // Premium kontrolü
+    if (!isPremium) {
+      // Premium olmayan kullanıcılar için bilgilendirme
+      Utils.showToast(
+        context, 
+        'Bu özelliğe sınırsız erişmek için Premium üyelik gerekiyor'
+      );
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: Row(
+            children: [
+              Icon(Icons.psychology, color: Colors.white.withOpacity(0.9)),
+              const SizedBox(width: 8),
+              Text(
+                'Analiz Özeti',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              analiz,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Color(0xFF9D3FFF))),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Danışma/Koçluk bölümü
+  void _showCoachingDialog(BuildContext context) {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+
+    // Sadece Premium kullanıcılar erişebilir
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'Danışma/Koçluk özelliği sadece Premium üyelere özeldir'
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: Row(
+            children: [
+              Icon(Icons.psychology, color: Colors.white.withOpacity(0.9)),
+              const SizedBox(width: 8),
+              Text(
+                'Danışma / Koçluk',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bu özellik yakında aktif olacak. Psikolojik danışmanlık hizmetleri için hazırlıklarımız devam ediyor.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Color(0xFF9D3FFF))),
+            ),
+          ],
+        );
+      },
+    );
   }
 } 

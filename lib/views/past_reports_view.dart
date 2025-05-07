@@ -8,6 +8,7 @@ import '../viewmodels/past_reports_viewmodel.dart';
 import '../models/past_report_model.dart';
 import 'report_detail_view.dart';
 import '../utils/loading_indicator.dart';
+import '../utils/utils.dart';
 
 class PastReportsView extends StatefulWidget {
   const PastReportsView({super.key});
@@ -23,7 +24,7 @@ class _PastReportsViewState extends State<PastReportsView> {
   void initState() {
     super.initState();
     
-    // ViewModel'i başlat ve verileri yükle
+    // ViewModel'i başlat
     _viewModel = Provider.of<PastReportsViewModel>(context, listen: false);
     
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -55,7 +56,7 @@ class _PastReportsViewState extends State<PastReportsView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => context.go('/profile'),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                     const Text(
                       'İlişki Raporları',
@@ -141,7 +142,7 @@ class _PastReportsViewState extends State<PastReportsView> {
                             ),
                             const SizedBox(height: 32),
                             ElevatedButton.icon(
-                              onPressed: () => context.go('/report'),
+                              onPressed: () => Navigator.of(context).pop(),
                               icon: const Icon(Icons.edit_document),
                               label: const Text('Rapor Oluştur'),
                               style: ElevatedButton.styleFrom(

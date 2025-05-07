@@ -9,6 +9,7 @@ import '../models/past_message_coach_analysis.dart';
 import '../controllers/message_coach_controller.dart';
 import '../controllers/message_coach_visual_controller.dart';
 import '../utils/loading_indicator.dart';
+import '../utils/utils.dart';
 
 class PastMessageCoachView extends ConsumerStatefulWidget {
   const PastMessageCoachView({super.key});
@@ -27,6 +28,10 @@ class _PastMessageCoachViewState extends ConsumerState<PastMessageCoachView> {
   void initState() {
     super.initState();
     _isFirstLoad = true;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMessageCoachHistory();
+    });
   }
   
   @override
@@ -201,7 +206,7 @@ class _PastMessageCoachViewState extends ConsumerState<PastMessageCoachView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => context.go('/profile'),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                     const Text(
                       'Mesaj Koçu Geçmişi',
@@ -276,7 +281,7 @@ class _PastMessageCoachViewState extends ConsumerState<PastMessageCoachView> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              context.go('/home', extra: {'tabIndex': 2});
+              Navigator.of(context).pop();
             },
             icon: const Icon(Icons.psychology, size: 18),
             label: const Text('Mesaj Koçuna Git'),

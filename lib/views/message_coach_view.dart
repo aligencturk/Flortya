@@ -134,6 +134,110 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     }
   }
 
+  // Metni analiz et
+  Future<void> _metniAnalizEt() async {
+    final String text = _textEditingController.text.trim();
+    
+    // Metin boş mu kontrol et
+    if (text.isEmpty) {
+      Utils.showToast(context, 'Lütfen analiz etmek için bir metin girin');
+      return;
+    }
+    
+    // Premium kontrolü
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
+      );
+    }
+    
+    // Analiz işlemine devam et
+    setState(() {
+      _yuklemeDurumu = true;
+    });
+    
+    // Controller referansını al
+    final controller = provider.Provider.of<MessageCoachController>(context, listen: false);
+    
+    // ... existing code ...
+  }
+
+  // Görsel analizi
+  Future<void> _gorselAnalizi() async {
+    // Premium kontrolü
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
+      );
+    }
+    
+    // Görsel seçme işlemini başlat
+    await _gorselSec();
+    
+    // ... existing code ...
+  }
+
+  // Hazır mesaj şablonunu kullan
+  void _hazirSablonuKullan(String sablonMetni) {
+    // Premium kontrolü
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'Tüm hazır mesaj şablonlarına erişmek için Premium üyelik gerekiyor'
+      );
+    }
+    
+    // Şablonu metin alanına ekle
+    _textEditingController.text = sablonMetni;
+    
+    // ... existing code ...
+  }
+
+  // İletişim tavsiyelerini göster
+  void _iletisimTavsiyeleriniGoster() {
+    // Premium kontrolü
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'İletişim tavsiyelerine reklamsız erişmek için Premium üyelik gerekiyor'
+      );
+    }
+    
+    // Tavsiyeleri göster
+    // ... existing code ...
+  }
+
+  // Olumsuz mesaj uyarısı ve alternatif önerisi
+  void _olumsuzMesajUyarisiGoster(String metin) {
+    // Premium kontrolü
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'Bu özelliği sınırsız kullanmak için Premium üyelik gerekiyor'
+      );
+    }
+    
+    // Uyarı ve alternatif mesaj önerisi göster
+    // ... existing code ...
+  }
+
   // Analiz sonuçlarını gösterme widget'ı
   Widget _analizSonuclariniGoster(MessageCoachAnalysis analiz) {
     // Görsel analiz kaynaklı bir analiz mi kontrol et

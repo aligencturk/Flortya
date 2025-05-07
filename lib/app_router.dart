@@ -1818,6 +1818,39 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
   }
 }
 
+// Premium rota oluşturan yardımcı method
+GoRoute createPremiumRoute({
+  required String path,
+  required String name,
+  required Widget Function(BuildContext, GoRouterState) builder,
+}) {
+  return GoRoute(
+    path: path,
+    name: name,
+    redirect: (BuildContext? context, GoRouterState state) {
+      if (context != null) {
+        // BuildContext her zaman mevcut olmayabilir
+        try {
+          final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+          final isPremium = authViewModel.isPremium;
+          
+          if (!isPremium) {
+            // Premium değilse profil sayfasına yönlendir
+            // Toast gösterme işlemini kaldırıp, profil sayfasında göstereceğiz
+            return '${AppRouter.profile}?showPremiumMessage=true'; // Profil sayfasına yönlendir ve mesaj parametresi ekle
+          }
+        } catch (e) {
+          debugPrint('Premium kontrol hatası: $e');
+          return AppRouter.profile;
+        }
+      }
+      
+      return null; // Normal yönlendirme
+    },
+    builder: (context, state) => builder(context, state),
+  );
+}
+
 class AppRouter {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
@@ -2025,26 +2058,26 @@ class AppRouter {
         ),
         
         // Geçmiş analizler ve raporlar için route'lar
-        GoRoute(
+        createPremiumRoute(
           path: pastAnalyses,
           name: 'pastAnalyses',
           builder: (context, state) => const PastAnalysesView(),
         ),
         
-        GoRoute(
+        createPremiumRoute(
           path: pastReports,
           name: 'pastReports',
           builder: (context, state) => const PastReportsView(),
         ),
         
-        GoRoute(
+        createPremiumRoute(
           path: pastConsultations,
           name: 'pastConsultations',
           builder: (context, state) => const PastConsultationsView(),
         ),
         
         // Mesaj koçu geçmişi sayfası
-        GoRoute(
+        createPremiumRoute(
           path: pastMessageCoach,
           name: 'pastMessageCoach',
           builder: (context, state) => const PastMessageCoachView(),

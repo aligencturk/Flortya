@@ -167,6 +167,20 @@ class _HomeViewState extends State<HomeView> {
     if (!mounted) return;
     
     try {
+      // Premium mesaj kontrolü yap
+      final showPremiumMessage = GoRouter.of(context).routeInformationProvider.value
+          .uri.queryParameters['showPremiumMessage'] == 'true';
+      
+      if (showPremiumMessage && _selectedIndex == 3) { // Profil sayfasındaysa mesajı göster
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bu özellik sadece Premium üyelere özeldir'),
+            duration: Duration(seconds: 3),
+            backgroundColor: Colors.deepPurple,
+          ),
+        );
+      }
+      
       // UI için kritik olan işlemleri önce yap
       try {
         final homeController = Provider.of<HomeController>(context, listen: false);
@@ -1979,14 +1993,36 @@ class _HomeViewState extends State<HomeView> {
           });
         } else if (title == 'Yardım ve Destek') {
           _showHelpSupportDialog(context);
-        } else if (title == 'Geçmiş Analizler') {
-          context.go('/past-analyses');
-        } else if (title == 'İlişki Raporları') {
-          context.go('/past-reports');
-        } else if (title == 'Danışma Geçmişi') {
-          context.go('/past-consultations');
-        } else if (title == 'Mesaj Koçu Geçmişi') {
-          context.go('/past-message-coach');
+        } else if (title == 'Geçmiş Analizler' || 
+                 title == 'İlişki Raporları' || 
+                 title == 'Danışma Geçmişi' || 
+                 title == 'Mesaj Koçu Geçmişi') {
+          
+          // Premium kontrolü yap
+          final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+          final isPremium = authViewModel.isPremium;
+          
+          if (isPremium) {
+            // Premium kullanıcı ise ilgili sayfaya yönlendir
+            if (title == 'Geçmiş Analizler') {
+              context.go('/past-analyses');
+            } else if (title == 'İlişki Raporları') {
+              context.go('/past-reports');
+            } else if (title == 'Danışma Geçmişi') {
+              context.go('/past-consultations');
+            } else if (title == 'Mesaj Koçu Geçmişi') {
+              context.go('/past-message-coach');
+            }
+          } else {
+            // Premium değilse uyarı göster
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Bu özellik sadece Premium üyelere özeldir'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Color(0xFF4A2A80),
+              ),
+            );
+          }
         }
       },
       child: Padding(

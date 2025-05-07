@@ -9,6 +9,7 @@ import '../models/analysis_result_model.dart';
 import '../models/analysis_type.dart';
 import '../utils/loading_indicator.dart';
 import '../widgets/analysis_result_box.dart';
+import '../utils/utils.dart';
 
 class PastConsultationsView extends StatefulWidget {
   const PastConsultationsView({super.key});
@@ -25,6 +26,7 @@ class _PastConsultationsViewState extends State<PastConsultationsView> {
   @override
   void initState() {
     super.initState();
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadConsultations();
     });
@@ -118,7 +120,7 @@ class _PastConsultationsViewState extends State<PastConsultationsView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => context.go('/profile'),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                     const Text(
                       'Danışma Geçmişi',
@@ -187,7 +189,7 @@ class _PastConsultationsViewState extends State<PastConsultationsView> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              context.push('/consultation');
+              Navigator.of(context).pop();
             },
             icon: const Icon(Icons.chat_outlined, size: 18),
             label: const Text('Danışmak İstiyorum'),

@@ -173,6 +173,30 @@ class Utils {
       overlayEntry.remove();
     });
   }
+  
+  /// Context olmadan da toast gösterebilmek için (Router tarafından kullanabilecek)
+  static void showGlobalToast(String message) {
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      try {
+        // showToast içindeki Overlay.of çağrısını try-catch içine alalım
+        showSnackBar(
+          context: context,
+          message: message,
+          type: SnackBarType.info,
+          duration: const Duration(seconds: 2),
+        );
+      } catch (e) {
+        // Overlay veya BuildContext ile ilgili bir hata oluşursa
+        // sadece loglama yap
+        debugPrint('GLOBAL TOAST ERROR: $e');
+        debugPrint('GLOBAL TOAST MESSAGE: $message');
+      }
+    } else {
+      // Context olmadığı durumlar için alternatif
+      debugPrint('GLOBAL TOAST: $message');
+    }
+  }
 
   /// Üst bildirim banner'ı gösterir - Geçici olmayan, önemli bilgiler için
   static void showBanner(

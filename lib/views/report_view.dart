@@ -52,6 +52,15 @@ class _ReportViewState extends State<ReportView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
     
+    // Premium kontrolü
+    final isPremium = authViewModel.isPremium;
+    if (!isPremium) {
+      Utils.showToast(
+        context, 
+        'Rapor oluşturma özelliğini sınırsız kullanmak için Premium üyelik gerekiyor'
+      );
+    }
+    
     if (authViewModel.user != null) {
       await reportViewModel.generateReport(authViewModel.user!.id);
       
@@ -76,6 +85,18 @@ class _ReportViewState extends State<ReportView> {
 
   // Yorum moduna geç
   void _toggleCommentMode() {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    // Sadece premium kullanıcılar yorum yapabilir
+    if (!isPremium) {
+      Utils.showToast(
+        context,
+        'Yorum ve danışma özelliği sadece Premium üyelere özeldir'
+      );
+      return;
+    }
+    
     setState(() {
       _isCommenting = !_isCommenting;
     });
@@ -445,6 +466,8 @@ class _ReportViewState extends State<ReportView> {
   // Rapor sonuçlarını gösteren widget
   Widget _buildReportResult(BuildContext context, ReportViewModel reportViewModel) {
     final report = reportViewModel.reportResult!;
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
     
     return Stack(
       children: [
@@ -880,6 +903,23 @@ class _ReportViewState extends State<ReportView> {
         ],
       ),
     );
+  }
+
+  void _showPastReportsScreen() {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    // Sadece premium kullanıcılar geçmiş raporlara erişebilir
+    if (!isPremium) {
+      Utils.showToast(
+        context,
+        'Geçmiş raporlara erişim sadece Premium üyelere özeldir'
+      );
+      return;
+    }
+    
+    // Geçmiş raporlar ekranına git
+    context.push('/past-reports');
   }
 }
 
