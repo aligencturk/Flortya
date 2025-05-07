@@ -439,6 +439,12 @@ class ReportViewModel extends ChangeNotifier {
       }
     }
   }
+  
+  // Cevapları yeniden başlat
+  void resetAnswers() {
+    _initializeAnswers();
+    notifyListeners();
+  }
 
   // Yükleme durumunu ayarlama
   void _setLoading(bool loading) {

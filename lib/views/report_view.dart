@@ -130,12 +130,43 @@ class _ReportViewState extends State<ReportView> {
 
   // Soru formu widget'ı
   Widget _buildQuestionForm(BuildContext context, ReportViewModel reportViewModel) {
+    // Sorular boşsa veya yükleniyor durumundaysa bir mesaj gösterelim
+    if (reportViewModel.questions.isEmpty) {
+      return const Center(
+        child: Text('Sorular yükleniyor, lütfen bekleyin...'),
+      );
+    }
+    
+    // Geçerli soru indeksini kontrol et
+    if (reportViewModel.currentQuestionIndex < 0 || 
+        reportViewModel.currentQuestionIndex >= reportViewModel.questions.length) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Soru verilerinde bir sorun oluştu.'),
+            const SizedBox(height: 16),
+            CustomButton(
+              text: 'Testi Yeniden Başlat',
+              onPressed: () {
+                reportViewModel.resetReport();
+              },
+              icon: Icons.refresh,
+            ),
+          ],
+        ),
+      );
+    }
+    
     final currentQuestionNumber = reportViewModel.currentQuestionIndex + 1;
     final totalQuestions = reportViewModel.questions.length;
     
-    // Debugging
-    debugPrint('Toplam soru sayısı: $totalQuestions');
-    debugPrint('Sorular: ${reportViewModel.questions}');
+    // Cevaplar dizisini kontrol et
+    if (reportViewModel.answers.length != reportViewModel.questions.length) {
+      debugPrint('Uyarı: Cevaplar ve sorular dizilerinin uzunluğu uyuşmuyor');
+      // Cevapları yeniden başlat
+      reportViewModel.resetAnswers();
+    }
     
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -217,7 +248,8 @@ class _ReportViewState extends State<ReportView> {
                 text: reportViewModel.isLastQuestion ? 'Raporu Oluştur' : 'Devam Et',
                 onPressed: () {
                   // Mevcut sorunun cevabını kontrol et
-                  if (reportViewModel.answers[reportViewModel.currentQuestionIndex].isEmpty) {
+                  final currentIndex = reportViewModel.currentQuestionIndex;
+                  if (currentIndex < 0 || currentIndex >= reportViewModel.answers.length || reportViewModel.answers[currentIndex].isEmpty) {
                     Utils.showToast(context, 'Lütfen soruyu yanıtlayın');
                     return;
                   }
@@ -319,6 +351,11 @@ class _ReportViewState extends State<ReportView> {
   
   // Evet/Hayır/Bilmiyorum butonları
   Widget _buildAnswerButtons(BuildContext context, ReportViewModel reportViewModel) {
+    if (reportViewModel.currentQuestionIndex >= reportViewModel.answers.length ||
+        reportViewModel.currentQuestionIndex < 0) {
+      return const SizedBox.shrink(); // Geçersiz indeks durumunda boş widget döndür
+    }
+    
     final currentAnswer = reportViewModel.answers[reportViewModel.currentQuestionIndex];
     
     return Column(
@@ -327,33 +364,40 @@ class _ReportViewState extends State<ReportView> {
         Row(
           children: [
             Expanded(
-              child: _buildAnswerButton(
-                context: context,
-                text: 'Kesinlikle evet',
-                isSelected: currentAnswer == 'Kesinlikle evet',
-                color: Colors.green,
-                onTap: () => reportViewModel.saveAnswer('Kesinlikle evet'),
+              child: SizedBox(
+                child: _buildAnswerButton(
+                  context: context,
+                  text: 'Kesinlikle evet',
+                  isSelected: currentAnswer == 'Kesinlikle evet',
+                  color: Colors.green,
+                  onTap: () => reportViewModel.saveAnswer('Kesinlikle evet'),
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _buildAnswerButton(
-                context: context,
-                text: 'Kararsızım',
-                isSelected: currentAnswer == 'Kararsızım',
-                color: Colors.orange,
-                onTap: () => reportViewModel.saveAnswer('Kararsızım'),
+              child: SizedBox(
+                child: _buildAnswerButton(
+                  context: context,
+                  text: 'Kararsızım',
+                  isSelected: currentAnswer == 'Kararsızım',
+                  color: Colors.orange,
+                  onTap: () => reportViewModel.saveAnswer('Kararsızım'),
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        _buildAnswerButton(
-          context: context,
-          text: 'Pek sanmam',
-          isSelected: currentAnswer == 'Pek sanmam',
-          color: Colors.red,
-          onTap: () => reportViewModel.saveAnswer('Pek sanmam'),
+        SizedBox(
+          width: double.infinity,
+          child: _buildAnswerButton(
+            context: context,
+            text: 'Pek sanmam',
+            isSelected: currentAnswer == 'Pek sanmam',
+            color: Colors.red,
+            onTap: () => reportViewModel.saveAnswer('Pek sanmam'),
+          ),
         ),
       ],
     );

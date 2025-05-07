@@ -5,6 +5,11 @@ import 'package:file_selector/file_selector.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../utils/loading_indicator.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:printing/printing.dart';
 
 class KonusmaSummaryView extends StatefulWidget {
   final List<Map<String, String>> summaryData;
@@ -253,7 +258,32 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
                 ),
               ),
               
-              const SizedBox(height: 60),
+              const SizedBox(height: 30),
+              
+              // PDF Paylaş butonu
+              ElevatedButton.icon(
+                onPressed: () => _createAndSharePDF(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF9D3FFF),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                icon: const Icon(Icons.share),
+                label: const Text(
+                  'PDF Olarak Paylaş',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 30),
               
               // Bitir butonu
               ElevatedButton(
@@ -283,6 +313,179 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
         ),
       ),
     );
+  }
+  
+  // PDF oluşturma ve paylaşma metodu
+  Future<void> _createAndSharePDF() async {
+    try {
+      // PDF belgesi oluştur
+      final pdf = pw.Document();
+      
+      // Varsayılan font yükle
+      final font = await PdfGoogleFonts.nunitoRegular();
+      final fontBold = await PdfGoogleFonts.nunitoBold();
+      
+      // PDF sayfalarını oluştur
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Center(
+              child: pw.Column(
+                mainAxisAlignment: pw.MainAxisAlignment.center,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Text(
+                    'Konuşma Analizi',
+                    style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 24,
+                      color: PdfColors.purple,
+                    ),
+                  ),
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'Tarih: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 14,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 40),
+                ],
+              ),
+            );
+          },
+        )
+      );
+      
+      // İçerik sayfalarını oluştur
+      for (int i = 0; i < widget.summaryData.length; i++) {
+        final item = widget.summaryData[i];
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return pw.Padding(
+                padding: const pw.EdgeInsets.all(24),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Container(
+                      width: double.infinity,
+                      padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.purple50,
+                        borderRadius: pw.BorderRadius.circular(8),
+                        border: pw.Border.all(color: PdfColors.purple200),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            item['title'] ?? '',
+                            style: pw.TextStyle(
+                              font: fontBold,
+                              fontSize: 18,
+                              color: PdfColors.purple900,
+                            ),
+                          ),
+                          pw.SizedBox(height: 16),
+                          pw.Text(
+                            item['comment'] ?? '',
+                            style: pw.TextStyle(
+                              font: font,
+                              fontSize: 14,
+                              color: PdfColors.black,
+                              lineSpacing: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(height: 16),
+                    pw.Text(
+                      '${i + 1} / ${widget.summaryData.length}',
+                      style: pw.TextStyle(
+                        font: font,
+                        fontSize: 12,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      }
+      
+      // Son sayfayı ekle
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Center(
+              child: pw.Column(
+                mainAxisAlignment: pw.MainAxisAlignment.center,
+                children: [
+                  pw.Text(
+                    'AYNA',
+                    style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 24,
+                      color: PdfColors.purple,
+                    ),
+                  ),
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'İlişki Danışmanı Uygulaması',
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 18,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 40),
+                  pw.Text(
+                    'Bu analiz yapay zeka kullanılarak oluşturulmuştur.\nRapor tarihi: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 12,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+      
+      // PDF'i geçici dosyaya kaydet
+      final output = await getTemporaryDirectory();
+      final file = File('${output.path}/konusma_analizi.pdf');
+      await file.writeAsBytes(await pdf.save());
+      
+      // PDF'i paylaş
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Konuşma analizi raporum',
+        subject: 'Konuşma Wrapped Analizi',
+      );
+      
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF oluşturulurken bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 
