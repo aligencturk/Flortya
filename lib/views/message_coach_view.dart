@@ -679,7 +679,13 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     final gorselDurumu = ref.watch(mesajKocuGorselKontrolProvider);
     final theme = Theme.of(context);
     final bool gorselModu = controller.gorselModu;
+    
+    // Hem normal controller'ın hem de Riverpod provider'ın yükleme ve analiz durumlarını kontrol et
     final bool isLoading = controller.isLoading || gorselDurumu.yukleniyor;
+    final bool analizTamamlandi = controller.analizTamamlandi || gorselDurumu.analiz != null;
+    
+    // Görsel analizi sonucu - eğer controller'da varsa onu, yoksa ve Riverpod'da varsa onu kullan
+    final hasAnalysisResult = controller.analysis != null || gorselDurumu.analiz != null;
     
     // Uygulama renkleri
     final Color primaryColor = const Color(0xFF9D3FFF); 
@@ -926,6 +932,12 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                       // Analiz tamamlanmadıysa yeni analiz başlat
                       if (gorselModu) {
                         if (controller.gorselDosya != null) {
+                          // Görsel analizi yapmak için Riverpod provider'ı kullan
+                          ref.read(mesajKocuGorselKontrolProvider.notifier).gorselAnalizeEt(
+                            _aciklamaController.text,
+                          );
+                          
+                          // Analiz işleminden sonra controller'a da bildir
                           controller.gorselIleAnalizeEt(
                             controller.gorselDosya!,
                             _aciklamaController.text,

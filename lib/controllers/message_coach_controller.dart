@@ -401,15 +401,9 @@ Karşı taraf: Tamam, orada görüşürüz.
         );
       } else {
         // Görsel analiz sonucunu MessageCoachAnalysis formatına dönüştür
-        _analysis = MessageCoachAnalysis(
-          analiz: "Görsel Analiz",
-          oneriler: sonuc.alternativeMessages.isNotEmpty ? sonuc.alternativeMessages : ["Daha net bir görsel yükleyiniz"],
-          etki: {'Görsel': 100},
-          sohbetGenelHavasi: "Görsel Analiz",
-          sonMesajTonu: "Görsel Analiz",
-          direktYorum: sonuc.konumDegerlendirmesi,
-          cevapOnerileri: sonuc.alternativeMessages
-        );
+        final String gulmeIfadeleriNotu = ""; // Boş gülme ifadeleri notu
+        _analysis = _gorselAnalizdenMesajAnalizineDonus(sonuc, aciklama, gulmeIfadeleriNotu);
+        _logger.i('Görsel analiz sonucu başarıyla MessageCoachAnalysis formatına dönüştürüldü');
       }
       
       // İşlem tamamlandığında reklam durumunu sıfırla
@@ -427,6 +421,8 @@ Karşı taraf: Tamam, orada görüşürüz.
       _analizTamamlandi = true;
       _isLoading = false;
       notifyListeners();
+      
+      _logger.i('Görsel analizi tamamlandı, UI güncelleniyor');
     } catch (e) {
       _logger.e('Görsel analiz hatası: $e');
       _errorMessage = e.toString();
