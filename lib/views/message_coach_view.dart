@@ -10,6 +10,7 @@ import 'package:provider/provider.dart' as provider;
 import '../controllers/message_coach_controller.dart';
 import '../controllers/message_coach_visual_controller.dart';
 import '../models/message_coach_analysis.dart';
+import '../models/message_coach_visual_analysis.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 import '../viewmodels/auth_viewmodel.dart';
@@ -232,6 +233,44 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     // ... existing code ...
   }
 
+  // Görsel analiz sonucunu MessageCoachAnalysis nesnesine dönüştürme yardımcı metodu
+  MessageCoachAnalysis _gorselAnalizdenAnalizeSonucuDonustur(MessageCoachVisualAnalysis gorselAnaliz) {
+    return MessageCoachAnalysis(
+      analiz: gorselAnaliz.konumDegerlendirmesi ?? "Görsel analiz",
+      oneriler: gorselAnaliz.alternativeMessages,
+      etki: {'Görsel': 100},
+      sohbetGenelHavasi: "Görsel Analiz",
+      sonMesajTonu: "Görsel Analiz",
+      sonMesajEtkisi: {'Görsel': 100},
+      direktYorum: gorselAnaliz.konumDegerlendirmesi,
+      cevapOnerileri: gorselAnaliz.alternativeMessages,
+      olumluCevapTahmini: gorselAnaliz.partnerResponses.isNotEmpty ? gorselAnaliz.partnerResponses[0] : null,
+      olumsuzCevapTahmini: gorselAnaliz.partnerResponses.length > 1 ? gorselAnaliz.partnerResponses[1] : null,
+    );
+  }
+  
+  // Kullanıcının açıklamasına göre olası yanıt senaryolarını gösterip göstermeme kararını verir
+  bool _yanitSenaryolariGosterilmeli(String aciklama) {
+    // Küçük harfe çevir ve boşlukları temizle
+    final String temizAciklama = aciklama.toLowerCase().trim();
+    
+    // Cevap/yanıt/tepki ile ilgili anahtar kelimeler
+    final List<String> anahtarKelimeler = [
+      'cevap', 'yanit', 'tepki', 'karşilik', 'dönüş', 
+      'ne der', 'ne söyler', 'nasil cevap', 'nasil yanit', 
+      'ne cevap', 'ne yanit', 'ne tepki', 'ne düşünür'
+    ];
+    
+    // Anahtar kelimeleri kontrol et
+    for (final String kelime in anahtarKelimeler) {
+      if (temizAciklama.contains(kelime)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   // Analiz sonuçlarını gösterme widget'ı
   Widget _analizSonuclariniGoster(MessageCoachAnalysis analiz) {
     // Görsel analiz kaynaklı bir analiz mi kontrol et
@@ -239,6 +278,12 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     
     // Controller referansını al
     final controller = provider.Provider.of<MessageCoachController>(context, listen: false);
+    
+    // Görsel modunda kullanıcı açıklamasını al
+    final String gorselAciklamasi = _aciklamaController.text;
+    
+    // Kullanıcının açıklamasına göre yanıt senaryolarını gösterip göstermeyeceğimizi belirle
+    final bool yanitSenaryolariGoster = !isVisualAnalysis || _yanitSenaryolariGosterilmeli(gorselAciklamasi);
     
     return SingleChildScrollView(
       child: Column(
@@ -349,7 +394,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
             ],
             
             // Olası yanıt tahminleri
-            if (analiz.olumluCevapTahmini != null || analiz.olumsuzCevapTahmini != null) ...[
+            if (yanitSenaryolariGoster && (analiz.olumluCevapTahmini != null || analiz.olumsuzCevapTahmini != null)) ...[
               const SizedBox(height: 20),
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
@@ -653,6 +698,97 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                 ),
               ),
             ],
+            
+            // Olası yanıt tahminleri
+            if (analiz.olumluCevapTahmini != null || analiz.olumsuzCevapTahmini != null) ...[
+              const SizedBox(height: 20),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Olası Yanıt Senaryoları',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              
+              if (analiz.olumluCevapTahmini != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.thumb_up, color: Colors.green, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'Olumlu Senaryo',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        analiz.olumluCevapTahmini!,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              if (analiz.olumsuzCevapTahmini != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.thumb_down, color: Colors.red, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'Olumsuz Senaryo',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        analiz.olumsuzCevapTahmini!,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ],
           
           // Kopyala butonu
@@ -683,9 +819,6 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     // Hem normal controller'ın hem de Riverpod provider'ın yükleme ve analiz durumlarını kontrol et
     final bool isLoading = controller.isLoading || gorselDurumu.yukleniyor;
     final bool analizTamamlandi = controller.analizTamamlandi || gorselDurumu.analiz != null;
-    
-    // Görsel analizi sonucu - eğer controller'da varsa onu, yoksa ve Riverpod'da varsa onu kullan
-    final hasAnalysisResult = controller.analysis != null || gorselDurumu.analiz != null;
     
     // Uygulama renkleri
     final Color primaryColor = const Color(0xFF9D3FFF); 
@@ -798,10 +931,16 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                           analizTipi: AnalizTipi.MESAJ_KOCU,
                         ),
                       )
-                    : controller.analizTamamlandi && controller.analysis != null
+                    : (analizTamamlandi && controller.analysis != null) || (gorselDurumu.analiz != null)
                       ? Padding(
                           padding: const EdgeInsets.all(16),
-                          child: _analizSonuclariniGoster(controller.analysis!),
+                          child: _analizSonuclariniGoster(
+                            controller.analysis != null 
+                            ? controller.analysis! 
+                            : gorselDurumu.analiz != null
+                                ? _gorselAnalizdenAnalizeSonucuDonustur(gorselDurumu.analiz!)
+                                : MessageCoachAnalysis(analiz: "Görsel analiz edilemedi", oneriler: [], etki: {}, sohbetGenelHavasi: "")
+                          ),
                         )
                       : Padding(
                         padding: const EdgeInsets.all(16),
