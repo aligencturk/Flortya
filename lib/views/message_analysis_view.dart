@@ -778,25 +778,131 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     // Premium değilse, kullanım sayısını kontrol et ve artır
     if (!isPremium) {
       final int count = await premiumService.getDailyVisualOcrCount();
-      debugPrint('Görsel OCR günlük kullanım: $count / 3');
+      debugPrint('Görsel OCR günlük kullanım: $count / 5');
       
-      // Kullanım sayısını artır
-      await premiumService.incrementDailyVisualOcrCount();
+      // İlk kullanım kontrolü
+      bool isFirstTime = await premiumService.isFirstTimeVisualOcr();
       
-      // Reklam izletme fonksiyonu burada çağrılabilir
-      // Bu projede henüz reklam entegrasyonu yok, o yüzden sadece bilgilendirme gösteriyoruz
-      if (count < 3) {
+      if (isFirstTime) {
+        // İlk kullanım - bilgilendirme mesajı (reklamsız)
+        await premiumService.markFirstTimeVisualOcrUsed();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Bugün ${count + 1}. görsel analizinizi yaptınız. Günlük 3 hakkınız var.'),
+            content: Text('İlk görsel analiziniz reklamsız. Sonraki kullanımlar reklam izlemenizi gerektirecek.'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        // İlk kullanım değilse, reklam göster
+        await _showAdSimulation();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bugün ${count + 1}. görsel analizinizi yaptınız. Günlük 5 hakkınız var.'),
             duration: const Duration(seconds: 2),
           ),
         );
       }
+      
+      // Kullanım sayısını artır
+      await premiumService.incrementDailyVisualOcrCount();
     }
     
     // Görsel seçme işlemini başlat
     await _gorselSec();
+  }
+  
+  // Reklam simülasyonu gösterme fonksiyonu
+  Future<void> _showAdSimulation() async {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false, // Geri tuşunu devre dışı bırak
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF352269),
+            title: Row(
+              children: [
+                Icon(Icons.live_tv, color: Colors.white),
+                SizedBox(width: 10),
+                Text('Reklam', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 150,
+                  child: Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: 150,
+                          color: Colors.black54,
+                        ),
+                        Icon(
+                          Icons.smart_display,
+                          size: 80,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                        Positioned(
+                          bottom: 10,
+                          right: 10,
+                          child: TweenAnimationBuilder<int>(
+                            tween: IntTween(begin: 5, end: 0),
+                            duration: Duration(seconds: 5),
+                            builder: (context, value, child) {
+                              return Container(
+                                padding: EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black45,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '$value',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            },
+                            onEnd: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Görsel analiz yapabilmek için reklam izliyorsunuz...',
+                  style: TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Reklamsız kullanım için Premium üyeliği değerlendirebilirsiniz.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    
+    // 5 saniye bekle - reklam süresi
+    await Future.delayed(Duration(seconds: 5));
   }
   
   // TXT dosyası analizi - reklam kontrolü ile

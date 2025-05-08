@@ -71,7 +71,7 @@ class MessageCoachController extends ChangeNotifier {
   Future<void> _gorselAnalizHakkiniGuncelle() async {
     try {
       if (_currentUserId == null || _currentUserId!.isEmpty) {
-        _kalanGorselAnalizHakki = 3; // Default olarak 3 hak
+        _kalanGorselAnalizHakki = 5; // Default olarak 5 hak (3 yerine 5 kullanım)
         return;
       }
       
@@ -83,7 +83,7 @@ class MessageCoachController extends ChangeNotifier {
         _kalanGorselAnalizHakki = -1; // -1 sınırsız anlamına gelir
       } else {
         int kullanilan = await _premiumService.getDailyVisualOcrCount();
-        _kalanGorselAnalizHakki = 3 - kullanilan;
+        _kalanGorselAnalizHakki = 5 - kullanilan; // 5 hak (3 yerine 5 kullanım)
         if (_kalanGorselAnalizHakki < 0) _kalanGorselAnalizHakki = 0;
       }
       
@@ -334,10 +334,26 @@ Karşı taraf: Tamam, orada görüşürüz.
           return;
         }
         
-        // Reklam simülasyonu - Gerçek uygulamada burada reklam gösterilecek
-        _reklamGoruldu = true;
-        _logger.i('Reklam gösteriliyor...');
-        await Future.delayed(const Duration(seconds: 2)); // Reklam yükleme simülasyonu
+        // Reklam gösterme kontrolü
+        bool isFirstTime = await _premiumService.isFirstTimeVisualOcr();
+        
+        if (isFirstTime) {
+          // İlk kullanımda reklam gösterme
+          _logger.i('İlk görsel analizi kullanımı: reklam gösterilmiyor');
+          await _premiumService.markFirstTimeVisualOcrUsed(); // İlk kullanımı işaretle
+        } else {
+          // İlk kullanım değilse, reklam göster
+          _reklamGoruldu = true;
+          _logger.i('Reklam gösteriliyor...');
+          
+          // Burada reklam gösterildiğini simüle ediyoruz
+          // Gerçek entegrasyonda AdMob, Unity Ads vb. kullanılacak
+          await Future.delayed(const Duration(seconds: 2)); // Reklam yükleme simülasyonu
+          
+          // Gerçek uygulama için burada bir callback olacak
+          // Reklam izlendikten sonra devam edecek
+          _logger.i('Reklam izleme tamamlandı');
+        }
         
         // Kullanım sayısını artır
         await _premiumService.incrementDailyVisualOcrCount();

@@ -5,6 +5,7 @@ class PremiumService {
   static const String DAILY_VISUAL_OCR_DATE_KEY = 'dailyVisualOcrDate';
   static const String TXT_ANALYSIS_USED_COUNT_KEY = 'txtAnalysisUsedCount';
   static const String WRAPPED_OPENED_ONCE_KEY = 'wrappedOpenedOnce';
+  static const String FIRST_TIME_VISUAL_OCR_KEY = 'firstTimeVisualOcr';
 
   // Günlük görsel OCR kullanım sayısını kontrol et
   Future<int> getDailyVisualOcrCount() async {
@@ -29,6 +30,31 @@ class PremiumService {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final int currentCount = await getDailyVisualOcrCount();
     return prefs.setInt(DAILY_VISUAL_OCR_COUNT_KEY, currentCount + 1);
+  }
+
+  // İlk kez görsel analiz kullandı mı?
+  Future<bool> isFirstTimeVisualOcr() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return !(prefs.getBool(FIRST_TIME_VISUAL_OCR_KEY) ?? false);
+  }
+
+  // İlk kullanım kaydını yap
+  Future<bool> markFirstTimeVisualOcrUsed() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.setBool(FIRST_TIME_VISUAL_OCR_KEY, true);
+  }
+
+  // Görsel analiz için reklam gerekli mi kontrol et
+  Future<bool> isAdRequiredForVisualOcr() async {
+    // İlk kullanım kontrolü
+    final bool isFirstTime = await isFirstTimeVisualOcr();
+    if (isFirstTime) {
+      // İlk kullanımsa reklam gerektirmez
+      return false;
+    }
+    
+    // İlk değilse her kullanımda reklam gerektirir
+    return true;
   }
 
   // TXT analizi kullanım sayısını kontrol et
@@ -65,7 +91,7 @@ class PremiumService {
     switch (feature) {
       case PremiumFeature.VISUAL_OCR:
         final int count = await getDailyVisualOcrCount();
-        return count < 3; // Günde 3 kullanım hakkı
+        return count < 5; // Günde 5 kullanım hakkı
       
       case PremiumFeature.TXT_ANALYSIS:
         final int count = await getTxtAnalysisUsedCount();
@@ -87,6 +113,7 @@ class PremiumService {
     await prefs.remove(DAILY_VISUAL_OCR_DATE_KEY);
     await prefs.remove(TXT_ANALYSIS_USED_COUNT_KEY);
     await prefs.remove(WRAPPED_OPENED_ONCE_KEY);
+    await prefs.remove(FIRST_TIME_VISUAL_OCR_KEY);
   }
 }
 

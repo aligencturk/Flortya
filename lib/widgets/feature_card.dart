@@ -110,7 +110,7 @@ void showPremiumInfoDialog(BuildContext context, PremiumFeature feature) {
   switch (feature) {
     case PremiumFeature.VISUAL_OCR:
       title = 'Günlük Limit Doldu';
-      message = 'Görsel Analiz için günlük kullanım hakkınız doldu. Sınırsız kullanım için Premium\'a geçebilirsiniz.';
+      message = 'Görsel Analiz için günlük 5 kullanım hakkınız doldu. Sınırsız kullanım için Premium\'a geçebilirsiniz.';
       break;
     case PremiumFeature.TXT_ANALYSIS:
       title = 'Kullanım Limiti Doldu';
