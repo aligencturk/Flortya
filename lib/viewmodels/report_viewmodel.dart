@@ -163,7 +163,19 @@ class ReportViewModel extends ChangeNotifier {
   
   // Cevapları sıfırla
   void _initializeAnswers() {
-    _answers = List.filled(_questions.length, '');
+    try {
+      if (_questions.isEmpty) {
+        _answers = [];
+        debugPrint('Sorular boş olduğu için cevaplar boş bir liste olarak ayarlandı');
+        return;
+      }
+      
+      _answers = List.filled(_questions.length, '');
+      debugPrint('Cevaplar ${_questions.length} uzunluğunda yeniden başlatıldı');
+    } catch (e) {
+      debugPrint('Cevapları sıfırlarken beklenmeyen hata: $e');
+      _answers = [];
+    }
   }
   
   // Geri sayım sayacını başlat
@@ -441,8 +453,14 @@ class ReportViewModel extends ChangeNotifier {
   
   // Cevapları yeniden başlat
   void resetAnswers() {
-    _initializeAnswers();
-    notifyListeners();
+    try {
+      _initializeAnswers();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Cevapları sıfırlarken hata oluştu: $e');
+      // Hata durumunda, UI güncellemesi yapmadan sadece cevapları sıfırlıyoruz
+      _initializeAnswers();
+    }
   }
 
   // Yükleme durumunu ayarlama

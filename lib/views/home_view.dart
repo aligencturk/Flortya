@@ -16,6 +16,8 @@ import '../controllers/home_controller.dart';
 import '../app_router.dart';
 import '../utils/utils.dart';
 import '../views/message_coach_view.dart';
+import '../services/relationship_access_service.dart';
+import '../views/report_view.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -141,7 +143,8 @@ class _HomeViewState extends State<HomeView> {
   
   bool _hesapBilgileriAcik = false;
   bool _isProfileDataLoaded = false; // Profil verilerinin yüklenip yüklenmediğini takip eden bayrak
-
+  final RelationshipAccessService _relationshipAccessService = RelationshipAccessService();
+  
   @override
   void initState() {
     super.initState();
@@ -3135,9 +3138,160 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  void _showRelationshipEvaluation(BuildContext context) {
-    // İlişki değerlendirmesi için ReportView'a yönlendir
-    context.push('/report');
+  void _showRelationshipEvaluation(BuildContext context) async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    // Erişim kontrolü
+    final hasAccess = await _relationshipAccessService.canUseRelationshipTest(isPremium);
+    
+    if (!hasAccess) {
+      // Erişim yoksa premium uyarısı göster
+      if (!context.mounted) return;
+      _showPremiumRequiredDialog();
+      return;
+    }
+    
+    // Erişim varsa kullanım sayısını artır (premium değilse)
+    if (!isPremium) {
+      await _relationshipAccessService.incrementRelationshipTestCount();
+    }
+    
+    // İlişki değerlendirmesi sayfasına yönlendir
+    if (context.mounted) {
+      context.push('/report');
+    }
+  }
+  
+  // Premium gerekli uyarı diyaloğu
+  void _showPremiumRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Premium Gerekli'),
+          content: const Text(
+            'İlişki değerlendirme hakkınız doldu. Premium üyelik satın alarak sınırsız kullanabilir veya reklam izleyerek 3 hak daha kazanabilirsiniz.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Vazgeç'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showAdForRelationshipTest();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              child: const Text('Reklam İzle'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  // İlişki testi için reklam izleme
+  Future<void> _showAdForRelationshipTest() async {
+    // Reklam yükleniyor diyaloğu
+    if (!context.mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext loadingContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Reklam yükleniyor...",
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    // 3 saniye bekleyip reklam izleme simülasyonu yap
+    await Future.delayed(const Duration(seconds: 3));
+    
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // Yükleme diyaloğunu kapat
+    
+    // İzleniyor diyaloğu
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext watchingContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.videocam,
+                color: Colors.amber,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Reklam oynatılıyor...",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                backgroundColor: Colors.grey[800],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    // 5 saniye daha bekle ve reklam izlendi durumunu güncelle
+    await Future.delayed(const Duration(seconds: 5));
+    
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // Reklam izleme diyaloğunu kapat
+    
+    // Reklam izlendi olarak işaretle
+    await _relationshipAccessService.setRelationshipTestAdViewed(true);
+    
+    // Başarı mesajı göster
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Tebrikler! 3 ilişki değerlendirmesi hakkı kazandınız."),
+        backgroundColor: Color(0xFF4A2A80),
+      ),
+    );
+    
+    // Sayfaya yönlendirirken skipAccessCheck=true parametresi ekleyerek
+    // erişim kontrolünü atlayacağımızı belirtiyoruz
+    if (!context.mounted) return;
+    
+    // Go router ile doğrudan yönlendirme yerine, Navigator ile ReportView'a
+    // skipAccessCheck=true parametresiyle yönlendiriyoruz
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ReportView(skipAccessCheck: true)
+      )
+    );
   }
 
   // Kategori adını formatlama

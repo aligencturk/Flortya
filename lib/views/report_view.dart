@@ -3,15 +3,22 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:math';
+import 'dart:ui';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../widgets/custom_button.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
+import '../services/relationship_access_service.dart';
 
 class ReportView extends StatefulWidget {
-  const ReportView({super.key});
+  final bool skipAccessCheck;
+  
+  const ReportView({
+    super.key,
+    this.skipAccessCheck = false,
+  });
 
   @override
   State<ReportView> createState() => _ReportViewState();
@@ -19,14 +26,23 @@ class ReportView extends StatefulWidget {
 
 class _ReportViewState extends State<ReportView> {
   final TextEditingController _commentController = TextEditingController();
+  final RelationshipAccessService _accessService = RelationshipAccessService();
   bool _showReportResult = false;
   bool _isCommenting = false;
+  List<String> _unlockedSuggestions = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserReports();
+      _loadUnlockedSuggestions();
+      // Eğer skipAccessCheck true ise, hak kontrolü yapma
+      if (!widget.skipAccessCheck) {
+        _checkInitialAccess();
+      } else {
+        debugPrint('Hak kontrolü atlanıyor çünkü skipAccessCheck=true');
+      }
     });
   }
 
@@ -36,7 +52,13 @@ class _ReportViewState extends State<ReportView> {
     super.dispose();
   }
 
-  // Kullanıcının raporlarını yükleme
+  Future<void> _loadUnlockedSuggestions() async {
+    final suggestions = await _accessService.getUnlockedSuggestions();
+    setState(() {
+      _unlockedSuggestions = suggestions;
+    });
+  }
+
   Future<void> _loadUserReports() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
@@ -46,19 +68,9 @@ class _ReportViewState extends State<ReportView> {
     }
   }
 
-  // Rapor oluştur
   Future<void> _generateReport() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-    
-    // Premium kontrolü
-    final isPremium = authViewModel.isPremium;
-    if (!isPremium) {
-      Utils.showToast(
-        context, 
-        'Rapor oluşturma özelliğini sınırsız kullanmak için Premium üyelik gerekiyor'
-      );
-    }
     
     if (authViewModel.user != null) {
       await reportViewModel.generateReport(authViewModel.user!.id);
@@ -71,9 +83,257 @@ class _ReportViewState extends State<ReportView> {
     }
   }
 
-  // Yeni bir teste başla
-  void _startNewReport(BuildContext context) {
+  void _showPremiumRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('İlişki Değerlendirme Hakkı'),
+          content: const Text(
+            'İlişki değerlendirme hakkınız doldu. Premium üyelik satın alarak sınırsız kullanabilir veya reklam izleyerek 3 hak daha kazanabilirsiniz.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Vazgeç'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showAdSimulation(AdViewType.TEST_ACCESS);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              child: const Text('Reklam İzle'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLockedWidget({
+    required Widget child,
+    required bool isLocked,
+    required VoidCallback onUnlock,
+  }) {
+    return Stack(
+      children: [
+        if (isLocked)
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+            child: child,
+          )
+        else
+          child,
+          
+        if (isLocked)
+          Positioned.fill(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: const Icon(
+                      Icons.lock_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 130,
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      onPressed: onUnlock,
+                      icon: const Icon(
+                        Icons.play_arrow,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Reklam İzle',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showAdSimulation(AdViewType type, {int? suggestionIndex}) async {
+    if (!context.mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext loadingContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Reklam yükleniyor...",
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    await Future.delayed(const Duration(seconds: 3));
+    
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext watchingContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.videocam,
+                color: Colors.amber,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Reklam oynatılıyor...",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                backgroundColor: Colors.grey[800],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    await Future.delayed(const Duration(seconds: 5));
+    
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    
+    // Tüm işlemleri try-catch içine alarak hataları yönetiyoruz
+    try {
+      switch (type) {
+        case AdViewType.TEST_ACCESS:
+          await _accessService.setRelationshipTestAdViewed(true);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Tebrikler! 3 ilişki değerlendirmesi hakkı kazandınız."),
+                backgroundColor: Color(0xFF4A2A80),
+              ),
+            );
+            
+            // Reklam izlendikten sonra rapor sayfasına yönlendir
+            if (context.mounted) {
+              // Sayfadan çıkış yapıp tekrar girerek state sorunlarını önle
+              await Future.delayed(const Duration(milliseconds: 300));
+              if (context.mounted) {
+                // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const ReportView(skipAccessCheck: true)
+                  )
+                );
+              }
+            }
+          }
+          break;
+          
+        case AdViewType.REPORT_VIEW:
+          await _accessService.incrementReportViewCount();
+          if (context.mounted) {
+            setState(() {
+              _showReportResult = true;
+            });
+          }
+          break;
+          
+        case AdViewType.REPORT_REGENERATE:
+          await _accessService.incrementReportRegenerateCount();
+          
+          if (context.mounted) {
+            // Reklam sonrası testi güvenli bir şekilde yeniden başlat
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const ReportView(skipAccessCheck: true)
+                  )
+                );
+              }
+            });
+          }
+          break;
+          
+        case AdViewType.SUGGESTION_UNLOCK:
+          if (suggestionIndex != null) {
+            await _accessService.unlockSuggestion(suggestionIndex);
+            if (mounted) {
+              await _loadUnlockedSuggestions();
+            }
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('Reklam işlemleri sırasında hata: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("İşlem sırasında bir hata oluştu: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _startNewReport(BuildContext context) async {
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    final canRegenerate = await _accessService.canRegenerateReport(isPremium);
+    
+    if (!canRegenerate) {
+      if (!context.mounted) return;
+      _showReportRegenerateDialog();
+      return;
+    }
     
     reportViewModel.resetReport();
     
@@ -82,12 +342,42 @@ class _ReportViewState extends State<ReportView> {
     });
   }
 
-  // Yorum moduna geç
+  void _showReportRegenerateDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Premium Gerekli'),
+          content: const Text(
+            'Raporu yeniden oluşturma hakkınız doldu. Premium üyelik satın alarak sınırsız kullanabilir veya reklam izleyerek yeniden oluşturabilirsiniz.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Vazgeç'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showAdSimulation(AdViewType.REPORT_REGENERATE);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              child: const Text('Reklam İzle'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _toggleCommentMode() {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final isPremium = authViewModel.isPremium;
     
-    // Sadece premium kullanıcılar yorum yapabilir
     if (!isPremium) {
       Utils.showToast(
         context,
@@ -101,7 +391,6 @@ class _ReportViewState extends State<ReportView> {
     });
   }
 
-  // Yorum gönder
   void _sendComment() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
@@ -112,12 +401,10 @@ class _ReportViewState extends State<ReportView> {
       return;
     }
     
-    // Yorum gönderme işlemi
     if (authViewModel.user != null) {
       await reportViewModel.sendComment(authViewModel.user!.id, comment);
     }
     
-    // Gönderildi bildirimi
     Utils.showSuccessFeedback(context, 'Yorumunuz gönderildi');
     
     _commentController.clear();
@@ -130,6 +417,52 @@ class _ReportViewState extends State<ReportView> {
   Widget build(BuildContext context) {
     final reportViewModel = Provider.of<ReportViewModel>(context);
     
+    // Özel hata yakalama mekanizması ekle
+    Widget contentWidget;
+    try {
+      contentWidget = reportViewModel.isLoading
+          ? const YuklemeAnimasyonu(
+              analizTipi: AnalizTipi.ILISKI_ANKETI,
+            )
+          : _showReportResult || reportViewModel.hasReport
+              ? _buildReportResult(context, reportViewModel)
+              : _buildQuestionForm(context, reportViewModel);
+    } catch (e) {
+      // Hata durumunda kontrollü fallback widget göster
+      debugPrint('ReportView içerik oluşturulurken hata: $e');
+      contentWidget = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text('Bir sorun oluştu.'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                // Güvenli bir şekilde resetleme işlemi yapmak için
+                try {
+                  if (mounted) {
+                    Future.microtask(() {
+                      if (mounted) {
+                        reportViewModel.resetReport();
+                        setState(() {
+                          _showReportResult = false;
+                        });
+                      }
+                    });
+                  }
+                } catch (resetError) {
+                  debugPrint('Sıfırlama sırasında hata: $resetError');
+                }
+              },
+              child: const Text('Yeniden Başlat'),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('İlişki Raporu'),
@@ -138,26 +471,17 @@ class _ReportViewState extends State<ReportView> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: reportViewModel.isLoading
-          ? const YuklemeAnimasyonu(
-              analizTipi: AnalizTipi.ILISKI_ANKETI,
-            )
-          : _showReportResult || reportViewModel.hasReport
-              ? _buildReportResult(context, reportViewModel)
-              : _buildQuestionForm(context, reportViewModel),
+      body: contentWidget,
     );
   }
 
-  // Soru formu widget'ı
   Widget _buildQuestionForm(BuildContext context, ReportViewModel reportViewModel) {
-    // Sorular boşsa veya yükleniyor durumundaysa bir mesaj gösterelim
     if (reportViewModel.questions.isEmpty) {
       return const Center(
         child: Text('Sorular yükleniyor, lütfen bekleyin...'),
       );
     }
     
-    // Geçerli soru indeksini kontrol et
     if (reportViewModel.currentQuestionIndex < 0 || 
         reportViewModel.currentQuestionIndex >= reportViewModel.questions.length) {
       return Center(
@@ -181,11 +505,26 @@ class _ReportViewState extends State<ReportView> {
     final currentQuestionNumber = reportViewModel.currentQuestionIndex + 1;
     final totalQuestions = reportViewModel.questions.length;
     
-    // Cevaplar dizisini kontrol et
+    // Cevaplar ve sorular dizisi uzunluğu kontrolünü daha güvenli hale getiriyoruz
     if (reportViewModel.answers.length != reportViewModel.questions.length) {
       debugPrint('Uyarı: Cevaplar ve sorular dizilerinin uzunluğu uyuşmuyor');
-      // Cevapları yeniden başlat
-      reportViewModel.resetAnswers();
+      try {
+        // Cevapları asenkron olarak sıfırlıyoruz, böylece build işlemi tamamlanabilir
+        Future.microtask(() {
+          if (mounted) {
+        reportViewModel.resetAnswers();
+          }
+        });
+        // Bu sırada yalnızca mevcut durumu göster, sıfırlama işlemi tamamlandıktan sonra UI güncellenecek
+      } catch (e) {
+        debugPrint('Rapor sayfasında cevapları sıfırlarken hata oluştu: $e');
+        // Kritik hata durumunda tüm raporu sıfırla
+        Future.microtask(() {
+          if (mounted) {
+        reportViewModel.resetReport();
+          }
+        });
+      }
     }
     
     return Padding(
@@ -193,13 +532,11 @@ class _ReportViewState extends State<ReportView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Soruların yenilenmesine kalan süre göstergesi
           if (reportViewModel.nextUpdateTime != null)
             _buildCountdownTimer(context, reportViewModel),
           
           const SizedBox(height: 24),
           
-          // İlerleme göstergesi
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Container(
@@ -218,7 +555,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 8),
           
-          // Soru sayısı metni
           Text(
             'Soru $currentQuestionNumber / $totalQuestions',
             style: Theme.of(context).textTheme.bodySmall,
@@ -227,7 +563,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 32),
           
-          // Soru metni
           Text(
             reportViewModel.currentQuestion,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -240,21 +575,17 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 24),
           
-          // Cevap butonları - Evet/Hayır/Bilmiyorum
           _buildAnswerButtons(context, reportViewModel),
           
           const Spacer(),
           
-          // Butonlar
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Önceki düğmesi
               if (reportViewModel.currentQuestionIndex > 0)
                 CustomButton(
                   text: 'Önceki',
                   onPressed: () {
-                    // Önceki soruya geç
                     reportViewModel.previousQuestion();
                   },
                   type: ButtonType.outline,
@@ -263,19 +594,41 @@ class _ReportViewState extends State<ReportView> {
               else
                 const SizedBox(width: 100),
               
-              // İleri / Bitir düğmesi
               CustomButton(
                 text: reportViewModel.isLastQuestion ? 'Raporu Oluştur' : 'Devam Et',
-                onPressed: () {
-                  // Mevcut sorunun cevabını kontrol et
+                onPressed: () async {
                   final currentIndex = reportViewModel.currentQuestionIndex;
                   if (currentIndex < 0 || currentIndex >= reportViewModel.answers.length || reportViewModel.answers[currentIndex].isEmpty) {
                     Utils.showToast(context, 'Lütfen soruyu yanıtlayın');
                     return;
                   }
                   
-                  // Son soruysa raporu oluştur, değilse sonraki soruya geç
                   if (reportViewModel.isLastQuestion) {
+                    // Son soruya geldiğinde rapor oluşturmadan önce erişim hakkı kontrolü yap
+                    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                    final isPremium = authViewModel.isPremium;
+                    
+                    // Eğer sayfaya skipAccessCheck=true parametresiyle gelinmişse, erişim kontrolü zaten atlanmıştır
+                    // Bu durumda doğrudan raporu oluştur
+                    if (widget.skipAccessCheck) {
+                      // Erişim kontrolü atlandığı için doğrudan raporu oluştur
+                      _generateReport();
+                      return;
+                    }
+                    
+                    final hasAccess = await _accessService.canUseRelationshipTest(isPremium);
+                    
+                    if (!hasAccess) {
+                      if (!context.mounted) return;
+                      _showPremiumRequiredDialog();
+                      return;
+                    }
+                    
+                    // Kullanım hakkını artır (premium olmayan kullanıcılar için)
+                    if (!isPremium) {
+                      await _accessService.incrementRelationshipTestCount();
+                    }
+                    
                     _generateReport();
                   } else {
                     reportViewModel.nextQuestion();
@@ -290,7 +643,6 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  // Geri sayım sayacı widget'ı
   Widget _buildCountdownTimer(BuildContext context, ReportViewModel reportViewModel) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -335,7 +687,6 @@ class _ReportViewState extends State<ReportView> {
     );
   }
   
-  // Geri sayım için tekil öğe
   Widget _buildCountdownItem(BuildContext context, int value, String label) {
     return Column(
       children: [
@@ -369,11 +720,10 @@ class _ReportViewState extends State<ReportView> {
     );
   }
   
-  // Evet/Hayır/Bilmiyorum butonları
   Widget _buildAnswerButtons(BuildContext context, ReportViewModel reportViewModel) {
     if (reportViewModel.currentQuestionIndex >= reportViewModel.answers.length ||
         reportViewModel.currentQuestionIndex < 0) {
-      return const SizedBox.shrink(); // Geçersiz indeks durumunda boş widget döndür
+      return const SizedBox.shrink();
     }
     
     final currentAnswer = reportViewModel.answers[reportViewModel.currentQuestionIndex];
@@ -423,7 +773,6 @@ class _ReportViewState extends State<ReportView> {
     );
   }
   
-  // Tekil cevap butonu
   Widget _buildAnswerButton({
     required BuildContext context,
     required String text,
@@ -462,7 +811,6 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  // Rapor sonuçlarını gösteren widget
   Widget _buildReportResult(BuildContext context, ReportViewModel reportViewModel) {
     final report = reportViewModel.reportResult!;
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
@@ -475,17 +823,15 @@ class _ReportViewState extends State<ReportView> {
             left: 20,
             right: 20,
             top: 10,
-            bottom: 120, // Butonlar için daha fazla boşluk
+            bottom: 120,
           ),
           children: [
-            // İlişki değerlendirme grafiği (Başlığı kaldırıldı)
             const SizedBox(height: 20),
             
             _buildRelationshipGraph(context, reportViewModel),
             
             const SizedBox(height: 24),
             
-            // Öneriler başlığı
             Text(
               'İlişkinizi Geliştirecek Öneriler',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -495,7 +841,6 @@ class _ReportViewState extends State<ReportView> {
             
             const SizedBox(height: 16),
             
-            // Öneriler listesi
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: _buildSuggestionList(context, report),
@@ -505,7 +850,6 @@ class _ReportViewState extends State<ReportView> {
           ],
         ),
         
-        // Alt butonlar
         Positioned(
           left: 0,
           right: 0,
@@ -524,30 +868,65 @@ class _ReportViewState extends State<ReportView> {
             ),
             child: Row(
               children: [
-                // Testi yeniden başlat butonu
                 Expanded(
                   flex: 2,
                   child: SizedBox(
-                    // Butonu genişletirken sınırlama ekleyerek taşmayı önlüyoruz
                     child: CustomButton(
                       text: 'Testi Yeniden Başlat',
-                      onPressed: () {
-                        try {
-                          // ViewModel'i al ve resetle
+                      onPressed: () async {
+                        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                        final isPremium = authViewModel.isPremium;
+                        
+                        // Premium değilse reklam göster
+                        if (!isPremium) {
+                          // Önce testi tekrar başlatma diyaloğunu göster
+                          final shouldRestart = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Testi Yeniden Başlat'),
+                              content: const Text('Testi yeniden başlatmak için kısa bir reklam izlemeniz gerekiyor. Devam etmek istiyor musunuz?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('Vazgeç'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Theme.of(context).colorScheme.primary,
+                                  ),
+                                  child: const Text('Reklam İzle'),
+                                ),
+                              ],
+                            ),
+                          );
+                          
+                          if (shouldRestart == true && context.mounted) {
+                            // Reklam göster
+                            await _showAdSimulation(AdViewType.REPORT_REGENERATE);
+                            
+                            // Reklam sonrası testi yeniden başlat
+                            if (context.mounted) {
                           final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
                           reportViewModel.resetReport();
                           
-                          // UI güncellemesini güvenli şekilde planlama
-                          Future.microtask(() {
-                            if (mounted) {
                               setState(() {
                                 _showReportResult = false;
                               });
                             }
+                          }
+                        } else {
+                          // Premium kullanıcı için doğrudan başlat
+                          try {
+                            final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+                            reportViewModel.resetReport();
+                            
+                            setState(() {
+                              _showReportResult = false;
                           });
                         } catch (e) {
-                          // Herhangi bir hata durumunda kullanıcıyı bilgilendir
                           Utils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
+                          }
                         }
                       },
                       type: ButtonType.outline,
@@ -558,14 +937,12 @@ class _ReportViewState extends State<ReportView> {
                 
                 const SizedBox(width: 12),
                 
-                // Testi puanla butonu
                 Expanded(
                   flex: 1,
                   child: SizedBox(
                     child: CustomButton(
                       text: 'Puanla',
                       onPressed: () {
-                        // Puanlama modalini göster
                         _showRatingDialog(context);
                       },
                       icon: Icons.star,
@@ -580,7 +957,6 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  // İlişki gelişimi grafiği
   Widget _buildRelationshipGraph(BuildContext context, ReportViewModel reportViewModel) {
     final report = reportViewModel.reportResult!;
     final relationshipType = report['relationship_type'] ?? 'Belirsiz';
@@ -600,7 +976,6 @@ class _ReportViewState extends State<ReportView> {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Başlık
           Text(
             'İlişki Değerlendirmesi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -610,7 +985,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 12),
           
-          // İlişki tipi göstergesi
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -636,7 +1010,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 16),
           
-          // Emoji Göstergesi
           Text(
             _getRelationshipEmoji(score),
             style: const TextStyle(fontSize: 60),
@@ -647,7 +1020,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 12),
           
-          // Dalga animasyonu
           SizedBox(
             height: 60,
             width: double.infinity,
@@ -661,7 +1033,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 12),
           
-          // İlişki açıklaması - Yapay zeka tarafından üretilen metin
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
@@ -673,7 +1044,6 @@ class _ReportViewState extends State<ReportView> {
           
           const SizedBox(height: 16),
           
-          // Yasal uyarı metni
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
@@ -709,15 +1079,13 @@ class _ReportViewState extends State<ReportView> {
     .fadeIn(duration: 600.ms);
   }
   
-  // İlişki tipine göre emoji seçme
   String _getRelationshipEmoji(int score) {
-    if (score >= 90) return '😊'; // 90-100 puan - mutlu emoji
-    if (score >= 60) return '🙂'; // 60-89 puan - nötr emoji
-    if (score >= 40) return '😟'; // 40-59 puan - endişeli emoji
-    return '😢'; // 0-39 puan - üzgün emoji
+    if (score >= 90) return '😊';
+    if (score >= 60) return '🙂';
+    if (score >= 40) return '😟';
+    return '😢';
   }
   
-  // İlişki tipini puana dönüştürme
   int _calculateRelationshipScore(String relationshipType) {
     final Map<String, int> typeScores = {
       'Güven Odaklı': 85,
@@ -738,9 +1106,7 @@ class _ReportViewState extends State<ReportView> {
     return typeScores[relationshipType] ?? 65;
   }
 
-  // Yedek ilişki tipi açıklaması (Yapay zeka açıklaması yoksa kullanılır)
   String _getFallbackRelationshipDescription(String relationshipType) {
-    // Bu fonksiyon sadece yapay zeka metni olmadığında yedek olarak kullanılır
     final Map<String, String> descriptions = {
       'Güven Odaklı': 'İlişkinizde güven temeli güçlü ve sağlıklı. İletişiminiz açık, birbirinize karşı dürüst ve şeffafsınız. Bu temeli koruyarak ilişkinizi daha da derinleştirebilirsiniz.',
       'Tutkulu': 'İlişkinizde tutku ve yoğun duygular ön planda. Duygusal bağınız güçlü ancak dengeyi korumak için iletişime özen göstermelisiniz. Ortak hedefler belirleyerek tutkuyu sürdürülebilir kılabilirsiniz.',
@@ -762,7 +1128,6 @@ class _ReportViewState extends State<ReportView> {
     return descriptions[relationshipType] ?? 'İlişkiniz için yapılan değerlendirme sonucunda, kişiselleştirilmiş öneriler hazırlandı. Bu önerileri uyguladığınızda iletişiminiz güçlenecek ve daha sağlıklı bir ilişki kurabileceksiniz.';
   }
   
-  // İlişki tipine göre renk belirleme
   Color _getRelationshipTypeColor(String relationshipType) {
     final Map<String, Color> typeColors = {
       'Güven Odaklı': Colors.blue.shade700,
@@ -782,7 +1147,6 @@ class _ReportViewState extends State<ReportView> {
     return typeColors[relationshipType] ?? Colors.indigo.shade700;
   }
   
-  // Puan rengi belirleme
   Color _getScoreColor(int score) {
     if (score >= 80) return Colors.green.shade600;
     if (score >= 60) return Colors.blue.shade600;
@@ -791,9 +1155,10 @@ class _ReportViewState extends State<ReportView> {
     return Colors.red.shade600;
   }
 
-  // Öneri listesi oluşturma
   List<Widget> _buildSuggestionList(BuildContext context, Map<String, dynamic> report) {
     final List<dynamic> suggestions = report['suggestions'] as List<dynamic>;
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
     
     if (suggestions.isEmpty) {
       return [
@@ -812,11 +1177,23 @@ class _ReportViewState extends State<ReportView> {
       ];
     }
     
-    return suggestions.map((suggestion) {
-      final index = suggestions.indexOf(suggestion);
+    return List.generate(suggestions.length, (index) {
+      final suggestion = suggestions[index];
+      
+      return FutureBuilder<bool>(
+        future: _accessService.isSuggestionUnlocked(index, isPremium),
+        builder: (context, snapshot) {
+          bool isUnlocked = isPremium ||
+                         index == 0 ||
+                         snapshot.data == true;
       
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
+            child: _buildLockedWidget(
+              isLocked: !isUnlocked,
+              onUnlock: () {
+                _showAdSimulation(AdViewType.SUGGESTION_UNLOCK, suggestionIndex: index);
+              },
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -854,16 +1231,18 @@ class _ReportViewState extends State<ReportView> {
                 ),
               ),
             ],
+                ),
           ),
         )
         .animate()
         .fadeIn(delay: Duration(milliseconds: 400 + (index * 100)), duration: 400.ms)
         .slideX(begin: 0.2, end: 0),
       );
-    }).toList();
+        },
+      );
+    });
   }
 
-  // Puanlama diyalogu
   void _showRatingDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -885,7 +1264,6 @@ class _ReportViewState extends State<ReportView> {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   onPressed: () {
-                    // Puanı kaydet ve diyalogu kapat
                     Navigator.of(context).pop();
                     Utils.showToast(context, 'Değerlendirmeniz için teşekkürler!');
                   },
@@ -908,7 +1286,6 @@ class _ReportViewState extends State<ReportView> {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final isPremium = authViewModel.isPremium;
     
-    // Sadece premium kullanıcılar geçmiş raporlara erişebilir
     if (!isPremium) {
       Utils.showToast(
         context,
@@ -917,12 +1294,52 @@ class _ReportViewState extends State<ReportView> {
       return;
     }
     
-    // Geçmiş raporlar ekranına git
     context.push('/past-reports');
+  }
+
+  // İlk erişim kontrolü
+  Future<void> _checkInitialAccess() async {
+    if (!mounted) return;
+    
+    try {
+      final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+      
+      // Eğer sonuç sayfası gösteriliyorsa veya rapor zaten varsa, kontrol etmeye gerek yok
+      if (_showReportResult || reportViewModel.hasReport) {
+        return;
+      }
+      
+      // Ankete başlamadan önce hak kontrolü yap
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final isPremium = authViewModel.isPremium;
+      
+      // Eğer sayfaya reklam izledikten sonra yönlendirme yapıldıysa (skipAccessCheck=true), 
+      // erişim kontrolü atlanmalıdır
+      if (widget.skipAccessCheck) {
+        debugPrint('skipAccessCheck=true olduğu için erişim kontrolü atlanıyor');
+        return;
+      }
+      
+      debugPrint('İlişki değerlendirme hakkı kontrolü yapılıyor...');
+      final hasAccess = await _accessService.canUseRelationshipTest(isPremium);
+      
+      // Asenkron işlem sonrası widget hala monte edilmiş mi kontrol et
+      if (!mounted) return;
+      
+      if (!hasAccess) {
+        debugPrint('İlişki değerlendirme hakkı yok, premium uyarısı gösteriliyor...');
+        // Hak yoksa giriş engellenir ve Premium uyarısı gösterilir
+        _showPremiumRequiredDialog();
+      } else {
+        debugPrint('İlişki değerlendirme hakkı mevcut, ankete devam ediliyor...');
+      }
+    } catch (e) {
+      debugPrint('Erişim hakkı kontrolü sırasında hata: $e');
+      // Hata durumunda sessizce devam et, kullanıcı deneyimi bozulmasın
+    }
   }
 }
 
-// Animasyonlu dalga widget'ı
 class AnimasyonluDalga extends StatefulWidget {
   final double dalgaYuksekligi;
   final Color renk;
@@ -980,7 +1397,6 @@ class _AnimasyonluDalgaState extends State<AnimasyonluDalga> with SingleTickerPr
   }
 }
 
-// Basit dalga çizici
 class SimpleDalgaPainter extends CustomPainter {
   final double dalgaYuksekligi;
   final int dalgaSayisi;
@@ -1005,16 +1421,13 @@ class SimpleDalgaPainter extends CustomPainter {
     final width = size.width;
     final height = size.height;
     
-    // Yatay çizgi (orta)
     final baseY = height * 0.5;
     path.moveTo(0, baseY);
     
-    // Dalga deseni oluştur
     double waveWidth = width / dalgaSayisi;
     
     for (double i = 0; i <= dalgaSayisi; i += 0.5) {
       double x1 = i * waveWidth;
-      // Animasyon değeri ile dalga hareketliliği sağlanıyor
       double y1 = baseY + sin((i + animasyonDegeri) * pi) * dalgaYuksekligi;
       
       path.lineTo(x1, y1);
@@ -1022,7 +1435,6 @@ class SimpleDalgaPainter extends CustomPainter {
     
     canvas.drawPath(path, paint);
     
-    // Dalga altını dolgu ile boyama
     final fillPath = Path();
     fillPath.moveTo(0, baseY);
     
@@ -1032,12 +1444,10 @@ class SimpleDalgaPainter extends CustomPainter {
       fillPath.lineTo(x1, y1);
     }
     
-    // Ekranın alt kısmını kapatma
     fillPath.lineTo(width, height);
     fillPath.lineTo(0, height);
     fillPath.close();
     
-    // Dolgu rengi
     final fillPaint = Paint()
       ..color = renk.withOpacity(0.2)
       ..style = PaintingStyle.fill;
@@ -1049,4 +1459,11 @@ class SimpleDalgaPainter extends CustomPainter {
   bool shouldRepaint(covariant SimpleDalgaPainter oldDelegate) => 
     oldDelegate.animasyonDegeri != animasyonDegeri || 
     oldDelegate.dalgaYuksekligi != dalgaYuksekligi;
+}
+
+enum AdViewType {
+  TEST_ACCESS,
+  REPORT_VIEW,
+  REPORT_REGENERATE,
+  SUGGESTION_UNLOCK,
 } 
