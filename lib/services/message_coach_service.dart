@@ -363,14 +363,18 @@ class MessageCoachService {
 
       "Açıklama: $aciklama"
 
+      ÖNEMLİ: Yanıtın doğrudan kullanıcıya hitap eden bir şekilde olmalı. "Kullanıcı şunu yapmalı" veya "Karşı taraf böyle düşünüyor" gibi ÜÇÜNCÜ ŞAHIS ANLATIMI KULLANMA. 
+      Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yazabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
+
       Yanıtın dobra, yer yer alaycı ama mantıklı olsun. Sadece görselden elde ettiğin sohbet bağlamına ve kullanıcının açıklamasına göre değerlendirme yap.
       
       Görevin:
       1. Sohbetin mevcut durumunu değerlendirmek.
-      2. Kullanıcının ne yazması gerektiğine dair alternatif mesajlar önermek.
+      2. Kullanıcıya ne yazması gerektiğine dair alternatif mesajlar önermek.
       3. Olası yanıtları tahmin etmek.
       
       KURALLAR:
+      - Doğrudan kullanıcıya seslenmelisin, asla üçüncü şahıs anlatımı kullanmamalısın.
       - Eğer görselde sohbet yerine başka bir içerik varsa veya OCR sağlıklı çalışmamışsa, kullanıcıyı yeniden yönlendir.
       - Sohbet eğer ciddi bir konu içeriyorsa (örn. duygusal bir kriz, tehdit, şiddet, intihar düşüncesi, vs.), kullanıcıyı Analiz bölümüne yönlendir.
       - Görsel ve açıklamaya dayanarak sohbetin durumunu mutlaka analiz et ve bir yanıt oluştur.
@@ -380,7 +384,7 @@ class MessageCoachService {
       {
         "isAnalysisRedirect": false, // Eğer kullanıcı Analiz bölümüne yönlendirilmeli ise true, değilse false
         "redirectMessage": null, // isAnalysisRedirect true ise, yönlendirme mesajı, değilse null
-        "konumDegerlendirmesi": "Sohbetin şu anki durumunun analizi ve ne yapılması gerektiği",
+        "konumDegerlendirmesi": "Sohbetin şu anki durumunun analizi ve kullanıcıya ne yapması gerektiğini doğrudan hitap eden şekilde",
         "alternativeMessages": [
           "Öneri 1",
           "Öneri 2",

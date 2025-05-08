@@ -253,15 +253,18 @@ class AiService {
       if (isImageAnalysis) {
         // Görüntü analizinden çıkarılan metni daha kısa bir şekilde prompt'a ekleyelim
         prompt = '''
-        Sen bir ilişki analiz uzmanı ve samimi bir arkadaşsın. Senin en önemli özelliğin, çok sıcak ve empatik bir şekilde cevap vermen. 
+        Sen bir ilişki analiz uzmanı ve samimi bir arkadaşsın. Senin en önemli özelliğin, çok sıcak ve empatik bir şekilde cevap vermen.
         
         Bu mesaj bir ekran görüntüsü içeriyor ve görüntüden çıkarılan metin var. Lütfen aşağıdaki ekran görüntüsünden çıkarılan metne dayanarak mesajın detaylı analizini yap.
         
+        ÖNEMLİ: Yanıtın doğrudan kullanıcıya hitap eden bir şekilde olmalı. "Kullanıcı şunu yapmalı" veya "Karşı taraf böyle düşünüyor" gibi ÜÇÜNCÜ ŞAHIS ANLATIMI KULLANMA. 
+        Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yapabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
+        
         Analizi şu başlıklarla (ama konuşma diliyle) hazırla:
         - Mesajların tonu (duygusal, kırıcı, mesafeli, vb.)
-        - Karşı tarafın yaklaşımı ve davranış şekli
-        - Mesajların etkisi ve tavsiyeler
-        - Genel ilişki dinamiği hakkında yorum
+        - İletişim şeklin ve karşı tarafın yaklaşımı
+        - Mesajların etkisi ve sana tavsiyeler
+        - Genel ilişki dinamiği hakkında yorum ve sana öneriler
         - Günlük konuşma diline uygun, samimi ifadeler kullan
         
         Analizi şu formatta JSON çıktısı olarak ver:
@@ -272,11 +275,11 @@ class AiService {
           "ton": "Mesajların genel tonu",
           "ciddiyet": "1-10 arası bir sayı",
           "kişiler": "Mesajlarda yer alan kişilerin tanımı",
-          "mesajYorumu": "Mesajlardaki ilişki dinamikleri hakkında samimi yorum",
+          "mesajYorumu": "Mesajlardaki ilişki dinamikleri hakkında samimi, doğrudan sana hitap eden bir yorum",
           "tavsiyeler": [
-            "Somut bir öneri",
-            "Mesajlaşma şeklini değiştirme tavsiyesi",
-            "İlişki dinamiğini iyileştirme önerisi"
+            "Doğrudan sana yönelik somut bir öneri",
+            "Mesajlaşma şeklini değiştirmen için tavsiye",
+            "İlişki dinamiğini iyileştirmen için öneri"
           ]
         }
         
@@ -286,6 +289,9 @@ class AiService {
         // Normal metin mesajı için mevcut prompt kullan
         prompt = '''
         Sen bir ilişki analiz uzmanısın. Kullanıcının ilettiği mesaj içeriğini aşağıdaki başlıklara göre detaylı olarak analiz et:
+        
+        ÖNEMLİ: Yanıtın doğrudan kullanıcıya hitap eden bir şekilde olmalı. "Kullanıcı şunu yapmalı" veya "Karşı taraf böyle düşünüyor" gibi ÜÇÜNCÜ ŞAHIS ANLATIMI KULLANMA. 
+        Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yapabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
         
         1. Duygu Çözümlemesi
         - Metindeki baskın duyguları belirle (örnek: kırgınlık, umut, öfke, boşvermişlik, özlem...)
@@ -303,11 +309,11 @@ class AiService {
         - Bu alan ZORUNLUDUR ve boş bırakılamaz.
 
         3. Tavsiyeler
-        - İlişki için empatik, yumuşak tonlu tavsiyeler sunun.
+        - İlişki için empatik, yumuşak tonlu tavsiyeler sun.
         - Güven inşa etmeye yönelik öneriler ver.
         - Duygusal zekaya dayalı iletişim stratejileri öner.
-        - Kullanıcıya doğrudan "sen" dili ile hitap et.
-        - En az 3 özgün tavsiye oluştur.
+        - Kullanıcıya DOĞRUDAN "sen" dili ile hitap et, üçüncü şahıs anlatımından kaçın.
+        - En az 3 özgün tavsiye oluştur ve hepsinde "sen, sana, senin" gibi ifadeler kullan.
 
         Her başlık ZORUNLU olarak analiz edilmeli. İçerik azsa bile tahmin yap.
         Statik yanıtlar, boş dönen başlıklar, sabit ifadeler KESİNLİKLE KULLANMA.
@@ -320,11 +326,11 @@ class AiService {
           "ton": "Mesajın genel tonu (resmi, samimi, öfkeli, üzgün, vb.)",
           "ciddiyet": "1-10 arası bir sayı, iletişimin ciddiyetini gösterir",
           "kişiler": "Mesajda bahsedilen kişiler (varsa)",
-          "mesajYorumu": "Metindeki duygular ve niyetlerle ilgili açık, doğrudan bir yorum",
+          "mesajYorumu": "Metindeki duygular ve niyetlerle ilgili açık, doğrudan SANA hitap eden bir yorum",
           "tavsiyeler": [
-            "Empatik, yumuşak tonlu tavsiye 1",
-            "Empatik, yumuşak tonlu tavsiye 2",
-            "Empatik, yumuşak tonlu tavsiye 3"
+            "SANA yönelik empatik, yumuşak tonlu tavsiye 1",
+            "SANA yönelik empatik, yumuşak tonlu tavsiye 2",
+            "SANA yönelik empatik, yumuşak tonlu tavsiye 3"
           ]
         }
         
@@ -2590,18 +2596,12 @@ $kisaltilmisSohbet
   // Sadece açıklama ile mesaj analizi (görsel olmadan)
   Future<MessageCoachAnalysis?> sadeceMesajAnalizeEt(String aciklama) async {
     try {
-      _logger.i('Sadece açıklama ile mesaj analizi başlatılıyor...');
+      _logger.i('Sadece açıklama analizi başlatılıyor...');
       
       // Açıklama içeriğini kontrol etme
       if (aciklama.trim().isEmpty) {
         _logger.w('Boş açıklama içeriği, analiz yapılamıyor');
         return null;
-      }
-      
-      // Analiz talebi kontrolü
-      if (_analizTalebiIceriyorMu(aciklama)) {
-        _logger.w('Açıklama analiz talebi içeriyor, özel yanıt gönderiliyor');
-        return _ozelAnalizYanitiOlustur(aciklama);
       }
       
       // API anahtarını kontrol et ve tam URL oluştur
@@ -2615,21 +2615,24 @@ $kisaltilmisSohbet
       
       // Prompt oluşturma
       final prompt = '''
-      Kullanıcı mesaj koçu özelliğini kullanıyor ve bir açıklama yazdı: "$aciklama"
+      Kullanıcı mesaj koçu sayfasında bir sohbet açıklaması gönderdi.
+      Bu açıklama, bir sohbet içeriği olmadan, kullanıcının "ne yazmalıyım?" veya "şu mesaja ne cevap vermeliyim?" gibi sorgularını içeriyor.
       
-      Bu bir sohbet ekran görüntüsü DEĞİL, sadece kullanıcının yazmak istediği mesaj hakkında bir açıklamadır.
+      Kullanıcının açıklaması:
+      ```
+      $aciklama
+      ```
+
+      ÖNEMLİ: Yanıtın doğrudan kullanıcıya hitap eden bir şekilde olmalı. "Kullanıcı şunu yapmalı" veya "Karşı taraf böyle düşünüyor" gibi ÜÇÜNCÜ ŞAHIS ANLATIMI KULLANMA. 
+      Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yazabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
       
       Görevin:
-      1. Kullanıcının açıklamasına göre uygun mesaj önerileri oluşturmak
-      2. Yazmak istediği şeyi analiz etmek (ton, anlam, risk)
-      3. Daha etkili 2-3 alternatif önermek
-      4. Tahmini cevap simülasyonları oluşturmak (1 olumlu, 1 olumsuz)
+      1. Kullanıcının açıklamasını analiz et
+      2. Doğrudan kullanıcıya tavsiyelerde bulun - her zaman SEN dil kullanımıyla hitap et
+      3. Kullanıcının isteğine yönelik alternatif mesaj önerileri sun
+      4. Olası cevapları tahmin et (1 olumlu, 1 olumsuz)
       
-      Yanıtın:
-      - Dobra ve yönlendirici olmalı
-      - Gerekirse hafif alaycı, mizahi olabilir
-      - Sert eleştiriler yapabilir ama seviyeyi korumalı
-      - Kullanıcıya gerçek bir koç gibi yaklaşmalı
+      Yanıtın dobra, yer yer alaycı ama mantıklı olmalı. Sert eleştiriler yapabilirsin ama seviyeyi koru.
       
       Lütfen aşağıdaki JSON formatında yanıt ver:
       {
@@ -2641,7 +2644,7 @@ $kisaltilmisSohbet
           "kararsız": Y,
           "olumsuz": Z
         },
-        "direktYorum": "(Açık ve dobra tavsiye)",
+        "direktYorum": "(Kullanıcıya doğrudan hitap eden açık ve dobra tavsiye)",
         "cevapOnerileri": [
           "Öneri 1",
           "Öneri 2",
@@ -2797,9 +2800,12 @@ $kisaltilmisSohbet
 
       "Açıklama: $aciklama"
       
+      ÖNEMLİ: Yanıtın doğrudan kullanıcıya hitap eden bir şekilde olmalı. "Kullanıcı şunu yapmalı" veya "Karşı taraf böyle düşünüyor" gibi ÜÇÜNCÜ ŞAHIS ANLATIMI KULLANMA. 
+      Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yazabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
+      
       Görevin:
       1. Görseldeki sohbetin mevcut durumunu değerlendirmek
-      2. Kullanıcının açıklamasına göre mesaj önerileri sunmak
+      2. Kullanıcıya ne yazması gerektiğine dair mesaj önerileri sunmak
          a. "Ne yazmalıyım?" denirse, sohbetin devamı niteliğinde öneriler sunmak
          b. "Şunu yazsam olur mu?" gibi bir soru varsa, o mesajı bağlam içinde değerlendirip alternatif öneriler vermek
       3. Olası cevapları tahmin etmek (1 olumlu, 1 olumsuz)
@@ -2808,7 +2814,7 @@ $kisaltilmisSohbet
       - Dobra ve yönlendirici olmalı
       - Gerekirse hafif alaycı, mizahi olabilir
       - Sert eleştiriler yapabilir ama seviyeyi korumalı
-      - Kullanıcıya gerçek bir koç gibi yaklaşmalı
+      - Kullanıcıya gerçek bir koç gibi, doğrudan "sen" diyerek ve ikinci tekil şahıs kullanarak hitap etmeli
       
       Lütfen aşağıdaki JSON formatında yanıt ver:
       {
@@ -2820,7 +2826,7 @@ $kisaltilmisSohbet
           "kararsız": Y,
           "olumsuz": Z
         },
-        "direktYorum": "(Açık ve dobra tavsiye)",
+        "direktYorum": "(Kullanıcıya doğrudan hitap eden açık ve dobra tavsiye)",
         "cevapOnerileri": [
           "Öneri 1",
           "Öneri 2",
