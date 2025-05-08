@@ -202,16 +202,114 @@ class MessageCoachService {
   
   // JSON içindeki sorunları düzelten yardımcı metod
   String _jsonuDuzelt(String jsonStr) {
+    // İlk olarak gelen string'i logla
+    _logger.d('Düzeltilecek JSON: $jsonStr');
+    
     // Hatalı şekilde escape edilen tırnak işaretlerini düzelt
     String temiz = jsonStr.replaceAll('\\"', '"').replaceAll('\\\\', '\\');
     
-    // Tırnak işaretleri içindeki tırnak işaretlerini düzelt
-    temiz = temiz.replaceAll('\\n', ' ');
+    // Tırnak içindeki çift tırnakları işle (JSON içinde sorun yaratan durum)
+    // JSON property değerlerinin içindeki çift tırnakları escape et
+    temiz = _jsonIcindekiTirnaklariDuzelt(temiz);
     
-    // Gereksiz boşlukları temizle
+    // Gereksiz satır sonlarını ve fazla boşlukları temizle
+    temiz = temiz.replaceAll('\\n', ' ');
     temiz = temiz.replaceAll(RegExp(r'\s+'), ' ');
     
+    // Düzeltilmiş JSON'ı logla
+    _logger.d('Düzeltilmiş JSON: $temiz');
+    
     return temiz;
+  }
+  
+  // JSON içindeki tırnakları düzeltme yardımcı metodu
+  String _jsonIcindekiTirnaklariDuzelt(String json) {
+    // JSON property'lerin değerlerini bulmak için regex
+    final propertyValueRegex = RegExp(r'"([^"\\]*(?:\\.[^"\\]*)*)"');
+    
+    // Regex ile eşleşen değerleri işle
+    String sonuc = json;
+    final matches = propertyValueRegex.allMatches(json).toList();
+    
+    // Sondan başlayarak değiştir (pozisyonları korumak için)
+    for (int i = matches.length - 1; i >= 0; i--) {
+      final match = matches[i];
+      
+      if (match.groupCount >= 1) {
+        final value = match.group(1) ?? '';
+        // Değerdeki çift tırnakları escape et
+        final duzeltilmisValue = value.replaceAll('"', '\\"');
+        
+        // Sadece değer içinde çift tırnak varsa değiştir
+        if (value != duzeltilmisValue) {
+          final start = match.start;
+          final end = match.end;
+          
+          // Değeri değiştir
+          sonuc = sonuc.substring(0, start + 1) + 
+                  duzeltilmisValue + 
+                  sonuc.substring(end - 1);
+        }
+      }
+    }
+    
+    // Kapanmamış tırnakları düzelt
+    sonuc = _kapanmamisTirnaklariKontrolEt(sonuc);
+    
+    return sonuc;
+  }
+  
+  // Kapanmamış JSON tırnaklarını kontrol et ve düzelt
+  String _kapanmamisTirnaklariKontrolEt(String json) {
+    try {
+      // Basit bir kontrol - JSON parse edilebiliyor mu?
+      jsonDecode(json);
+      return json; // Sorun yoksa aynı döndür
+    } catch (e) {
+      // Hata varsa temel yapıyı analiz et ve düzelt
+      final bracketCount = _karakterSayisiniSay(json, '{', '}');
+      final quoteCount = json.split('"').length - 1;
+      
+      if (bracketCount != 0) {
+        // Kapanmamış süslü parantez var
+        if (bracketCount > 0) {
+          // Fazla açık süslü parantez
+          return json + '}' * bracketCount;
+        } else {
+          // Fazla kapalı süslü parantez
+          return json.substring(0, json.length + bracketCount);
+        }
+      }
+      
+      if (quoteCount % 2 != 0) {
+        // Tek sayıda tırnak işareti var (kapanmamış tırnak)
+        return json + '"';
+      }
+      
+      // Özel karakterlerin escape edilmesi
+      String duzeltilmis = json;
+      
+      // Kontrol karakterleri ve özel karakterleri temizle
+      duzeltilmis = duzeltilmis.replaceAll(RegExp(r'[\u0000-\u001F]'), '');
+      
+      return duzeltilmis;
+    }
+  }
+  
+  // Belirli karakterlerin sayısını sayarak açık-kapalı dengesi kontrol et
+  int _karakterSayisiniSay(String metin, String acilanKarakter, String kapananKarakter) {
+    int acikSayisi = 0;
+    int kapaliSayisi = 0;
+    
+    for (int i = 0; i < metin.length; i++) {
+      if (metin[i] == acilanKarakter) {
+        acikSayisi++;
+      } else if (metin[i] == kapananKarakter) {
+        kapaliSayisi++;
+      }
+    }
+    
+    return acikSayisi - kapaliSayisi;
   }
   
   // Analiz ifadelerini düzelten yardımcı metod

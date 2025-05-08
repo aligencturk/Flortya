@@ -51,20 +51,42 @@ class MessageCoachController extends ChangeNotifier {
   
   String? _currentUserId;
   
+  // Erişim kontrolleri
+  bool _isPremium = false; // Premium kullanıcı kontrolü
+  bool get isPremium => _isPremium;
+  
   // Premium bilgileri
   int _kalanGorselAnalizHakki = 3;
   bool _reklamGoruldu = false;
   
+  // Yanıt senaryoları
+  bool _olumluYanitGosterildi = false;
+  bool get olumluYanitGosterildi => _olumluYanitGosterildi;
+  
+  bool _olumsuzYanitGosterildi = false;
+  bool get olumsuzYanitGosterildi => _olumsuzYanitGosterildi;
+  
+  // Alternatif öneriler
+  bool _alternativeMessagesUnlocked = false;
+  bool get alternativeMessagesUnlocked => _alternativeMessagesUnlocked;
+  
   int get kalanGorselAnalizHakki => _kalanGorselAnalizHakki;
   bool get reklamGoruldu => _reklamGoruldu;
   
-  // Kullanıcı ID'sini set etme metodu
-  void setCurrentUserId(String userId) {
+  // Kullanıcı ID'sini ve premium durumunu set etme metodu
+  void setCurrentUserId(String userId, {bool isPremium = false}) {
     _currentUserId = userId;
-    _logger.i('Kullanıcı ID ayarlandı: $userId');
+    _isPremium = isPremium;
+    _logger.i('Kullanıcı ID ayarlandı: $userId, Premium: $_isPremium');
     
     // Kullanıcı ID'si ayarlandığında kalan hak bilgisini güncelle
     _gorselAnalizHakkiniGuncelle();
+  }
+  
+  // Premium durumunu güncelleme metodu
+  void setPremiumStatus(bool isPremium) {
+    _isPremium = isPremium;
+    notifyListeners();
   }
   
   // Görsel analiz hakkını güncelleme
@@ -75,11 +97,7 @@ class MessageCoachController extends ChangeNotifier {
         return;
       }
       
-      // Kullanıcının premium olup olmadığını kontrol et
-      // Bu kısmı AuthViewModel üzerinden almanız gerekebilir, şimdilik false kabul ediyoruz
-      bool isPremium = false; // Bu değerin gerçek değerini almalısınız
-      
-      if (isPremium) {
+      if (_isPremium) {
         _kalanGorselAnalizHakki = -1; // -1 sınırsız anlamına gelir
       } else {
         int kullanilan = await _premiumService.getDailyVisualOcrCount();
@@ -100,6 +118,9 @@ class MessageCoachController extends ChangeNotifier {
     _analizTamamlandi = false;
     _gorselDosya = null;
     _gorselOcrSonucu = null;
+    _olumluYanitGosterildi = false;
+    _olumsuzYanitGosterildi = false;
+    _alternativeMessagesUnlocked = false;
     notifyListeners();
   }
   
@@ -169,33 +190,8 @@ class MessageCoachController extends ChangeNotifier {
     if (analiz.sonMesajTonu == null || 
         analiz.sonMesajTonu!.isEmpty || 
         analiz.sonMesajTonu!.toLowerCase() == 'belirlenemedi' || 
-        analiz.sonMesajTonu!.toLowerCase() == 'analiz edilemedi' ||
-        analiz.sonMesajTonu!.toLowerCase().contains('yeterli') ||
         analiz.sonMesajTonu!.toLowerCase() == 'null') {
       return true;
-    }
-    
-    // Direkt yorum kontrolü - sadece boş veya null durumları
-    if (analiz.direktYorum == null || 
-        analiz.direktYorum!.isEmpty || 
-        analiz.direktYorum! == 'null') {
-      return true;
-    }
-    
-    // Son mesaj etkisi kontrolü - sadece boş veya format hatası durumları
-    if (analiz.sonMesajEtkisi == null || analiz.sonMesajEtkisi!.isEmpty) {
-      return true;
-    }
-    
-    // Herhangi bir alanda JSON veya API hatası varsa
-    final List<String> hataKelimeleri = ['json error', 'api hatası', 'error:', 'exception:'];
-    
-    // Hata kelimelerini ara
-    for (final kelime in hataKelimeleri) {
-      if ((analiz.direktYorum != null && analiz.direktYorum!.toLowerCase().contains(kelime)) ||
-          (analiz.genelYorum != null && analiz.genelYorum!.toLowerCase().contains(kelime))) {
-        return true;
-      }
     }
     
     return false;
@@ -215,52 +211,6 @@ class MessageCoachController extends ChangeNotifier {
     return true;
   }
   
-  // Örnek sohbet içeriği oluştur
-  String ornekSohbetIcerigiOlustur() {
-    // Rastgele örnek sohbet oluştur
-    final List<String> ornekSohbetler = [
-      '''
-Ben: Merhaba, nasılsın?
-Karşı taraf: İyiyim, sen nasılsın?
-Ben: Ben de iyiyim. Bugün neler yaptın?
-Karşı taraf: İşten geldim, biraz yorgunum. Sen?
-Ben: Ben de bugün çok yoğundum. Akşam bir şeyler yapmak ister misin?
-Karşı taraf: Bu akşam biraz dinlenmek istiyorum, yarın olsa?
-Ben: Tabii, yarın olabilir. Ne yapmak istersin?
-Karşı taraf: Sinemaya gidebiliriz.
-Ben: Güzel fikir. Saat 7'de müsait misin?
-Karşı taraf: Evet, olur. 7'de sinema önünde buluşalım.
-      ''',
-      
-      '''
-Ben: Geçen gün konuştuğumuz konu hakkında düşündüm.
-Karşı taraf: Hangi konu?
-Ben: Tatil planı yapmamız gerektiğini söylemiştim ya.
-Karşı taraf: Hatırladım. Ne düşündün?
-Ben: Belki bir hafta sonu Antalya'ya gidebiliriz?
-Karşı taraf: Hmm, bilmiyorum, biraz pahalı olabilir şu aralar.
-Ben: Tamam, bütçeye uygun bir şeyler düşünürüz o zaman.
-Karşı taraf: Bence şehir dışına çıkmadan da güzel vakit geçirebiliriz.
-Ben: Önerin var mı?
-Karşı taraf: Piknik yapabiliriz mesela.
-      ''',
-      
-      '''
-Ben: Son mesajımı görmediğin için merak ettim, iyi misin?
-Karşı taraf: Evet, iyiyim. Sadece biraz yoğundum.
-Ben: Tamam, önemli bir şey yoktu zaten. Ne zaman müsait olursun?
-Karşı taraf: Bu hafta sonu müsaitim.
-Ben: Harika! Kahve içmek ister misin?
-Karşı taraf: Olur, Cumartesi öğleden sonra uygun olur benim için.
-Ben: Benim için de uygun. Saat 2'de Park Cafe'de buluşalım mı?
-Karşı taraf: Tamam, orada görüşürüz.
-      '''
-    ];
-    
-    // Rastgele bir örnek seç
-    return ornekSohbetler[DateTime.now().millisecond % ornekSohbetler.length];
-  }
-  
   // Metin açıklaması tabanlı analiz (görsel olmadan)
   Future<bool> metinAciklamasiIleAnalizeEt(String aciklama) async {
     try {
@@ -277,7 +227,31 @@ Karşı taraf: Tamam, orada görüşürüz.
         return false;
       }
       
-      // AiService üzerinden analiz yap - yeni eklenen metodu kullan
+      // Premium değilse erişim kontrolü
+      if (!_isPremium) {
+        // İlk kullanım kontrolü
+        bool isFirstTime = await _premiumService.isFirstTimeMessageCoach();
+        
+        if (isFirstTime) {
+          // İlk kullanım ücretsiz
+          _logger.i('İlk mesaj koçu kullanımı ücretsiz');
+          await _premiumService.markMessageCoachFirstUseComplete();
+        } else {
+          // Reklam izlendi mi kontrolü
+          bool adViewed = await _premiumService.isMessageCoachAdViewed();
+          
+          if (!adViewed) {
+            // Reklam izleme işlemi UI tarafında yapılacak - burada sadece kontrol
+            _logger.i('Mesaj koçu için reklam gerekiyor');
+            return false;
+          }
+          
+          // Analiz sonrası reklam durumunu sıfırla (her kullanım için yeni reklam)
+          await _premiumService.setMessageCoachAdViewed(false);
+        }
+      }
+      
+      // AiService üzerinden analiz yap
       final analiz = await _aiService.sadeceMesajAnalizeEt(aciklama);
       
       if (analiz == null) {
@@ -288,6 +262,11 @@ Karşı taraf: Tamam, orada görüşürüz.
       // Analiz sonucunu ayarla
       _analysis = analiz;
       _analizTamamlandi = true;
+      
+      // Kilitleri sıfırla
+      _alternativeMessagesUnlocked = false;
+      _olumluYanitGosterildi = false;
+      _olumsuzYanitGosterildi = false;
       
       // Analiz sonucunu kullanıcı verilerine kaydet
       if (_currentUserId != null && _currentUserId!.isNotEmpty) {
@@ -313,20 +292,137 @@ Karşı taraf: Tamam, orada görüşürüz.
     }
   }
   
+  // Alternatif öneriler kilidi açık mı kontrol et
+  Future<bool> canShowAlternativeSuggestions() async {
+    if (_isPremium) return true;
+    if (_alternativeMessagesUnlocked) return true;
+    
+    // Her gösterim için yeni reklam
+    return false;
+  }
+  
+  // Alternatif öneriler kilidini aç
+  Future<void> unlockAlternativeSuggestions() async {
+    // Her gösterim için ayrı reklam izleneceği için burada sadece bir kereliğine açıyoruz
+    _alternativeMessagesUnlocked = true;
+    notifyListeners();
+    
+    // Reklam izlendiğini kaydet
+    await _premiumService.setAlternativeSuggestionsAdViewed(true);
+    
+    // Her gösterim için yeni reklam gerektiğinden direkt sıfırla
+    _alternativeMessagesUnlocked = false;
+    notifyListeners();
+  }
+  
+  // Mesaj koçu metin önerileri kilidi açık mı kontrol et
+  Future<bool> canShowMessageCoachTexts() async {
+    if (_isPremium) return true;
+    return await _premiumService.isMessageCoachTextsUnlocked();
+  }
+  
+  // Mesaj koçu metin önerileri kilidini aç
+  Future<void> unlockMessageCoachTexts() async {
+    await _premiumService.unlockMessageCoachTexts();
+    notifyListeners();
+  }
+  
+  // Mesaj koçu metin önerileri için belirli bir öğe kilidi açık mı
+  Future<bool> isMessageCoachTextItemUnlocked(int index) async {
+    if (_isPremium) return true;
+    return await _premiumService.isMessageCoachTextItemUnlocked(index);
+  }
+  
+  // Mesaj koçu metin önerileri için belirli bir öğenin kilidini aç
+  Future<void> unlockMessageCoachTextItem(int index) async {
+    await _premiumService.unlockMessageCoachTextItem(index);
+    notifyListeners();
+  }
+  
+  // Yanıt senaryolarının gösterilip gösterilmeyeceğine dair kontrol (olumlu senaryo)
+  Future<bool> canShowPositiveResponseScenario() async {
+    if (_isPremium) return true;
+    if (_olumluYanitGosterildi) return false; // Daha önce kullanıldıysa premium gerekir
+    
+    // Daha önce kilit açılmış mı kontrol et
+    bool unlocked = await _premiumService.isPositiveResponseScenarioUnlocked();
+    return unlocked;
+  }
+  
+  // Yanıt senaryolarının gösterilip gösterilmeyeceğine dair kontrol (olumsuz senaryo)
+  Future<bool> canShowNegativeResponseScenario() async {
+    if (_isPremium) return true;
+    if (_olumsuzYanitGosterildi) return false; // Daha önce kullanıldıysa premium gerekir
+    
+    // Daha önce kilit açılmış mı kontrol et
+    bool unlocked = await _premiumService.isNegativeResponseScenarioUnlocked();
+    return unlocked;
+  }
+  
+  // Yanıt senaryoları reklam ile kilidi açılmış durumu işaretle
+  Future<void> unlockResponseScenarios() async {
+    // Bu metod sadece ilk kullanım için çağrılacak
+    await _premiumService.unlockResponseScenarios();
+    _logger.i('Yanıt senaryoları kilidi açıldı');
+  }
+  
+  // Olumlu senaryo gösterildi olarak işaretle
+  void showPositiveResponseScenario() {
+    _olumluYanitGosterildi = true;
+    notifyListeners();
+  }
+  
+  // Olumsuz senaryo gösterildi olarak işaretle
+  void showNegativeResponseScenario() {
+    _olumsuzYanitGosterildi = true;
+    notifyListeners();
+  }
+  
+  // Premium veya ilk kullanım durumunu kontrol et
+  Future<bool> isPremiumOrFirstTimeUse() async {
+    if (_isPremium) return true;
+    return await _premiumService.isFirstTimeMessageCoach();
+  }
+  
+  // Reklam izleme durumunu kontrol et
+  Future<bool> isMessageCoachAdViewed() async {
+    return await _premiumService.isMessageCoachAdViewed();
+  }
+  
+  // Mesaj koçu için reklam izlendiğini işaretleme
+  Future<void> markMessageCoachAdViewed() async {
+    await _premiumService.setMessageCoachAdViewed(true);
+    notifyListeners();
+  }
+  
+  // Kullanıcının açıklamasına göre yanıt senaryolarının gösterilip gösterilmeyeceğini kontrol et
+  bool shouldShowResponseScenarios(String userQuery) {
+    // Küçük harfe çevir ve boşlukları temizle
+    String query = userQuery.toLowerCase().trim();
+    
+    // Yanıt senaryoları için anahtar kelimeler listesi
+    List<String> keywords = [
+      'ne cevap verebilir', 'sence ne der', 'tepkisi ne olur', 
+      'ne yanıt', 'ne cevap', 'nasıl yanıt', 'nasıl cevap',
+      'ne der', 'nasıl karşılar', 'tepki ne', 'nasıl tepki'
+    ];
+    
+    // Herhangi bir anahtar kelime içeriyor mu kontrol et
+    for (String keyword in keywords) {
+      if (query.contains(keyword)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
   // Görsel ile analiz et
   Future<void> gorselIleAnalizeEt(File gorselDosyasi, String aciklama) async {
     try {
       // Önişlem kontrolü
-      bool isPremium = false;
-      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
-        // Kullanıcının premium olup olmadığını kontrol et
-        // Bu kısmı AuthViewModel üzerinden almanız gerekebilir, şimdilik false kabul ediyoruz
-        isPremium = false; // Bu değerin gerçek değerini almalısınız
-      }
-      
-      // Premium değilse görsel OCR kullanım hakkını kontrol et
-      if (!isPremium) {
-        bool canUseVisualOcr = await _premiumService.canUseFeature(PremiumFeature.VISUAL_OCR, isPremium);
+      if (!_isPremium) {
+        bool canUseVisualOcr = await _premiumService.canUseFeature(PremiumFeature.VISUAL_OCR, _isPremium);
         
         if (!canUseVisualOcr) {
           _errorMessage = 'Günlük görsel analiz hakkınız doldu. Premium üyelik ile sınırsız kullanabilirsiniz.';
@@ -875,5 +971,29 @@ Karşı taraf: Tamam, orada görüşürüz.
       _setError('Beklenmeyen bir hata oluştu: $e');
       return false;
     }
+  }
+
+  // Olumlu yanıt senaryosu kilidi açık mı kontrol et
+  Future<bool> isPositiveResponseUnlocked() async {
+    if (_isPremium) return true;
+    return await _premiumService.isPositiveResponseUnlocked();
+  }
+
+  // Olumlu yanıt senaryosu kilidini aç
+  Future<void> unlockPositiveResponse() async {
+    await _premiumService.unlockPositiveResponse();
+    notifyListeners();
+  }
+
+  // Olumsuz yanıt senaryosu kilidi açık mı kontrol et
+  Future<bool> isNegativeResponseUnlocked() async {
+    if (_isPremium) return true;
+    return await _premiumService.isNegativeResponseUnlocked();
+  }
+
+  // Olumsuz yanıt senaryosu kilidini aç
+  Future<void> unlockNegativeResponse() async {
+    await _premiumService.unlockNegativeResponse();
+    notifyListeners();
   }
 } 

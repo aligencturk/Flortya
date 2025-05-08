@@ -124,6 +124,34 @@ void showPremiumInfoDialog(BuildContext context, PremiumFeature feature) {
       title = 'Premium Özellik';
       message = 'Bu özellik yalnızca Premium kullanıcılar içindir.';
       break;
+    case PremiumFeature.MESSAGE_COACH:
+      title = 'Kullanım Limiti';
+      message = 'Mesaj koçu özelliğini sınırsız kullanmak için Premium\'a geçebilirsiniz. Diğer türlü her kullanım için reklam izlemeniz gerekecektir.';
+      break;
+    case PremiumFeature.ALTERNATIVE_SUGGESTIONS:
+      title = 'Alternatif Öneriler';
+      message = 'Alternatif mesaj önerilerini görüntülemek için Premium abonelik alabilir veya reklam izleyebilirsiniz.';
+      break;
+    case PremiumFeature.RESPONSE_SCENARIOS:
+      title = 'Yanıt Senaryoları';
+      message = 'Olası yanıt senaryolarını görmek için Premium abonelik alabilir veya reklam izleyebilirsiniz.';
+      break;
+    case PremiumFeature.VISUAL_MODE:
+      title = 'Görsel Mod';
+      message = 'Görsel mod özelliğini kullanmak için Premium abonelik alabilir veya reklam izleyebilirsiniz.';
+      break;
+    case PremiumFeature.VISUAL_ALTERNATIVE_SUGGESTIONS:
+      title = 'Görsel Alternatif Öneriler';
+      message = 'Görsel mod alternatif mesaj önerilerini görüntülemek için Premium abonelik alabilir veya reklam izleyebilirsiniz.';
+      break;
+    case PremiumFeature.VISUAL_POSITIVE_SCENARIO:
+      title = 'Görsel Olumlu Senaryo';
+      message = 'Görsel mod olumlu yanıt senaryolarını görmek için Premium abonelik alabilir veya reklam izleyebilirsiniz.';
+      break;
+    case PremiumFeature.VISUAL_NEGATIVE_SCENARIO:
+      title = 'Görsel Olumsuz Senaryo';
+      message = 'Görsel mod olumsuz yanıt senaryolarını görmek için Premium abonelik alabilir veya reklam izleyebilirsiniz.';
+      break;
   }
 
   showDialog(
