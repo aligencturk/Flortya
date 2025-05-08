@@ -89,7 +89,7 @@ class MessageCoachService {
 
       Analiz için sohbet içeriği:
       ```
-      ${sohbetIcerigi}
+      $sohbetIcerigi
       ```
 
       Lütfen aşağıdaki JSON formatında yanıt ver:
@@ -261,7 +261,7 @@ class MessageCoachService {
     // "sonMesajEtkisi" alanı kontrolü ve düzeltmesi
     if (!data.containsKey('sonMesajEtkisi') || 
         data['sonMesajEtkisi'] == null || 
-        !(data['sonMesajEtkisi'] is Map)) {
+        data['sonMesajEtkisi'] is! Map) {
       data['sonMesajEtkisi'] = {
         'sempatik': 50,
         'kararsız': 30,

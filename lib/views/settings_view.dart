@@ -1,27 +1,17 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart' as provider;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../controllers/home_controller.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/message_coach_controller.dart';
-import '../controllers/message_coach_visual_controller.dart';
 import '../services/data_reset_service.dart';
 import '../utils/utils.dart';
-import '../models/analysis_type.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import '../viewmodels/past_analyses_viewmodel.dart';
 import '../utils/loading_indicator.dart';
 
 class SettingsView extends StatefulWidget {
-  const SettingsView({Key? key}) : super(key: key);
+  const SettingsView({super.key});
 
   @override
   State<SettingsView> createState() => _SettingsViewState();

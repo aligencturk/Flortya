@@ -12,7 +12,7 @@ class FeatureCard extends StatelessWidget {
   final PremiumFeature feature;
 
   const FeatureCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.description,
     required this.icon,
@@ -21,7 +21,7 @@ class FeatureCard extends StatelessWidget {
     required this.onTap,
     required this.onPremiumInfoRequest,
     required this.feature,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

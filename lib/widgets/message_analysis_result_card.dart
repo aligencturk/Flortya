@@ -10,10 +10,10 @@ class MessageAnalysisResultCard extends StatelessWidget {
   final VoidCallback? onYenidenAnalizTalepEdildi;
   
   const MessageAnalysisResultCard({
-    Key? key,
+    super.key,
     required this.sonuc,
     this.onYenidenAnalizTalepEdildi,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +277,7 @@ class MessageAnalysisResultCard extends StatelessWidget {
               const SizedBox(height: 8),
             ],
           );
-        }).toList(),
+        }),
       ],
     );
   }

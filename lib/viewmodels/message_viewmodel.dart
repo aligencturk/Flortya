@@ -542,7 +542,7 @@ class MessageViewModel extends ChangeNotifier {
       // Hata durumunda Firestore'u güncellemeye çalış
       try {
         final userId = _authService.currentUser?.uid;
-        if (userId != null && !messageIdOrContent.isEmpty) {
+        if (userId != null && messageIdOrContent.isNotEmpty) {
           // Eğer messageIdOrContent bir içerikse (yani messageId değilse) hata raporu gönderemeyiz
           if (isExistingMessageId) {
             final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(messageIdentifier);
@@ -786,7 +786,7 @@ class MessageViewModel extends ChangeNotifier {
       }
       
       _logger.i('OCR işlemi tamamlandı, çıkarılan metin uzunluğu: ${extractedText.length} karakter');
-      _logger.i('OCR sonucu (ilk 100 karakter): ${extractedText.length > 100 ? extractedText.substring(0, 100) + '...' : extractedText}');
+      _logger.i('OCR sonucu (ilk 100 karakter): ${extractedText.length > 100 ? '${extractedText.substring(0, 100)}...' : extractedText}');
       
       // Firebase Storage'a görsel yükleme
       String imageUrl = '';
@@ -909,7 +909,7 @@ class MessageViewModel extends ChangeNotifier {
         aiAnalysisContent = extractedText;
         
         _logger.i('AI analizi için içerik hazırlandı, uzunluk: ${aiAnalysisContent.length} karakter');
-        _logger.d('AI analizi için içerik (ilk 100 karakter): ${aiAnalysisContent.length > 100 ? aiAnalysisContent.substring(0, 100) + '...' : aiAnalysisContent}');
+        _logger.d('AI analizi için içerik (ilk 100 karakter): ${aiAnalysisContent.length > 100 ? '${aiAnalysisContent.substring(0, 100)}...' : aiAnalysisContent}');
         
         // Görsel analizinden çıkarılan metni ilet 
         try {
@@ -927,7 +927,7 @@ class MessageViewModel extends ChangeNotifier {
             // İçerik uzunluğunu kontrol et ve kısalt (eğer aşırı büyükse)
             if (aiAnalysisContent.length > 15000) {
               _logger.w('Analiz içeriği çok uzun (${aiAnalysisContent.length} karakter), kısaltılıyor...');
-              aiAnalysisContent = aiAnalysisContent.substring(0, 15000) + "...";
+              aiAnalysisContent = "${aiAnalysisContent.substring(0, 15000)}...";
             }
             
             // HTTP istek ile detaylı hata yakalama
@@ -1027,9 +1027,7 @@ class MessageViewModel extends ChangeNotifier {
             
             // Hata durumunu bildir
             _isLoading = false;
-            if (_errorMessage == null) {
-              _errorMessage = 'Analiz sonucu alınamadı';
-            }
+            _errorMessage ??= 'Analiz sonucu alınamadı';
             notifyListeners();
             
             return false;

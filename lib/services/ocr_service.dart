@@ -1,12 +1,10 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'dart:typed_data';
 
@@ -128,7 +126,7 @@ class OCRService {
       String formattedChat = await formatChatFromRecognizedText(recognizedText);
       
       // Formatlanmış metin döndür
-      return "---- Görüntüden çıkarılan metin ----\n${formattedChat}\n---- Çıkarılan metin sonu ----";
+      return "---- Görüntüden çıkarılan metin ----\n$formattedChat\n---- Çıkarılan metin sonu ----";
     } catch (e, stack) {
       _logger.e('Metin çıkarma sırasında hata oluştu: $e');
       _logger.e('Stack trace: $stack');

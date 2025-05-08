@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:path/path.dart' as path;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 /// Dosya işlemleri için yardımcı fonksiyonlar sağlar

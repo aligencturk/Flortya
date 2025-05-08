@@ -413,7 +413,7 @@ class AiService {
               
               // Görüntü içeriğini kısalt ve yeniden dene
               if (messageContent.length > 8000) {
-                messageContent = messageContent.substring(0, 8000) + "...";
+                messageContent = "${messageContent.substring(0, 8000)}...";
                 prompt = prompt.replaceAll("Analiz edilecek metin: \"$messageContent\"", 
                                           "Analiz edilecek metin: \"${messageContent.substring(0, 8000)}...\"");
                 
@@ -1048,7 +1048,7 @@ class AiService {
         if (chatContent.length < 100) {
           _logger.w('OCR içeriği çok kısa, zorla analiz yapmak için içeriği zenginleştiriyorum');
           // Çok kısa OCR içeriği için bir tamamlayıcı
-          chatContent = chatContent + "\n\n(Görsel içeriği kısa olsa da analiz yapılacak)";
+          chatContent = "$chatContent\n\n(Görsel içeriği kısa olsa da analiz yapılacak)";
         }
       }
       
@@ -1123,7 +1123,7 @@ class AiService {
             'text': '''
             Bu ${isOcrContent ? 'görseldeki metni' : 'sohbet geçmişini'} analiz et:
             
-            ${chatContent}
+            $chatContent
             
             Analizi SADECE aşağıdaki JSON formatında dön. Başka hiçbir metin ekleme:
             
@@ -1269,7 +1269,7 @@ class AiService {
             Bu ${isOcrContent ? 'görselden çıkarılan metni' : 'sohbet metnini'} analiz et:
             
             ```
-            ${chatContent}
+            $chatContent
             ```
             
             Aşağıdaki JSON formatında yanıt ver:
@@ -1414,7 +1414,7 @@ class AiService {
     
     // sonMesajEtkisi eksik veya boşsa doldur
     if (!jsonMap.containsKey('sonMesajEtkisi') || jsonMap['sonMesajEtkisi'] == null || 
-        !(jsonMap['sonMesajEtkisi'] is Map) || (jsonMap['sonMesajEtkisi'] as Map).isEmpty) {
+        jsonMap['sonMesajEtkisi'] is! Map || (jsonMap['sonMesajEtkisi'] as Map).isEmpty) {
       jsonMap['sonMesajEtkisi'] = {
         "sempatik": 10,
         "kararsız": 30,
@@ -1430,7 +1430,7 @@ class AiService {
     
     // cevapOnerileri eksikse doldur
     if (!jsonMap.containsKey('cevapOnerileri') || jsonMap['cevapOnerileri'] == null || 
-        !(jsonMap['cevapOnerileri'] is List) || (jsonMap['cevapOnerileri'] as List).isEmpty) {
+        jsonMap['cevapOnerileri'] is! List || (jsonMap['cevapOnerileri'] as List).isEmpty) {
       jsonMap['cevapOnerileri'] = isOcrContent
           ? ["Görsel yerine doğrudan mesaj yazarak iletişim kurmayı tercih ederim. Düşüncelerini açıkça belirt.", "Bu konuyu detaylı konuşmak istiyorum. Müsait olduğunda bana haber ver."]
           : ["Düşüncelerimi açıkça ifade etmek istiyorum. Bu konuda senin de açık olmanı bekliyorum.", "İletişimimizi daha açık ve dürüst bir şekilde sürdürmek istiyorum. Ne düşünüyorsun?"];
@@ -1484,7 +1484,7 @@ class AiService {
           {
             'text': '''
             Bu sohbeti çok sert bir şekilde eleştir:
-            ${chatContent}
+            $chatContent
             
             NOT: Eleştirin çok acımasız ve dobra olmalı.
             '''
@@ -1560,7 +1560,7 @@ class AiService {
   
   // Etki değerlerinin toplamını 100 yapma
   void _sonMesajEtkisiniNormallestir(Map<String, dynamic> jsonMap) {
-    if (jsonMap['sonMesajEtkisi'] == null || !(jsonMap['sonMesajEtkisi'] is Map)) {
+    if (jsonMap['sonMesajEtkisi'] == null || jsonMap['sonMesajEtkisi'] is! Map) {
       jsonMap['sonMesajEtkisi'] = {'sempatik': 15, 'kararsız': 25, 'olumsuz': 60};
       return;
     }
@@ -1645,12 +1645,12 @@ class AiService {
       }
       
       // sonMesajEtkisi bir map olmalı ve boş olmamalı
-      if (alan == 'sonMesajEtkisi' && (!(json[alan] is Map) || (json[alan] as Map).isEmpty)) {
+      if (alan == 'sonMesajEtkisi' && (json[alan] is! Map || (json[alan] as Map).isEmpty)) {
         return false;
       }
       
       // cevapOnerileri bir liste olmalı ve boş olmamalı
-      if (alan == 'cevapOnerileri' && (!(json[alan] is List) || (json[alan] as List).isEmpty)) {
+      if (alan == 'cevapOnerileri' && (json[alan] is! List || (json[alan] as List).isEmpty)) {
         return false;
       }
     }
@@ -1930,7 +1930,7 @@ Yanıtını aşağıdaki JSON formatında ver, başka ekleme yapma:
   "mesajYorumu": "mesaj hakkında kısa yorum"
 }
 
-Mesaj detayları: ${messageText}
+Mesaj detayları: $messageText
 '''
                 }
               ]
@@ -1962,7 +1962,7 @@ Mesaj detayları: ${messageText}
           
           if (jsonResponse != null) {
             // Zorunlu kategorilerin varlığını kontrol et - eksik varsa ekle
-            if (!jsonResponse.containsKey('kategoriPuanlari') || !(jsonResponse['kategoriPuanlari'] is Map)) {
+            if (!jsonResponse.containsKey('kategoriPuanlari') || jsonResponse['kategoriPuanlari'] is! Map) {
               jsonResponse['kategoriPuanlari'] = {
                 'guven': 60,
                 'destek': 60,
@@ -2011,7 +2011,7 @@ Mesaj detayları: ${messageText}
             
             // Kişiselleştirilmiş tavsiyeler eksikse ekle 
             if (!jsonResponse.containsKey('kisiselestirilmisTavsiyeler') || 
-                !(jsonResponse['kisiselestirilmisTavsiyeler'] is List) ||
+                jsonResponse['kisiselestirilmisTavsiyeler'] is! List ||
                 (jsonResponse['kisiselestirilmisTavsiyeler'] as List).isEmpty) {
               
               jsonResponse['kisiselestirilmisTavsiyeler'] = [
@@ -2365,7 +2365,7 @@ $kisaltilmisSohbet
           final jsonData = _parseJsonFromText(aiContent);
           if (jsonData != null && jsonData is List) {
             return List<Map<String, String>>.from(
-              (jsonData as List).map((item) {
+              (jsonData).map((item) {
                 if (item is Map<String, dynamic>) {
                   return {
                     'title': (item['title'] ?? 'Başlık yok').toString(),

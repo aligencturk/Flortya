@@ -9,7 +9,6 @@ import '../models/analysis_result_model.dart';
 import '../models/analysis_type.dart';
 import '../utils/loading_indicator.dart';
 import '../widgets/analysis_result_box.dart';
-import '../utils/utils.dart';
 
 class PastConsultationsView extends StatefulWidget {
   const PastConsultationsView({super.key});
@@ -21,7 +20,7 @@ class PastConsultationsView extends StatefulWidget {
 class _PastConsultationsViewState extends State<PastConsultationsView> {
   bool _isLoading = true;
   List<AnalysisResult> _consultations = [];
-  Map<String, bool> _expandedState = {};
+  final Map<String, bool> _expandedState = {};
   
   @override
   void initState() {

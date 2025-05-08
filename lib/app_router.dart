@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
 import 'views/home_view.dart';
 import 'views/message_analysis_view.dart';
 import 'views/report_view.dart';
-import 'views/advice_view.dart';
 import 'views/past_analyses_view.dart';
 import 'views/past_reports_view.dart';
 import 'views/analysis_detail_view.dart';
@@ -908,7 +906,7 @@ class EmailLoginView extends StatefulWidget {
 class _EmailLoginViewState extends State<EmailLoginView> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _isObscure = true;
+  final bool _isObscure = true;
   final _formKey = GlobalKey<FormState>();
   
   // Şifre alanı için FocusNode
@@ -1322,8 +1320,8 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _birthDateController = TextEditingController();
   
-  bool _isObscure = true;
-  bool _isConfirmObscure = true;
+  final bool _isObscure = true;
+  final bool _isConfirmObscure = true;
   String _selectedGender = 'Belirtmek istemiyorum';
   DateTime? _selectedDate;
   final _formKey = GlobalKey<FormState>();

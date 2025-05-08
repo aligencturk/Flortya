@@ -12,11 +12,9 @@ import '../widgets/message_coach_card.dart';
 import '../utils/utils.dart';
 import '../models/message_coach_analysis.dart';
 import 'dart:async';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:percent_indicator/linear_percent_indicator.dart';
 
 class AdviceView extends StatefulWidget {
-  const AdviceView({Key? key}) : super(key: key);
+  const AdviceView({super.key});
 
   @override
   State<AdviceView> createState() => _AdviceViewState();
@@ -27,7 +25,7 @@ class _AdviceViewState extends State<AdviceView> {
   final FocusNode _messageFocusNode = FocusNode();
   bool _isLoading = false;
   bool _imageMode = false;
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   final _logger = LoggerService();
   Timer? _analysisTimer;
   final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
@@ -184,11 +182,11 @@ class _AdviceViewState extends State<AdviceView> {
         for (final imageFile in _selectedImages) {
           final inputImage = InputImage.fromFilePath(imageFile.path);
           final recognizedText = await _textRecognizer.processImage(inputImage);
-          extractedText += recognizedText.text + '\n';
+          extractedText += '${recognizedText.text}\n';
         }
         
         extractedText = extractedText.trim();
-        _logger.i('OCR Sonucu: ${extractedText.isNotEmpty ? extractedText.substring(0, min(50, extractedText.length)) + "..." : "[BOŞ]"}');
+        _logger.i('OCR Sonucu: ${extractedText.isNotEmpty ? "${extractedText.substring(0, min(50, extractedText.length))}..." : "[BOŞ]"}');
 
         if (extractedText.isEmpty) {
           Utils.showErrorFeedback(
@@ -678,7 +676,7 @@ class _AdviceViewState extends State<AdviceView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${etiket.capitalizeFirst}',
+                    etiket.capitalizeFirst,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,

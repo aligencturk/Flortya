@@ -1,16 +1,13 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:async';
 import 'dart:convert'; // JSON işlemleri için ekle
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart' as provider;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart';
 import '../utils/utils.dart';
 import '../services/ai_service.dart';
 import '../models/message.dart';
@@ -18,12 +15,9 @@ import '../app_router.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../views/conversation_summary_view.dart';
 import '../viewmodels/auth_viewmodel.dart';
-import '../viewmodels/advice_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../utils/loading_indicator.dart';
 import '../models/message_coach_analysis.dart';
-import '../models/analysis_result.dart' as analysis;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/premium_service.dart';
 import '../widgets/feature_card.dart';
 
@@ -739,7 +733,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   Future<Map<PremiumFeature, bool>> _checkFeatureAccess() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final bool isPremium = authViewModel.isPremium;
-    final _premiumService = PremiumService();
+    final premiumService = PremiumService();
     
     // Premium ise tüm özelliklere erişim var
     if (isPremium) {
@@ -752,17 +746,17 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
     
     // Premium değilse, erişim durumlarını kontrol et
-    final canUseVisualOcr = await _premiumService.canUseFeature(
+    final canUseVisualOcr = await premiumService.canUseFeature(
       PremiumFeature.VISUAL_OCR, 
       isPremium
     );
     
-    final canUseTxtAnalysis = await _premiumService.canUseFeature(
+    final canUseTxtAnalysis = await premiumService.canUseFeature(
       PremiumFeature.TXT_ANALYSIS, 
       isPremium
     );
     
-    final canUseWrappedAnalysis = await _premiumService.canUseFeature(
+    final canUseWrappedAnalysis = await premiumService.canUseFeature(
       PremiumFeature.WRAPPED_ANALYSIS, 
       isPremium
     );
@@ -779,15 +773,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   Future<void> _gorselAnalizi() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final isPremium = authViewModel.isPremium;
-    final _premiumService = PremiumService();
+    final premiumService = PremiumService();
     
     // Premium değilse, kullanım sayısını kontrol et ve artır
     if (!isPremium) {
-      final int count = await _premiumService.getDailyVisualOcrCount();
+      final int count = await premiumService.getDailyVisualOcrCount();
       debugPrint('Görsel OCR günlük kullanım: $count / 3');
       
       // Kullanım sayısını artır
-      await _premiumService.incrementDailyVisualOcrCount();
+      await premiumService.incrementDailyVisualOcrCount();
       
       // Reklam izletme fonksiyonu burada çağrılabilir
       // Bu projede henüz reklam entegrasyonu yok, o yüzden sadece bilgilendirme gösteriyoruz
@@ -817,11 +811,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       // Premium durumu kontrolü
       final bool isPremium = authViewModel.isPremium;
-      final _premiumService = PremiumService();
+      final premiumService = PremiumService();
       
       // Premium değilse limit kontrolü
       if (!isPremium) {
-        final int count = await _premiumService.getTxtAnalysisUsedCount();
+        final int count = await premiumService.getTxtAnalysisUsedCount();
         debugPrint('TXT analizi toplam kullanım: $count / 3');
         
         // Limit dolmuşsa uyarı göster ve çık
@@ -837,8 +831,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Dosya başarıyla seçilip analiz edildiyse sayaç artırılır
       if (success == true && !isPremium) {
         try {
-          await _premiumService.incrementTxtAnalysisUsedCount();
-          final int newCount = await _premiumService.getTxtAnalysisUsedCount();
+          await premiumService.incrementTxtAnalysisUsedCount();
+          final int newCount = await premiumService.getTxtAnalysisUsedCount();
           
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1201,7 +1195,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                         // Premium kontrolü
                         final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
                         final bool isPremium = authViewModel.isPremium;
-                        final _premiumService = PremiumService();
+                        final premiumService = PremiumService();
                         
                         // Önbellekten veri kontrolü
                         List<Map<String, String>> summaryData = [];
@@ -1229,7 +1223,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                         // Premium olmayan kullanıcılar için erişim kontrolü
                         bool wrappedOpenedOnce = false; // Scope dışına taşıyorum
                         if (!isPremium) {
-                          wrappedOpenedOnce = await _premiumService.getWrappedOpenedOnce();
+                          wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
                           
                           if (wrappedOpenedOnce && !isCached) {
                             // Kullanım hakkı dolmuş ve önbellekte veri yok - premium dialog göster
@@ -1263,7 +1257,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           
                           // Premium olmayan kullanıcı için ilk kullanım işaretle
                           if (!isPremium && !wrappedOpenedOnce) {
-                            await _premiumService.setWrappedOpenedOnce();
+                            await premiumService.setWrappedOpenedOnce();
                             
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(

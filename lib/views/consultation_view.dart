@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart'; // Danışma işlemleri için viewmodel
 import '../viewmodels/message_viewmodel.dart'; // Mesaj analizi için gerekli viewmodel
-import '../utils/utils.dart';
 import '../models/analysis_result_model.dart'; // AnalysisResult modeli
 import '../models/analysis_type.dart'; // Analiz türleri
 import '../utils/loading_indicator.dart';

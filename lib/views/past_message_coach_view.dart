@@ -7,9 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../models/past_message_coach_analysis.dart';
 import '../controllers/message_coach_controller.dart';
-import '../controllers/message_coach_visual_controller.dart';
 import '../utils/loading_indicator.dart';
-import '../utils/utils.dart';
 
 class PastMessageCoachView extends ConsumerStatefulWidget {
   const PastMessageCoachView({super.key});

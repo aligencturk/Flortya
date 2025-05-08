@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 /// İlişki analiz sonucunu temsil eden veri modeli
 class AnalysisResult {

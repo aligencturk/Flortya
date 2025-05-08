@@ -71,13 +71,13 @@ class PageStructure {
   }) {
     return ResponsiveContentArea(
       key: key,
-      child: child,
       scrollController: scrollController,
       padding: padding,
       keyboardDismissBehavior: keyboardDismissBehavior,
       physics: physics,
       fillScreen: fillScreen,
       focusNode: focusNode,
+      child: child,
     );
   }
   
@@ -91,10 +91,10 @@ class PageStructure {
   }) {
     return ResponsiveFormArea(
       key: key,
-      child: child,
       formKey: formKey,
       padding: padding,
       keyboardDismissBehavior: keyboardDismissBehavior,
+      child: child,
     );
   }
 }
@@ -190,8 +190,7 @@ class PageStructureTheme extends ThemeExtension<PageStructureTheme> {
 
 /// ScrollPhysics extension - kaydırma duyarlılığını artırır
 class ResponsiveScrollPhysics extends AlwaysScrollableScrollPhysics {
-  const ResponsiveScrollPhysics({ScrollPhysics? parent}) 
-      : super(parent: parent);
+  const ResponsiveScrollPhysics({super.parent});
 
   @override
   ResponsiveScrollPhysics applyTo(ScrollPhysics? ancestor) {

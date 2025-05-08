@@ -18,13 +18,13 @@ class YuklemeAnimasyonu extends StatelessWidget {
   /// [mesaj] - Opsiyonel mesaj, animasyonun altında gösterilir
   /// [analizTipi] - Analiz tipine göre otomatik bilgilendirme metni gösterilir
   const YuklemeAnimasyonu({
-    Key? key,
+    super.key,
     this.boyut = 45.0,
     Color? renk,
     this.tip = AnimasyonTipi.KALP,
     this.mesaj,
     this.analizTipi = AnalizTipi.GENEL,
-  }) : renk = renk ?? Colors.pinkAccent, super(key: key);
+  }) : renk = renk ?? Colors.pinkAccent;
 
   @override
   Widget build(BuildContext context) {

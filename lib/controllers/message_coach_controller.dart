@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'dart:convert';
 import '../models/message_coach_analysis.dart';
 import '../models/past_message_coach_analysis.dart';
 import '../models/message_coach_visual_analysis.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/message_coach_service.dart';
+import '../services/premium_service.dart';
 
 class MessageCoachController extends ChangeNotifier {
   final AiService _aiService = AiService();
   final LoggerService _logger = LoggerService();
   final MessageCoachService _mesajKocuService = MessageCoachService();
+  final PremiumService _premiumService = PremiumService();
   
   MessageCoachAnalysis? _analysis;
   MessageCoachAnalysis? get analysis => _analysis;
@@ -50,10 +51,46 @@ class MessageCoachController extends ChangeNotifier {
   
   String? _currentUserId;
   
+  // Premium bilgileri
+  int _kalanGorselAnalizHakki = 3;
+  bool _reklamGoruldu = false;
+  
+  int get kalanGorselAnalizHakki => _kalanGorselAnalizHakki;
+  bool get reklamGoruldu => _reklamGoruldu;
+  
   // Kullanıcı ID'sini set etme metodu
   void setCurrentUserId(String userId) {
     _currentUserId = userId;
     _logger.i('Kullanıcı ID ayarlandı: $userId');
+    
+    // Kullanıcı ID'si ayarlandığında kalan hak bilgisini güncelle
+    _gorselAnalizHakkiniGuncelle();
+  }
+  
+  // Görsel analiz hakkını güncelleme
+  Future<void> _gorselAnalizHakkiniGuncelle() async {
+    try {
+      if (_currentUserId == null || _currentUserId!.isEmpty) {
+        _kalanGorselAnalizHakki = 3; // Default olarak 3 hak
+        return;
+      }
+      
+      // Kullanıcının premium olup olmadığını kontrol et
+      // Bu kısmı AuthViewModel üzerinden almanız gerekebilir, şimdilik false kabul ediyoruz
+      bool isPremium = false; // Bu değerin gerçek değerini almalısınız
+      
+      if (isPremium) {
+        _kalanGorselAnalizHakki = -1; // -1 sınırsız anlamına gelir
+      } else {
+        int kullanilan = await _premiumService.getDailyVisualOcrCount();
+        _kalanGorselAnalizHakki = 3 - kullanilan;
+        if (_kalanGorselAnalizHakki < 0) _kalanGorselAnalizHakki = 0;
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Görsel analiz hakkı güncellenirken hata: $e');
+    }
   }
   
   // Analiz sonuçlarını temizle
@@ -276,107 +313,110 @@ Karşı taraf: Tamam, orada görüşürüz.
     }
   }
   
-  // Görsel ile analiz et - MessageCoachService üzerinden direkt çağrı
-  Future<MessageCoachVisualAnalysis?> gorselIleAnalizeEt(File gorselDosya, String aciklama) async {
+  // Görsel ile analiz et
+  Future<void> gorselIleAnalizeEt(File gorselDosyasi, String aciklama) async {
     try {
-      _isLoading = true;
-      _errorMessage = '';
-      _analizTamamlandi = false;
-      notifyListeners();
-      
-      _logger.i('Görsel ile analiz başlatılıyor: ${gorselDosya.path}, Açıklama: $aciklama');
-      
-      // Görsel dosyasını ayarla
-      _gorselDosya = gorselDosya;
-      
-      // Açıklama boş kontrolü
-      if (aciklama.trim().isEmpty) {
-        _setError('Lütfen bir açıklama yazın');
-        return null;
+      // Önişlem kontrolü
+      bool isPremium = false;
+      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
+        // Kullanıcının premium olup olmadığını kontrol et
+        // Bu kısmı AuthViewModel üzerinden almanız gerekebilir, şimdilik false kabul ediyoruz
+        isPremium = false; // Bu değerin gerçek değerini almalısınız
       }
       
-      // OCR işlemi yapıldıktan sonra metin içeriği alınacak
-      String? ocrSonucu = _gorselOcrSonucu;
-      
-      // OCR sonucunda veya kullanıcı açıklamasında "keyboard smash" (anlamsız harf dizisi) 
-      // var mı kontrol et ve bunu yapay zekaya bildir - ve kullanıcıya gülme olarak söylemesini iste
-      String analizNotu = "";
-      
-      // OCR sonucunda gülme içeren anlamsız harf dizisi tespiti
-      if (ocrSonucu != null && ocrSonucu.isNotEmpty) {
-        final gulmeIfadeleri = _gulmeIfadeleriniTespit(ocrSonucu);
-        if (gulmeIfadeleri.isNotEmpty) {
-          analizNotu += "OCR metninde tespit edilen gülme ifadeleri: $gulmeIfadeleri. ";
-          _logger.i("OCR sonucunda gülme ifadeleri tespit edildi: $gulmeIfadeleri");
+      // Premium değilse görsel OCR kullanım hakkını kontrol et
+      if (!isPremium) {
+        bool canUseVisualOcr = await _premiumService.canUseFeature(PremiumFeature.VISUAL_OCR, isPremium);
+        
+        if (!canUseVisualOcr) {
+          _errorMessage = 'Günlük görsel analiz hakkınız doldu. Premium üyelik ile sınırsız kullanabilirsiniz.';
+          notifyListeners();
+          return;
+        }
+        
+        // Reklam simülasyonu - Gerçek uygulamada burada reklam gösterilecek
+        _reklamGoruldu = true;
+        _logger.i('Reklam gösteriliyor...');
+        await Future.delayed(const Duration(seconds: 2)); // Reklam yükleme simülasyonu
+        
+        // Kullanım sayısını artır
+        await _premiumService.incrementDailyVisualOcrCount();
+        
+        // Kalan hak bilgisini güncelle
+        await _gorselAnalizHakkiniGuncelle();
+        
+        // Günlük limit durumunu kontrol et ve kullanıcıya bilgi ver
+        if (_kalanGorselAnalizHakki <= 0) {
+          _logger.i('Günlük görsel analiz hakkı doldu. Premium teklif edilecek.');
+        } else {
+          _logger.i('Kalan görsel analiz hakkı: $_kalanGorselAnalizHakki');
         }
       }
       
-      // Kullanıcı açıklamasında gülme içeren anlamsız harf dizisi tespiti
-      final kullaniciGulmeIfadeleri = _gulmeIfadeleriniTespit(aciklama);
-      if (kullaniciGulmeIfadeleri.isNotEmpty) {
-        analizNotu += "Kullanıcı açıklamasında tespit edilen gülme ifadeleri: $kullaniciGulmeIfadeleri. ";
-        _logger.i("Kullanıcı açıklamasında gülme ifadeleri tespit edildi: $kullaniciGulmeIfadeleri");
-      }
-      
-      // Görsel analiz için özel sistem mesajı oluştur 
-      // Yapay zekaya daha doğal bir üslup kullanmasını ve gülme ifadeleri hakkında bilgilendirme yapmasını söyleyen talimatlar
-      String sistemTalimatlari = """
-Bu bir görsel analizidir. Lütfen aşağıdaki kılavuza göre değerlendirme yap:
-
-1. Robotumsu bir dil KULLANMA, "kullanıcı şunu demiş", "partner bunu demiş" gibi ifadeler kullanma.
-2. Doğal ve akıcı bir dil kullan, sanki bir arkadaşına tavsiye veriyormuş gibi.
-3. Metin analizi yaptığın zaman kullandığın doğal üslubu kullan.
-4. Cevaplarını birinci şahıs olarak ver, "Burada..." veya "Bu durumda..." gibi başlayabilirsin.
-5. ÇOK ÖNEMLİ: Tespit edilen anlamsız harf dizilerinin (dsjsdlfsjgls, asdkjasd, hahaha, sjsj gibi) ASLA "anlamsız harfler dizesi" olarak adlandırma. Bunlar kullanıcının GÜLDÜĞÜnü gösterir ve her zaman "güldüğün/güldüğünü/gülme ifadesi kullandığın" gibi doğal ifadelerle belirt. "Anlamsız harfler yazmışsın" yerine "güldüğünü ifade etmişsin" veya "kahkaha atmışsın" gibi ifadeler kullan.
-6. Genel sohbet analizi ile direkt yorum ve geliştirme kısımlarının içeriği farklı olmalı:
-   - Genel sohbet analizi: Mevcut durumun tarafsız bir değerlendirmesi
-   - Direkt yorum ve geliştirme: Hataların tespiti ve gelişim tavsiyeleri
-
-Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver. Asla "anlamsız", "rastgele harf", "karmaşık harf" gibi teknik terimler kullanma.
-""";
-      
-      // Eğer gülme ifadeleri tespit edildiyse, sistem talimatlarında ekstra bilgi ver
-      if (analizNotu.isNotEmpty) {
-        sistemTalimatlari += "\n\nTespit edilen gülme ifadeleri: $analizNotu Bu ifadeleri, kullanıcının güldüğünü, eğlendiğini veya kahkaha attığını belirterek analiz et. ASLA 'anlamsız harf dizileri', 'keyboard smash', 'rastgele harfler' gibi ifadeleri kullanma, bunun yerine 'güldüğün anlaşılıyor', 'kahkaha atmışsın', 'eğlendiğin belli' gibi doğal ifadeler kullan.";
-      }
-      
-      // Sistem talimatlarını açıklamaya ekle
-      String zenginlestirilmisAciklama = "$sistemTalimatlari\n\nKullanıcı açıklaması: $aciklama";
-      
-      // OCR ve analiz işlemini başlat - doğrudan servis üzerinden
-      final analiz = await _mesajKocuService.sohbetGoruntusunuAnalizeEt(
-        gorselDosya, 
-        zenginlestirilmisAciklama
-      );
-      
-      if (analiz == null) {
-        _setError('Görsel analiz yapılamadı. Lütfen tekrar deneyin.');
-        return null;
-      }
-      
-      // Görsel analiz sonuçlarını MessageCoachAnalysis formatına dönüştür
-      // ve controller'ın analysis değişkenine ata
-      _analysis = _gorselAnalizdenMesajAnalizineDonus(analiz, aciklama, analizNotu);
-      
-      // Firebase'e kaydet
-      if (_currentUserId != null) {
-        await _mesajKocuService.saveVisualMessageCoachAnalysis(
-          userId: _currentUserId!,
-          aciklama: aciklama, // Orijinal açıklamayı kaydet, talimatları kaydetme
-          analysis: analiz,
-        );
-        _logger.i('Görsel analizi kaydedildi.');
-      }
-      
-      _isLoading = false;
-      _analizTamamlandi = true;
+      _isLoading = true;
+      _errorMessage = '';
       notifyListeners();
       
-      return analiz;
+      // Görsel dosyasını ayarla
+      _gorselDosya = gorselDosyasi;
+      
+      // Görsel ile analiz servisini çağır
+      final sonuc = await _mesajKocuService.sohbetGoruntusunuAnalizeEt(gorselDosyasi, aciklama);
+      
+      if (sonuc == null) {
+        _errorMessage = 'Analiz sonucu alınamadı, lütfen tekrar deneyin';
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+      
+      if (sonuc.isAnalysisRedirect) {
+        // Görsel analizi yerine metin analizi yönlendirmesi varsa
+        _logger.i('Görsel analizi yerine metin analizi yönlendirmesi yapılıyor');
+        
+        // Bu durumda metni AI'dan dönen yönlendirme mesajı olarak kullan
+        _analysis = MessageCoachAnalysis(
+          analiz: "Görsel analiz edilemedi",
+          oneriler: [],
+          etki: {'Nötr': 100},
+          sohbetGenelHavasi: "Görsel analiz edilemedi",
+          direktYorum: sonuc.redirectMessage ?? "Görsel analiz edilemedi, lütfen tekrar deneyin",
+          sonMesajTonu: "Nötr"
+        );
+      } else {
+        // Görsel analiz sonucunu MessageCoachAnalysis formatına dönüştür
+        _analysis = MessageCoachAnalysis(
+          analiz: "Görsel Analiz",
+          oneriler: sonuc.alternativeMessages.isNotEmpty ? sonuc.alternativeMessages : ["Daha net bir görsel yükleyiniz"],
+          etki: {'Görsel': 100},
+          sohbetGenelHavasi: "Görsel Analiz",
+          sonMesajTonu: "Görsel Analiz",
+          direktYorum: sonuc.konumDegerlendirmesi,
+          cevapOnerileri: sonuc.alternativeMessages
+        );
+      }
+      
+      // İşlem tamamlandığında reklam durumunu sıfırla
+      _reklamGoruldu = false;
+      
+      // Kullanıcı oturum açmışsa geçmişe kaydet
+      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
+        await _mesajKocuService.saveVisualMessageCoachAnalysis(
+          userId: _currentUserId!,
+          aciklama: aciklama,
+          analysis: sonuc
+        );
+      }
+      
+      _analizTamamlandi = true;
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      _logger.e('Görsel analiz hatası', e);
-      _setError('Görsel analiz edilirken bir hata oluştu: ${e.toString()}');
-      return null;
+      _logger.e('Görsel analiz hatası: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      _reklamGoruldu = false; // Hata durumunda reklam durumunu sıfırla
+      notifyListeners();
     }
   }
   
@@ -480,7 +520,7 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver. Asla "anlamsız",
     String? olumluCevap;
     String? olumsuzCevap;
     if (gorselAnaliz.partnerResponses.isNotEmpty) {
-      olumluCevap = gorselAnaliz.partnerResponses.length > 0 ? gorselAnaliz.partnerResponses[0] : null;
+      olumluCevap = gorselAnaliz.partnerResponses.isNotEmpty ? gorselAnaliz.partnerResponses[0] : null;
       olumsuzCevap = gorselAnaliz.partnerResponses.length > 1 ? gorselAnaliz.partnerResponses[1] : null;
     }
     
@@ -566,7 +606,7 @@ Tüm yanıtlarını doğal, samimi ve insani bir üslupla ver. Asla "anlamsız",
         // Eğer "ancak" veya "fakat" içeriyorsa, o kısımları direkt yorum olarak kullan
         List<String> parcalar = iyilestirilmisGenelYorum.split(RegExp(r'(ancak|fakat)'));
         if (parcalar.length > 1) {
-          direktYorumIcerigi = "Geliştirilebilecek noktalar: " + parcalar[1].trim();
+          direktYorumIcerigi = "Geliştirilebilecek noktalar: ${parcalar[1].trim()}";
         }
       } else {
         // Yoksa, genel tavsiyeleri ekle

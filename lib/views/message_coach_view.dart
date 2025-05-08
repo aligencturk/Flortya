@@ -7,18 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:provider/provider.dart' as provider;
-import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:percent_indicator/percent_indicator.dart';
 import '../controllers/message_coach_controller.dart';
 import '../controllers/message_coach_visual_controller.dart';
 import '../models/message_coach_analysis.dart';
-import '../models/message_coach_visual_analysis.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
-import '../helpers/file_utils.dart';
 import '../viewmodels/auth_viewmodel.dart';
-import '../widgets/message_coach_card.dart';
 
 class MessageCoachView extends ConsumerStatefulWidget {
   const MessageCoachView({super.key});
@@ -32,11 +26,11 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _aciklamaController = TextEditingController();
   
-  bool _klavyeAcik = false;
-  bool _gosterildiMi = false;
+  final bool _klavyeAcik = false;
+  final bool _gosterildiMi = false;
   bool _textAreaActive = false;
   bool _yuklemeDurumu = false;
-  String _hataMesaji = '';
+  final String _hataMesaji = '';
   late KeyboardVisibilityController _keyboardVisibilityController;
   late StreamSubscription<bool> _keyboardSubscription;
 
@@ -351,7 +345,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                     fontSize: 14,
                   ),
                 ),
-              )).toList(),
+              )),
             ],
             
             // Olası yanıt tahminleri

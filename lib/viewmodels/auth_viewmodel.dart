@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
@@ -515,7 +514,7 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       
       // Hesap var ama gerekli profil alanları eksikse ilk giriş kabul et
       if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>?;
+        final data = doc.data();
         
         if (data == null) return true;
         

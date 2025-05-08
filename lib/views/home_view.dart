@@ -5,11 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shimmer/shimmer.dart';
-import 'package:percent_indicator/percent_indicator.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:flutter/rendering.dart';
 import 'dart:ui'; // ImageFilter için gerekli import
 
 import '../viewmodels/auth_viewmodel.dart';
@@ -19,13 +14,6 @@ import '../viewmodels/advice_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../app_router.dart';
-import '../utils/loading_indicator.dart';
-import '../widgets/message_coach_card.dart';
-import '../models/message_coach_analysis.dart';
-import '../models/analysis_result.dart';
-import '../models/past_analysis_model.dart';
-import '../models/past_report_model.dart';
-import '../utils/date_time_utils.dart';
 import '../utils/utils.dart';
 import '../views/message_coach_view.dart';
 
@@ -177,11 +165,9 @@ class _HomeViewState extends State<HomeView> {
     // Premium durum değişikliğinde tavsiyeleri tekrar yükle
     try {
       final authViewModel = Provider.of<AuthViewModel>(context);
-      if (authViewModel != null) {
-        // Premium durumu değiştiğinde tavsiyeleri yeniden yükle
-        _loadUnlockedAdvices();
-      }
-    } catch (e) {
+      // Premium durumu değiştiğinde tavsiyeleri yeniden yükle
+      _loadUnlockedAdvices();
+        } catch (e) {
       debugPrint('didChangeDependencies hata: $e');
     }
   }
@@ -231,30 +217,24 @@ class _HomeViewState extends State<HomeView> {
       // UI için kritik olan işlemleri önce yap
       try {
         final homeController = Provider.of<HomeController>(context, listen: false);
-        if (homeController != null) {
-          homeController.anaSayfayiGuncelle();
-        }
-      } catch (e) {
+        homeController.anaSayfayiGuncelle();
+            } catch (e) {
         debugPrint('HomeController hatası: $e');
       }
       
       // ProfileViewModel'e context referansı ekle
       try {
         final profileViewModel = Provider.of<ProfileViewModel>(context, listen: false);
-        if (profileViewModel != null) {
-          profileViewModel.setContext(context);
-          
-          // ProfileViewModel'i MessageViewModel'e aktar
-          try {
-            final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
-            if (messageViewModel != null) {
-              messageViewModel.setProfileViewModel(profileViewModel);
-            }
-          } catch (e) {
-            debugPrint('MessageViewModel hatası: $e');
-          }
+        profileViewModel.setContext(context);
+        
+        // ProfileViewModel'i MessageViewModel'e aktar
+        try {
+          final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+          messageViewModel.setProfileViewModel(profileViewModel);
+                } catch (e) {
+          debugPrint('MessageViewModel hatası: $e');
         }
-      } catch (e) {
+            } catch (e) {
         debugPrint('ProfileViewModel hatası: $e');
       }
       
@@ -265,7 +245,7 @@ class _HomeViewState extends State<HomeView> {
         final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
         final adviceViewModel = Provider.of<AdviceViewModel>(context, listen: false);
         
-        if (authViewModel != null && adviceViewModel != null && authViewModel.user != null) {
+        if (authViewModel.user != null) {
           try {
             await adviceViewModel.loadAnalysisCount(authViewModel.user!.id);
           } catch (e) {

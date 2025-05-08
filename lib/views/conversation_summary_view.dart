@@ -21,9 +21,9 @@ class KonusmaSummaryView extends StatefulWidget {
   final List<Map<String, String>> summaryData;
 
   const KonusmaSummaryView({
-    Key? key,
+    super.key,
     required this.summaryData,
-  }) : super(key: key);
+  });
 
   @override
   State<KonusmaSummaryView> createState() => _KonusmaSummaryViewState();
@@ -525,7 +525,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
 
 /// Dosya seçme ve sohbet analizi için giriş ekranı
 class SohbetAnaliziView extends StatefulWidget {
-  const SohbetAnaliziView({Key? key}) : super(key: key);
+  const SohbetAnaliziView({super.key});
 
   @override
   State<SohbetAnaliziView> createState() => _SohbetAnaliziViewState();

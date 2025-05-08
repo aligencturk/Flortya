@@ -23,9 +23,7 @@ import 'services/ai_service.dart';
 import 'services/user_service.dart';
 import 'viewmodels/past_analyses_viewmodel.dart';
 import 'viewmodels/past_reports_viewmodel.dart';
-import 'package:flutter/services.dart';
 import 'services/notification_service.dart';
-import 'utils/utils.dart';
 import 'controllers/message_coach_controller.dart';
 
 void main() async {

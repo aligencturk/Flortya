@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/analysis_result_model.dart';
-import '../utils/loading_indicator.dart';
 
 class AnalysisResultBox extends StatelessWidget {
   final AnalysisResult result;

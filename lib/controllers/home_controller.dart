@@ -487,7 +487,7 @@ class HomeController extends ChangeNotifier {
       if (cevapOnerileri != null) {
         if (cevapOnerileri is Iterable) {
           // Liste ise değerleri birleştir
-          cevapOnerileriMetni = (cevapOnerileri as Iterable).join('\n- ');
+          cevapOnerileriMetni = (cevapOnerileri).join('\n- ');
           if (cevapOnerileriMetni.isNotEmpty) {
             cevapOnerileriMetni = '- $cevapOnerileriMetni';
           }

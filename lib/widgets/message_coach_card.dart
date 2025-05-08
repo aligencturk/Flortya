@@ -5,14 +5,13 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/message_coach_analysis.dart';
 import '../viewmodels/advice_viewmodel.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:file_selector/file_selector.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
 import '../utils/loading_indicator.dart';
 
 class MessageCoachCard extends StatefulWidget {
-  const MessageCoachCard({Key? key}) : super(key: key);
+  const MessageCoachCard({super.key});
 
   @override
   _MessageCoachCardState createState() => _MessageCoachCardState();

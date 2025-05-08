@@ -44,7 +44,7 @@ class MesajKocuGorselDurumu {
   
   /// Yeni durumla resetleme
   MesajKocuGorselDurumu reset() {
-    return MesajKocuGorselDurumu(userId: this.userId);
+    return MesajKocuGorselDurumu(userId: userId);
   }
   
   /// Yükleme durumuna geçiş

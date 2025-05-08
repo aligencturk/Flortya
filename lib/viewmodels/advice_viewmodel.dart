@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/message_coach_analysis.dart';
@@ -7,9 +6,8 @@ import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';  // min fonksiyonu için import ekliyorum
-import '../services/api_service.dart';  // ApiService için import ekliyorum
+// ApiService için import ekliyorum
 
 class AdviceViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore;
@@ -84,14 +82,14 @@ class AdviceViewModel extends ChangeNotifier {
                           metin.contains("tespit edilemedi"))) {
         print('⚠️ OCR içeriğinde metin bulunamadı - özel mesaj gönderiyorum');
         // Görüntü işleme hataları için özel mesaj ekleyelim
-        metin = metin + "\n\nNot: OCR tarafından metinler düzgün çıkarılamadı, ama yine de bir analiz yapılacak.";
+        metin = "$metin\n\nNot: OCR tarafından metinler düzgün çıkarılamadı, ama yine de bir analiz yapılacak.";
       }
       
       // AiService üzerinden analiz isteği yapma
       final MessageCoachAnalysis? sonuc = await _aiService.sohbetiAnalizeEt(metin);
       
       // Zaman aşımı timer'ını iptal et
-      if (timeoutTimer != null && timeoutTimer.isActive) {
+      if (timeoutTimer.isActive) {
         timeoutTimer.cancel();
       }
       
@@ -174,7 +172,7 @@ class AdviceViewModel extends ChangeNotifier {
       print('❌ Mesaj analizi hatası: $e');
       
       // Zaman aşımı timer'ını iptal et
-      if (timeoutTimer != null && timeoutTimer.isActive) {
+      if (timeoutTimer.isActive) {
         timeoutTimer.cancel();
       }
       
@@ -688,7 +686,7 @@ class AdviceViewModel extends ChangeNotifier {
   
   void refreshUI() {
     notifyListeners();
-    print('🔄 UI yenileniyor - isAnalyzing=$_isAnalyzing, hasAnalizi=${hasAnalizi}');
+    print('🔄 UI yenileniyor - isAnalyzing=$_isAnalyzing, hasAnalizi=$hasAnalizi');
     
     // Takılı kalan analiz durumunu kontrol edip temizleyelim
     if (_isAnalyzing && !_isLoading) {

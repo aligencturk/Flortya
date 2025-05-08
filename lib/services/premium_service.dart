@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 class PremiumService {
   static const String DAILY_VISUAL_OCR_COUNT_KEY = 'dailyVisualOcrCount';

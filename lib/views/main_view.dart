@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../views/home_view.dart';
 import '../views/report_view.dart';
 import '../views/message_coach_view.dart';
-import '../viewmodels/auth_viewmodel.dart';
 
 /// Tüm uygulamaya ortak tabbar sağlayan ana görünüm
 class MainView extends StatefulWidget {
   final int initialTabIndex;
   
   const MainView({
-    Key? key, 
+    super.key, 
     this.initialTabIndex = 0,
-  }) : super(key: key);
+  });
 
   @override
   State<MainView> createState() => _MainViewState();

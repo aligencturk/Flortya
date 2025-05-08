@@ -6,9 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/past_analyses_viewmodel.dart';
 import '../models/past_analysis_model.dart';
-import 'analysis_detail_view.dart';
 import '../utils/loading_indicator.dart';
-import '../utils/utils.dart';
 
 class PastAnalysesView extends StatefulWidget {
   const PastAnalysesView({super.key});
