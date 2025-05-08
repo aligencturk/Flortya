@@ -222,7 +222,7 @@ class MesajKocuGorselKontrol extends StateNotifier<MesajKocuGorselDurumu> {
                 + 'Olumlu senaryo: $positiveUnlocked, Olumsuz senaryo: $negativeUnlocked');
   }
   
-  /// Sohbet görüntüsünü analiz et
+  /// Görsel analizi başlat
   Future<void> gorselAnalizeEt(String aciklama) async {
     try {
       // Görsel kontrolü

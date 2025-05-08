@@ -671,6 +671,20 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
         return;
       }
       
+      // İlk kullanım kontrolü - eğer tamamlanmış ve premium değilse uyarı mesajı göster
+      if (!isPremium) {
+        bool isFirstUseCompleted = await _premiumService.isVisualModeFirstUseCompleted();
+        
+        if (isFirstUseCompleted) {
+          // Kullanıcı premium değil ve görsel analiz hakkını kullanmış, uyarı mesajı göster
+          Utils.showToast(context, 'Görsel analizi hakkınızı kullandınız. Premium üyelik alarak sınırsız erişebilirsiniz.');
+          
+          // Premium teklifi için diyalog göster
+          _showPremiumOfferDialog();
+          return;
+        }
+      }
+      
       // Görsel mod için reklam kontrolü
       bool canShowVisualMode = await ref.read(mesajKocuGorselKontrolProvider.notifier).gorselModIcinReklamIzlenmismi();
       
@@ -692,7 +706,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
           await ref.read(mesajKocuGorselKontrolProvider.notifier).gorselAnalizeEt(_aciklamaController.text);
         }
       } else {
-        // Reklam gerekmiyor, direkt analiz et
+        // Reklam göstermeye gerek yok (premium veya reklam izlenmiş)
         await ref.read(mesajKocuGorselKontrolProvider.notifier).gorselAnalizeEt(_aciklamaController.text);
       }
     } else {
@@ -1466,6 +1480,105 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
       // Görsel modundan metin moduna geçiş - her zaman izin verilir
       controller.gorselModunuDegistir();
     }
+  }
+
+  // Premium teklifi için diyalog göster
+  Future<void> _showPremiumOfferDialog() async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF9D3FFF), width: 1),
+          ),
+          title: const Text(
+            'Premium Üyelik',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Görsel analizi hakkınız dolmuştur. Premium üyelik alarak sınırsız erişim kazanabilirsiniz:',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _premiumOzellikSatiri(Icons.image, 'Sınırsız Görsel Analizi'),
+              const SizedBox(height: 8),
+              _premiumOzellikSatiri(Icons.recommend, 'Alternatif Öneriler'),
+              const SizedBox(height: 8),
+              _premiumOzellikSatiri(Icons.assignment, 'Tüm İçerik Analizleri'),
+              const SizedBox(height: 8),
+              _premiumOzellikSatiri(Icons.support_agent, 'Öncelikli Destek'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Kapat',
+                style: TextStyle(
+                  color: Color(0xFF9D3FFF),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Premium satın alma sayfasına yönlendir
+                Navigator.of(context).pushNamed('/premium');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Premium Al',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Premium özellik satırı widget'ı
+  Widget _premiumOzellikSatiri(IconData icon, String metin) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: const Color(0xFF9D3FFF),
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          metin,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
   }
 
   @override

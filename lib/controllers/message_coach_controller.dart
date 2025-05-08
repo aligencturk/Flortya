@@ -422,6 +422,15 @@ class MessageCoachController extends ChangeNotifier {
     try {
       // Önişlem kontrolü
       if (!_isPremium) {
+        // İlk kullanım kontrolü
+        bool isFirstUseCompleted = await _premiumService.isVisualModeFirstUseCompleted();
+        
+        if (isFirstUseCompleted) {
+          _errorMessage = 'Görsel analizi hakkınızı kullandınız. Premium üyelik alarak sınırsız erişebilirsiniz.';
+          notifyListeners();
+          return;
+        }
+        
         bool canUseVisualOcr = await _premiumService.canUseFeature(PremiumFeature.VISUAL_OCR, _isPremium);
         
         if (!canUseVisualOcr) {
@@ -514,16 +523,20 @@ class MessageCoachController extends ChangeNotifier {
         );
       }
       
+      // Premium olmayan kullanıcı için ilk kullanımı tamamlandı olarak işaretle
+      if (!_isPremium) {
+        await _premiumService.markVisualModeFirstUseCompleted();
+        _logger.i('Premium olmayan kullanıcı için görsel mod ilk kullanım tamamlandı olarak işaretlendi');
+      }
+      
       _analizTamamlandi = true;
       _isLoading = false;
       notifyListeners();
       
-      _logger.i('Görsel analizi tamamlandı, UI güncelleniyor');
     } catch (e) {
-      _logger.e('Görsel analiz hatası: $e');
-      _errorMessage = e.toString();
+      _logger.e('Görsel analizi sırasında hata oluştu', e);
+      _errorMessage = 'Görsel analizi sırasında hata oluştu: $e';
       _isLoading = false;
-      _reklamGoruldu = false; // Hata durumunda reklam durumunu sıfırla
       notifyListeners();
     }
   }
