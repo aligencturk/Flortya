@@ -206,7 +206,7 @@ class _PastMessageCoachViewState extends ConsumerState<PastMessageCoachView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => context.go('/profile'),
                     ),
                     const Text(
                       'Mesaj Koçu Geçmişi',
@@ -281,7 +281,7 @@ class _PastMessageCoachViewState extends ConsumerState<PastMessageCoachView> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.of(context).pop();
+              context.go('/profile');
             },
             icon: const Icon(Icons.psychology, size: 18),
             label: const Text('Mesaj Koçuna Git'),

@@ -56,7 +56,7 @@ class _PastReportsViewState extends State<PastReportsView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => context.go('/profile'),
                     ),
                     const Text(
                       'İlişki Raporları',
@@ -142,7 +142,7 @@ class _PastReportsViewState extends State<PastReportsView> {
                             ),
                             const SizedBox(height: 32),
                             ElevatedButton.icon(
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () => context.go('/profile'),
                               icon: const Icon(Icons.edit_document),
                               label: const Text('Rapor Oluştur'),
                               style: ElevatedButton.styleFrom(

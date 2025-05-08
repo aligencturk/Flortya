@@ -62,7 +62,7 @@ class Utils {
   }
   
   /// NavigationKey - Context olmadan SnackBar gösterebilmek için
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'MainNavigatorKey');
   
   /// Hata bildirimi gösterir - Kullanıcının mutlaka görmesi gereken önemli hatalar için
   static void showErrorFeedback(BuildContext context, String message, {Duration? duration}) {

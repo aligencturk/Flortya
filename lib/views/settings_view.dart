@@ -621,7 +621,7 @@ class _SettingsViewState extends State<SettingsView> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Tüm veriler başarıyla silindi. Mesaj Koçu verilerinin tamamen güncellenmesi için Mesaj Koçu sayfasını tekrar ziyaret edin.',
+                    'Tüm veriler başarıyla silindi.',
                     style: TextStyle(color: Colors.white),
                   ),
                 ),

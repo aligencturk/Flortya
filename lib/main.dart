@@ -27,7 +27,6 @@ import 'package:flutter/services.dart';
 import 'services/notification_service.dart';
 import 'utils/utils.dart';
 import 'controllers/message_coach_controller.dart';
-import 'controllers/home_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

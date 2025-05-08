@@ -120,7 +120,7 @@ class _PastConsultationsViewState extends State<PastConsultationsView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => context.go('/profile'),
                     ),
                     const Text(
                       'Danışma Geçmişi',
@@ -189,7 +189,7 @@ class _PastConsultationsViewState extends State<PastConsultationsView> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.of(context).pop();
+              context.go('/profile');
             },
             icon: const Icon(Icons.chat_outlined, size: 18),
             label: const Text('Danışmak İstiyorum'),

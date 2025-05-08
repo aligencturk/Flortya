@@ -9,6 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/rendering.dart';
+import 'dart:ui'; // ImageFilter için gerekli import
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -139,16 +141,19 @@ class _HomeViewState extends State<HomeView> {
   late final PageController _pageController;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  List<String> _unlockedAdvices = []; // Kilidini açtığımız tavsiyeler
   
   // Widget referans anahtarları
-  final GlobalKey _analyzeButtonKey = GlobalKey();
-  final GlobalKey _relationshipScoreCardKey = GlobalKey();
-  final GlobalKey _categoryAnalysisKey = GlobalKey();
-  final GlobalKey _relationshipEvaluationKey = GlobalKey();
+  final GlobalKey _analyzeButtonKey = GlobalKey(debugLabel: 'AnalyzeButtonKey');
+  final GlobalKey _relationshipScoreCardKey = GlobalKey(debugLabel: 'RelationshipScoreCardKey');
+  final GlobalKey _categoryAnalysisKey = GlobalKey(debugLabel: 'CategoryAnalysisKey');
+  final GlobalKey _relationshipEvaluationKey = GlobalKey(debugLabel: 'RelationshipEvaluationKey');
+  final GlobalKey _analyzeCardKey = GlobalKey(debugLabel: 'AnalyzeCardKey');
+  final GlobalKey _startEvaluationButtonKey = GlobalKey(debugLabel: 'StartEvaluationButtonKey');
   
   bool _hesapBilgileriAcik = false;
   bool _isProfileDataLoaded = false; // Profil verilerinin yüklenip yüklenmediğini takip eden bayrak
-  
+
   @override
   void initState() {
     super.initState();
@@ -160,6 +165,48 @@ class _HomeViewState extends State<HomeView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializePageData();
     });
+    
+    // Açılmış tavsiyeleri yükle
+    _loadUnlockedAdvices();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Premium durum değişikliğinde tavsiyeleri tekrar yükle
+    try {
+      final authViewModel = Provider.of<AuthViewModel>(context);
+      if (authViewModel != null) {
+        // Premium durumu değiştiğinde tavsiyeleri yeniden yükle
+        _loadUnlockedAdvices();
+      }
+    } catch (e) {
+      debugPrint('didChangeDependencies hata: $e');
+    }
+  }
+  
+  // Açılmış tavsiyeleri yükle
+  Future<void> _loadUnlockedAdvices() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+    // Önce premium durumunu kontrol et
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (isPremium) {
+      // Premium kullanıcı için tüm tavsiyeler açık
+      debugPrint('Premium kullanıcı: Tüm tavsiyeler açık');
+      setState(() {
+        // Premium kullanıcılar için özel bir değer kullanarak hepsinin açık olduğunu belirtelim
+        _unlockedAdvices = ["premium_all_unlocked"];
+      });
+    } else {
+      // Premium olmayan kullanıcılar için kaydedilmiş açık tavsiyeleri yükle
+      setState(() {
+        _unlockedAdvices = prefs.getStringList('unlockedAdvices') ?? [];
+      });
+    }
   }
   
   // Sayfa verilerini güvenli bir şekilde yükle
@@ -233,11 +280,12 @@ class _HomeViewState extends State<HomeView> {
       debugPrint('Ana sayfa verilerini yüklerken hata: $e');
     }
   }
-
+  
   @override
   void dispose() {
     _pageController.dispose();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -844,13 +892,32 @@ class _HomeViewState extends State<HomeView> {
                     
                     // Tavsiye Kartları
                     if (analizSonucu != null && tavsiyeler.isNotEmpty)
-                      ...tavsiyeler.map((tavsiye) => _buildAdviceCard(
-                        context, 
-                        title: _getTitleFromAdvice(tavsiye),
-                        advice: tavsiye,
-                        color: _getAdviceColor(tavsiye),
-                        icon: _getAdviceIcon(tavsiye),
-                      ))
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: tavsiyeler.length,
+                        itemBuilder: (context, index) {
+                          // Premium durumunu kontrol et
+                          final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                          final isPremium = authViewModel.isPremium;
+                          
+                          // Premium kullanıcılar için tüm içerikler açık, 
+                          // Premium olmayan kullanıcılar için ilk tavsiye ücretsiz, diğerleri kilitli (eğer açılmadıysa)
+                          final bool isLocked = !isPremium && index > 0 && 
+                            !_unlockedAdvices.contains(index.toString()) && 
+                            !_unlockedAdvices.contains("premium_all_unlocked");
+                          
+                          return _buildAdviceCard(
+                            context, 
+                            title: _getTitleFromAdvice(tavsiyeler[index]),
+                            advice: tavsiyeler[index],
+                            color: _getAdviceColor(tavsiyeler[index]),
+                            icon: _getAdviceIcon(tavsiyeler[index]),
+                            isLocked: isLocked,
+                            index: index,
+                          );
+                        },
+                      )
                     else if (analizSonucu != null && tavsiyeler.isEmpty)
                       Container(
                         padding: const EdgeInsets.all(20),
@@ -928,7 +995,7 @@ class _HomeViewState extends State<HomeView> {
                     
                     // İlişki Değerlendirme Butonu ekle
                     Container(
-                      key: _relationshipEvaluationKey, // Rehber için anahtar ekle
+                      key: _startEvaluationButtonKey, // Rehber için anahtar ekle
                       margin: const EdgeInsets.only(bottom: 20),
                       child: ElevatedButton.icon(
                         onPressed: () => _showRelationshipEvaluation(context),
@@ -1084,86 +1151,342 @@ class _HomeViewState extends State<HomeView> {
     required String advice,
     required Color color,
     required IconData icon,
+    required bool isLocked,
+    required int index,
   }) {
+    // Premium durumunu kontrol et
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    // Premium kullanıcıları için tüm tavsiyeleri kilitsiz göster
+    final bool actuallyLocked = isPremium ? false : isLocked;
+    
     return InkWell(
+      key: ValueKey('advice_card_$index'),
       onTap: () {
-        // Tıklanınca tüm metni göster
-        _showAdviceDetail(context, title, advice, color, icon);
+        // Kilit durumuna göre işlem yap
+        if (actuallyLocked) {
+          _showAdvertisementDialog(context, title, advice, color, icon, index);
+        } else {
+          // Kilitli değilse detayları göster
+          _showAdviceDetail(context, title, advice, color, icon);
+        }
       },
       child: Container(
-      padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
+        decoration: BoxDecoration(
           color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
           children: [
-            Row(
-        children: [
-          Container(
-                  width: 40,
-                  height: 40,
-            decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-                    icon,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                        title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                        advice,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                          fontSize: 14,
-                  ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-            ),
-            // Daha fazla oku göstergesi
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  "Detaylı Görüntüle",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
+            // Ana içerik - Kilitli ise bulanık göster
+            Opacity(
+              opacity: actuallyLocked ? 0.7 : 1.0, // Kilitliyse hafif saydam
+              child: ImageFiltered(
+                imageFilter: actuallyLocked 
+                  ? ImageFilter.blur(sigmaX: 3, sigmaY: 3) // Kilitliyse bulanık
+                  : ImageFilter.blur(sigmaX: 0, sigmaY: 0), // Kilitli değilse normal
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                advice,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Daha fazla oku göstergesi
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          "Detaylı Görüntüle",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+            
+            // Kilit ikonu ve etiket (sadece kilitliyse göster)
+            if (actuallyLocked)
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock_rounded,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text(
+                        "Reklam İzleyerek Aç",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+  
+  // Reklam izleme diyaloğunu göster
+  void _showAdvertisementDialog(BuildContext context, String title, String advice, Color color, IconData icon, int index) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Dışarı tıklayarak kapatılamaz
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: const Text(
+            "Premium İçerik",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.play_circle_outline,
+                color: Colors.amber,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Bu kişiselleştirilmiş tavsiyeyi açmak için kısa bir reklam izlemeniz gerekiyor.",
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Diyaloğu kapat
+              },
+              child: const Text(
+                "İptal",
+                style: TextStyle(
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Diyaloğu kapat
+                _simulateAdvertisement(context, title, advice, color, icon, index);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+              ),
+              child: const Text(
+                "Reklam İzle",
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  // Reklam izleme simülasyonu
+  void _simulateAdvertisement(BuildContext context, String title, String advice, Color color, IconData icon, int index) {
+    // Reklam yükleniyor diyaloğu
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Dışarı tıklayarak kapatılamaz
+      builder: (BuildContext loadingContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Reklam yükleniyor...",
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    // 3 saniye bekleyip reklam izleme simülasyonu yap
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // Yükleme diyaloğunu kapat
+      
+      // İzleniyor diyaloğu
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext watchingContext) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF352269),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.videocam,
+                  color: Colors.amber,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Reklam oynatılıyor...",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                  backgroundColor: Colors.grey[800],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      
+      // 5 saniye daha bekle ve reklam izleme başarılı mesajı göster
+      Future.delayed(const Duration(seconds: 5), () {
+        if (!context.mounted) return;
+        Navigator.of(context).pop(); // Reklam izleme diyaloğunu kapat
+        
+        // Tavsiyeyi kaydet (SharedPreferences ile saklayacağız)
+        _unlockAdvice(index);
+        
+        // Başarı mesajı
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Tavsiye başarıyla açıldı! Artık bu tavsiyeyi istediğiniz zaman görüntüleyebilirsiniz."),
+            backgroundColor: Color(0xFF4A2A80),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        
+        // Tavsiye detayını göster
+        if (context.mounted) {
+          _showAdviceDetail(context, title, advice, color, icon);
+        }
+      });
+    });
+  }
+  
+  // Tavsiyeyi kilitsiz hale getir (SharedPreferences ile)
+  Future<void> _unlockAdvice(int index) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+    // Premium kontrolü yap
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final isPremium = authViewModel.isPremium;
+    
+    if (isPremium) {
+      // Premium kullanıcı zaten tüm içeriklere erişebilir, bir şey yapmaya gerek yok
+      setState(() {
+        if (!_unlockedAdvices.contains("premium_all_unlocked")) {
+          _unlockedAdvices.add("premium_all_unlocked");
+        }
+      });
+      return;
+    }
+    
+    // Premium olmayan kullanıcılar için açılmış tavsiyelerin listesini al
+    final List<String> unlockedAdvices = prefs.getStringList('unlockedAdvices') ?? [];
+    
+    // Bu tavsiye daha önce açılmamışsa ekle
+    if (!unlockedAdvices.contains(index.toString())) {
+      unlockedAdvices.add(index.toString());
+      await prefs.setStringList('unlockedAdvices', unlockedAdvices);
+    }
+    
+    // UI'ı güncelle
+    setState(() {
+      _unlockedAdvices = unlockedAdvices;
+    });
   }
 
   // Tavsiye detayı dialog
@@ -1174,8 +1497,9 @@ class _HomeViewState extends State<HomeView> {
     
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext detailContext) {
         return Dialog(
+          key: ValueKey('advice_detail_dialog_${title.hashCode}'),
           backgroundColor: Colors.transparent,
           child: Container(
             padding: const EdgeInsets.all(20),
@@ -1215,7 +1539,7 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ),
                     InkWell(
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () => Navigator.of(detailContext).pop(),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -1236,7 +1560,7 @@ class _HomeViewState extends State<HomeView> {
                 // İçerik (Scrollable)
                 ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                    maxHeight: MediaQuery.of(detailContext).size.height * 0.5,
                   ),
                   child: SingleChildScrollView(
                     child: Text(
@@ -1245,23 +1569,6 @@ class _HomeViewState extends State<HomeView> {
                         color: Colors.white,
                         fontSize: 16,
                         height: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // Kapat butonu
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Kapat',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),

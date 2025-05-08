@@ -391,10 +391,13 @@ class _OnboardingViewState extends State<OnboardingView> {
                               // 3. Yöntem: Navigator.pushNamedAndRemoveUntil ile yönlendirme
                               try {
                                 debugPrint('3. Yöntem deneniyor: Navigator.pushNamedAndRemoveUntil');
-                                Navigator.of(context).pushNamedAndRemoveUntil(
-                                  AppRouter.login, 
-                                  (route) => false
-                                );
+                                // Navigator yöntemini devre dışı bırakıyoruz, çünkü GoRouter ile çakışabilir
+                                // Navigator.of(context).pushNamedAndRemoveUntil(
+                                //   AppRouter.login, 
+                                //   (route) => false
+                                // );
+                                // GoRouter'a geri dönün
+                                context.go(AppRouter.login);
                                 debugPrint('3. Yöntem başarılı olabilir');
                                 return; // Başarılı olduysa diğer yöntemleri deneme
                               } catch (navigasyon3Hatasi) {
