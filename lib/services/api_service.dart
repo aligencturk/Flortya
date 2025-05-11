@@ -8,7 +8,7 @@ import '../models/analysis_result_model.dart';
 // Geçici ConfigService tanımı
 class ConfigService {
   String? getApiUrl() {
-    return 'https://api.flortai.com';
+    return 'https://api.lovizia.com';
   }
   
   String? getApiKey() {
@@ -154,7 +154,7 @@ class ApiService {
       }
       
       // API URL'yi yapılandırmadan al
-      final apiUrl = ConfigService().getApiUrl();
+      final apiUrl = _getBaseUrl();
       if (apiUrl == null || apiUrl.isEmpty) {
         print('⚠️ ApiService.analyzeText: API URL bulunamadı');
         _logger.e('API URL yapılandırması bulunamadı');
@@ -266,5 +266,13 @@ class ApiService {
     print('🔄 API YANITI DÖNÜŞTÜRÜLDÜ: ${jsonEncode(transformed)}');
     
     return transformed;
+  }
+
+  /// Temel API URL'sini döndürür
+  String _getBaseUrl() {
+    if (_configService != null) {
+      return _configService!.getApiUrl() ?? 'https://api.flortai.com';
+    }
+    return 'https://api.flortai.com';
   }
 } 

@@ -189,7 +189,7 @@ class MyApp extends StatelessWidget {
     // Material App temasını yapılandır
     return TurkishKeyboardProvider(
       child: MaterialApp.router(
-        title: 'FlörtAI',
+        title: 'Lovizia',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF6750A4),
@@ -233,7 +233,7 @@ class ErrorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FlörtAI - Hata',
+      title: 'Lovizia - Hata',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.red,

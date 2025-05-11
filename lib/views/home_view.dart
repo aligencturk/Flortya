@@ -2841,7 +2841,7 @@ class _HomeViewState extends State<HomeView> {
                   onTap: () {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('E-posta desteği: destek@flortai.com')),
+                      const SnackBar(content: Text('E-posta desteği: destek@lovizia.com')),
                     );
                   },
                 ),

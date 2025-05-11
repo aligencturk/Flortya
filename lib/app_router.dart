@@ -94,8 +94,12 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Profil Bilgilerinizi Tamamlayın',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'Lovizia',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         automaticallyImplyLeading: false,
       ),
@@ -404,8 +408,12 @@ class LoginView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Giriş Yap',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'Lovizia',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: SafeArea(
@@ -669,8 +677,12 @@ class RegisterView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Kayıt Ol',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'Lovizia',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: SafeArea(
@@ -937,8 +949,12 @@ class _EmailLoginViewState extends State<EmailLoginView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'E-posta ile Giriş',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'Lovizia',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -1393,8 +1409,12 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'E-posta ile Kayıt',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'Lovizia',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
