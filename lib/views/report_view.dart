@@ -251,17 +251,21 @@ class _ReportViewState extends State<ReportView> {
             await _accessService.incrementReportRegenerateCount();
             
             if (context.mounted) {
-              // Reklam sonrası testi güvenli bir şekilde yeniden başlat
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => const ReportView(skipAccessCheck: true)
-                    )
-                  );
-                }
+              // Raporu sıfırla ve UI'ı güncelle
+              final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+              reportViewModel.resetReport();
+              
+              setState(() {
+                _showReportResult = false;
               });
+              
+              // Başarı mesajı göster
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Test yeniden başlatıldı"),
+                  backgroundColor: Color(0xFF4A2A80),
+                ),
+              );
             }
             break;
             
