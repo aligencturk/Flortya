@@ -694,7 +694,128 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     return result;
   }
 
-  // Mesaj analiz etme işlemini başlat
+  // Önce açıklama analiz eden yeni fonksiyonu ekleyelim
+  // Kullanıcı açıklamasını analiz eder ve ilişki analizi gerektiren sorulara yönlendirme yapar
+  bool _iliskiAnaliziGerektirir(String aciklama) {
+    // Küçük harfe çevir
+    final String temizAciklama = aciklama.toLowerCase().trim();
+    
+    // İlişki analizi için anahtar kelimeler
+    final List<String> iliskiAnahtarKelimeleri = [
+      'seviyor mu', 'ne düşünüyor', 'ne hissediyor', 'ilgileniyor mu',
+      'beni istiyor mu', 'duygular', 'hisler', 'ne yapmalıyım', 
+      'ilişkimiz nasıl', 'aramız nasıl', 'aramızda ne var',
+      'beni özlüyor mu', 'beni düşünüyor mu', 'yanımdayken ne düşünüyor',
+      'ciddi mi', 'ciddi düşünüyor mu', 'benimle olmak istiyor mu',
+      'karakteri nasıl', 'kişiliği', 'bana değer veriyor mu'
+    ];
+    
+    // Mesaj analizi için anahtar kelimeler - bunlar normal mesaj analizinde kalmalı
+    final List<String> mesajAnahtarKelimeleri = [
+      'ne yazabilirim', 'ne cevap verebilirim', 'nasıl yanıt vermeliyim',
+      'cevap olarak ne yazayım', 'ne demeliyim', 'ne diyeyim', 
+      'nasıl cevap vereyim', 'yanıt verelim', 'ne yanıt verir', 'nasıl cevap verir',
+      'ne yazabilir', 'cevap olarak ne yazabilir',
+    ];
+    
+    // Önce mesaj analizi için kontrol et - bu kelimeler varsa normal devam et
+    for (final String kelime in mesajAnahtarKelimeleri) {
+      if (temizAciklama.contains(kelime)) {
+        return false; // Mesaj analizi gerekiyor, ilişki analizi değil
+      }
+    }
+    
+    // Sonra ilişki analizi için kontrol et
+    for (final String kelime in iliskiAnahtarKelimeleri) {
+      if (temizAciklama.contains(kelime)) {
+        return true; // İlişki analizi gerekiyor
+      }
+    }
+    
+    // Eğer hiçbir anahtar kelime eşleşmediyse varsayılan olarak mesaj analizi
+    return false;
+  }
+
+  // İlişki analizi sayfasına yönlendirme diyaloğu
+  void _iliskiAnaliziYonlendirmesiGoster(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: const Text(
+            'İlişki Analizi Önerilir', 
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sorunuz daha kapsamlı bir ilişki analizi gerektiriyor. Ben sadece mesajlarda size yardımcı olabilirim.',
+                style: TextStyle(color: Colors.white),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Daha detaylı ilişki analizi için:',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Color(0xFF9D3FFF), size: 18),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'İlişki değerlendirme sayfasını ziyaret edin',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Color(0xFF9D3FFF), size: 18),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Danışmanlık hizmetlerimizden yararlanın',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.push('/report'); // İlişki analizi sayfasına yönlendirme
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+              ),
+              child: const Text(
+                'İlişki Analizine Git',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Şimdi gorselAnalizeEt fonksiyonunu güncelleyelim - bu metodu provider içindeki notifier'ın kullandığını varsayıyorum
+  // Görsel analiz edilmeden önce açıklamayı kontrol etmemiz gerekiyor
+
+  // _mesajAnalizeEt metodunda, görsel analiz edilmeden önce ilişki analizi kontrolünü ekleyelim
   Future<void> _mesajAnalizeEt() async {
     final controller = provider.Provider.of<MessageCoachController>(context, listen: false);
     
@@ -708,6 +829,13 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     final gorselDurumu = ref.read(mesajKocuGorselKontrolProvider);
     
     if (controller.gorselModu) {
+      // Görsel analiz edilmeden önce açıklamayı kontrol et
+      if (_iliskiAnaliziGerektirir(_aciklamaController.text)) {
+        // Eğer açıklama ilişki analizi gerektiriyorsa yönlendirme göster
+        _iliskiAnaliziYonlendirmesiGoster(context);
+        return; // İşlemi burada sonlandır
+      }
+      
       // Premium kontrolü
       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
       final isPremium = authViewModel.isPremium;
