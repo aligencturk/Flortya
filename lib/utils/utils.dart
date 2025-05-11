@@ -256,4 +256,54 @@ class Utils {
       },
     );
   }
+
+  /// Başarı dialog'u göster
+  static Future<void> showSuccessDialog(
+    BuildContext context,
+    String title,
+    String message, {
+    String buttonText = 'Tamam',
+    Function? onOkPressed,
+  }) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(color: Colors.green)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (onOkPressed != null) {
+                onOkPressed();
+              }
+            },
+            child: Text(buttonText),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Hata dialog'u göster
+  static Future<void> showErrorDialog(
+    BuildContext context,
+    String title,
+    String message, {
+    String buttonText = 'Tamam',
+  }) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(color: Colors.red)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(buttonText),
+          ),
+        ],
+      ),
+    );
+  }
 } 

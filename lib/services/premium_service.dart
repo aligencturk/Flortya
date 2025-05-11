@@ -361,15 +361,15 @@ class PremiumService {
 
 // Premium özellikleri tanımlayan enum
 enum PremiumFeature {
-  VISUAL_OCR,      // Görselden analiz
-  TXT_ANALYSIS,    // TXT dosyasından analiz
-  WRAPPED_ANALYSIS, // Spotify Wrapped tarzı analiz
-  CONSULTATION,    // Danışma
-  MESSAGE_COACH,   // Mesaj koçu metin analizi
-  ALTERNATIVE_SUGGESTIONS, // Alternatif mesaj önerileri
-  RESPONSE_SCENARIOS, // Yanıt senaryoları
-  VISUAL_MODE,     // Görsel mod (tümü)
+  VISUAL_OCR,           // Görsel analizi
+  TXT_ANALYSIS,         // Metin dosyası analizi
+  WRAPPED_ANALYSIS,     // Wrapped tarzı analiz
+  CONSULTATION,         // Danışma
+  MESSAGE_COACH,        // Mesaj koçu
+  ALTERNATIVE_SUGGESTIONS, // Alternatif öneriler
+  RESPONSE_SCENARIOS,    // Yanıt senaryoları
+  VISUAL_MODE,           // Görsel mod
   VISUAL_ALTERNATIVE_SUGGESTIONS, // Görsel mod alternatif öneriler
-  VISUAL_POSITIVE_SCENARIO, // Görsel mod olumlu yanıt senaryosu
-  VISUAL_NEGATIVE_SCENARIO  // Görsel mod olumsuz yanıt senaryosu
+  VISUAL_POSITIVE_SCENARIO, // Görsel mod olumlu senaryo
+  VISUAL_NEGATIVE_SCENARIO, // Görsel mod olumsuz senaryo
 } 

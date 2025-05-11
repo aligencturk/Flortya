@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../services/premium_service.dart';
+import '../app_router.dart';
 
 class FeatureCard extends StatelessWidget {
   final String title;
@@ -172,8 +174,8 @@ void showPremiumInfoDialog(BuildContext context, PremiumFeature feature) {
           ),
           onPressed: () {
             Navigator.pop(context);
-            // Burada premium satın alma sayfasına yönlendirme yapılabilir
-            // Navigator.pushNamed(context, '/premium');
+            // Premium sayfasına yönlendir
+            context.push(AppRouter.premium);
           },
           child: const Text(
             'Premium\'a Geç',

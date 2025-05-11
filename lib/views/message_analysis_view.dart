@@ -315,7 +315,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Danışma',
+                            'Danış',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontWeight: FontWeight.bold,
@@ -816,7 +816,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Reklam simülasyonu gösterme fonksiyonu
   Future<void> _showAdSimulation() async {
     if (!mounted) return;
-    
+     
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -840,6 +840,32 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               const Text(
                 "Reklam yükleniyor...",
                 style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      // Premium sayfasına yönlendir
+                      Navigator.pop(context); // Dialog'u kapat
+                      context.push(AppRouter.premium);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9D3FFF),
+                    ),
+                    child: const Text(
+                      "Premium'a Geç",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Reklamları görmek istemiyorsanız Premium'a geçebilirsiniz.",
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -2564,5 +2590,125 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       debugPrint('Önbellek kontrolü sırasında hata: $e');
       return false;
     }
+  }
+
+  // Premium özelliği için bilgilendirme dialog'unu göster
+  void showPremiumInfoDialog(BuildContext context, PremiumFeature feature) {
+    String featureName = '';
+    String description = '';
+    
+    switch (feature) {
+      case PremiumFeature.VISUAL_OCR:
+        featureName = 'Görsel Analizi';
+        description = 'Sınırsız görsel analizi yapabilmek için Premium üyeliğe geçin. Premium üyeler reklam izlemeden sınırsız görsel analizi yapabilir.';
+        break;
+      case PremiumFeature.TXT_ANALYSIS:
+        featureName = 'Metin Dosyası Analizi';
+        description = 'Sınırsız metin dosyası analizi için Premium üyeliğe geçin. Premium üyeler limitsiz .txt dosyası analizi yapabilir.';
+        break;
+      case PremiumFeature.WRAPPED_ANALYSIS:
+        featureName = 'Wrapped Analiz';
+        description = 'Sınırsız detaylı Spotify Wrapped tarzı analiz yapmak için Premium üyeliğe geçin.';
+        break;
+      case PremiumFeature.CONSULTATION:
+        featureName = 'Danışma Hizmeti';
+        description = 'Danışma hizmetimizden yararlanmak için Premium üyeliğe geçin. Premium üyeler ilişki uzmanlarımızdan kişisel danışmanlık alabilir.';
+        break;
+      case PremiumFeature.MESSAGE_COACH:
+        featureName = 'Mesaj Koçu';
+        description = 'Mesaj koçu özelliğinden sınırsız yararlanmak için Premium üyeliğe geçin.';
+        break;
+      default:
+        featureName = 'Premium Özelliği';
+        description = 'Bu özellikten yararlanmak için Premium üyeliğe geçin.';
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF9D3FFF), width: 1),
+          ),
+          title: Text(
+            featureName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                description,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Premium avantajları:",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildPremiumFeatureItem('Sınırsız görsel analizi'),
+              _buildPremiumFeatureItem('Reklamsız kullanım'),
+              _buildPremiumFeatureItem('Mesaj ve ilişki koçluğu'),
+              _buildPremiumFeatureItem('Uzman danışmanlık desteği'),
+              _buildPremiumFeatureItem('Detaylı ilişki raporları'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D3FFF),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                // Premium sayfasına yönlendir
+                context.push(AppRouter.premium);
+              },
+              child: const Text(
+                "Premium'a Geç",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Premium özellik maddesi
+  Widget _buildPremiumFeatureItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF9D3FFF), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 } 

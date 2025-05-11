@@ -18,6 +18,7 @@ import 'views/settings_view.dart';
 import 'views/conversation_summary_view.dart';
 import 'views/message_coach_view.dart';
 import 'views/past_message_coach_view.dart';
+import 'views/premium_view.dart';
 import 'utils/utils.dart';
 import 'utils/loading_indicator.dart';
 import 'widgets/custom_password_field.dart';
@@ -1900,6 +1901,8 @@ class AppRouter {
   static const String messageCoach = '/message-coach';
   // Mesaj koçu geçmişi sayfası rotası
   static const String pastMessageCoach = '/past-message-coach';
+  // Premium sayfası rotası
+  static const String premium = '/premium';
 
   static GoRouter createRouter(AuthViewModel authViewModel) {
     return GoRouter(
@@ -2143,6 +2146,13 @@ class AppRouter {
             final isGoogleOrAppleLogin = state.extra as bool? ?? true;
             return ProfileSetupView(isGoogleOrAppleLogin: isGoogleOrAppleLogin);
           },
+        ),
+        
+        // Premium sayfası rotası
+        GoRoute(
+          path: premium,
+          name: 'premium',
+          builder: (context, state) => const PremiumView(),
         ),
       ],
       errorBuilder: (context, state) => Scaffold(

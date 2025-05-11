@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:provider/provider.dart' as provider;
+import 'package:go_router/go_router.dart';
 import '../controllers/message_coach_controller.dart';
 import '../controllers/message_coach_visual_controller.dart';
 import '../models/message_coach_analysis.dart';
@@ -17,6 +18,7 @@ import '../utils/loading_indicator.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../services/premium_service.dart';
 import '../services/ad_service.dart';
+import '../app_router.dart';
 
 class MessageCoachView extends ConsumerStatefulWidget {
   const MessageCoachView({super.key});
@@ -1510,52 +1512,45 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Görsel analizi hakkınız dolmuştur. Premium üyelik alarak sınırsız erişim kazanabilirsiniz:',
+                'Görsel analizi, alternatif mesaj önerileri ve daha fazla premium özelliğe erişmek için Premium üyeliğe geçebilirsiniz.',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                 ),
               ),
               const SizedBox(height: 16),
-              _premiumOzellikSatiri(Icons.image, 'Sınırsız Görsel Analizi'),
+              const Text(
+                "Premium üyelik avantajları:",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
               const SizedBox(height: 8),
-              _premiumOzellikSatiri(Icons.recommend, 'Alternatif Öneriler'),
-              const SizedBox(height: 8),
-              _premiumOzellikSatiri(Icons.assignment, 'Tüm İçerik Analizleri'),
-              const SizedBox(height: 8),
-              _premiumOzellikSatiri(Icons.support_agent, 'Öncelikli Destek'),
+              _buildPremiumFeatureItem('Sınırsız görsel analizi'),
+              _buildPremiumFeatureItem('Reklamsız kullanım'),
+              _buildPremiumFeatureItem('Alternatif mesaj önerileri'),
+              _buildPremiumFeatureItem('Pozitif ve negatif senaryo analizleri'),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text(
-                'Kapat',
-                style: TextStyle(
-                  color: Color(0xFF9D3FFF),
-                ),
-              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Premium satın alma sayfasına yönlendir
-                Navigator.of(context).pushNamed('/premium');
-              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF9D3FFF),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
               ),
+              onPressed: () {
+                Navigator.pop(context);
+                // Premium sayfasına yönlendir
+                context.push(AppRouter.premium);
+              },
               child: const Text(
-                'Premium Al',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                "Premium'a Geç",
+                style: TextStyle(color: Colors.white),
               ),
             ),
           ],
@@ -1563,25 +1558,23 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
       },
     );
   }
-
-  // Premium özellik satırı widget'ı
-  Widget _premiumOzellikSatiri(IconData icon, String metin) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: const Color(0xFF9D3FFF),
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          metin,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
+  
+  // Premium özellik maddesi
+  Widget _buildPremiumFeatureItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF9D3FFF), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
