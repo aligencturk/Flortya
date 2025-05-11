@@ -20,6 +20,7 @@ import '../utils/loading_indicator.dart';
 import '../models/message_coach_analysis.dart';
 import '../services/premium_service.dart';
 import '../widgets/feature_card.dart';
+import '../services/ad_service.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -820,89 +821,38 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return WillPopScope(
-          onWillPop: () async => false, // Geri tuşunu devre dışı bırak
-          child: AlertDialog(
-            backgroundColor: const Color(0xFF352269),
-            title: Row(
-              children: [
-                Icon(Icons.live_tv, color: Colors.white),
-                SizedBox(width: 10),
-                Text('Reklam', style: TextStyle(color: Colors.white)),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: 150,
-                  child: Center(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: 150,
-                          color: Colors.black54,
-                        ),
-                        Icon(
-                          Icons.smart_display,
-                          size: 80,
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                        Positioned(
-                          bottom: 10,
-                          right: 10,
-                          child: TweenAnimationBuilder<int>(
-                            tween: IntTween(begin: 5, end: 0),
-                            duration: Duration(seconds: 5),
-                            builder: (context, value, child) {
-                              return Container(
-                                padding: EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.black45,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '$value',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              );
-                            },
-                            onEnd: () {
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Görsel analiz yapabilmek için reklam izliyorsunuz...',
-                  style: TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Reklamsız kullanım için Premium üyeliği değerlendirebilirsiniz.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: Row(
+            children: [
+              Icon(Icons.live_tv, color: Colors.white),
+              SizedBox(width: 10),
+              Text('Reklam', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Reklam yükleniyor...",
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         );
       },
     );
     
-    // 5 saniye bekle - reklam süresi
-    await Future.delayed(Duration(seconds: 5));
+    // AdService kullanarak reklam göster
+    AdService.loadRewardedAd(() {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    });
   }
   
   // TXT dosyası analizi - reklam kontrolü ile

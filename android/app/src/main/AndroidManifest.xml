@@ -20,11 +20,17 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
     <application
-        android:label="FlörtAI"
+        android:label="Lovizia"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"> <!-- HTTP bağlantıları için -->
+
+
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3600325889588673~3863681201"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

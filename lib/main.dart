@@ -9,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/message_viewmodel.dart';
@@ -26,6 +27,7 @@ import 'viewmodels/past_reports_viewmodel.dart';
 import 'services/notification_service.dart';
 import 'controllers/message_coach_controller.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -33,6 +35,16 @@ void main() async {
   
   try {
     logger.i('Uygulama başlatılıyor...');
+    
+    // Test cihazı ID'si tanımla
+    final List<String> testDeviceIds = ['YOUR_TEST_DEVICE_ID'];
+    
+    // MobileAds'i başlat
+    await MobileAds.instance.initialize();
+    MobileAds.instance.updateRequestConfiguration(
+      RequestConfiguration(testDeviceIds: testDeviceIds),
+    );
+    logger.i('Mobile Ads başlatıldı');
     
     // Firebase başlatma
     await Firebase.initializeApp();

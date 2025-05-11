@@ -11,6 +11,7 @@ import '../widgets/custom_button.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 import '../services/relationship_access_service.dart';
+import '../services/ad_service.dart';
 
 class ReportView extends StatefulWidget {
   final bool skipAccessCheck;
@@ -203,123 +204,88 @@ class _ReportViewState extends State<ReportView> {
       },
     );
     
-    await Future.delayed(const Duration(seconds: 3));
-    
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext watchingContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF352269),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.videocam,
-                color: Colors.amber,
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "Reklam oynatılıyor...",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
-                backgroundColor: Colors.grey[800],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    
-    await Future.delayed(const Duration(seconds: 5));
-    
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    
-    // Tüm işlemleri try-catch içine alarak hataları yönetiyoruz
-    try {
-      switch (type) {
-        case AdViewType.TEST_ACCESS:
-          await _accessService.setRelationshipTestAdViewed(true);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Tebrikler! 3 ilişki değerlendirmesi hakkı kazandınız."),
-                backgroundColor: Color(0xFF4A2A80),
-              ),
-            );
-            
-            // Reklam izlendikten sonra rapor sayfasına yönlendir
+    // AdService kullanarak reklam göster
+    AdService.loadRewardedAd(() async {
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      
+      // Tüm işlemleri try-catch içine alarak hataları yönetiyoruz
+      try {
+        switch (type) {
+          case AdViewType.TEST_ACCESS:
+            await _accessService.setRelationshipTestAdViewed(true);
             if (context.mounted) {
-              // Sayfadan çıkış yapıp tekrar girerek state sorunlarını önle
-              await Future.delayed(const Duration(milliseconds: 300));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Tebrikler! 3 ilişki değerlendirmesi hakkı kazandınız."),
+                  backgroundColor: Color(0xFF4A2A80),
+                ),
+              );
+              
+              // Reklam izlendikten sonra rapor sayfasına yönlendir
               if (context.mounted) {
-                // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const ReportView(skipAccessCheck: true)
-                  )
-                );
+                // Sayfadan çıkış yapıp tekrar girerek state sorunlarını önle
+                await Future.delayed(const Duration(milliseconds: 300));
+                if (context.mounted) {
+                  // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const ReportView(skipAccessCheck: true)
+                    )
+                  );
+                }
               }
             }
-          }
-          break;
-          
-        case AdViewType.REPORT_VIEW:
-          await _accessService.incrementReportViewCount();
-          if (context.mounted) {
-            setState(() {
-              _showReportResult = true;
-            });
-          }
-          break;
-          
-        case AdViewType.REPORT_REGENERATE:
-          await _accessService.incrementReportRegenerateCount();
-          
-          if (context.mounted) {
-            // Reklam sonrası testi güvenli bir şekilde yeniden başlat
-            WidgetsBinding.instance.addPostFrameCallback((_) {
+            break;
+            
+          case AdViewType.REPORT_VIEW:
+            await _accessService.incrementReportViewCount();
+            if (context.mounted) {
+              setState(() {
+                _showReportResult = true;
+              });
+            }
+            break;
+            
+          case AdViewType.REPORT_REGENERATE:
+            await _accessService.incrementReportRegenerateCount();
+            
+            if (context.mounted) {
+              // Reklam sonrası testi güvenli bir şekilde yeniden başlat
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const ReportView(skipAccessCheck: true)
+                    )
+                  );
+                }
+              });
+            }
+            break;
+            
+          case AdViewType.SUGGESTION_UNLOCK:
+            if (suggestionIndex != null) {
+              await _accessService.unlockSuggestion(suggestionIndex);
               if (mounted) {
-                // Özel parametre ile hak kontrolünü atlayarak sayfaya yönlendir
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const ReportView(skipAccessCheck: true)
-                  )
-                );
+                await _loadUnlockedSuggestions();
               }
-            });
-          }
-          break;
-          
-        case AdViewType.SUGGESTION_UNLOCK:
-          if (suggestionIndex != null) {
-            await _accessService.unlockSuggestion(suggestionIndex);
-            if (mounted) {
-              await _loadUnlockedSuggestions();
             }
-          }
-          break;
+            break;
+        }
+      } catch (e) {
+        debugPrint('Reklam işlemleri sırasında hata: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("İşlem sırasında bir hata oluştu: $e"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    } catch (e) {
-      debugPrint('Reklam işlemleri sırasında hata: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("İşlem sırasında bir hata oluştu: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    });
   }
 
   void _startNewReport(BuildContext context) async {

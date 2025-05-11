@@ -16,6 +16,7 @@ import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../services/premium_service.dart';
+import '../services/ad_service.dart';
 
 class MessageCoachView extends ConsumerStatefulWidget {
   const MessageCoachView({super.key});
@@ -564,14 +565,10 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
   
   // Reklam gösterme simülasyonu
   Future<void> _showAdSimulation() async {
-    return showDialog(
+    showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.of(context).pop();
-        });
-        
         return AlertDialog(
           backgroundColor: const Color(0xFF2D1957),
           content: Column(
@@ -595,6 +592,13 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
         );
       },
     );
+    
+    // AdService kullanarak gerçek reklam göster
+    return AdService.loadRewardedAd(() {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    });
   }
   
   // Reklam gerektiren işlem için diyalog göster

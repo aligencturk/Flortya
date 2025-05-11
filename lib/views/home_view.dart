@@ -18,6 +18,7 @@ import '../utils/utils.dart';
 import '../views/message_coach_view.dart';
 import '../services/relationship_access_service.dart';
 import '../views/report_view.dart';
+import '../services/ad_service.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -1350,10 +1351,10 @@ class _HomeViewState extends State<HomeView> {
   
   // Reklam izleme simülasyonu
   void _simulateAdvertisement(BuildContext context, String title, String advice, Color color, IconData icon, int index) {
-    // Reklam yükleniyor diyaloğu
+    // Yükleniyor diyaloğu
     showDialog(
       context: context,
-      barrierDismissible: false, // Dışarı tıklayarak kapatılamaz
+      barrierDismissible: false,
       builder: (BuildContext loadingContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF352269),
@@ -1375,67 +1376,28 @@ class _HomeViewState extends State<HomeView> {
       },
     );
     
-    // 3 saniye bekleyip reklam izleme simülasyonu yap
-    Future.delayed(const Duration(seconds: 3), () {
+    // AdService kullanarak reklam göster
+    AdService.loadRewardedAd(() {
       if (!context.mounted) return;
       Navigator.of(context).pop(); // Yükleme diyaloğunu kapat
       
-      // İzleniyor diyaloğu
+      // Tavsiyeyi kaydet
+      _unlockAdvice(index);
+      
+      // Başarı mesajı
       if (!context.mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext watchingContext) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF352269),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.videocam,
-                  color: Colors.amber,
-                  size: 64,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "Reklam oynatılıyor...",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
-                  backgroundColor: Colors.grey[800],
-                ),
-              ],
-            ),
-          );
-        },
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Tavsiye başarıyla açıldı! Artık bu tavsiyeyi istediğiniz zaman görüntüleyebilirsiniz."),
+          backgroundColor: Color(0xFF4A2A80),
+          duration: Duration(seconds: 3),
+        ),
       );
       
-      // 5 saniye daha bekle ve reklam izleme başarılı mesajı göster
-      Future.delayed(const Duration(seconds: 5), () {
-        if (!context.mounted) return;
-        Navigator.of(context).pop(); // Reklam izleme diyaloğunu kapat
-        
-        // Tavsiyeyi kaydet (SharedPreferences ile saklayacağız)
-        _unlockAdvice(index);
-        
-        // Başarı mesajı
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Tavsiye başarıyla açıldı! Artık bu tavsiyeyi istediğiniz zaman görüntüleyebilirsiniz."),
-            backgroundColor: Color(0xFF4A2A80),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        
-        // Tavsiye detayını göster
-        if (context.mounted) {
-          _showAdviceDetail(context, title, advice, color, icon);
-        }
-      });
+      // Tavsiye detayını göster
+      if (context.mounted) {
+        _showAdviceDetail(context, title, advice, color, icon);
+      }
     });
   }
   
@@ -3225,73 +3187,35 @@ class _HomeViewState extends State<HomeView> {
       },
     );
     
-    // 3 saniye bekleyip reklam izleme simülasyonu yap
-    await Future.delayed(const Duration(seconds: 3));
-    
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // Yükleme diyaloğunu kapat
-    
-    // İzleniyor diyaloğu
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext watchingContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF352269),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.videocam,
-                color: Colors.amber,
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "Reklam oynatılıyor...",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
-                backgroundColor: Colors.grey[800],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    
-    // 5 saniye daha bekle ve reklam izlendi durumunu güncelle
-    await Future.delayed(const Duration(seconds: 5));
-    
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // Reklam izleme diyaloğunu kapat
-    
-    // Reklam izlendi olarak işaretle
-    await _relationshipAccessService.setRelationshipTestAdViewed(true);
-    
-    // Başarı mesajı göster
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Tebrikler! 3 ilişki değerlendirmesi hakkı kazandınız."),
-        backgroundColor: Color(0xFF4A2A80),
-      ),
-    );
-    
-    // Sayfaya yönlendirirken skipAccessCheck=true parametresi ekleyerek
-    // erişim kontrolünü atlayacağımızı belirtiyoruz
-    if (!context.mounted) return;
-    
-    // Go router ile doğrudan yönlendirme yerine, Navigator ile ReportView'a
-    // skipAccessCheck=true parametresiyle yönlendiriyoruz
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const ReportView(skipAccessCheck: true)
-      )
-    );
+    // AdService kullanarak reklam göster
+    AdService.loadRewardedAd(() async {
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // Yükleme diyaloğunu kapat
+      
+      // Reklam izlendi olarak işaretle
+      await _relationshipAccessService.setRelationshipTestAdViewed(true);
+      
+      // Başarı mesajı göster
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Tebrikler! 3 ilişki değerlendirmesi hakkı kazandınız."),
+          backgroundColor: Color(0xFF4A2A80),
+        ),
+      );
+      
+      // Sayfaya yönlendirirken skipAccessCheck=true parametresi ekleyerek
+      // erişim kontrolünü atlayacağımızı belirtiyoruz
+      if (!context.mounted) return;
+      
+      // Go router ile doğrudan yönlendirme yerine, Navigator ile ReportView'a
+      // skipAccessCheck=true parametresiyle yönlendiriyoruz
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const ReportView(skipAccessCheck: true)
+        )
+      );
+    });
   }
 
   // Kategori adını formatlama

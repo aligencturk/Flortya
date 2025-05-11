@@ -65,6 +65,7 @@ dependencies:
   share_plus: ^11.0.0
   pdf: ^3.11.3
   printing: ^5.14.2
+  google_mobile_ads: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -108,3 +109,5 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   adaptive_icon_background: "#6750A4"
   adaptive_icon_foreground: "assets/icons/logo.jpg"
+  
+  google_mobile_ads: ^4.0.0
