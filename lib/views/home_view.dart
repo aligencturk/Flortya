@@ -1986,17 +1986,8 @@ class _HomeViewState extends State<HomeView> {
                                               const SizedBox(width: 8),
                                               ElevatedButton(
                                                 onPressed: () async {
-                                                  // Premium yükseltme işlemi
-                                                  final success = await authViewModel.upgradeToPremium();
-                                                  
-                                                  if (success && context.mounted) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text('Premium üyeliğe yükseltildiniz!'),
-                                                        backgroundColor: Color(0xFF4A2A80),
-                                                      ),
-                                                    );
-                                                  }
+                                                  // Premium sayfasına yönlendir
+                                                  context.push(AppRouter.premium);
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor: const Color(0xFF9D3FFF),
@@ -2268,10 +2259,18 @@ class _HomeViewState extends State<HomeView> {
           } else {
             // Premium değilse uyarı göster
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Bu özellik sadece Premium üyelere özeldir'),
-                duration: Duration(seconds: 2),
-                backgroundColor: Color(0xFF4A2A80),
+              SnackBar(
+                content: const Text('Bu özellik sadece Premium üyelere özeldir'),
+                duration: const Duration(seconds: 3),
+                backgroundColor: const Color(0xFF4A2A80),
+                action: SnackBarAction(
+                  label: 'Premium\'a Geç',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // Premium sayfasına yönlendir
+                    context.push(AppRouter.premium);
+                  },
+                ),
               ),
             );
           }

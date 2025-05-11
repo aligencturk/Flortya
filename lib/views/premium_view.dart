@@ -226,7 +226,7 @@ class _PremiumViewState extends State<PremiumView> {
 
   Widget _buildSubscriptionPlans() {
     return SizedBox(
-      height: 160,
+      height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _planlar.length,
@@ -240,65 +240,84 @@ class _PremiumViewState extends State<PremiumView> {
                 _selectedPlanIndex = index;
               });
             },
-            child: Container(
-              width: 150,
-              margin: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF352269) : const Color(0xFF1A2436),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isSelected ? const Color(0xFF9D3FFF) : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    plan['title'],
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF352269) : const Color(0xFF1A2436),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF9D3FFF) : Colors.transparent,
+                      width: 2,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    plan['price'],
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    plan['discountInfo'],
-                    style: TextStyle(
-                      color: isSelected ? const Color(0xFF9D3FFF) : Colors.white30,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (plan['mostPopular'])
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF9D3FFF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'En Popüler',
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Ana içerik - ama "En Popüler" etiketi olmadan
+                      Text(
+                        plan['title'],
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        plan['price'],
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        plan['discountInfo'],
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFF9D3FFF) : Colors.white30,
+                          fontSize: 14,
+                        ),
+                      ),
+                      // "En Popüler" etiketi için boş alan
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+                
+                // "En Popüler" etiketi - ayrı bir konumda
+                if (plan['mostPopular'])
+                  Positioned(
+                    bottom: 5,
+                    left: 0,
+                    right: 16, // Sağdaki marjini dikkate al
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9D3FFF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'En Popüler',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           );
         },
@@ -337,7 +356,7 @@ class _PremiumViewState extends State<PremiumView> {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       avantaj['title'],
                       style: const TextStyle(
@@ -351,7 +370,7 @@ class _PremiumViewState extends State<PremiumView> {
                 ],
               ),
               const SizedBox(height: 8),
-              Flexible(
+              Expanded(
                 child: Text(
                   avantaj['description'],
                   style: const TextStyle(
@@ -394,21 +413,27 @@ class _PremiumViewState extends State<PremiumView> {
           : Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Şimdi Premium Ol',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                const Flexible(
+                  child: Text(
+                    'Şimdi Premium Ol',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _planlar[_selectedPlanIndex]['price'],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Text(
+                    _planlar[_selectedPlanIndex]['price'],
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

@@ -589,6 +589,20 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                 '(Bu bir simülasyondur)',
                 style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () {
+                  // Önce reklamı kapat
+                  Navigator.of(context).pop();
+                  // Premium sayfasına yönlendir
+                  context.push(AppRouter.premium);
+                },
+                icon: const Icon(Icons.workspace_premium, color: Color(0xFF9D3FFF)),
+                label: const Text(
+                  'Reklamsız Premium\'a Geç',
+                  style: TextStyle(color: Color(0xFF9D3FFF)),
+                ),
+              ),
             ],
           ),
         );
@@ -611,39 +625,69 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2D1957),
-          title: Text(
-            title,
-            style: const TextStyle(color: Colors.white),
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(color: Colors.white),
-          ),
-          actions: [
-            TextButton(
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.amber, size: 16),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Premium üyelik ile tüm özelliklere reklam olmadan sınırsız erişebilirsiniz.',
+                    style: const TextStyle(color: Colors.amber, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
             onPressed: () {
               Navigator.pop(context);
               result = false;
             },
-              child: const Text(
+            child: const Text(
               'İptal', 
               style: TextStyle(color: Colors.white70),
-              ),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF9D3FFF),
-              ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push(AppRouter.premium);
+              result = false;
+            },
+            child: const Text(
+              'Premium\'a Geç', 
+              style: TextStyle(color: Colors.amber),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9D3FFF),
+            ),
             onPressed: () {
               Navigator.pop(context);
               result = true;
             },
-              child: const Text(
-                'Reklam İzle',
-                style: TextStyle(color: Colors.white),
-              ),
+            child: const Text(
+              'Reklam İzle',
+              style: TextStyle(color: Colors.white),
             ),
-          ],
+          ),
+        ],
       ),
     );
     
@@ -1635,6 +1679,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                       ),
                       onPressed: () {
                         // Yardım menüsü
+                        _showHelpDialog(context);
                       },
                     ),
                   ],
@@ -1857,6 +1902,848 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
       ),
     );
   }
+
+  void _showHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF352269),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Başlık ve Kapat Butonu
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Mesaj Koçu Rehberi',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // İçerik - Scrollable
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Mesaj Koçu Nedir?',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Mesaj Koçu, ilişkilerdeki mesajlaşmalarınız için analiz ve öneri sunan yapay zeka destekli bir özelliktir. Mesajlarınızı analiz ederek daha etkili iletişim kurmanıza yardımcı olur.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Metin Modu
+                        _buildFeatureCard(
+                          context: context,
+                          icon: Icons.text_fields,
+                          title: 'Metin Modu',
+                          description: 'Bu modda yazacağınız veya göndermeyi planladığınız bir mesajı analiz edebilirsiniz. Mesaj Koçu mesajınızı analiz ederek:',
+                          features: [
+                            'Mesajınızın olası etkilerini ve tonunu değerlendirir',
+                            'Alternatif mesaj önerileri sunar',
+                            'Karşı tarafın olası tepkilerini tahmin eder',
+                            'İletişim kalitesini artırmak için öneriler verir',
+                          ],
+                          buttonText: 'Metin Modu Nasıl Kullanılır?',
+                          onButtonPressed: () {
+                            Navigator.of(context).pop();
+                            _showTextModeHelpDialog(context);
+                          },
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Görsel Modu
+                        _buildFeatureCard(
+                          context: context,
+                          icon: Icons.image_outlined,
+                          title: 'Görsel Modu',
+                          description: 'Bu modda var olan bir sohbet ekran görüntüsünü analiz edebilirsiniz. Mesaj Koçu görsel üzerindeki yazışmaları analiz ederek:',
+                          features: [
+                            'Sohbetin genel havasını değerlendirir',
+                            'İlişki durumunuzu analiz eder',
+                            'Cevaplamanız için uygun mesaj önerileri sunar',
+                            'Karşı tarafın olası yanıtlarını tahmin eder',
+                          ],
+                          buttonText: 'Görsel Modu Nasıl Kullanılır?',
+                          onButtonPressed: () {
+                            Navigator.of(context).pop();
+                            _showVisualModeHelpDialog(context);
+                          },
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Premium Bilgisi
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.amber.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.workspace_premium,
+                                color: Colors.amber,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Premium Avantajı',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.amber,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Premium üyeler tüm özelliklere sınırsız erişebilir, görsel analizi ve alternatif mesaj önerilerini reklamsız kullanabilir.',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Alt buton
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.push('/premium');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9D3FFF),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.workspace_premium, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Premium\'a Geç',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Özellik kartı oluşturan yardımcı metod
+  Widget _buildFeatureCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String description,
+    required List<String> features,
+    required String buttonText,
+    required VoidCallback onButtonPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF4A2A80),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...features.map((feature) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '• ',
+                  style: TextStyle(
+                    color: Color(0xFF9D3FFF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    feature,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onButtonPressed,
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  buttonText,
+                  style: const TextStyle(
+                    color: Color(0xFF9D3FFF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.arrow_forward,
+                  color: Color(0xFF9D3FFF),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Metin modu yardımı diyaloğu
+  void _showTextModeHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF352269),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Başlık ve Kapat Butonu
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Metin Modu Kullanımı',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // İçerik - Scrollable
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Adım 1
+                        _buildStepCard(
+                          context: context,
+                          number: '1',
+                          title: 'Metin Modunu Seçin',
+                          description: 'Sağ üst köşedeki "Metin Modu" butonuna tıklayarak metin modunu aktif hale getirin.',
+                          imageUrl: null, // Resim eklemek isterseniz buraya URL veya asset path ekleyin
+                        ),
+                        
+                        // Adım 2
+                        _buildStepCard(
+                          context: context,
+                          number: '2',
+                          title: 'Mesajınızı Yazın',
+                          description: 'Analiz etmek istediğiniz mesajı metin alanına yazın. Göndermek istediğiniz veya aldığınız bir mesaj olabilir.',
+                          imageUrl: null,
+                        ),
+                        
+                        // Adım 3
+                        _buildStepCard(
+                          context: context,
+                          number: '3',
+                          title: '"Yanıtla" Butonuna Tıklayın',
+                          description: 'Sayfanın alt kısmındaki "Yanıtla" butonuna tıklayarak analiz işlemini başlatın.',
+                          imageUrl: null,
+                        ),
+                        
+                        // Adım 4
+                        _buildStepCard(
+                          context: context,
+                          number: '4',
+                          title: 'Sonuçları İnceleyin',
+                          description: 'Analiz sonuçlarında şunları göreceksiniz:\n• Mesajınızın değerlendirmesi\n• Sohbet genel havası\n• Cevap önerileri\n• Olası yanıt senaryoları',
+                          imageUrl: null,
+                        ),
+                        
+                        // İpuçları
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4A2A80),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(
+                                    Icons.lightbulb_outline,
+                                    color: Colors.amber,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'İpuçları',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildTip('Daha iyi analiz için bağlam sağlayın (örn. "Sevgilime bir özür mesajı yazıyorum").'),
+                              _buildTip('Gerçek mesajlar kullanarak daha doğru analizler alın.'),
+                              _buildTip('Alternatif mesaj önerilerini görmek için tavsiye kartlarına tıklayın.'),
+                              _buildTip('Cevap önerilerini kopyalamak için yanlarındaki kopyala ikonuna tıklayın.'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Alt buton
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9D3FFF),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Anladım',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Görsel modu yardımı diyaloğu
+  void _showVisualModeHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF352269),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Başlık ve Kapat Butonu
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Görsel Modu Kullanımı',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // İçerik - Scrollable
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Adım 1
+                        _buildStepCard(
+                          context: context,
+                          number: '1',
+                          title: 'Görsel Modunu Seçin',
+                          description: 'Sağ üst köşedeki "Görsel Modu" butonuna tıklayarak görsel modunu aktif hale getirin.',
+                          imageUrl: null,
+                        ),
+                        
+                        // Adım 2
+                        _buildStepCard(
+                          context: context,
+                          number: '2',
+                          title: 'Görsel Seçin',
+                          description: 'Analiz etmek istediğiniz sohbet ekran görüntüsünü seçmek için görsele tıklayın. Galeriden bir görsel seçmeniz istenecek.',
+                          imageUrl: null,
+                        ),
+                        
+                        // Adım 3
+                        _buildStepCard(
+                          context: context,
+                          number: '3',
+                          title: 'Açıklama Ekleyin (Opsiyonel)',
+                          description: 'Görsel hakkında bilgi vermek için açıklama ekleyebilirsiniz. Örneğin: "Bu mesajlardan sonra nasıl cevap vermeliyim?" veya "Bu kişi beni gerçekten seviyor mu?"',
+                          imageUrl: null,
+                        ),
+                        
+                        // Adım 4
+                        _buildStepCard(
+                          context: context,
+                          number: '4',
+                          title: '"Görseli Analiz Et" Butonuna Tıklayın',
+                          description: 'Sayfanın alt kısmındaki "Görseli Analiz Et" butonuna tıklayarak analiz işlemini başlatın.',
+                          imageUrl: null,
+                        ),
+                        
+                        // Adım 5
+                        _buildStepCard(
+                          context: context,
+                          number: '5',
+                          title: 'Sonuçları İnceleyin',
+                          description: 'Analiz sonucunda göreceğiniz bilgiler:\n• Konumunuzun değerlendirmesi\n• Alternatif cevap önerileri\n• Olumlu ve olumsuz yanıt senaryoları',
+                          imageUrl: null,
+                        ),
+                        
+                        // İpuçları
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4A2A80),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(
+                                    Icons.lightbulb_outline,
+                                    color: Colors.amber,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'İpuçları',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildTip('Görüntünün net ve okunaklı olduğundan emin olun.'),
+                              _buildTip('Mesajların bağlamını anlamak için yeterli sayıda mesaj içeren ekran görüntüleri kullanın.'),
+                              _buildTip('Premium üyelik ile görsel analizi sınırsız kullanabilirsiniz.'),
+                              _buildTip('Tüm alternatifleri görmek için "Tümünü Gör" butonuna tıklayın.'),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Premium Bilgisi
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.amber.withOpacity(0.3),
+                            ),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.amber,
+                                size: 24,
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Görsel modu premium olmayan kullanıcılar için bir kez ücretsiz kullanılabilir. Sınırsız kullanım için Premium üye olmanız gerekir.',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Alt buton
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9D3FFF),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Anladım',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Adım kartı widget'ı
+  Widget _buildStepCard({
+    required BuildContext context,
+    required String number,
+    required String title,
+    required String description,
+    String? imageUrl,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4A2A80),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Başlık kısmı
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF9D3FFF).withOpacity(0.2),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF9D3FFF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      number,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // İçerik kısmı
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                
+                // Eğer resim varsa göster
+                if (imageUrl != null) ...[
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 150,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // İpucu widget'ı
+  Widget _buildTip(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '💡 ',
+            style: TextStyle(
+              fontSize: 14,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Yardımcı widget sınıfları
@@ -2048,5 +2935,5 @@ class BlurredContentWithLock extends StatelessWidget {
         ),
       ),
     );
-  }
-} 
+  } 
+}

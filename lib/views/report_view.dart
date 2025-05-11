@@ -853,19 +853,55 @@ class _ReportViewState extends State<ReportView> {
                           final shouldRestart = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Testi Yeniden Başlat'),
-                              content: const Text('Testi yeniden başlatmak için kısa bir reklam izlemeniz gerekiyor. Devam etmek istiyor musunuz?'),
+                              backgroundColor: const Color(0xFF352269),
+                              title: const Text(
+                                'Testi Yeniden Başlat', 
+                                style: TextStyle(color: Colors.white)
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Testi yeniden başlatmak için kısa bir reklam izlemeniz gerekiyor. Devam etmek istiyor musunuz?',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.info_outline, color: Colors.amber, size: 16),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Premium üyelik ile tüm testleri reklamsız kullanabilirsiniz.',
+                                          style: const TextStyle(color: Colors.amber, fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(false),
-                                  child: const Text('Vazgeç'),
+                                  child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop(false);
+                                    context.push('/premium');
+                                  },
+                                  child: const Text(
+                                    'Premium\'a Geç', 
+                                    style: TextStyle(color: Colors.amber),
+                                  ),
                                 ),
                                 ElevatedButton(
                                   onPressed: () => Navigator.of(context).pop(true),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Theme.of(context).colorScheme.primary,
                                   ),
-                                  child: const Text('Reklam İzle'),
+                                  child: const Text('Reklam İzle', style: TextStyle(color: Colors.white)),
                                 ),
                               ],
                             ),
