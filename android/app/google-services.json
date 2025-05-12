@@ -52,6 +52,50 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:850956703555:android:1362eee0b2552e2de2c1f6",
+        "android_client_info": {
+          "package_name": "com.rivorya.flortya"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "850956703555-2hb5fgkkrs6n2tsnualb2et9144ast17.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rivorya.flortya",
+            "certificate_hash": "5edb8e013c89a17bcd6ce2793bb576dcb6782be9"
+          }
+        },
+        {
+          "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDckMQDz1CO7mNpwuRh-m0ziDQeIFaNcaM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "850956703555-ca9036a4ie43dqg3p3pkl99k8s4rvdbc.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.gorkem.flortai"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:850956703555:android:ce79c4404fad83d2e2c1f6",
         "android_client_info": {
           "package_name": "com.rivorya.lovizia"

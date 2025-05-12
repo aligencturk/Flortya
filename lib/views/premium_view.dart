@@ -175,7 +175,7 @@ class _PremiumViewState extends State<PremiumView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Lovizia Premium',
+            'Flörtya Premium',
             style: TextStyle(
               color: Colors.white,
               fontSize: 28,

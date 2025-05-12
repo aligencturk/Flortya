@@ -1,4 +1,4 @@
-package com.rivorya.lovizia
+package com.rivorya.flortya
 
 import io.flutter.embedding.android.FlutterActivity
 

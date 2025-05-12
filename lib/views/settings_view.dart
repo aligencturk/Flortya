@@ -790,7 +790,7 @@ class _SettingsViewState extends State<SettingsView> {
                   onTap: () {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('E-posta desteği: destek@lovizia.com')),
+                      const SnackBar(content: Text('E-posta desteği: destek@flortya.com')),
                     );
                   },
                 ),

@@ -95,7 +95,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Lovizia',
+          'Flörtya',
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -409,7 +409,7 @@ class LoginView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Lovizia',
+          'Flörtya',
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -678,7 +678,7 @@ class RegisterView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Lovizia',
+          'Flörtya',
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -950,7 +950,7 @@ class _EmailLoginViewState extends State<EmailLoginView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Lovizia',
+          'Flörtya',
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -1410,7 +1410,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Lovizia',
+          'Flörtya',
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
