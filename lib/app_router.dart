@@ -437,7 +437,7 @@ class LoginView extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'FlörtAI',
+                        'Flörtya',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -706,7 +706,7 @@ class RegisterView extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'FlörtAI',
+                        'Flörtya',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
