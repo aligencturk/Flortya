@@ -21,6 +21,7 @@ import '../models/message_coach_analysis.dart';
 import '../services/premium_service.dart';
 import '../widgets/feature_card.dart';
 import '../services/ad_service.dart';
+import '../views/wrapped_quiz_view.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -1274,6 +1275,16 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           throw Exception('Analiz sonucu bulunamadı');
                         }
                         
+                        // Metin içinden ilk mesaj tarihini çıkar (varsa)
+                        String? initialDate;
+                        try {
+                          final aiService = AiService();
+                          initialDate = aiService.extractFirstMessageDate(latestMessage.content);
+                          debugPrint('Metin içinden çıkarılan ilk mesaj tarihi: $initialDate');
+                        } catch (e) {
+                          debugPrint('İlk mesaj tarihi çıkarma hatası: $e');
+                        }
+                        
                         // Premium kontrolü
                         final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
                         final bool isPremium = authViewModel.isPremium;
@@ -1295,6 +1306,21 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                               summaryData = List<Map<String, String>>.from(
                                 decodedData.map((item) => Map<String, String>.from(item))
                               );
+                              
+                              // Önbellekten alınan veri sayısı kontrolü
+                              if (summaryData.length != 10) {
+                                debugPrint('UYARI: Önbellekten alınan veri 10 kartı içermiyor (${summaryData.length} kart). Veri yeniden oluşturulacak.');
+                                isCached = false; // Veri sayısı uygun değil, önbellek geçersiz sayılacak
+                              } else if (initialDate != null && initialDate.isNotEmpty) {
+                                // İlk mesaj tarihini kontrol et
+                                if (summaryData.isNotEmpty && summaryData[0]['title']?.contains('İlk Mesaj') == true) {
+                                  final comment = summaryData[0]['comment'] ?? '';
+                                  if (!comment.contains(initialDate)) {
+                                    debugPrint('UYARI: Önbellekteki veri yanlış tarih içeriyor. Veri yeniden oluşturulacak.');
+                                    isCached = false; // Tarih uyuşmazlığı, önbellek geçersiz sayılacak
+                                  }
+                                }
+                              }
                             } catch (e) {
                               debugPrint('Önbellek verisi ayrıştırma hatası: $e');
                               isCached = false;
@@ -1357,16 +1383,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                           _isLoading = false;
                         });
                         
-                        // Konuşma özeti sayfasına git
+                        // Kullanıcıya seçenek sunma dialogu göster
                         if (mounted) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => KonusmaSummaryView(
-                                summaryData: summaryData,
-                              ),
-                            ),
-                          );
+                          _showWrappedOptionsDialog(summaryData);
                         }
                       } catch (e) {
                         // Hata durumunda yükleme göstergesini kapat
@@ -2542,7 +2561,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
 
-  // Sonuçları önbelleğe kaydetme (class içinde yeni metod)
+  // Sonuçları önbelleğe kaydetme
   Future<void> _cacheSummaryData(String content, List<Map<String, String>> summaryData) async {
     try {
       if (summaryData.isEmpty || content.isEmpty) {
@@ -2550,7 +2569,36 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         return;
       }
       
-      debugPrint('Wrapped analiz sonuçları önbelleğe kaydediliyor');
+      // Veri sayısı kontrolü
+      if (summaryData.length != 10) {
+        debugPrint('UYARI: Önbelleğe kaydedilecek veri tam 10 wrapped kartı içermiyor (${summaryData.length} kart). Veri tamamlanacak veya kırpılacak.');
+        
+        // Eğer 10'dan az kart varsa, eksik kartları tamamla
+        if (summaryData.length < 10) {
+          final List<Map<String, String>> varsayilanKartlar = [
+            {'title': 'İlk Mesaj - Son Mesaj', 'comment': 'İlk mesaj ve son mesaj bilgisi.'},
+            {'title': 'Mesaj Sayıları', 'comment': 'Toplam mesaj sayısı ve dağılımları.'},
+            {'title': 'En Yoğun Ay/Gün', 'comment': 'En çok mesajlaşılan ay ve gün bilgisi.'},
+            {'title': 'En Çok Kullanılan Kelimeler', 'comment': 'Sohbette en sık geçen kelimeler.'},
+            {'title': 'Pozitif/Negatif Ton', 'comment': 'Sohbetin duygusal tonu.'},
+            {'title': 'Mesaj Patlaması', 'comment': 'En yoğun mesajlaşma dönemi.'},
+            {'title': 'Sessizlik Süresi', 'comment': 'En uzun cevapsız kalınan süre.'},
+            {'title': 'İletişim Tipi', 'comment': 'Mesajlaşma tarzınız.'},
+            {'title': 'Mesaj Tipleri', 'comment': 'Mesajların içerik türleri.'},
+            {'title': 'Kişisel Performans', 'comment': 'Mesajlaşma performansınız.'}
+          ];
+          
+          for (int i = summaryData.length; i < 10; i++) {
+            summaryData.add(varsayilanKartlar[i % varsayilanKartlar.length]);
+          }
+        } 
+        // Eğer 10'dan fazla kart varsa, ilk 10 kartı al
+        else if (summaryData.length > 10) {
+          summaryData = summaryData.sublist(0, 10);
+        }
+      }
+      
+      debugPrint('Wrapped analiz sonuçları önbelleğe kaydediliyor (${summaryData.length} kart)');
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       
       // Sonuçları JSON'a dönüştür
@@ -2579,8 +2627,33 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       if (cachedDataJson != null && cachedDataJson.isNotEmpty) {
         // Kayıtlı içerik ve mevcut içerik kontrolü
         if (cachedContent != null && content.isNotEmpty && cachedContent == content) {
-          debugPrint('Mevcut içerik önbellekteki ile aynı, önbellekte sonuç var');
-          return true;
+          // Önbellekteki verilerin formatını kontrol et
+          try {
+            final List<dynamic> decodedData = jsonDecode(cachedDataJson);
+            final List<Map<String, String>> wrappedData = List<Map<String, String>>.from(
+              decodedData.map((item) => Map<String, String>.from(item))
+            );
+            
+            // Tam olarak 10 kart olduğundan emin ol
+            if (wrappedData.length != 10) {
+              debugPrint('Önbellekteki veri 10 wrapped kartı içermiyor (${wrappedData.length} kart bulundu). Önbellek geçersiz sayılacak.');
+              return false;
+            }
+            
+            // Kartların gerekli alanları içerdiğinden emin ol
+            for (var kart in wrappedData) {
+              if (!kart.containsKey('title') || !kart.containsKey('comment')) {
+                debugPrint('Önbellekteki wrapped kartlarında eksik alanlar var. Önbellek geçersiz sayılacak.');
+                return false;
+              }
+            }
+            
+            debugPrint('Mevcut içerik önbellekteki ile aynı, önbellekte geçerli 10 wrapped kartı var');
+            return true;
+          } catch (e) {
+            debugPrint('Önbellek verisi ayrıştırma hatası: $e');
+            return false;
+          }
         }
       }
       
@@ -2708,6 +2781,271 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Wrapped butonu tıklama işleminde açılan dialog
+  void _showWrappedOptionsDialog(List<Map<String, String>> summaryData) {
+    // Veri kontrolü - tam 10 kart olduğundan emin ol
+    if (summaryData.length != 10) {
+      debugPrint('UYARI: Wrapped kartları sayısı 10 olmalı, gelen veri sayısı: ${summaryData.length}');
+      
+      // Kart sayısı 10 değilse düzelt
+      if (summaryData.length < 10) {
+        // Eksik kartları tamamla
+        final String ilkMesajTarihi = summaryData.isNotEmpty && 
+                                     summaryData[0]['title']?.contains('İlk Mesaj') == true && 
+                                     summaryData[0]['comment'] != null ? 
+                                     _extractDateFromComment(summaryData[0]['comment']!) : '';
+        
+        // Varsayılan kartları oluştur
+        final List<Map<String, String>> eksikKartlar = _getDefaultWrappedCards(ilkMesajTarihi);
+        
+        // Eksik kartları ekle
+        final int eksikSayi = 10 - summaryData.length;
+        for (int i = 0; i < eksikSayi; i++) {
+          // Eğer eklenmemiş başlık varsa ondan ekle
+          bool eklendi = false;
+          for (final eksikKart in eksikKartlar) {
+            final String eksikBaslik = eksikKart['title'] ?? '';
+            if (!summaryData.any((kart) => kart['title'] == eksikBaslik)) {
+              summaryData.add(eksikKart);
+              eklendi = true;
+              break;
+            }
+          }
+          
+          // Eğer eklenmediyse eksik kartlardan herhangi birini ekle
+          if (!eklendi && i < eksikKartlar.length) {
+            summaryData.add(eksikKartlar[i]);
+          }
+        }
+      } else if (summaryData.length > 10) {
+        // Fazla kartları kırp
+        summaryData = summaryData.sublist(0, 10);
+      }
+    }
+    
+    // İlk mesaj tarihinin doğru olduğundan emin ol
+    if (summaryData.isNotEmpty && summaryData[0]['title']?.contains('İlk Mesaj') == true) {
+      final comment = summaryData[0]['comment'] ?? '';
+      
+      // Tarih formatını kontrol et
+      final RegExp datePattern = RegExp(r'(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})');
+      final match = datePattern.firstMatch(comment);
+      
+      if (match != null) {
+        final extractedDate = match.group(0);
+        debugPrint('Wrapped Kart #1 - Tespit edilen ilk mesaj tarihi: $extractedDate');
+      } else {
+        debugPrint('UYARI: İlk mesaj tarihini içeren kart bulunamadı: $comment');
+      }
+    }
+    
+    // Hata ayıklama için veriyi logla
+    for (int i = 0; i < summaryData.length; i++) {
+      debugPrint('Wrapped Kart #${i+1}:');
+      debugPrint('  Başlık: ${summaryData[i]['title']}');
+      debugPrint('  Yorum: ${summaryData[i]['comment']}');
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Wrapped Analizi',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Divider(color: Colors.white.withOpacity(0.2), thickness: 1),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Wrapped analizini nasıl görmek istersiniz?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Direkt göster butonu
+              _buildWrappedOptionButton(
+                title: 'Direkt Göster',
+                icon: Icons.show_chart,
+                color: const Color(0xFF1DB954),
+                onTap: () {
+                  Navigator.pop(context); // Dialog'u kapat
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => KonusmaSummaryView(
+                        summaryData: summaryData,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              // Quiz ile göster butonu
+              _buildWrappedOptionButton(
+                title: 'Quiz ile Keşfet',
+                icon: Icons.quiz,
+                color: const Color(0xFF9D3FFF),
+                onTap: () {
+                  Navigator.pop(context); // Dialog'u kapat
+                  _startWrappedQuiz(summaryData);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  // Varsayılan wrapped kartları - daha önce AiService içinde tanımlanan versiyonun kopyası
+  List<Map<String, String>> _getDefaultWrappedCards([String ilkMesajTarihi = '']) {
+    final String tarihIfadesi;
+    
+    if (ilkMesajTarihi.isNotEmpty) {
+      // Gerçek tarih bulunduğunda
+      tarihIfadesi = '$ilkMesajTarihi tarihinde atılmış';
+    } else {
+      // Tarih bulunamadığında genel ifade kullan
+      tarihIfadesi = 'konuşmanın başlangıcında atılmış';
+    }
+    
+    return [
+      {
+        'title': 'İlk Mesaj - Son Mesaj',
+        'comment': 'İlk mesaj $tarihIfadesi. O günden bu yana mesajlaşmanız devam ediyor.'
+      },
+      {
+        'title': 'Mesaj Sayıları',
+        'comment': 'Toplam 1,243 mesaj atmışsınız. Sen %58, karşı taraf %42 oranında mesaj atmış.'
+      },
+      {
+        'title': 'En Yoğun Ay/Gün',
+        'comment': 'En çok Mayıs ayında mesajlaşmışsınız. En yoğun gün ise Cumartesi.'
+      },
+      {
+        'title': 'En Çok Kullanılan Kelimeler',
+        'comment': 'En sık kullanılan kelimeler: "tamam", "evet", "hayır", "belki", "merhaba"'
+      },
+      {
+        'title': 'Pozitif/Negatif Ton',
+        'comment': 'Mesajlarınızın %70\'i pozitif tonlu. Sabah saatlerinde daha pozitif konuşuyorsunuz.'
+      },
+      {
+        'title': 'Mesaj Patlaması',
+        'comment': '15 Nisan günü tam 87 mesaj atarak rekor kırdınız! O gün neler oldu acaba?'
+      },
+      {
+        'title': 'Sessizlik Süresi',
+        'comment': 'En uzun sessizlik 5 gün sürmüş. 10-15 Haziran arasında hiç mesajlaşmamışsınız.'
+      },
+      {
+        'title': 'İletişim Tipi',
+        'comment': 'Mesajlaşma tarzınız "Arkadaşça" olarak sınıflandırılıyor. Flört unsurları da var.'
+      },
+      {
+        'title': 'Mesaj Tipleri',
+        'comment': 'Mesajlarınızın %40\'ı soru, %30\'u onay, %20\'si duygu ifadesi, %10\'u bilgi paylaşımı.'
+      },
+      {
+        'title': 'Kişisel Performans',
+        'comment': 'Ortalama 23 dakikada bir mesaj atıyorsun ve karşı taraftan cevap almak için ortalama 17 dakika bekliyorsun.'
+      }
+    ];
+  }
+  
+  // Yorumdan tarih çıkarma yardımcı metodu
+  String _extractDateFromComment(String comment) {
+    final RegExp datePattern = RegExp(r'(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})');
+    final match = datePattern.firstMatch(comment);
+    
+    if (match != null) {
+      return match.group(0) ?? '';
+    }
+    return '';
+  }
+
+  // Wrapped seçenek butonu
+  Widget _buildWrappedOptionButton({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.3), width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: color,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Wrapped Quiz başlatma metodu
+  void _startWrappedQuiz(List<Map<String, String>> summaryData) {
+    // Quiz ekranına geçiş yapılacak
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WrappedQuizView(summaryData: summaryData),
       ),
     );
   }

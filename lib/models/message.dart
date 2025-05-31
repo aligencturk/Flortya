@@ -73,20 +73,51 @@ class Message {
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    String? analysisSourceStr = analysisSource?.name;
+    
+    final map = <String, dynamic>{
       'content': content,
       'timestamp': timestamp ?? Timestamp.now(),
       'sentAt': Timestamp.fromDate(sentAt),
       'sentByUser': sentByUser,
       'isAnalyzed': isAnalyzed,
-      'imageUrl': imageUrl ?? '',
-      'imagePath': imagePath ?? '',
-      'analysisResult': analysisResult?.toMap(),
       'userId': userId,
-      'errorMessage': errorMessage,
       'isAnalyzing': isAnalyzing,
-      'analysisSource': analysisSource?.name,
     };
+    
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      map['imageUrl'] = imageUrl;
+    }
+    
+    if (imagePath != null && imagePath!.isNotEmpty) {
+      map['imagePath'] = imagePath;
+    }
+    
+    if (analysisResult != null) {
+      try {
+        final analysisMap = analysisResult!.toMap();
+        if (analysisMap.isNotEmpty) {
+          map['analysisResult'] = analysisMap;
+        }
+      } catch (e) {
+        print("HATA: analysisResult.toMap() çağrısında hata: $e");
+      }
+    }
+    
+    if (errorMessage != null && errorMessage!.isNotEmpty) {
+      map['errorMessage'] = errorMessage!;
+    }
+    
+    if (analysisSourceStr != null && analysisSourceStr.isNotEmpty) {
+      map['analysisSource'] = analysisSourceStr;
+    }
+    
+    print("Message.toMap() çıktısı - ID: $id");
+    map.forEach((key, value) {
+      print(" - $key: ${value.runtimeType} = $value");
+    });
+    
+    return map;
   }
 
   factory Message.fromMap(Map<String, dynamic> map, {String? docId}) {

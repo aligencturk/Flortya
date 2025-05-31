@@ -138,17 +138,50 @@ class AnalysisResult {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'messageId': messageId,
-      'emotion': emotion,
-      'intent': intent,
-      'tone': tone,
-      'severity': severity,
-      'persons': persons,
-      'aiResponse': aiResponse,
-      'createdAt': createdAt.toIso8601String(),
-    };
+    // Temel map oluştur ve null değerleri kontrol et
+    final Map<String, dynamic> resultMap = {};
+    
+    // Temel alanları kontrol edip ekle
+    if (id.isNotEmpty) resultMap['id'] = id;
+    if (messageId.isNotEmpty) resultMap['messageId'] = messageId;
+    if (emotion.isNotEmpty) resultMap['emotion'] = emotion;
+    if (intent.isNotEmpty) resultMap['intent'] = intent;
+    if (tone.isNotEmpty) resultMap['tone'] = tone;
+    
+    // severity değerini ekle (int olduğu için boşluk kontrolü gerekmez)
+    resultMap['severity'] = severity;
+    
+    if (persons.isNotEmpty) resultMap['persons'] = persons;
+    
+    // aiResponse map'ini güvenli bir şekilde ekle
+    if (aiResponse.isNotEmpty) {
+      // Sorunlu olabilecek alt-alanlarda içerikleri kontrol et
+      final Map<String, dynamic> safeAiResponse = {};
+      
+      aiResponse.forEach((key, value) {
+        // String ve List tipi kontrolleri
+        if (value != null) {
+          if (value is List) {
+            final List<dynamic> safeList = [];
+            for (final item in value) {
+              if (item != null) safeList.add(item);
+            }
+            if (safeList.isNotEmpty) safeAiResponse[key] = safeList;
+          } else {
+            safeAiResponse[key] = value;
+          }
+        }
+      });
+      
+      if (safeAiResponse.isNotEmpty) {
+        resultMap['aiResponse'] = safeAiResponse;
+      }
+    }
+    
+    // Tarih ekle
+    resultMap['createdAt'] = Timestamp.fromDate(createdAt);
+    
+    return resultMap;
   }
 
   @override

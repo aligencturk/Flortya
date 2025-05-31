@@ -86,5 +86,31 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>GADApplicationIdentifier</key>
+		<string>ca-app-pub-3600325889588673~6285732356</string>
+		<key>NSDocumentsFolderUsageDescription</key>
+		<string>Metin dosyası (.txt) içeriğini okumak ve analiz etmek için belge klasörüne erişim gerekiyor</string>
+		<key>NSFileProviderDomainUsageDescription</key>
+		<string>Metin dosyalarını işlemek için dosya sağlayıcı etki alanlarına erişim gerekiyor</string>
+		<key>UTExportedTypeDeclarations</key>
+		<array>
+			<dict>
+				<key>UTTypeIdentifier</key>
+				<string>public.plain-text</string>
+				<key>UTTypeDescription</key>
+				<string>Text File</string>
+				<key>UTTypeTagSpecification</key>
+				<dict>
+					<key>public.filename-extension</key>
+					<array>
+						<string>txt</string>
+					</array>
+					<key>public.mime-type</key>
+					<array>
+						<string>text/plain</string>
+					</array>
+				</dict>
+			</dict>
+		</array>
 	</dict>
 </plist>

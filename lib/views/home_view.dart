@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui'; // ImageFilter için gerekli import
+import 'dart:convert'; // jsonEncode için gerekli
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -19,6 +20,8 @@ import '../views/message_coach_view.dart';
 import '../services/relationship_access_service.dart';
 import '../views/report_view.dart';
 import '../services/ad_service.dart';
+import '../views/conversation_summary_view.dart';
+import '../services/ai_service.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -578,6 +581,36 @@ class _HomeViewState extends State<HomeView> {
         }
       }
       
+      // Önbellekteki verileri temizle
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        
+        // Wrapped analiz verilerini önbellekten temizle
+        await prefs.remove('wrappedCacheData');
+        await prefs.remove('wrappedCacheContent');
+        
+        // Wrapped kullanım bilgilerini sıfırla
+        await prefs.remove('wrappedOpenedOnce');
+        
+        // Kilit açılmış tavsiyeleri temizle
+        await prefs.remove('unlockedAdvices');
+        
+        // Mesaj analiz verilerini temizle
+        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+        if (authViewModel.user != null) {
+          await prefs.remove('messages_loaded_${authViewModel.user!.id}');
+        }
+        
+        // Premium kullanım durumlarını sıfırla
+        await prefs.remove('visualOcrCount');
+        await prefs.remove('txtAnalysisCount');
+        await prefs.remove('isFirstTimeVisualOcr');
+        
+        debugPrint('Önbellek verileri başarıyla temizlendi');
+      } catch (e) {
+        debugPrint('Önbellek temizleme hatası: $e');
+      }
+      
       // Başarı mesajı göster
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -640,51 +673,250 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
             
-            // Analiz Et Butonu
+            // Analiz Et Butonu ve Wrapped Hikaye Kutusu
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: InkWell(
-                key: _analyzeButtonKey, // Rehber için anahtar ekle
-                onTap: () {
-                  // Önce viewModel'i temizle
-                  messageViewModel.clearCurrentMessage();
-                  // Sonra analiz sayfasına git
-                  context.push(AppRouter.messageAnalysis);
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF9D3FFF),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.analytics_outlined,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Analiz Et',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+              child: Row(
+                children: [
+                  // Hikayen butonu (sol tarafa hizalı)
+                  InkWell(
+                    key: _analyzeButtonKey, // Rehber için anahtar ekle
+                    onTap: () {
+                      // Analiz sayfasına yönlendir
+                      messageViewModel.clearCurrentMessage();
+                      context.push(AppRouter.messageAnalysis);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Yuvarlak logo ikonu
+                        Stack(
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                                ),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.auto_awesome,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                              ),
+                            ),
+                            // Sağ alt köşede "+" ikonu
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFF4A2A80),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.add,
+                                    color: Color(0xFF4A2A80),
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        // "Hikayen" yazısı
+                        const Text(
+                          'Hikayen',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  
+                  const Spacer(),
+                  
+                  // Wrapped Hikaye Kutusu (eğer analiz yapıldıysa göster)
+                  if (messageViewModel.hasWrappedData)
+                    InkWell(
+                      onTap: () async {
+                        // Wrapped analizini göster
+                        try {
+                          // Önbellekteki tam wrapped analiz sonuçlarını kontrol et
+                          final SharedPreferences prefs = await SharedPreferences.getInstance();
+                          final String? cachedWrappedData = prefs.getString('wrappedCacheData');
+                          
+                          if (cachedWrappedData != null && cachedWrappedData.isNotEmpty) {
+                            // Önbellekte veri varsa, onu kullan
+                            final List<dynamic> decodedData = jsonDecode(cachedWrappedData);
+                            final List<Map<String, String>> summaryData = List<Map<String, String>>.from(
+                              decodedData.map((item) => Map<String, String>.from(item))
+                            );
+                            
+                            if (summaryData.length == 10) {
+                              // Tam 10 kart varsa direkt göster
+                              if (context.mounted) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => KonusmaSummaryView(
+                                      summaryData: summaryData,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+                          }
+                          
+                          // Önbellekte veri yoksa veya eksikse, AI servisi kullanarak metin analizi yap
+                          final messageContent = messageViewModel.messages.firstOrNull?.content ?? '';
+                          if (messageContent.isNotEmpty) {
+                            // Yükleniyor göster
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Wrapped analizi yükleniyor...'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                            
+                            // AI servisi ile analiz yap
+                            final aiService = AiService();
+                            final List<Map<String, String>> result = await aiService.analizSohbetVerisi(messageContent);
+                            
+                            // Analiz sonucunu önbelleğe kaydet
+                            if (result.isNotEmpty) {
+                              final String encodedData = jsonEncode(result);
+                              await prefs.setString('wrappedCacheData', encodedData);
+                              await prefs.setString('wrappedCacheContent', messageContent);
+                              
+                              // Sonucu göster
+                              if (context.mounted) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => KonusmaSummaryView(
+                                      summaryData: result,
+                                    ),
+                                  ),
+                                );
+                              }
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Wrapped analizi oluşturulamadı.'),
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            }
+                          } else {
+                            // Mesaj içeriği yoksa basit analiz kullan
+                            messageViewModel.getWrappedAnalysis().then((summaryData) {
+                              if (summaryData.isNotEmpty) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => KonusmaSummaryView(
+                                      summaryData: summaryData,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Wrapped sonucu oluşturulamadı.'),
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            });
+                          }
+                        } catch (e) {
+                          // Hata durumunda basit analiz kullan
+                          debugPrint('Wrapped analizi hatası: $e');
+                          messageViewModel.getWrappedAnalysis().then((summaryData) {
+                            if (summaryData.isNotEmpty && context.mounted) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => KonusmaSummaryView(
+                                    summaryData: summaryData,
+                                  ),
+                                ),
+                              );
+                            } else if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Wrapped sonucu oluşturulamadı.'),
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          });
+                        }
+                      },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Yuvarlak logo ikonu
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)], // Kırmızı-turuncu gradyan
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 2,
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.auto_graph,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // "Wrapped" yazısı
+                          const Text(
+                            'Wrapped',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
             

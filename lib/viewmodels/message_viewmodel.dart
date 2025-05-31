@@ -59,6 +59,60 @@ class MessageViewModel extends ChangeNotifier {
   bool get hasAnalysisResult => _currentAnalysisResult != null;
   bool get isFirstLoadCompleted => _isFirstLoadCompleted;
   
+  // Wrapped verisi olup olmadığını kontrol eden getter
+  bool get hasWrappedData {
+    // Eğer mesaj varsa ve en az bir analiz yapılmışsa wrapped verisinin olduğunu kabul ediyoruz
+    return _messages.isNotEmpty && _messages.any((message) => message.analysisResult != null);
+  }
+  
+  // Wrapped analiz verilerini getirir
+  Future<List<Map<String, String>>> getWrappedAnalysis() async {
+    try {
+      _logger.i('Wrapped analizi hazırlanıyor...');
+      
+      // Analiz sonucu olan mesajları filtrele
+      final analyzedMessages = _messages.where((message) => message.analysisResult != null).toList();
+      
+      if (analyzedMessages.isEmpty) {
+        _logger.w('Analiz edilmiş mesaj bulunamadı.');
+        return [];
+      }
+      
+      // En son analiz edilen mesajı al
+      final latestAnalyzedMessage = analyzedMessages.first; // Mesajlar zaten tarihe göre sıralı
+      final aiResponse = latestAnalyzedMessage.analysisResult?.aiResponse ?? {};
+      
+      // Özet verileri oluştur
+      List<Map<String, String>> summaryData = [
+        {
+          'title': '✨ İlişki Özeti',
+          'comment': aiResponse['mesajYorumu']?.toString() ?? 'İlişkiniz analiz edildi.',
+        },
+        {
+          'title': '💌 Mesaj Analizi',
+          'comment': 'Mesaj analiziniz hazır! Duygusal ton: ${latestAnalyzedMessage.analysisResult?.emotion ?? "Nötr"}',
+        },
+        {
+          'title': '💬 İletişim Tarzınız',
+          'comment': aiResponse['iletisimTarzi']?.toString() ?? 'İletişiminiz analiz edildi.',
+        },
+        {
+          'title': '🌟 Güçlü Yönleriniz',
+          'comment': aiResponse['gucluyonler']?.toString() ?? 'Mesajlarınızda olumlu bir ton tespit edildi.',
+        },
+        {
+          'title': '🔍 Gelişim Alanlarınız',
+          'comment': aiResponse['gelisimAlanlari']?.toString() ?? 'İletişim stilinizi geliştirmeye devam edin.',
+        },
+      ];
+      
+      return summaryData;
+    } catch (e) {
+      _logger.e('Wrapped analizi hazırlanırken hata oluştu', e);
+      return [];
+    }
+  }
+  
   // Aktif mesajın txt dosyası analizi olup olmadığını kontrol eden getter
   bool get isTxtAnalysis {
     // TEST AMAÇLI - HER DURUMDA BUTONU GÖSTER - KALDIRILDI
@@ -238,51 +292,198 @@ class MessageViewModel extends ChangeNotifier {
       
       // Mesaj belgesini oluştur
       final timestamp = Timestamp.now();
-      final messageData = {
-        'content': content,
-        'imageUrl': imageUrl ?? '',
-        'imagePath': imagePath ?? '',
-        'timestamp': timestamp,
-        'userId': userId,
-        'isAnalyzed': false,
-        'isAnalyzing': false,
-        'createdAt': timestamp,
-        'updatedAt': timestamp,
-      };
       
-      // Kullanıcının mesajlar koleksiyonuna ekle
-      final messagesCollectionRef = userDocRef.collection('messages');
-      final docRef = await messagesCollectionRef.add(messageData);
+      // Temel mesaj verilerini önce değişkene ekleyelim
+      final Map<String, dynamic> messageData = {};
       
-      _logger.i('Mesaj Firestore\'a kaydedildi: ${docRef.id}');
+      // İçeriği temizle ve kontrollerini yap
+      String safeContent = content;
       
-      // Kullanıcının mesaj sayısını artır
-      await userDocRef.update({
-        'messageCount': FieldValue.increment(1),
-      });
+      // Kontrol karakterlerini temizle (çok uzun içeriği kısaltma işlemini kaldırıyoruz)
+      safeContent = safeContent.replaceAll(RegExp(r'[\u0000-\u001F\u007F-\u009F]'), '');
       
-      // Yeni oluşturulan mesajı al
-      final message = Message.fromMap(messageData, docId: docRef.id);
+      // Zorunlu alanları ekle
+      messageData['content'] = safeContent;
+      messageData['userId'] = userId;
+      messageData['timestamp'] = FieldValue.serverTimestamp();
+      messageData['createdAt'] = FieldValue.serverTimestamp();
+      messageData['updatedAt'] = FieldValue.serverTimestamp();
+      messageData['isAnalyzed'] = false;
+      messageData['isAnalyzing'] = false;
       
-      // Mesajı yerel listeye ekle
-      _messages.add(message);
-      _currentMessage = message;
-      
-      _isLoading = false;
-      notifyListeners();
-      
-      _logger.i('Mesaj başarıyla eklendi, Mesaj ID: ${message.id}');
-      
-      // İstenirse mesajı analize gönder
-      if (analyze) {
-        _logger.i('Mesaj analiz için gönderiliyor');
-        analyzeMessage(message.id);
+      // Opsiyonel alanları sadece null değilse ekle
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        messageData['imageUrl'] = imageUrl;
+      } else {
+        messageData['imageUrl'] = ''; // Boş string olarak ayarla, null gönderme
       }
       
-      return message;
+      if (imagePath != null && imagePath.isNotEmpty) {
+        messageData['imagePath'] = imagePath;
+      } else {
+        messageData['imagePath'] = ''; // Boş string olarak ayarla, null gönderme
+      }
+      
+      // Hata ayıklama
+      print("\n==== FIRESTORE'A GÖNDERİLECEK VERİLER ====");
+      messageData.forEach((key, value) {
+        print("$key: ${value.runtimeType} = $value");
+      });
+      print("=========================================\n");
+      
+      try {
+        // Kullanıcının mesajlar koleksiyonuna ekle
+        final messagesCollectionRef = userDocRef.collection('messages');
+        
+        // Firestore'a ekle
+        print("Firestore add() işlemi başlıyor...");
+        
+        // Sadece özel karakterleri temizle, içeriği kısaltma
+        final cleanContent = safeContent.replaceAll(RegExp(r'[\u0000-\u001F\u007F-\u009F]'), '');
+        
+        // Firestore'a eklenecek verileri hazırla
+        final cleanMessageData = Map<String, dynamic>.from(messageData);
+        cleanMessageData['content'] = cleanContent;
+        
+        // CHUNKING: Çok büyük içerikler için parçalı kaydetme stratejisi
+        Message resultMessage;
+        
+        if (cleanContent.length > 800000) {
+          _logger.i('İçerik ${cleanContent.length} karakter. Parçalı kaydetme yapılacak.');
+          
+          // Ana içeriği kısalt
+          cleanMessageData['content'] = 'Büyük boyutlu metin (${cleanContent.length} karakter)';
+          cleanMessageData['hasChunks'] = true;
+          cleanMessageData['chunksCount'] = 0; // İlk başta 0, daha sonra güncellenecek
+          
+          // Ana mesajı önce ekle, ardından parçaları ekleyeceğiz
+          final docRef = await messagesCollectionRef.add(cleanMessageData);
+          _logger.i('Ana mesaj kaydedildi: ${docRef.id}');
+          
+          // Metni parçalara ayır - 750 KB parçalar halinde
+          const int chunkSize = 750000;
+          int offset = 0;
+          int chunkIndex = 0;
+          
+          while (offset < cleanContent.length) {
+            int end = offset + chunkSize;
+            if (end > cleanContent.length) {
+              end = cleanContent.length;
+            }
+            
+            String chunk = cleanContent.substring(offset, end);
+            
+            // Parçayı kaydet
+            await messagesCollectionRef.doc(docRef.id).collection('chunks').doc('chunk_$chunkIndex').set({
+              'content': chunk,
+              'index': chunkIndex,
+              'timestamp': FieldValue.serverTimestamp()
+            });
+            
+            _logger.i('Parça ${chunkIndex} kaydedildi (${chunk.length} karakter)');
+            
+            offset = end;
+            chunkIndex++;
+          }
+          
+          // Ana mesajı güncelle
+          await messagesCollectionRef.doc(docRef.id).update({
+            'chunksCount': chunkIndex
+          });
+          
+          _logger.i('Toplam $chunkIndex parçada kaydedildi');
+          
+          // Yeni oluşturulan mesajı al
+          resultMessage = Message.fromMap({
+            'content': cleanContent, // Yerel uygulamada tam içerik tutulabilir
+            'imageUrl': imageUrl ?? '',
+            'imagePath': imagePath ?? '',
+            'timestamp': timestamp,
+            'userId': userId,
+            'isAnalyzed': false,
+            'isAnalyzing': analyze,
+            'createdAt': timestamp,
+            'updatedAt': timestamp,
+            'hasChunks': true,
+            'chunksCount': chunkIndex
+          }, docId: docRef.id);
+        }
+        else {
+          // Normal kaydetme - içerik çok büyük değilse
+          final docRef = await messagesCollectionRef.add(cleanMessageData);
+          print("Firestore add() işlemi başarılı! Belge ID: ${docRef.id}");
+          _logger.i('Mesaj Firestore\'a kaydedildi: ${docRef.id}');
+          
+          // Kullanıcının mesaj sayısını artır
+          await userDocRef.update({
+            'messageCount': FieldValue.increment(1),
+          });
+          
+          // Yeni oluşturulan mesajı al
+          resultMessage = Message.fromMap({
+            'content': safeContent,
+            'imageUrl': imageUrl ?? '',
+            'imagePath': imagePath ?? '',
+            'timestamp': timestamp,
+            'userId': userId,
+            'isAnalyzed': false,
+            'isAnalyzing': analyze,
+            'createdAt': timestamp,
+            'updatedAt': timestamp,
+          }, docId: docRef.id);
+        }
+        
+        // Mesajı yerel listeye ekle
+        _messages.add(resultMessage);
+        _currentMessage = resultMessage;
+        
+        _isLoading = false;
+        notifyListeners();
+        
+        _logger.i('Mesaj başarıyla eklendi, Mesaj ID: ${resultMessage.id}');
+        
+        // İstenirse mesajı analize gönder
+        if (analyze) {
+          _logger.i('Mesaj analiz için gönderiliyor');
+          analyzeMessage(resultMessage.id);
+        }
+        
+        return resultMessage;
+        
+      } catch (firestoreError) {
+        print("\n❌ FIRESTORE HATASI ❌");
+        print("Hata mesajı: $firestoreError");
+        
+        // Invalid-argument hatası için detaylı inceleme
+        if (firestoreError.toString().contains('invalid-argument')) {
+          print("\n📋 INVALID ARGUMENT HATASI ANALİZİ");
+          print("Bu hata genellikle verilerde geçersiz değerler olduğunda oluşur.");
+          print("Özellikle şu değerlere dikkat edin:");
+          print("1. Null değerler - bazı Firestore yapılandırmalarında null değerler sorun çıkarabilir");
+          print("2. Boş alan adları - alan adları boş olamaz");
+          print("3. Nokta içeren alan adları - örn: 'user.name' şeklinde alan adları kullanılamaz");
+          print("4. Desteklenmeyen veri tipleri - Firestore sadece şunları destekler: String, Number, Boolean, Map, Array, Null, Timestamp, Geopoint, Reference");
+        }
+        
+        print("❌ HATA SONU ❌\n");
+        throw firestoreError; // Hatayı yeniden fırlat
+      }
+      
     } catch (e, stackTrace) {
       _logger.e('Mesaj eklenirken hata oluştu', e, stackTrace);
-      _errorMessage = 'Mesaj eklenirken bir hata oluştu: $e';
+      print('Hata: $e');
+      print('Stack Trace: $stackTrace');
+      
+      // Hatayı ayrıştır
+      String errorMsg = e.toString();
+      if (errorMsg.contains('invalid-argument')) {
+        _errorMessage = 'Firestore veri formatı hatası: Geçersiz alan adı veya değer kullanımı';
+        print("\n⚠️ Veri formatı hatası! Geçersiz alan adı veya desteklenmeyen veri tipi kullanımı.");
+        print("Message.toMap() metodunu kontrol edin ve null değerleri temizleyin.");
+      } else {
+        _errorMessage = 'Mesaj eklenirken bir hata oluştu: $e';
+      }
+      
       _isLoading = false;
       notifyListeners();
       return null;
@@ -426,7 +627,7 @@ class MessageViewModel extends ChangeNotifier {
       final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(messageId);
       await messageRef.update({
         'isAnalyzing': true,
-        'updatedAt': Timestamp.now(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       
       // Yerel listedeki mesajı güncelle
@@ -444,7 +645,7 @@ class MessageViewModel extends ChangeNotifier {
           'isAnalyzing': false,
           'isAnalyzed': true,
           'errorMessage': 'Mesaj içeriği boş',
-          'updatedAt': Timestamp.now(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         
         // Yerel listeyi güncelle
@@ -476,7 +677,7 @@ class MessageViewModel extends ChangeNotifier {
           'isAnalyzing': false,
           'isAnalyzed': true,
           'errorMessage': 'AI servisi yanıt vermedi',
-          'updatedAt': Timestamp.now(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         
         // Yerel listeyi güncelle
@@ -501,7 +702,7 @@ class MessageViewModel extends ChangeNotifier {
         'isAnalyzing': false,
         'isAnalyzed': true,
         'analysisResult': analysisResult.toMap(),
-        'updatedAt': Timestamp.now(),
+        'updatedAt': FieldValue.serverTimestamp(),
         'analysisSource': isMessageId ? 'normal' : 'text', // Text dosyası analizi ise source değeri text olacak
       });
       
@@ -528,6 +729,23 @@ class MessageViewModel extends ChangeNotifier {
       return true;
     } catch (e, stackTrace) {
       _logger.e('Mesaj analizi sırasında hata oluştu', e, stackTrace);
+      print('Analiz Hatası: $e');
+      print('Analiz Stack Trace: $stackTrace');
+      
+      // Hata türünü tespit et
+      String errorMsg = e.toString();
+      if (errorMsg.contains('failed-precondition') || errorMsg.contains('index')) {
+        print('⚠️ INDEX HATASI TESPIT EDILDI! ⚠️');
+        print('Bu hata genellikle Firestore\'da gerekli indexlerin oluşturulmadığını gösterir.');
+        print('Çözüm: Firebase konsolunda Firestore > Indexes bölümüne gidin ve gerekli indexleri ekleyin.');
+        print('Veya konsolda görünen URL\'yi ziyaret edin.');
+        
+        _errorMessage = 'Firestore index hatası: Yöneticinize başvurun';
+      } else if (errorMsg.contains('invalid-argument')) {
+        print('⚠️ INVALID ARGUMENT HATASI TESPIT EDILDI! ⚠️');
+        print('Bu hata genellikle Firestore\'a uygun olmayan veri göndermeye çalıştığınızı gösterir.');
+        print('Lütfen veri yapılarını kontrol edin (null değerler, özel karakterler, desteklenmeyen tipler).');
+      }
       
       // Hata durumunda varsayılan değerler
       bool isExistingMessageId = false;
@@ -550,7 +768,7 @@ class MessageViewModel extends ChangeNotifier {
             'isAnalyzing': false,
             'isAnalyzed': true,
             'errorMessage': e.toString(),
-            'updatedAt': Timestamp.now(),
+            'updatedAt': FieldValue.serverTimestamp(),
           });
           }
         }
@@ -925,10 +1143,7 @@ class MessageViewModel extends ChangeNotifier {
             }
             
             // İçerik uzunluğunu kontrol et ve kısalt (eğer aşırı büyükse)
-            if (aiAnalysisContent.length > 15000) {
-              _logger.w('Analiz içeriği çok uzun (${aiAnalysisContent.length} karakter), kısaltılıyor...');
-              aiAnalysisContent = "${aiAnalysisContent.substring(0, 15000)}...";
-            }
+            // Görsel analizi için kısaltma işlemini kaldırdık
             
             // HTTP istek ile detaylı hata yakalama
             analysisResult = await _aiService.analyzeMessage(aiAnalysisContent);
@@ -963,7 +1178,7 @@ class MessageViewModel extends ChangeNotifier {
                 'analysisResult': analysisResult.toMap(),
                 'isAnalyzing': false,
                 'isAnalyzed': true,
-                'updatedAt': Timestamp.now(),
+                'updatedAt': FieldValue.serverTimestamp(),
               });
               
               _logger.i('Analiz sonucu Firestore\'a kaydedildi');
@@ -1007,7 +1222,7 @@ class MessageViewModel extends ChangeNotifier {
                 'isAnalyzing': false,
                 'isAnalyzed': true,
                 'errorMessage': _errorMessage ?? 'Analiz sonucu alınamadı',
-                'updatedAt': Timestamp.now(),
+                'updatedAt': FieldValue.serverTimestamp(),
               });
             } catch (updateError) {
               _logger.e('Analiz başarısız - Firestore güncelleme hatası: ${updateError.toString()}', updateError);
@@ -1041,7 +1256,7 @@ class MessageViewModel extends ChangeNotifier {
               'isAnalyzing': false,
               'isAnalyzed': false,
               'errorMessage': 'Analiz sırasında hata: ${analysisError.toString()}',
-              'updatedAt': Timestamp.now(),
+              'updatedAt': FieldValue.serverTimestamp(),
             });
             
             // Yerel listedeki mesajı güncelle
@@ -1072,7 +1287,7 @@ class MessageViewModel extends ChangeNotifier {
           'isAnalyzing': false,
           'isAnalyzed': true,
           'errorMessage': 'Görüntüden metin çıkarılamadı',
-          'updatedAt': Timestamp.now(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
         
         // Yerel listedeki mesajı güncelle
@@ -1123,7 +1338,7 @@ class MessageViewModel extends ChangeNotifier {
       
       // Dosya içeriğini oku
       final bytes = await textFile.readAsBytes();
-      final content = String.fromCharCodes(bytes);
+      String content = String.fromCharCodes(bytes);
       
       if (content.isEmpty) {
         _logger.e('Metin dosyası boş');
@@ -1131,6 +1346,53 @@ class MessageViewModel extends ChangeNotifier {
         _isLoading = false;
         notifyListeners();
         return null;
+      }
+      
+      // TXT İÇERİĞİNİ TEMİZLE - Firestore invalid-argument hatalarını önlemek için
+      try {
+        _logger.i('Metin içeriği temizleniyor...');
+        
+        // Metin içeriğini satırlara ayır ve sorunlu satırları temizle
+        List<String> lines = content.split('\n');
+        List<String> cleanLines = [];
+        
+        for (int i = 0; i < lines.length; i++) {
+          String line = lines[i];
+          
+          // Boş satırları atla
+          if (line.trim().isEmpty) {
+            continue;
+          }
+          
+          // Unicode karakterleri temizle - potansiyel sorunlu emojiler veya bozuk karakterler
+          try {
+            // Özel Unicode karakter kontrolü
+            line = line.replaceAll(RegExp(r'[\u0000-\u001F\u007F-\u009F]'), ''); // Kontrol karakterleri
+          } catch (e) {
+            _logger.w('Unicode temizleme hatası satır $i: $e');
+            // Sorunlu karakterleri temizleyemiyorsak, satırı atlayalım
+            continue;
+          }
+          
+          cleanLines.add(line);
+        }
+        
+        // Temizlenmiş içeriği tekrar birleştir
+        content = cleanLines.join('\n');
+        
+        // Sonuç çok kısaysa uyarı
+        if (content.isEmpty) {
+          _logger.e('Temizleme sonrası metin içeriği boş kaldı');
+          _errorMessage = 'Metin içeriği geçersiz karakterler içeriyor veya çok kısa';
+          _isLoading = false;
+          notifyListeners();
+          return null;
+        }
+        
+        _logger.i('Metin içeriği başarıyla temizlendi: ${content.length} karakter');
+      } catch (cleanError) {
+        _logger.e('Metin temizleme hatası', cleanError);
+        // Temizleme hatası olsa bile devam ediyoruz, çünkü belki dosya zaten temizdir
       }
       
       // Metin mesajını oluştur
@@ -1163,7 +1425,7 @@ class MessageViewModel extends ChangeNotifier {
         'isAnalyzing': false,
         'isAnalyzed': true,
         'analysisResult': analysisResult.toMap(),
-        'updatedAt': Timestamp.now(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       
       // Yerel listedeki mesajı güncelle
@@ -1528,7 +1790,7 @@ class MessageViewModel extends ChangeNotifier {
         'analysisResult': null,
         'isAnalyzed': false,
         'isAnalyzing': false,
-        'updatedAt': Timestamp.now(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
     
@@ -1766,5 +2028,58 @@ class MessageViewModel extends ChangeNotifier {
       _logger.e('Analiz sonuçları getirilirken hata: $e');
       return [];
     }
+  }
+
+  // Yardımcı Fonksiyonlar
+  
+  // Firestore için geçerli alan adı kontrolü
+  bool _isValidFirestoreFieldName(String fieldName) {
+    if (fieldName.isEmpty) return false;
+    if (fieldName.contains('.')) return false;
+    if (fieldName.contains('/')) return false;
+    if (fieldName.contains('[') || fieldName.contains(']')) return false;
+    if (fieldName.contains('__')) return false; // Çift alt çizgi de sorun olabilir
+    return true;
+  }
+  
+  // Firestore için geçerli veri tipi kontrolü
+  bool _isValidFirestoreValueType(dynamic value) {
+    if (value == null) return false;
+    
+    return value is String || 
+           value is num || 
+           value is bool || 
+           value is Map<String, dynamic> || 
+           value is List || 
+           value is Timestamp || 
+           value is FieldValue;
+  }
+  
+  // İç içe map'leri kontrol et
+  void _checkNestedMap(Map<String, dynamic> map, String parentKey) {
+    map.forEach((key, value) {
+      String fullKey = '$parentKey.$key';
+      
+      print("    Alt Alan: '$fullKey', Tipi: ${value.runtimeType}, Değeri: $value");
+      
+      // Alan adı kontrolü
+      if (!_isValidFirestoreFieldName(key)) {
+        print("    ⚠️ HATA! İç içe geçersiz alan adı: '$key' in '$parentKey'");
+      }
+      
+      // Değer tipi kontrolü
+      if (!_isValidFirestoreValueType(value)) {
+        if (value == null) {
+          print("    ⚠️ HATA! İç içe null değer: '$fullKey'");
+        } else {
+          print("    ⚠️ HATA! İç içe geçersiz veri tipi: '$fullKey' (${value.runtimeType})");
+        }
+      }
+      
+      // Daha iç içe map'ler varsa onları da kontrol et
+      if (value is Map<String, dynamic>) {
+        _checkNestedMap(value, fullKey);
+      }
+    });
   }
 }

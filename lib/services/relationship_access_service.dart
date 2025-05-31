@@ -150,15 +150,4 @@ class RelationshipAccessService {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(UNLOCKED_SUGGESTIONS_KEY) ?? [];
   }
-
-  // Test amaçlı tüm verileri sıfırla
-  Future<void> resetAllData() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove(RELATIONSHIP_TEST_COUNT_KEY);
-    await prefs.remove(RELATIONSHIP_TEST_DATE_KEY);
-    await prefs.remove(RELATIONSHIP_TEST_AD_VIEWED_KEY);
-    await prefs.remove(REPORT_VIEW_COUNT_KEY);
-    await prefs.remove(REPORT_REGENERATE_COUNT_KEY);
-    await prefs.remove(UNLOCKED_SUGGESTIONS_KEY);
-  }
 } 

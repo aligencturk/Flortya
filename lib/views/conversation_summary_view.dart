@@ -98,6 +98,9 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
 
     final colorIndex = index % gradients.length;
     
+    // Başlığı emojilerle süsleme metodu
+    String decoratedTitle = _decorateTitle(title);
+    
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -138,7 +141,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
                         end: Alignment.bottomRight,
                       ).createShader(bounds),
                       child: Text(
-                        title,
+                        decoratedTitle,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 28,
@@ -190,7 +193,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Devam etmek için kaydırın',
+                          '✨ Devam etmek için kaydırın',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
                             fontSize: 14,
@@ -243,7 +246,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
               
               // Tamamlandı metni
               const Text(
-                'Konuşma Özeti Tamamlandı!',
+                '🎉 Konuşma Özeti Tamamlandı! 🎊',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 24,
@@ -255,7 +258,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
               const SizedBox(height: 16),
               
               Text(
-                'Konuşmanızdaki önemli analizleri gördünüz. İlişkinizi geliştirmek için bu içgörüleri kullanabilirsiniz.',
+                '💡 Konuşmanızdaki önemli analizleri gördünüz. İlişkinizi geliştirmek için bu içgörüleri kullanabilirsiniz.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -282,7 +285,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
                 ),
                 icon: const Icon(Icons.share),
                 label: const Text(
-                  'PDF Olarak Paylaş',
+                  '📑 PDF Olarak Paylaş',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                   ),
@@ -307,7 +310,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
                   elevation: 4,
                 ),
                 child: const Text(
-                  'Analize Geri Dön',
+                  '🔍 Analize Geri Dön',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -520,6 +523,39 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
         ),
       ),
     );
+  }
+
+  // Başlığı emojilerle süsleme metodu
+  String _decorateTitle(String title) {
+    // Belirli anahtar kelimelere göre başlığa emoji ekler
+    Map<String, String> emojis = {
+      'İlk Mesaj': '🔮 İlk Mesaj',
+      'Mesaj Sayıları': '📊 Mesaj Sayıları',
+      'En Yoğun': '📅 En Yoğun',
+      'Kelimeler': '🔤 Kelimeler',
+      'Ton': '😊 Ton',
+      'Patlaması': '🚀 Patlaması',
+      'Sessizlik': '🔕 Sessizlik',
+      'İletişim': '💬 İletişim',
+      'Mesaj Tipleri': '📝 Mesaj Tipleri',
+      'Performans': '🎯 Performans',
+      'Zaman': '⏱️ Zaman',
+      'Toplam': '📈 Toplam',
+      'Etkileşim': '👥 Etkileşim',
+    };
+    
+    // Emojileri ekleme
+    for (var key in emojis.keys) {
+      if (title.contains(key)) {
+        // Başlıkta zaten emoji varsa ekleme (emoji başına eklenirken çift emoji olmasını önler)
+        if (!title.contains(emojis[key]!.split(' ')[0])) {
+          return emojis[key]!;
+        }
+        break;
+      }
+    }
+    
+    return title;
   }
 }
 

@@ -1,65 +1,20 @@
 {
   "project_info": {
-    "project_number": "850956703555",
-    "firebase_url": "https://flortai-default-rtdb.europe-west1.firebasedatabase.app",
-    "project_id": "flortai",
-    "storage_bucket": "flortai.firebasestorage.app"
+    "project_number": "768992590332",
+    "project_id": "flortya-7db8c",
+    "storage_bucket": "flortya-7db8c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:850956703555:android:43e57d643b5d7826e2c1f6",
-        "android_client_info": {
-          "package_name": "com.example.my_app"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "850956703555-dvfkc6h2jb4ir4u0ehh5k64tggcf5095.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.my_app",
-            "certificate_hash": "5edb8e013c89a17bcd6ce2793bb576dcb6782be9"
-          }
-        },
-        {
-          "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDckMQDz1CO7mNpwuRh-m0ziDQeIFaNcaM"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "850956703555-ca9036a4ie43dqg3p3pkl99k8s4rvdbc.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.gorkem.flortai"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:850956703555:android:1362eee0b2552e2de2c1f6",
+        "mobilesdk_app_id": "1:768992590332:android:8182ea174bdfd514575a79",
         "android_client_info": {
           "package_name": "com.rivorya.flortya"
         }
       },
       "oauth_client": [
         {
-          "client_id": "850956703555-2hb5fgkkrs6n2tsnualb2et9144ast17.apps.googleusercontent.com",
+          "client_id": "768992590332-620nsvbsob7gd61kp92nch4bpiq9ljjr.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.rivorya.flortya",
@@ -67,71 +22,27 @@
           }
         },
         {
-          "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
+          "client_id": "768992590332-hr7uq6q0sbo1ugqcv0vccs8vmdpo1dls.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDckMQDz1CO7mNpwuRh-m0ziDQeIFaNcaM"
+          "current_key": "AIzaSyB0mpCgEDmU5L9BxnhLnBOFrfBvKqw_Mn4"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
+              "client_id": "768992590332-hr7uq6q0sbo1ugqcv0vccs8vmdpo1dls.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "850956703555-ca9036a4ie43dqg3p3pkl99k8s4rvdbc.apps.googleusercontent.com",
+              "client_id": "768992590332-iibevc1kj5812hgt1726lqdjetguk130.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.gorkem.flortai"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:850956703555:android:ce79c4404fad83d2e2c1f6",
-        "android_client_info": {
-          "package_name": "com.rivorya.lovizia"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "850956703555-nloh42vq8ihcnq6up84m9isjdsq6bnr7.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.rivorya.lovizia",
-            "certificate_hash": "5edb8e013c89a17bcd6ce2793bb576dcb6782be9"
-          }
-        },
-        {
-          "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDckMQDz1CO7mNpwuRh-m0ziDQeIFaNcaM"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "850956703555-aaikom41i48eoelhmfvcmspmdp940hc2.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "850956703555-ca9036a4ie43dqg3p3pkl99k8s4rvdbc.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.gorkem.flortai"
+                "bundle_id": "com.rivorya.flortya"
               }
             }
           ]

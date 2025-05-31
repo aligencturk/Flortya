@@ -2,24 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CLIENT_ID</key>
-	<string>850956703555-ca9036a4ie43dqg3p3pkl99k8s4rvdbc.apps.googleusercontent.com</string>
-	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.850956703555-ca9036a4ie43dqg3p3pkl99k8s4rvdbc</string>
-	<key>ANDROID_CLIENT_ID</key>
-	<string>850956703555-dvfkc6h2jb4ir4u0ehh5k64tggcf5095.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyA44fNILcO5_-oQY2D_4qrpAQ519ulBa-8</string>
+	<string>AIzaSyA39eBYirwuO7Vzd6N6KCoPwS-9pQzCfoo</string>
 	<key>GCM_SENDER_ID</key>
-	<string>850956703555</string>
+	<string>768992590332</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.gorkem.flortai</string>
+	<string>com.rivorya.flortya</string>
 	<key>PROJECT_ID</key>
-	<string>flortai</string>
+	<string>flortya-7db8c</string>
 	<key>STORAGE_BUCKET</key>
-	<string>flortai.firebasestorage.app</string>
+	<string>flortya-7db8c.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -31,8 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:850956703555:ios:917a7c99e61f7157e2c1f6</string>
-	<key>DATABASE_URL</key>
-	<string>https://flortai-default-rtdb.europe-west1.firebasedatabase.app</string>
+	<string>1:768992590332:ios:de3847845fd03f52575a79</string>
 </dict>
 </plist>

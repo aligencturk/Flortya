@@ -7,7 +7,7 @@ class AdService {
   static final LoggerService _logger = LoggerService();
   
   /// Test cihazı ID'leri
-  static final List<String> testDevices = ['YOUR_TEST_DEVICE_ID'];
+  static final List<String> testDevices = [''];
   
   /// Ödüllü reklam test ID'si (Android)
   static const String rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
