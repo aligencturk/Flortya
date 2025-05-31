@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui'; // ImageFilter için gerekli import
 import 'dart:convert'; // jsonEncode için gerekli
+import 'package:flutter/foundation.dart'; // compute fonksiyonu için gerekli
 
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/message_viewmodel.dart';
@@ -136,6 +137,8 @@ class _HomeViewState extends State<HomeView> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<String> _unlockedAdvices = []; // Kilidini açtığımız tavsiyeler
+  // Wrapped analizlerini tutmak için liste
+  List<Map<String, dynamic>> _wrappedAnalyses = [];
   
   // Widget referans anahtarları
   final GlobalKey _analyzeButtonKey = GlobalKey(debugLabel: 'AnalyzeButtonKey');
@@ -163,6 +166,9 @@ class _HomeViewState extends State<HomeView> {
     
     // Açılmış tavsiyeleri yükle
     _loadUnlockedAdvices();
+
+    // Wrapped analizlerini yükle
+    _loadWrappedAnalyses();
   }
   
   @override
@@ -199,6 +205,58 @@ class _HomeViewState extends State<HomeView> {
       setState(() {
         _unlockedAdvices = prefs.getStringList('unlockedAdvices') ?? [];
       });
+    }
+  }
+  
+  // Wrapped analizlerini yüklemek için yeni metod
+  Future<void> _loadWrappedAnalyses() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? wrappedAnalysesJson = prefs.getString('wrappedAnalysesList');
+      
+      if (wrappedAnalysesJson != null && wrappedAnalysesJson.isNotEmpty) {
+        final List<dynamic> decodedList = jsonDecode(wrappedAnalysesJson);
+        setState(() {
+          _wrappedAnalyses = List<Map<String, dynamic>>.from(
+            decodedList.map((item) => Map<String, dynamic>.from(item))
+          );
+        });
+        debugPrint('Kaydedilmiş ${_wrappedAnalyses.length} wrapped analizi yüklendi');
+      } else {
+        debugPrint('Kaydedilmiş wrapped analizi bulunamadı');
+      }
+    } catch (e) {
+      debugPrint('Wrapped analizleri yüklenirken hata: $e');
+    }
+  }
+  
+  // Yeni bir wrapped analizi kaydetmek için metod
+  Future<void> _saveWrappedAnalysis(Map<String, dynamic> analysis) async {
+    try {
+      // Aynı ID'ye sahip analiz var mı kontrol et
+      final existingIndex = _wrappedAnalyses.indexWhere(
+        (item) => item['id'] == analysis['id']
+      );
+      
+      if (existingIndex >= 0) {
+        // Varsa güncelle
+        setState(() {
+          _wrappedAnalyses[existingIndex] = analysis;
+        });
+      } else {
+        // Yoksa ekle
+        setState(() {
+          _wrappedAnalyses.add(analysis);
+        });
+      }
+      
+      // SharedPreferences'a kaydet
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('wrappedAnalysesList', jsonEncode(_wrappedAnalyses));
+      
+      debugPrint('Wrapped analizi kaydedildi, toplam: ${_wrappedAnalyses.length}');
+    } catch (e) {
+      debugPrint('Wrapped analizi kaydedilirken hata: $e');
     }
   }
   
@@ -755,167 +813,15 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   ),
                   
-                  const Spacer(),
+                  const SizedBox(width: 12), // Hikayen ve Wrapped daireleri arasında boşluk
                   
-                  // Wrapped Hikaye Kutusu (eğer analiz yapıldıysa göster)
-                  if (messageViewModel.hasWrappedData)
-                    InkWell(
-                      onTap: () async {
-                        // Wrapped analizini göster
-                        try {
-                          // Önbellekteki tam wrapped analiz sonuçlarını kontrol et
-                          final SharedPreferences prefs = await SharedPreferences.getInstance();
-                          final String? cachedWrappedData = prefs.getString('wrappedCacheData');
-                          
-                          if (cachedWrappedData != null && cachedWrappedData.isNotEmpty) {
-                            // Önbellekte veri varsa, onu kullan
-                            final List<dynamic> decodedData = jsonDecode(cachedWrappedData);
-                            final List<Map<String, String>> summaryData = List<Map<String, String>>.from(
-                              decodedData.map((item) => Map<String, String>.from(item))
-                            );
-                            
-                            if (summaryData.length == 10) {
-                              // Tam 10 kart varsa direkt göster
-                              if (context.mounted) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => KonusmaSummaryView(
-                                      summaryData: summaryData,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return;
-                            }
-                          }
-                          
-                          // Önbellekte veri yoksa veya eksikse, AI servisi kullanarak metin analizi yap
-                          final messageContent = messageViewModel.messages.firstOrNull?.content ?? '';
-                          if (messageContent.isNotEmpty) {
-                            // Yükleniyor göster
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Wrapped analizi yükleniyor...'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                            
-                            // AI servisi ile analiz yap
-                            final aiService = AiService();
-                            final List<Map<String, String>> result = await aiService.analizSohbetVerisi(messageContent);
-                            
-                            // Analiz sonucunu önbelleğe kaydet
-                            if (result.isNotEmpty) {
-                              final String encodedData = jsonEncode(result);
-                              await prefs.setString('wrappedCacheData', encodedData);
-                              await prefs.setString('wrappedCacheContent', messageContent);
-                              
-                              // Sonucu göster
-                              if (context.mounted) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => KonusmaSummaryView(
-                                      summaryData: result,
-                                    ),
-                                  ),
-                                );
-                              }
-                            } else {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Wrapped analizi oluşturulamadı.'),
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            }
-                          } else {
-                            // Mesaj içeriği yoksa basit analiz kullan
-                            messageViewModel.getWrappedAnalysis().then((summaryData) {
-                              if (summaryData.isNotEmpty) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => KonusmaSummaryView(
-                                      summaryData: summaryData,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Wrapped sonucu oluşturulamadı.'),
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            });
-                          }
-                        } catch (e) {
-                          // Hata durumunda basit analiz kullan
-                          debugPrint('Wrapped analizi hatası: $e');
-                          messageViewModel.getWrappedAnalysis().then((summaryData) {
-                            if (summaryData.isNotEmpty && context.mounted) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => KonusmaSummaryView(
-                                    summaryData: summaryData,
-                                  ),
-                                ),
-                              );
-                            } else if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Wrapped sonucu oluşturulamadı.'),
-                                  duration: Duration(seconds: 3),
-                                ),
-                              );
-                            }
-                          });
-                        }
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Yuvarlak logo ikonu
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)], // Kırmızı-turuncu gradyan
-                              ),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 2,
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.auto_graph,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          // "Wrapped" yazısı
-                          const Text(
-                            'Wrapped',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // Wrapped Hikaye Kutuları
+                  // Önce var olan wrapped analizleri göster
+                  ..._wrappedAnalyses.map((analysis) => _buildWrappedCircle(context, analysis)).toList(),
+                  
+                  // Yeni wrapped oluşturma butonu (eğer henüz hiç wrapped yoksa)
+                  if (messageViewModel.hasWrappedData && _wrappedAnalyses.isEmpty)
+                    _buildWrappedCircle(context, {'isNew': true}),
                 ],
               ),
             ),
@@ -4135,6 +4041,262 @@ class _HomeViewState extends State<HomeView> {
     }
     
     return 'Belirtilmemiş';
+  }
+
+  // Wrapped dairesi oluşturmak için yeni yardımcı metod
+  Widget _buildWrappedCircle(BuildContext context, Map<String, dynamic> analysis) {
+    final bool isNew = analysis['isNew'] == true;
+    final String title = analysis['title'] as String? ?? 'Wrapped';
+    final String dateStr = analysis['date'] as String? ?? DateTime.now().toIso8601String();
+    
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: InkWell(
+        onTap: () async {
+          // Wrapped analizini göster
+          try {
+            // Yükleniyor göstergesi
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Wrapped analizi yükleniyor...'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+            
+            // İşlemleri arka planda gerçekleştir
+            await Future.microtask(() async {
+              // Önbellekteki tam wrapped analiz sonuçlarını kontrol et
+              final SharedPreferences prefs = await SharedPreferences.getInstance();
+              final String? cachedWrappedData = prefs.getString('wrappedCacheData');
+              
+              if (cachedWrappedData != null && cachedWrappedData.isNotEmpty) {
+                // Önbellekte veri varsa, onu kullan
+                List<Map<String, String>> summaryData = [];
+                
+                // UI thread'den decode işlemini ayır
+                await Future.microtask(() {
+                  try {
+                    final List<dynamic> decodedData = jsonDecode(cachedWrappedData);
+                    summaryData = List<Map<String, String>>.from(
+                      decodedData.map((item) => Map<String, String>.from(item))
+                    );
+                  } catch (e) {
+                    debugPrint('JSON decode hatası: $e');
+                  }
+                });
+                
+                if (summaryData.isNotEmpty && summaryData.length == 10) {
+                  // Tam 10 kart varsa direkt göster
+                  if (context.mounted) {
+                    // Yeni analiz ise kaydet
+                    if (isNew) {
+                      final newAnalysis = {
+                        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                        'title': 'Wrapped',
+                        'date': DateTime.now().toIso8601String(),
+                        'dataRef': 'wrappedCacheData',
+                      };
+                      await _saveWrappedAnalysis(newAnalysis);
+                    }
+                    
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => KonusmaSummaryView(
+                          summaryData: summaryData,
+                        ),
+                      ),
+                    );
+                  }
+                  return;
+                }
+              }
+              
+              // Önbellekte veri yoksa veya eksikse, AI servisi kullanarak metin analizi yap
+              final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+              final messageContent = messageViewModel.messages.firstOrNull?.content ?? '';
+              if (messageContent.isNotEmpty) {
+                try {
+                  // AI servisi ile analiz yap - isolate ile arka planda çalıştır
+                  final aiService = AiService();
+                  
+                  // Ağır analiz işlemini arka planda yap
+                  List<Map<String, String>> result = [];
+                  try {
+                    // Analiz işlemini arka planda yapıyoruz
+                    result = await compute(_analizSohbetVerisiIsolate, messageContent);
+                  } catch (computeError) {
+                    debugPrint('Compute hatası, normal metodla deneniyor: $computeError');
+                    // Eğer compute çalışmazsa normal metodu kullan
+                    result = await aiService.analizSohbetVerisi(messageContent);
+                  }
+                  
+                  // Analiz sonucunu önbelleğe kaydet
+                  if (result.isNotEmpty) {
+                    final SharedPreferences prefs = await SharedPreferences.getInstance();
+                    final String encodedData = jsonEncode(result);
+                    await prefs.setString('wrappedCacheData', encodedData);
+                    await prefs.setString('wrappedCacheContent', messageContent);
+                    
+                    // Yeni analiz ise kaydet
+                    if (isNew) {
+                      final newAnalysis = {
+                        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                        'title': 'Wrapped',
+                        'date': DateTime.now().toIso8601String(),
+                        'dataRef': 'wrappedCacheData',
+                      };
+                      await _saveWrappedAnalysis(newAnalysis);
+                    }
+                    
+                    // Sonucu göster
+                    if (context.mounted) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => KonusmaSummaryView(
+                            summaryData: result,
+                          ),
+                        ),
+                      );
+                    }
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Wrapped analizi oluşturulamadı.'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('AI servisi hatası: $e');
+                  _showErrorMessage(context, 'AI servisi hatası');
+                }
+              } else {
+                // Mesaj içeriği yoksa basit analiz kullan
+                List<Map<String, String>> summaryData = [];
+                try {
+                  summaryData = await messageViewModel.getWrappedAnalysis();
+                } catch (e) {
+                  debugPrint('GetWrappedAnalysis hatası: $e');
+                }
+                
+                if (summaryData.isNotEmpty && context.mounted) {
+                  // Yeni analiz ise kaydet
+                  if (isNew) {
+                    final newAnalysis = {
+                      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                      'title': 'Wrapped',
+                      'date': DateTime.now().toIso8601String(),
+                    };
+                    await _saveWrappedAnalysis(newAnalysis);
+                  }
+                  
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => KonusmaSummaryView(
+                        summaryData: summaryData,
+                      ),
+                    ),
+                  );
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Wrapped sonucu oluşturulamadı.'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
+            });
+          } catch (e) {
+            // Hata durumunda
+            debugPrint('Wrapped analizi genel hatası: $e');
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Hata oluştu: ${e.toString().substring(0, min(50, e.toString().length))}...'),
+                  duration: const Duration(seconds: 3),
+                  backgroundColor: Colors.red.shade700,
+                ),
+              );
+            }
+          }
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Yuvarlak logo ikonu
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)], // Kırmızı-turuncu gradyan
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.auto_graph,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // "Wrapped" yazısı ve tarih (istege bağlı)
+            Column(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (!isNew)
+                  Text(
+                    '${DateTime.parse(dateStr).day}/${DateTime.parse(dateStr).month}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 10,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Isolate içinde çalışacak analiz fonksiyonu
+  static Future<List<Map<String, String>>> _analizSohbetVerisiIsolate(String messageContent) async {
+    final aiService = AiService();
+    return await aiService.analizSohbetVerisi(messageContent);
+  }
+
+  // Hata mesajı gösterme yardımcı metodu
+  void _showErrorMessage(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 } 
 
