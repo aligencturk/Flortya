@@ -129,22 +129,7 @@ class _AdviceViewState extends State<AdviceView> {
     }
   }
 
-  // Kamera ile fotoğraf çekme
-  Future<void> _takePhoto() async {
-    try {
-      // File selector doesn't support camera directly
-      // Consider using a separate camera package if this functionality is needed
-      Utils.showErrorFeedback(
-        context, 
-        'Kamera ile fotoğraf çekme özelliği şu anda desteklenmiyor.'
-      );
-    } catch (e) {
-      Utils.showErrorFeedback(
-        context, 
-        'Fotoğraf çekilirken bir hata oluştu: $e'
-      );
-    }
-  }
+  
 
   // Analiz yapma
   Future<void> _analyzeMessage() async {
@@ -262,6 +247,7 @@ class _AdviceViewState extends State<AdviceView> {
             _errorMessage = 'Mesaj analiz edilirken bir hata oluştu: $e';
           });
           Utils.showErrorFeedback(
+            // ignore: use_build_context_synchronously
             context, 
             'Mesaj analiz edilirken bir hata oluştu: $e'
           );
@@ -301,8 +287,6 @@ class _AdviceViewState extends State<AdviceView> {
       backgroundColor: const Color(0xFF121212),
       body: Consumer<AdviceViewModel>(
         builder: (context, viewModel, child) {
-          // DEBUG: Analiz durumunu kontrol edelim
-          print('🔍 AdviceView build - isLoading=$_isLoading, viewModel.isAnalyzing=${viewModel.isAnalyzing}, hasAnalizi=${viewModel.hasAnalizi}, mesajAnalizi=${viewModel.mesajAnalizi != null}, error=${viewModel.errorMessage}');
           
           // Yükleniyor göstergesi (View'ın kendi isLoading'i VEYA ViewModel'in isAnalyzing durumu)
           if (_isLoading || viewModel.isAnalyzing) {
