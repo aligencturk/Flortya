@@ -641,7 +641,7 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         if (authError is FirebaseAuthException) {
           if (authError.code == 'requires-recent-login') {
             _setError('Hesabı silmek için yeniden giriş yapmanız gerekiyor');
-            // Burada kullanıcıyı yeniden giriş yapma sayfasına yönlendirebilirsiniz
+            // Kullanıcıyı otomatik olarak yeniden giriş yapma işlemine yönlendir
             return false;
           }
         }
@@ -651,6 +651,102 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       }
     } catch (e) {
       _setError('Hesap silme hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Kullanıcının giriş yaptığı provider'a göre yeniden kimlik doğrulaması yapar
+  Future<bool> reauthenticateUser({String? email, String? password}) async {
+    _setLoading(true);
+    _clearError();
+    
+    try {
+      final user = _authService.currentUser;
+      if (user == null) {
+        _setError('Oturum açmış kullanıcı bulunamadı');
+        return false;
+      }
+      
+      // Kullanıcının giriş yöntemi (provider) bilgisini al
+      final providerData = user.providerData;
+      if (providerData.isEmpty) {
+        _setError('Kullanıcı giriş yöntemi bilgisi bulunamadı');
+        return false;
+      }
+      
+      // Kullanıcının hangi yöntemle giriş yaptığını belirle
+      final providerId = providerData[0].providerId;
+      _logger.i('Kullanıcı giriş yöntemi: $providerId');
+      
+      AuthCredential credential;
+      
+      switch (providerId) {
+        case 'password':
+          // E-posta/şifre ile giriş yapmış
+          if (email == null || password == null) {
+            _setError('E-posta/şifre ile yeniden kimlik doğrulaması için bilgiler eksik');
+            return false;
+          }
+          credential = EmailAuthProvider.credential(email: email, password: password);
+          break;
+          
+        case 'google.com':
+          // Google ile giriş yapmış, otomatik reauthentication yap
+          final googleSignInResult = await _authServiceImpl.signInWithGoogle();
+          if (googleSignInResult == null) {
+            _setError('Google ile yeniden kimlik doğrulaması başarısız');
+            return false;
+          }
+          // Başarılı Google girişi sonrası tekrar hesap silme denenmeli
+          return true;
+          
+        case 'apple.com':
+          // Apple ile giriş yapmış, otomatik reauthentication yap
+          final appleSignInResult = await _authServiceImpl.signInWithApple();
+          if (appleSignInResult == null) {
+            _setError('Apple ile yeniden kimlik doğrulaması başarısız');
+            return false;
+          }
+          // Başarılı Apple girişi sonrası tekrar hesap silme denenmeli
+          return true;
+          
+        default:
+          _setError('Desteklenmeyen giriş yöntemi: $providerId');
+          return false;
+      }
+      
+      // E-posta/şifre girişi için yeniden kimlik doğrula
+      await user.reauthenticateWithCredential(credential);
+      _logger.i('Kullanıcı yeniden kimlik doğrulaması başarılı');
+      return true;
+      
+    } catch (e) {
+      _logger.e('Yeniden kimlik doğrulama hatası: $e');
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'user-mismatch':
+            _setError('Girilen bilgiler mevcut kullanıcı ile eşleşmiyor');
+            break;
+          case 'user-not-found':
+            _setError('Kullanıcı bulunamadı');
+            break;
+          case 'invalid-credential':
+            _setError('Geçersiz kimlik bilgileri');
+            break;
+          case 'invalid-email':
+            _setError('Geçersiz e-posta adresi');
+            break;
+          case 'wrong-password':
+            _setError('Yanlış şifre');
+            break;
+          default:
+            _setError('Yeniden kimlik doğrulama hatası: ${e.message}');
+        }
+      } else {
+        _setError('Yeniden kimlik doğrulama hatası: $e');
+      }
       return false;
     } finally {
       _setLoading(false);

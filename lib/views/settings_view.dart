@@ -672,11 +672,8 @@ class _SettingsViewState extends State<SettingsView> {
                 final authViewModel = provider.Provider.of<AuthViewModel>(currentContext, listen: false);
                 final bool success = await authViewModel.deleteUserAccount();
                 
-                // Hesap silme işlemi tamamlandı
-                // mounted kontrolü - widget hala ağaçta mı?
-                if (!mounted) return;
-                
                 // Yükleme diyaloğunu kapat - güvenli şekilde
+                if (!mounted) return;
                 if (Navigator.canPop(currentContext)) {
                   Navigator.of(currentContext, rootNavigator: true).pop();
                 }
@@ -684,16 +681,20 @@ class _SettingsViewState extends State<SettingsView> {
                 if (success) {
                   // Hesap başarıyla silindi, kullanıcıyı giriş ekranına yönlendir
                   if (!mounted) return;
-                  
-                  // Giriş sayfasına yönlendir
                   Navigator.of(currentContext).pushNamedAndRemoveUntil('/login', (route) => false);
                 } else {
-                  // Hata mesajını göster
-                  if (mounted) {
-                    Utils.showErrorFeedback(
-                      currentContext, 
-                      authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
-                    );
+                  // Hata mesajını kontrol et - requires-recent-login hatası mı?
+                  if (authViewModel.errorMessage?.contains('yeniden giriş yapmanız gerekiyor') ?? false) {
+                    // Yeniden kimlik doğrulama diyaloğunu göster
+                    _showReauthenticationDialog(currentContext, authViewModel);
+                  } else {
+                    // Diğer hata mesajlarını göster
+                    if (mounted) {
+                      Utils.showErrorFeedback(
+                        currentContext, 
+                        authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
+                      );
+                    }
                   }
                 }
               } catch (e) {
@@ -719,6 +720,263 @@ class _SettingsViewState extends State<SettingsView> {
         ],
       ),
     );
+  }
+
+  // Yeniden kimlik doğrulama diyaloğu
+  void _showReauthenticationDialog(BuildContext context, AuthViewModel authViewModel) {
+    // Kullanıcının giriş yöntemini belirle
+    final currentUser = authViewModel.currentUser;
+    if (currentUser == null || currentUser.providerData.isEmpty) {
+      Utils.showErrorFeedback(context, 'Kullanıcı bilgileri alınamadı');
+      return;
+    }
+    
+    final providerId = currentUser.providerData[0].providerId;
+    
+    if (providerId == 'password') {
+      // E-posta/şifre ile giriş yapmış kullanıcı için şifre doğrulama diyaloğu
+      _showEmailPasswordReauthDialog(context, authViewModel, currentUser.email ?? '');
+    } else if (providerId == 'google.com') {
+      // Google ile giriş yapmış kullanıcı için bilgi diyaloğu
+      _showProviderReauthDialog(context, authViewModel, 'Google');
+    } else if (providerId == 'apple.com') {
+      // Apple ile giriş yapmış kullanıcı için bilgi diyaloğu
+      _showProviderReauthDialog(context, authViewModel, 'Apple');
+    } else {
+      Utils.showErrorFeedback(context, 'Desteklenmeyen giriş yöntemi: $providerId');
+    }
+  }
+  
+  // E-posta/şifre için yeniden kimlik doğrulama diyaloğu
+  void _showEmailPasswordReauthDialog(BuildContext context, AuthViewModel authViewModel, String email) {
+    final TextEditingController passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF3A2A70),
+        title: const Text(
+          'Güvenlik Doğrulaması',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Hesabınızı silmek için lütfen şifrenizi girin.',
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'E-posta: $email',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Şifre',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white30),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+              ),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+            ),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final password = passwordController.text.trim();
+              if (password.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Lütfen şifrenizi girin')),
+                );
+                return;
+              }
+              
+              Navigator.of(context).pop();
+              
+              // Yükleme diyaloğunu göster
+              Utils.showLoadingDialog(context, 'Kimlik doğrulanıyor...', analizTipi: AnalizTipi.GENEL);
+              
+              try {
+                // Kimlik doğrulama işlemi
+                final success = await authViewModel.reauthenticateUser(
+                  email: email,
+                  password: password,
+                );
+                
+                // Yükleme diyaloğunu kapat
+                if (!mounted) return;
+                if (Navigator.canPop(context)) {
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+                
+                if (success) {
+                  // Doğrulama başarılı, hesap silme işlemini tekrar dene
+                  _retryAccountDeletion(context, authViewModel);
+                } else {
+                  // Doğrulama başarısız
+                  if (mounted) {
+                    Utils.showErrorFeedback(
+                      context, 
+                      authViewModel.errorMessage ?? 'Kimlik doğrulama başarısız.'
+                    );
+                  }
+                }
+              } catch (e) {
+                // Hata oluştu
+                if (!mounted) return;
+                if (Navigator.canPop(context)) {
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+                Utils.showErrorFeedback(context, 'Kimlik doğrulama hatası: $e');
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF9D3FFF),
+            ),
+            child: const Text('Doğrula'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Google/Apple gibi sağlayıcılar için yeniden kimlik doğrulama diyaloğu
+  void _showProviderReauthDialog(BuildContext context, AuthViewModel authViewModel, String provider) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF3A2A70),
+        title: const Text(
+          'Güvenlik Doğrulaması',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hesabınızı silmek için $provider ile tekrar giriş yapmanız gerekiyor.',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+            ),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              // Yükleme diyaloğunu göster
+              Utils.showLoadingDialog(context, 'Kimlik doğrulanıyor...', analizTipi: AnalizTipi.GENEL);
+              
+              try {
+                // Google/Apple ile otomatik kimlik doğrulama
+                final success = await authViewModel.reauthenticateUser();
+                
+                // Yükleme diyaloğunu kapat
+                if (!mounted) return;
+                if (Navigator.canPop(context)) {
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+                
+                if (success) {
+                  // Doğrulama başarılı, hesap silme işlemini tekrar dene
+                  _retryAccountDeletion(context, authViewModel);
+                } else {
+                  // Doğrulama başarısız
+                  if (mounted) {
+                    Utils.showErrorFeedback(
+                      context, 
+                      authViewModel.errorMessage ?? 'Kimlik doğrulama başarısız.'
+                    );
+                  }
+                }
+              } catch (e) {
+                // Hata oluştu
+                if (!mounted) return;
+                if (Navigator.canPop(context)) {
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+                Utils.showErrorFeedback(context, 'Kimlik doğrulama hatası: $e');
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF9D3FFF),
+            ),
+            child: Text('$provider ile Giriş Yap'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Hesap silme işlemini tekrar dene
+  void _retryAccountDeletion(BuildContext context, AuthViewModel authViewModel) async {
+    // Yükleme diyaloğunu göster
+    Utils.showLoadingDialog(context, 'Hesabınız siliniyor...', analizTipi: AnalizTipi.GENEL);
+    
+    try {
+      final bool success = await authViewModel.deleteUserAccount();
+      
+      // Yükleme diyaloğunu kapat
+      if (!mounted) return;
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      
+      if (success) {
+        // Hesap başarıyla silindi, kullanıcıyı giriş ekranına yönlendir
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      } else {
+        // Hala başarısız
+        if (mounted) {
+          Utils.showErrorFeedback(
+            context, 
+            authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      Utils.showErrorFeedback(context, 'Hesap silme işleminde hata: $e');
+    }
   }
 
   // Yardım ve Destek Dialog
