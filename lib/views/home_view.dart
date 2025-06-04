@@ -267,6 +267,33 @@ class _HomeViewState extends State<HomeView> {
         debugPrint('Kaydedilmiş ${_wrappedAnalyses.length} wrapped analizi yüklendi');
       } else {
         debugPrint('Kaydedilmiş wrapped analizi bulunamadı');
+        
+        // Eğer önbellekte cachedWrappedData varsa ve listeye henüz eklenmemişse
+        // otomatik olarak wrapped analizi oluşturup ekleyelim
+        final String? cachedWrappedData = prefs.getString('wrappedCacheData');
+        if (cachedWrappedData != null && cachedWrappedData.isNotEmpty) {
+          try {
+            // Daha önce kaydedilmiş bir wrapped analizi var ama liste boş
+            // Otomatik olarak ilk wrapped'i ekleyelim
+            final String newId = DateTime.now().millisecondsSinceEpoch.toString();
+            final newAnalysis = {
+              'id': newId,
+              'title': 'Wrapped',
+              'date': DateTime.now().toIso8601String(),
+              'dataRef': 'wrappedCacheData',
+            };
+            
+            setState(() {
+              _wrappedAnalyses.add(newAnalysis);
+            });
+            
+            // SharedPreferences'a kaydet
+            await prefs.setString('wrappedAnalysesList', jsonEncode(_wrappedAnalyses));
+            debugPrint('İlk wrapped analizi otomatik olarak oluşturuldu');
+          } catch (e) {
+            debugPrint('Otomatik wrapped analizi oluştururken hata: $e');
+          }
+        }
       }
     } catch (e) {
       debugPrint('Wrapped analizleri yüklenirken hata: $e');
@@ -803,93 +830,109 @@ class _HomeViewState extends State<HomeView> {
             // Analiz Et Butonu ve Wrapped Hikaye Kutusu
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Hikayen butonu (sol tarafa hizalı)
-                  InkWell(
-                    key: _analyzeButtonKey, // Rehber için anahtar ekle
-                    onTap: () {
-                      // Analiz sayfasına yönlendir
-                      messageViewModel.clearCurrentMessage();
-                      context.push(AppRouter.messageAnalysis);
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Yuvarlak logo ikonu
-                        Stack(
+                  Row(
+                    children: [
+                      // "Hikayen" butonu yerine "Yeni Analiz Başlat" butonu (sol tarafa hizalı)
+                      InkWell(
+                        key: _analyzeButtonKey, // Rehber için anahtar ekle
+                        onTap: () {
+                          // Analiz sayfasına yönlendir
+                          messageViewModel.clearCurrentMessage();
+                          context.push(AppRouter.messageAnalysis);
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                            // Yuvarlak logo ikonu
+                            Stack(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.auto_awesome,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                  ),
                                 ),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                  width: 2,
+                                // Sağ alt köşede "+" ikonu
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFF4A2A80),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.add,
+                                        color: Color(0xFF4A2A80),
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.auto_awesome,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ),
+                              ],
                             ),
-                            // Sağ alt köşede "+" ikonu
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFF4A2A80),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.add,
-                                    color: Color(0xFF4A2A80),
-                                    size: 16,
-                                  ),
-                                ),
+                            const SizedBox(height: 4),
+                            // "Yeni Analiz Başlat" yazısı
+                            const Text(
+                              'Yeni Analiz Başlat',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        // "Hikayen" yazısı
-                        const Text(
-                          'Hikayen',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                      ),
+                      
+                      const SizedBox(width: 12), // Buton ile wrapped daireleri arasında boşluk
+                      
+                      // Kaydırılabilir wrapped daireleri
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              // Önce var olan wrapped analizleri göster
+                              ..._wrappedAnalyses.map((analysis) => _buildWrappedCircle(context, analysis)).toList(),
+                              
+                              // Sadece hiç wrapped yoksa "Yeni" düğmesini göster
+                              if (_wrappedAnalyses.isEmpty)
+                                _buildWrappedCircle(context, {'isNew': true}),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  
-                  const SizedBox(width: 12), // Hikayen ve Wrapped daireleri arasında boşluk
-                  
-                  // Wrapped Hikaye Kutuları
-                  // Önce var olan wrapped analizleri göster
-                  ..._wrappedAnalyses.map((analysis) => _buildWrappedCircle(context, analysis)).toList(),
-                  
-                  // Yeni wrapped oluşturma butonu (daima göster)
-                  _buildWrappedCircle(context, {'isNew': true}),
                 ],
               ),
             ),
@@ -4343,6 +4386,7 @@ class _HomeViewState extends State<HomeView> {
                     'id': newId,
                     'title': 'Wrapped',
                     'date': DateTime.now().toIso8601String(),
+                    'dataRef': 'wrappedCacheData',
                   };
                   await _saveWrappedAnalysis(newAnalysis);
                   
