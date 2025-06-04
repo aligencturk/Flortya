@@ -36,8 +36,8 @@ class AuthService {
   // Google ile giriş
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Google Sign-In işlemi
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      // Aynı instance'ı kullan - _googleSignIn
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {
         return null; // Kullanıcı işlemi iptal etti

@@ -29,7 +29,15 @@
 				<string>Editor</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>com.googleusercontent.apps.850956703555-dvfkc6h2jb4ir4u0ehh5k64tggcf5095</string>
+					<string>com.rivorya.flortya</string>
+				</array>
+			</dict>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.768992590332-iibevc1kj5812hgt1726lqdjetguk130</string>
 				</array>
 			</dict>
 		</array>

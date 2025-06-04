@@ -11,6 +11,18 @@ import GoogleSignIn
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     FirebaseApp.configure()
+    
+    // Google Sign-In konfigürasyonu
+    guard let app = FirebaseApp.app() else {
+      fatalError("Firebase yapılandırması başarısız")
+    }
+    
+    guard let clientId = app.options.clientID else {
+      fatalError("Firebase clientID bulunamadı")
+    }
+    
+    GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+    
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
