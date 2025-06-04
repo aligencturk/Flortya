@@ -10,6 +10,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter/services.dart';
+import 'firebase_options.dart';
 import 'app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/message_viewmodel.dart';
@@ -27,6 +29,10 @@ import 'viewmodels/past_reports_viewmodel.dart';
 import 'services/notification_service.dart';
 import 'controllers/message_coach_controller.dart';
 
+// Global bayraklar servislerin durumunu takip etmek için
+bool _isFirebaseInitialized = false;
+bool _isMobileAdsInitialized = false;
+bool _isDotEnvLoaded = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,23 +42,50 @@ void main() async {
   try {
     logger.i('Uygulama başlatılıyor...');
     
-    // Test cihazı ID'si tanımla
-    final List<String> testDeviceIds = ['YOUR_TEST_DEVICE_ID'];
+    // Firebase'i sadece daha önce başlatılmamışsa başlat
+    if (!_isFirebaseInitialized) {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        _isFirebaseInitialized = true;
+        logger.i('Firebase başlatıldı');
+      } catch (e) {
+        if (e.toString().contains('duplicate-app')) {
+          // Firebase zaten başlatılmış, sadece bayrak güncelle
+          _isFirebaseInitialized = true;
+          logger.i('Firebase zaten başlatılmış (duplicate-app yakalandı)');
+        } else {
+          rethrow;
+        }
+      }
+    } else {
+      logger.i('Firebase zaten başlatılmış');
+    }
     
-    // MobileAds'i başlat
-    await MobileAds.instance.initialize();
-    MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(testDeviceIds: testDeviceIds),
-    );
-    logger.i('Mobile Ads başlatıldı');
+    // .env dosyasını sadece daha önce yüklenmemişse yükle  
+    if (!_isDotEnvLoaded) {
+      await dotenv.load(fileName: ".env");
+      _isDotEnvLoaded = true;
+      logger.i('.env dosyası yüklendi');
+    } else {
+      logger.i('.env dosyası zaten yüklü');
+    }
     
-    // Firebase başlatma
-    await Firebase.initializeApp();
-    logger.i('Firebase başlatıldı');
-    
-    // .env dosyasını yükle
-    await dotenv.load(fileName: ".env");
-    logger.i('.env dosyası yüklendi');
+    // MobileAds'i sadece daha önce başlatılmamışsa başlat
+    if (!_isMobileAdsInitialized) {
+      // Test cihazı ID'si tanımla
+      final List<String> testDeviceIds = ['YOUR_TEST_DEVICE_ID'];
+      
+      await MobileAds.instance.initialize();
+      MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(testDeviceIds: testDeviceIds),
+      );
+      _isMobileAdsInitialized = true;
+      logger.i('Mobile Ads başlatıldı');
+    } else {
+      logger.i('Mobile Ads zaten başlatılmış');
+    }
     
     // Firebase App Check - Geçici olarak deaktif, internal-error hatasını test etmek için
     /*
@@ -270,11 +303,31 @@ class ErrorApp extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    main();
-                  },
-                  child: const Text('Tekrar Dene'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        // Global bayrakları sıfırla ve tekrar dene
+                        _isFirebaseInitialized = false;
+                        _isMobileAdsInitialized = false;
+                        _isDotEnvLoaded = false;
+                        main();
+                      },
+                      child: const Text('Tekrar Dene'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        // Uygulamayı tamamen kapatmak için SystemNavigator kullan
+                        SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Uygulamayı Kapat'),
+                    ),
+                  ],
                 ),
               ],
             ),
