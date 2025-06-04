@@ -279,17 +279,23 @@ class AuthService {
     DateTime? birthDate,
   }) async {
     try {
+      _logger.i('🚀 AuthService: E-posta ile kayıt işlemi başlatılıyor: $email');
+      
       // Firebase Auth ile kullanıcı oluştur
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
       
+      _logger.i('✅ AuthService: Firebase Auth kullanıcı oluşturma başarılı: ${userCredential.user?.uid}');
+      
       // Kullanıcı profilini güncelle
       await userCredential.user?.updateDisplayName(displayName);
       
       // Kullanıcı bilgilerini yenile
       await userCredential.user?.reload();
+      
+      _logger.i('📝 AuthService: Kullanıcı profili güncellendi, Firestore\'a kaydediliyor...');
       
       // Kullanıcıyı Firestore'a kaydet
       await _saveUserToFirestore(
@@ -301,12 +307,29 @@ class AuthService {
         birthDate: birthDate,
       );
       
+      _logger.i('🎉 AuthService: E-posta kayıt işlemi tamamen başarılı');
       return userCredential;
-    } on FirebaseAuthException catch (e) {
-      _logger.e('E-posta kayıt hatası: ${e.code}');
-      rethrow;
-    } catch (e) {
-      _logger.e('E-posta kayıt hatası: $e');
+    } on FirebaseAuthException catch (e, stackTrace) {
+      // Detaylı Firebase Auth hatası loglama
+      _logger.logEmailRegistrationError(
+        source: 'AuthService.signUpWithEmail',
+        userEmail: email,
+        displayName: displayName,
+        firebaseError: e,
+        stackTrace: stackTrace,
+        firstName: firstName,
+        lastName: lastName,
+        gender: gender,
+        birthDate: birthDate,
+      );
+      
+      // Hata mesajını da ayrıca basit logla
+      _logger.e('❌ AuthService: E-posta kayıt hatası: ${e.code} - ${e.message}');
+      
+      rethrow; // Hata ViewModele aktarılacak
+    } catch (e, stackTrace) {
+      _logger.e('💥 AuthService: E-posta kayıt hatası (Beklenmeyen): $e');
+      _logger.e('📚 Stack trace: $stackTrace');
       return null;
     }
   }
@@ -317,7 +340,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      _logger.i('E-posta ile giriş yapılıyor: $email');
+      _logger.i('🚀 AuthService: E-posta ile giriş yapılıyor: $email');
       
       // Firebase Auth ile giriş yap
       final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
@@ -328,9 +351,18 @@ class AuthService {
       // Kullanıcı verilerini güncelle
       await _updateUserData(userCredential.user!);
       
-      _logger.i('E-posta ile giriş başarılı: ${userCredential.user?.uid}');
+      _logger.i('✅ AuthService: E-posta ile giriş başarılı: ${userCredential.user?.uid}');
       return userCredential;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, stackTrace) {
+      // Detaylı Firebase Auth hatası loglama
+      _logger.logEmailSignInError(
+        source: 'AuthService.signInWithEmail',
+        userEmail: email,
+        firebaseError: e,
+        stackTrace: stackTrace,
+      );
+      
+      // Hata kodu için kullanıcı dostu mesaj hazırla
       String errorMessage;
       
       switch (e.code) {
@@ -346,14 +378,18 @@ class AuthService {
         case 'user-disabled':
           errorMessage = 'Bu kullanıcı hesabı devre dışı bırakıldı.';
           break;
+        case 'internal-error':
+          errorMessage = 'Firebase internal hatası oluştu. Lütfen tekrar deneyin.';
+          break;
         default:
           errorMessage = 'Giriş sırasında bir hata oluştu: ${e.message}';
       }
       
-      _logger.e('E-posta giriş hatası: $errorMessage', e);
-      rethrow;
-    } catch (e) {
-      _logger.e('E-posta giriş hatası: ${e.toString()}', e);
+      _logger.e('❌ AuthService: E-posta giriş hatası: $errorMessage');
+      rethrow; // Hata ViewModele aktarılacak
+    } catch (e, stackTrace) {
+      _logger.e('💥 AuthService: E-posta giriş hatası (Beklenmeyen): $e');
+      _logger.e('📚 Stack trace: $stackTrace');
       rethrow;
     }
   }

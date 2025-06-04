@@ -54,12 +54,15 @@ void main() async {
     await dotenv.load(fileName: ".env");
     logger.i('.env dosyası yüklendi');
     
-    // Firebase App Check
+    // Firebase App Check - Geçici olarak deaktif, internal-error hatasını test etmek için
+    /*
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.debug,
       appleProvider: AppleProvider.debug,
     );
     logger.i('Firebase App Check aktifleştirildi');
+    */
+    logger.i('Firebase App Check geçici olarak deaktif');
     
     // Bildirim servisini başlat
     final notificationService = NotificationService();

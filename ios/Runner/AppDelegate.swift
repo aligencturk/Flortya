@@ -12,13 +12,11 @@ import GoogleSignIn
   ) -> Bool {
     FirebaseApp.configure()
     
-    // Google Sign-In konfigürasyonu
-    guard let app = FirebaseApp.app() else {
-      fatalError("Firebase yapılandırması başarısız")
-    }
-    
-    guard let clientId = app.options.clientID else {
-      fatalError("Firebase clientID bulunamadı")
+    // CLIENT_ID'yi GoogleService-Info.plist'ten otomatik al
+    guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+          let plist = NSDictionary(contentsOfFile: path),
+          let clientId = plist["CLIENT_ID"] as? String else {
+      fatalError("GoogleService-Info.plist dosyasında CLIENT_ID bulunamadı")
     }
     
     GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
@@ -27,7 +25,19 @@ import GoogleSignIn
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
   
+  // URL scheme handling için gerekli metodlar
   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-    return GIDSignIn.sharedInstance.handle(url)
+    // Google Sign-In URL handling
+    if GIDSignIn.sharedInstance.handle(url) {
+      return true
+    }
+    
+    // Flutter'ın varsayılan URL handling'ini çağır
+    return super.application(app, open: url, options: options)
+  }
+  
+  // iOS 13+ için scene delegate olmadan URL handling
+  override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
   }
 }

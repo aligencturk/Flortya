@@ -376,6 +376,8 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
     _clearError();
     
     try {
+      _logger.i('🚀 AuthViewModel: E-posta kayıt işlemi başlatılıyor...');
+      
       final userCredential = await _authServiceImpl.signUpWithEmail(
         email: email,
         password: password,
@@ -387,23 +389,38 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       );
       
       if (userCredential != null) {
+        _logger.i('✅ AuthViewModel: Kayıt başarılı, kullanıcı çıkış yaptırılıyor...');
+        
         // Kayıt başarılı ancak kullanıcıyı giriş yapmış olarak işaretleme
         // Kullanıcı daha sonra e-posta ile giriş yapacak
-        
-        // Not: Otomatik giriş yapmıyoruz, bu nedenle kullanıcı bilgilerini almıyoruz
-        // ve FCM token güncellemiyoruz.
         
         // Çıkış yap, böylece kullanıcı giriş ekranına yönlendirilecek
         await _authServiceImpl.signOut();
         _user = null;
         notifyListeners();
         
+        _logger.i('🎉 AuthViewModel: E-posta kayıt işlemi tamamen başarılı');
         return true;
       }
       
       _setError('E-posta ile kayıt başarısız oldu');
       return false;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, stackTrace) {
+      // Detaylı Firebase Auth hatası loglama
+      _logger.logEmailRegistrationError(
+        source: 'AuthViewModel.signUpWithEmail',
+        userEmail: email,
+        displayName: displayName,
+        firebaseError: e,
+        stackTrace: stackTrace,
+        firstName: firstName,
+        lastName: lastName,
+        gender: gender,
+        birthDate: birthDate,
+      );
+      
+      _logger.e('❌ AuthViewModel: FirebaseAuthException yakalandı: ${e.code} - ${e.message}');
+      
       String errorMessage;
       
       switch (e.code) {
@@ -416,13 +433,28 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         case 'weak-password':
           errorMessage = 'Şifre çok zayıf.';
           break;
+        case 'internal-error':
+          errorMessage = 'Firebase internal hatası oluştu. Firebase Console Authentication ayarlarını kontrol edin.';
+          _logger.e('🔥 INTERNAL ERROR EXTRA DETAILS:');
+          _logger.e('🔥 EMAIL: $email');
+          _logger.e('🔥 DISPLAY NAME: $displayName');
+          _logger.e('🔥 FIRST NAME: ${firstName ?? "null"}');
+          _logger.e('🔥 LAST NAME: ${lastName ?? "null"}');
+          _logger.e('🔥 GENDER: ${gender ?? "null"}');
+          _logger.e('🔥 BIRTH DATE: ${birthDate?.toString() ?? "null"}');
+          _logger.e('🔥 FULL FIREBASE ERROR: $e');
+          _logger.e('🔥 ERROR RUNTIME TYPE: ${e.runtimeType}');
+          _logger.e('🔥 ERROR CODE RUNTIME TYPE: ${e.code.runtimeType}');
+          break;
         default:
           errorMessage = 'Kayıt sırasında bir hata oluştu: ${e.message}';
       }
       
       _setError(errorMessage);
       return false;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      _logger.e('💥 AuthViewModel: Beklenmeyen hata: $e');
+      _logger.e('📚 Stack trace: $stackTrace');
       _setError('E-posta ile kayıt hatası: $e');
       return false;
     } finally {
@@ -439,6 +471,8 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
     _clearError();
     
     try {
+      _logger.i('🚀 AuthViewModel: E-posta giriş işlemi başlatılıyor...');
+      
       final userCredential = await _authServiceImpl.signInWithEmail(
         email: email,
         password: password,
@@ -461,12 +495,23 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
           }
         }
         
+        _logger.i('✅ AuthViewModel: E-posta giriş işlemi başarılı');
         return true;
       }
       
       _setError('E-posta ile giriş başarısız oldu');
       return false;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, stackTrace) {
+      // Detaylı Firebase Auth hatası loglama
+      _logger.logEmailSignInError(
+        source: 'AuthViewModel.signInWithEmail',
+        userEmail: email,
+        firebaseError: e,
+        stackTrace: stackTrace,
+      );
+      
+      _logger.e('❌ AuthViewModel: E-posta giriş FirebaseAuthException: ${e.code} - ${e.message}');
+      
       String errorMessage;
       
       switch (e.code) {
@@ -485,14 +530,23 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         case 'invalid-credential':
           errorMessage = 'Bu hesap daha önce silinmiş olabilir. Lütfen yeni bir hesap oluşturun.';
           break;
+        case 'internal-error':
+          errorMessage = 'Firebase internal hatası oluştu. Lütfen tekrar deneyin.';
+          _logger.e('🔥 INTERNAL ERROR EXTRA DETAILS:');
+          _logger.e('🔥 EMAIL: $email');
+          _logger.e('🔥 FULL FIREBASE ERROR: $e');
+          _logger.e('🔥 ERROR RUNTIME TYPE: ${e.runtimeType}');
+          _logger.e('🔥 ERROR CODE RUNTIME TYPE: ${e.code.runtimeType}');
+          break;
         default:
           errorMessage = 'Giriş sırasında bir hata oluştu: ${e.message}';
       }
       
       _setError(errorMessage);
       return false;
-    } catch (e) {
-      _logger.e('E-posta ile giriş hatası: $e');
+    } catch (e, stackTrace) {
+      _logger.e('💥 AuthViewModel: E-posta giriş beklenmeyen hatası: $e');
+      _logger.e('📚 Stack trace: $stackTrace');
       // Hata mesajına göre daha kullanıcı dostu hata mesajı ayarla
       if (e.toString().contains('invalid-credential')) {
         _setError('Bu hesap daha önce silinmiş olabilir. Lütfen yeni bir hesap oluşturun.');

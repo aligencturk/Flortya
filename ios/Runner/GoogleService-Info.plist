@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyA39eBYirwuO7Vzd6N6KCoPwS-9pQzCfoo</string>
+	<string>AIzaSyDsqfqNGhUKlAWxgZ9kkYq3AHMqTj_C0tQ</string>
 	<key>GCM_SENDER_ID</key>
 	<string>768992590332</string>
 	<key>PLIST_VERSION</key>
@@ -26,5 +26,9 @@
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:768992590332:ios:de3847845fd03f52575a79</string>
+	<key>CLIENT_ID</key>
+	<string>768992590332-iibevc1kj5812hgt1726lqdjetguk130.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.768992590332-iibevc1kj5812hgt1726lqdjetguk130</string>
 </dict>
 </plist>
