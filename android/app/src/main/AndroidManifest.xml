@@ -26,6 +26,12 @@
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"> <!-- HTTP bağlantıları için -->
 
+        <meta-data
+            android:name="com.google.android.gms.client_id"
+            android:value="768992590332-620nsvbsob7gd61kp92nch4bpiq9ljjr.apps.googleusercontent.com" />
+
+
+
 
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
