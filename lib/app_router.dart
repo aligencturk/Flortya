@@ -114,6 +114,49 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Logo ve uygulama başlığı
+                  Center(
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: Lottie.asset(
+                            'assets/lottie/Animation - 1749118125989.lottie',
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.contain,
+                            repeat: true,
+                            animate: true,
+                            delegates: LottieDelegates(
+                              values: <ValueDelegate<ColorFilter>>[
+                                ValueDelegate.colorFilter(
+                                  const <String>['**'], // Animasyondaki tüm katmanlara uygula
+                                  value: const ColorFilter.mode(
+                                    Colors.white, // Hedef renk: Beyaz
+                                    BlendMode.srcIn, // Renkleri beyazla değiştirmek için mod
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Profil Kurulumu',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
                   const Text(
                     'Size daha iyi hizmet verebilmemiz için lütfen bilgilerinizi tamamlayın.',
                     style: TextStyle(
@@ -432,15 +475,26 @@ class LoginView extends StatelessWidget {
                   child: Column(
                     children: [
                       SizedBox(
-                        width: 80,
-                        height: 80,
+                        width: 100,
+                        height: 100,
                         child: Lottie.asset(
-                          'assets/lottie/Animation - 1749082023050.json',
+                          'assets/lottie/Animation - 1749118125989.lottie',
                           width: 80,
                           height: 80,
                           fit: BoxFit.contain,
                           repeat: true,
                           animate: true,
+                          delegates: LottieDelegates(
+                            values: <ValueDelegate<ColorFilter>>[
+                              ValueDelegate.colorFilter(
+                                const <String>['**'], // Animasyondaki tüm katmanlara uygula
+                                value: const ColorFilter.mode(
+                                  Colors.white, // Hedef renk: Beyaz
+                                  BlendMode.srcIn, // Renkleri beyazla değiştirmek için mod
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -711,7 +765,7 @@ class RegisterView extends StatelessWidget {
                         width: 80,
                         height: 80,
                         child: Lottie.asset(
-                          'assets/lottie/Animation - 1749082023050.json',
+                          'assets/lottie/Animation - 1749118125989.lottie',
                           width: 80,
                           height: 80,
                           fit: BoxFit.contain,
@@ -992,6 +1046,56 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Logo ve uygulama başlığı
+                    Center(
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: Lottie.asset(
+                              'assets/lottie/Animation - 1749118125989.lottie',
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.contain,
+                              repeat: true,
+                              animate: true,
+                              delegates: LottieDelegates(
+                                values: <ValueDelegate<ColorFilter>>[
+                                  ValueDelegate.colorFilter(
+                                    const <String>['**'], // Animasyondaki tüm katmanlara uygula
+                                    value: const ColorFilter.mode(
+                                      Colors.white, // Hedef renk: Beyaz
+                                      BlendMode.srcIn, // Renkleri beyazla değiştirmek için mod
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Giriş Yap',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Hesabınıza giriş yapın',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 40),
+                    
                     // E-posta alanı
                     TextFormField(
                       controller: _emailController,
@@ -1453,6 +1557,45 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Logo ve uygulama başlığı
+                    Center(
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: Lottie.asset(
+                              'assets/lottie/Animation - 1749118125989.lottie',
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.contain,
+                              repeat: true,
+                              animate: true,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Kayıt Ol',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Yeni hesap oluşturun',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
                     // Ad alanı
                     TextFormField(
                       controller: _firstNameController,
