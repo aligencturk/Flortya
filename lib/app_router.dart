@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:lottie/lottie.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
@@ -430,10 +431,17 @@ class LoginView extends StatelessWidget {
                 Center(
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.favorite,
-                        size: 64,
-                        color: const Color(0xFF9D3FFF),
+                      SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: Lottie.asset(
+                          'assets/lottie/Animation - 1749082023050.json',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                          repeat: true,
+                          animate: true,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -699,10 +707,17 @@ class RegisterView extends StatelessWidget {
                 Center(
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.favorite,
-                        size: 64,
-                        color: const Color(0xFF9D3FFF),
+                      SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: Lottie.asset(
+                          'assets/lottie/Animation - 1749082023050.json',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                          repeat: true,
+                          animate: true,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
