@@ -21,6 +21,8 @@ import '../views/report_view.dart';
 import '../services/ad_service.dart';
 import '../views/conversation_summary_view.dart';
 import '../services/ai_service.dart';
+import '../services/event_bus_service.dart';
+import 'dart:async';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -150,12 +152,27 @@ class _HomeViewState extends State<HomeView> {
   bool _isProfileDataLoaded = false; // Profil verilerinin yüklenip yüklenmediğini takip eden bayrak
   final RelationshipAccessService _relationshipAccessService = RelationshipAccessService();
   
+  // Late olarak tanımlanan değişkeni nullable olarak değiştiriyorum
+  StreamSubscription? _eventBusSubscription;
+  
   @override
   void initState() {
     super.initState();
     // Başlangıç sekmesini widget'tan al
     _selectedIndex = widget.initialTabIndex;
     _pageController = PageController(initialPage: _selectedIndex);
+    
+    // Event bus'ı dinle - wrapped hikayeleri sıfırlama için
+    try {
+      final EventBusService eventBus = EventBusService();
+      _eventBusSubscription = eventBus.eventStream.listen((event) {
+        if (event == AppEvents.resetWrappedStories) {
+          resetWrappedData();
+        }
+      });
+    } catch (e) {
+      debugPrint('Event bus dinleyicisi oluşturulamadı: $e');
+    }
     
     // Ağır yükleme işlemlerini geciktir
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -425,6 +442,7 @@ class _HomeViewState extends State<HomeView> {
     _pageController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
+    _eventBusSubscription?.cancel();
     super.dispose();
   }
 
@@ -3550,6 +3568,14 @@ class _HomeViewState extends State<HomeView> {
         ),
       );
     }
+  }
+
+  // Wrapped hikayeleri sıfırlama
+  void resetWrappedData() {
+    setState(() {
+      _wrappedAnalyses = [];
+    });
+    debugPrint('Wrapped hikayeleri UI üzerinde sıfırlandı');
   }
 } 
 

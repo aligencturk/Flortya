@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Veri sıfırlama işlemlerini yöneten servis sınıfı.
 /// Bu servis, farklı veri türleri için ayrı silme işlemlerini
@@ -146,7 +147,59 @@ class DataResetService {
     }
   }
   
-  /// Mesaj analizlerini siler
+  /// Wrapped (konuşma özeti) verilerini siler
+  /// Hem SharedPreferences'taki hem de Firestore'daki wrapped verilerini temizler
+  Future<bool> resetWrappedData(String userId) async {
+    debugPrint('Wrapped (konuşma özeti) verileri siliniyor...');
+    
+    try {
+      // 1. SharedPreferences'taki wrapped verilerini temizle
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove('wrappedAnalysesList');
+      await prefs.remove('wrappedCacheData');
+      await prefs.remove('wrappedCacheContent');
+      await prefs.remove('WRAPPED_CACHE_KEY');
+      await prefs.remove('WRAPPED_CACHE_CONTENT_KEY');
+      await prefs.remove('WRAPPED_IS_TXT_KEY');
+      
+      // 2. Firestore'daki wrapped_analyses koleksiyonunu temizle
+      try {
+        // Kullanıcının referansı
+        final userRef = _firestore.collection('users').doc(userId);
+        
+        // wrapped_analyses koleksiyonunu al
+        final wrappedSnapshot = await userRef.collection('wrapped_analyses').get();
+        
+        if (wrappedSnapshot.docs.isNotEmpty) {
+          debugPrint('${wrappedSnapshot.docs.length} adet wrapped analizi bulundu, siliniyor...');
+          
+          // Batch işlemi başlat
+          WriteBatch batch = _firestore.batch();
+          
+          for (final doc in wrappedSnapshot.docs) {
+            batch.delete(doc.reference);
+          }
+          
+          await batch.commit();
+          debugPrint('Wrapped analizleri Firestore\'dan silindi');
+        } else {
+          debugPrint('Silinecek wrapped analizi bulunamadı');
+        }
+      } catch (e) {
+        debugPrint('Firestore wrapped verileri silinirken hata: $e');
+        // Bu hatayı yutuyoruz, SharedPreferences temizliği gerçekleşmişse
+        // işlem kısmen başarılı sayılabilir
+      }
+      
+      debugPrint('Wrapped analiz verileri başarıyla silindi');
+      return true;
+    } catch (e) {
+      debugPrint('Wrapped analiz verileri silinirken hata: $e');
+      return false;
+    }
+  }
+
+  /// Mesaj analiz verilerini siler
   /// Hem mesaj analiz sonuçlarını hem de text, image analizlerini siler
   Future<bool> resetMessageAnalysisData(String userId) async {
     debugPrint('Mesaj analiz verileri siliniyor...');
@@ -222,6 +275,10 @@ class DataResetService {
       // Mesaj koçu verilerini sil
       bool coachResult = await resetMessageCoachData(userId);
       debugPrint('Mesaj koçu silme sonucu: $coachResult');
+      
+      // Wrapped (konuşma özeti) verilerini sil
+      bool wrappedResult = await resetWrappedData(userId);
+      debugPrint('Wrapped analizi silme sonucu: $wrappedResult');
       
       // İşlemlerin yerine oturması için kısa bir bekleme
       await Future.delayed(const Duration(seconds: 2));
@@ -351,7 +408,7 @@ class DataResetService {
       debugPrint('Tüm veriler silme işlemi sonuçları: İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult');
       
       // Tam başarı için tüm işlemlerin başarılı olması gerekir
-      return relationshipResult && messageResult && coachResult;
+      return relationshipResult && messageResult && coachResult && wrappedResult;
     } catch (e) {
       debugPrint('Tüm veriler silinirken hata: $e');
       return false;

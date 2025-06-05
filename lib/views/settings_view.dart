@@ -7,6 +7,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/message_coach_controller.dart';
 import '../services/data_reset_service.dart';
+import '../services/event_bus_service.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
 
@@ -594,6 +595,29 @@ class _SettingsViewState extends State<SettingsView> {
         await reportViewModel.clearAllReports(userId);
       } catch (e) {
         debugPrint('ReportViewModel temizleme hatası: $e');
+      }
+      
+      // Ana sayfadaki wrapped hikayeleri temizle
+      try {
+        // Event bus servisi ile wrapped hikayeleri sıfırlama olayını yayınla
+        debugPrint('Ana sayfadaki wrapped hikayeleri siliniyor...');
+        
+        // EventBusService aracılığıyla resetWrappedStories olayını yayınla
+        final EventBusService eventBus = EventBusService();
+        eventBus.emit(AppEvents.resetWrappedStories);
+        
+        if (mounted) {
+          // Bilgilendirme mesajı göster
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tüm veriler silindi ve wrapped hikayeleri temizlendi.'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Wrapped hikayeleri sıfırlanırken hata: $e');
       }
       
       // Dialog'u kapat
