@@ -689,11 +689,11 @@ class _SettingsViewState extends State<SettingsView> {
                     _showReauthenticationDialog(currentContext, authViewModel);
                   } else {
                     // Diğer hata mesajlarını göster
-                    if (mounted) {
-                      Utils.showErrorFeedback(
-                        currentContext, 
-                        authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
-                      );
+                  if (mounted) {
+                    Utils.showErrorFeedback(
+                      currentContext, 
+                      authViewModel.errorMessage ?? 'Hesap silme işlemi başarısız oldu.'
+                    );
                     }
                   }
                 }

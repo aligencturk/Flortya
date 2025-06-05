@@ -88,18 +88,14 @@ flutter:
     - .env
 
 flutter_native_splash:
-  color: "#6750A4"
+  color: "#FFFFFF"
   image: assets/icons/logo.jpg
-  image_align: center
   android_12:
-    color: "#6750A4"
+    color: "#FFFFFF"
     image: assets/icons/logo.jpg
-  ios_content_mode: scaleAspectFit
-  ios_color: "#6750A4"
   android: true
   ios: true
   web: false
-  remove_alpha_ios: true
 
 flutter_launcher_icons:
   android: "launcher_icon"
