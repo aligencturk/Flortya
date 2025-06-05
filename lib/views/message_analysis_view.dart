@@ -882,10 +882,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         _isImageAnalysis = false;
       });
       
-      // Dosya seçiciyi aç
+      // Dosya seçiciyi aç - iOS ve macOS için uniformTypeIdentifiers ekle
       final XTypeGroup typeGroup = XTypeGroup(
         label: 'Metin Dosyaları',
         extensions: <String>['txt'],
+        uniformTypeIdentifiers: <String>['public.plain-text'],
+        mimeTypes: <String>['text/plain'],
       );
       
       final XFile? pickedFile = await openFile(
