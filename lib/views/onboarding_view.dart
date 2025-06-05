@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../viewmodels/auth_viewmodel.dart';
 import '../app_router.dart';
 import '../utils/loading_indicator.dart';
@@ -102,13 +99,6 @@ class _OnboardingViewState extends State<OnboardingView> {
     }
   }
 
-  Future<void> _checkOnboardingStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
-    setState(() {
-      _hasCompletedOnboarding = hasCompletedOnboarding;
-    });
-  }
 
   Future<void> _completeOnboarding() async {
     try {
@@ -128,140 +118,7 @@ class _OnboardingViewState extends State<OnboardingView> {
     super.dispose();
   }
 
-  // Google ile giriş
-  Future<void> _handleSignInWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final authViewModel = AuthViewModel(
-        authService: FirebaseAuth.instance,
-        firestore: FirebaseFirestore.instance,
-      );
-      final user = await authViewModel.signInWithGoogle();
-      
-      if (user) {
-        await _completeOnboarding();
-        _navigateToHome();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google ile giriş başarısız oldu.')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google ile giriş yaparken hata: ${e.toString()}')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  // Apple ile giriş
-  Future<void> _handleSignInWithApple() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final authViewModel = AuthViewModel(
-        authService: FirebaseAuth.instance,
-        firestore: FirebaseFirestore.instance,
-      );
-      final user = await authViewModel.signInWithApple();
-      
-      if (user) {
-        await _completeOnboarding();
-        _navigateToHome();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apple ile giriş başarısız oldu.')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Apple ile giriş yaparken hata: ${e.toString()}')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  void _showHelpDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Geçiş Yapmakta Sorun mu Yaşıyorsunuz?'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Uygulamaya devam etmek için:'),
-            SizedBox(height: 8),
-            Text('1. Sağ alttaki "Başla" butonuna basın.'),
-            Text('2. Ekranın altından yukarı kaydırın.'),
-            Text('3. Uygulamayı kapatıp tekrar açmayı deneyin.'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Tamam'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              debugPrint('Devam Et butonuna tıklandı');
-              try {
-                // Önce dialogu kapat
-                Navigator.of(context).pop();
-                
-                // Onboarding'i tamamla
-                await _completeOnboarding();
-                
-                if (mounted) {
-                  // SharedPreferences'ı tekrar kontrol et
-                  final prefs = await SharedPreferences.getInstance();
-                  final hasCompleted = prefs.getBool('hasCompletedOnboarding') ?? false;
-                  debugPrint('Dialog: hasCompletedOnboarding değeri: $hasCompleted');
-                  
-                  // GoRouter ile yönlendir
-                  debugPrint('Dialog: Login sayfasına yönlendiriliyor...');
-                  context.go(AppRouter.login);
-                }
-              } catch (e) {
-                debugPrint('Dialog yönlendirme hatası: $e');
-                // Gecikmeli olarak tekrar dene
-                Future.delayed(const Duration(milliseconds: 500), () {
-                  if (mounted) {
-                    try {
-                      context.go(AppRouter.login);
-                    } catch (e2) {
-                      debugPrint('Dialog ikinci yönlendirme hatası: $e2');
-                    }
-                  }
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF9D3FFF),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Devam Et'),
-          ),
-        ],
-      ),
-    );
-  }
-
+ 
   @override
   Widget build(BuildContext context) {
     // Yönlendirme işlemi sırasında beyaz yukleniyor göster

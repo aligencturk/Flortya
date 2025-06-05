@@ -1793,85 +1793,7 @@ class AiService {
     return sertYorumlar[Random().nextInt(sertYorumlar.length)];
   }
   
-  // Sadece direktYorumu düzeltmek için
-  Future<String> _dirtektYorumuDuzelt(String chatContent) async {
-    try {
-      // Acımasız bir direktYorum için özel bir istek yapalım
-      final contents = <Map<String, dynamic>>[];
-      
-      contents.add({
-        'role': 'model',
-        'parts': [
-          {
-            'text': '''
-            Sadece çok sert, acımasız ve küstah bir eleştiri yaz.
-            Asla nazik, kibar veya yumuşak olma. 
-            Kesinlikle "canım", "tatlım" gibi hitaplar kullanma.
-            '''
-          }
-        ]
-      });
-      
-      contents.add({
-        'role': 'user',
-        'parts': [
-          {
-            'text': '''
-            Bu sohbeti çok sert bir şekilde eleştir:
-            $chatContent
-            
-            NOT: Eleştirin çok acımasız ve dobra olmalı.
-            '''
-          }
-        ]
-      });
-      
-      final requestBody = jsonEncode({
-        'contents': contents,
-        'generationConfig': {
-          'temperature': 1.0,
-          'maxOutputTokens': 150
-        }
-      });
-      
-      final response = await http.post(
-        Uri.parse(_geminiApiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      );
-      
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final yeniDirektYorum = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        
-        if (yeniDirektYorum != null && yeniDirektYorum.isNotEmpty && yeniDirektYorum.length > 30) {
-          // Yorum kibar değilse kullan
-          if (!_direktYorumCokKibarMi(yeniDirektYorum)) {
-            return yeniDirektYorum.trim();
-          }
-        }
-      }
-      
-      // API yanıt vermezse, sert direktYorumlardan rastgele birini seç
-      final sertYorumlar = [
-        "Mesajların berbat. Karşı taraf seninle konuşmayı sürdürmek istemeyecektir. Kendini ifade etme becerilerin çok zayıf.",
-        "Bu nasıl bir iletişim tarzı? Kimse bu kadar belirsiz ve ilgisiz mesajlarla iletişim kurmak istemez.",
-        "Yazma tarzın tamamen başarısız. Karşı tarafı sıktığın çok belli ve kimse seninle bu şekilde mesajlaşmak istemez.",
-        "Mesajlarında hiç çaba yok. Kendini doğru düzgün ifade edemiyorsun ve iletişim kurma becerin oldukça kötü.",
-        "İletişim bu şekilde yürümez. Karşı taraf senden sıkılmış olmalı çünkü mesajların tamamen anlamsız ve derinlikten yoksun."
-      ];
-      
-      return sertYorumlar[Random().nextInt(sertYorumlar.length)];
-    } catch (e) {
-      _logger.e('Direktif yorum düzeltme hatası: $e');
-      
-      // Hata durumunda sabit bir sert yorum döndür
-      return "Mesajların tamamen başarısız. Hiç kimse bu tarz bir iletişimi ciddiye almaz ve karşı taraf muhtemelen seni terk edecek.";
-    }
-  }
-  
+ 
   // Direktif yorumun çok kibar olup olmadığını kontrol etme
   bool _direktYorumCokKibarMi(String? direktYorum) {
     if (direktYorum == null || direktYorum.isEmpty) return true;
@@ -2992,36 +2914,7 @@ $kisaltilmisSohbet
     return oneriler;
   }
   
-  // İlk cevap önerisini almak için yardımcı metod
-  List<String> _getCevapOnerileri(dynamic rawOnerileri) {
-    if (rawOnerileri is List && rawOnerileri.isNotEmpty) {
-      List<String> onerileri = [];
-      for (var oneri in rawOnerileri) {
-        if (oneri != null && oneri.toString().trim().isNotEmpty) {
-          onerileri.add(oneri.toString());
-        }
-      }
-      return onerileri.isNotEmpty ? onerileri : _getVarsayilanCevapOnerileri();
-    } else if (rawOnerileri is String && rawOnerileri.trim().isNotEmpty) {
-      try {
-        // Virgülle ayrılmış bir liste olabilir, ilkini al
-        final List<String> parcalanmisTavsiyeler = rawOnerileri.split(',');
-        if (parcalanmisTavsiyeler.isNotEmpty) {
-          return parcalanmisTavsiyeler
-              .where((tavsiye) => tavsiye.trim().isNotEmpty)
-              .map((tavsiye) => tavsiye.trim())
-              .toList();
-        }
-      } catch (_) {
-        // String'i doğrudan kullan
-        return [rawOnerileri];
-      }
-    }
-    
-    // Varsayılan değerler
-    return _getVarsayilanCevapOnerileri();
-  }
-  
+
   // Varsayılan cevap önerileri
   List<String> _getVarsayilanCevapOnerileri() {
     return [

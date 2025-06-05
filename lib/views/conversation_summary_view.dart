@@ -503,21 +503,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
     }
   }
 
-  // Wrapped özelliğinin açık olup olmadığını kontrol et
-  Future<bool> _checkWrappedAccess() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final bool isPremium = authViewModel.isPremium;
-    final premiumService = PremiumService();
-    
-    if (isPremium) {
-      return true; // Premium kullanıcılar her zaman erişebilir
-    }
-    
-    // Premium değilse, bir kez açabilme kontrolü
-    final bool wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
-    return !wrappedOpenedOnce; // Henüz açılmamışsa true, açılmışsa false döndür
-  }
- 
+
   // Başlığı emojilerle süsleme metodu
   String _decorateTitle(String title) {
     // Belirli anahtar kelimelere göre başlığa emoji ekler
@@ -1369,11 +1355,6 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     }
     
     return true; // Her durumda yükleme tamamlandı kabul et
-  }
-
-  // Premium bilgilendirme diyaloğunu göster
-  void _showWrappedPremiumDialog(BuildContext context) {
-    showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
   }
 
   // Wrapped erişim durumunu kontrol et

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/advice_viewmodel.dart';
@@ -101,35 +100,7 @@ class _AdviceViewState extends State<AdviceView> {
     }
   }
 
-  // Görsel seçme (çoklu)
-  Future<void> _pickImages() async {
-    try {
-      const XTypeGroup typeGroup = XTypeGroup(
-        label: 'Görseller',
-        extensions: <String>['jpg', 'jpeg', 'png'],
-      );
-      
-      final List<XFile> images = await openFiles(
-        acceptedTypeGroups: <XTypeGroup>[typeGroup],
-      );
-
-      if (images.isNotEmpty) {
-        setState(() {
-          for (var image in images) {
-            _selectedImages.add(File(image.path));
-          }
-          _imageMode = true;
-        });
-      }
-    } catch (e) {
-      Utils.showErrorFeedback(
-        context, 
-        'Görseller seçilirken bir hata oluştu: $e'
-      );
-    }
-  }
-
-  
+ 
 
   // Analiz yapma
   Future<void> _analyzeMessage() async {

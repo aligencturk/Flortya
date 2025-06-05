@@ -545,12 +545,7 @@ class MessageViewModel extends ChangeNotifier {
     }
   }
 
-  // Yeni bir analiz başlatırken önceki analiz sonuçlarını temizleme
-  void _startNewAnalysis() {
-    _currentMessage = null;
-    _currentAnalysisResult = null;
-    notifyListeners();
-  }
+
 
   // Mesajı analiz et (messageId ile)
   Future<bool> analyzeMessage(String messageIdOrContent) async {
@@ -853,8 +848,6 @@ class MessageViewModel extends ChangeNotifier {
         return;
       }
       
-      // Kullanıcı modelini oluştur
-      UserModel userModel = UserModel.fromFirestore(userDoc);
       
       // Analiz hizmeti ile ilişki durumunu analiz et
       final analizSonucuMap = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
@@ -863,7 +856,6 @@ class MessageViewModel extends ChangeNotifier {
       final AnalizSonucu analizSonucu = AnalizSonucu.fromMap(analizSonucuMap);
       
       // Kullanıcı modelini güncelle
-      final UserModel guncelKullanici = userModel.analizSonucuEkle(analizSonucu);
       
       // Firestore'a kaydet
       await userRef.update({
@@ -1944,8 +1936,6 @@ class MessageViewModel extends ChangeNotifier {
         }
       }
       
-      // Kullanıcı modelini oluştur
-      UserModel userModel = UserModel.fromFirestore(userDoc);
       
       // Analiz hizmeti ile ilişki durumunu analiz et
       final analizSonucuMap = await _aiService.iliskiDurumuAnaliziYap(userId, analizVerileri);
@@ -1953,8 +1943,6 @@ class MessageViewModel extends ChangeNotifier {
       // Map'i AnalizSonucu nesnesine dönüştür
       final AnalizSonucu analizSonucu = AnalizSonucu.fromMap(analizSonucuMap);
       
-      // Kullanıcı modelini güncelle
-      final UserModel guncelKullanici = userModel.analizSonucuEkle(analizSonucu);
       
       // Firestore'a kaydet
       await userRef.update({
@@ -2032,54 +2020,7 @@ class MessageViewModel extends ChangeNotifier {
 
   // Yardımcı Fonksiyonlar
   
-  // Firestore için geçerli alan adı kontrolü
-  bool _isValidFirestoreFieldName(String fieldName) {
-    if (fieldName.isEmpty) return false;
-    if (fieldName.contains('.')) return false;
-    if (fieldName.contains('/')) return false;
-    if (fieldName.contains('[') || fieldName.contains(']')) return false;
-    if (fieldName.contains('__')) return false; // Çift alt çizgi de sorun olabilir
-    return true;
-  }
+ 
+
   
-  // Firestore için geçerli veri tipi kontrolü
-  bool _isValidFirestoreValueType(dynamic value) {
-    if (value == null) return false;
-    
-    return value is String || 
-           value is num || 
-           value is bool || 
-           value is Map<String, dynamic> || 
-           value is List || 
-           value is Timestamp || 
-           value is FieldValue;
   }
-  
-  // İç içe map'leri kontrol et
-  void _checkNestedMap(Map<String, dynamic> map, String parentKey) {
-    map.forEach((key, value) {
-      String fullKey = '$parentKey.$key';
-      
-      print("    Alt Alan: '$fullKey', Tipi: ${value.runtimeType}, Değeri: $value");
-      
-      // Alan adı kontrolü
-      if (!_isValidFirestoreFieldName(key)) {
-        print("    ⚠️ HATA! İç içe geçersiz alan adı: '$key' in '$parentKey'");
-      }
-      
-      // Değer tipi kontrolü
-      if (!_isValidFirestoreValueType(value)) {
-        if (value == null) {
-          print("    ⚠️ HATA! İç içe null değer: '$fullKey'");
-        } else {
-          print("    ⚠️ HATA! İç içe geçersiz veri tipi: '$fullKey' (${value.runtimeType})");
-        }
-      }
-      
-      // Daha iç içe map'ler varsa onları da kontrol et
-      if (value is Map<String, dynamic>) {
-        _checkNestedMap(value, fullKey);
-      }
-    });
-  }
-}

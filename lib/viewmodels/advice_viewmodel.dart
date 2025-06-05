@@ -515,28 +515,6 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
   
-  // Kullanıcının bugün yaptığı analiz sayısını kontrol etme ve artırma
-  Future<void> _incrementAnalysisCount(String userId) async {
-    try {
-      // Bugünün tarihini al (saat bilgisini sıfırla)
-      final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day);
-      
-      // Kullanıcının bugün yaptığı analizleri sorgula
-      final QuerySnapshot analysisSnapshot = await _firestore
-          .collection('message_coach_analyses')
-          .where('userId', isEqualTo: userId)
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-          .get();
-      
-      _ucretlizAnalizSayisi = analysisSnapshot.docs.length;
-      
-      _logger.i('Bugün yapılan analiz sayısı: $_ucretlizAnalizSayisi');
-      notifyListeners();
-    } catch (e) {
-      _logger.e('Analiz sayısı kontrol edilirken hata: $e');
-    }
-  }
   
   // Kullanıcının bugün yaptığı analiz sayısını yükleme
   Future<void> loadAnalysisCount(String userId) async {
@@ -614,23 +592,9 @@ class AdviceViewModel extends ChangeNotifier {
     }
   }
   
-  // Yardımcı metodlar
-  void _setLoading(bool value) {
-    _isLoading = value;
-    notifyListeners();
-  }
+
   
-  void _setAnalyzing(bool value) {
-    // İç durumu değiştir
-    _isAnalyzing = value;
-    
-    // Log ekle
-    _logger.i('_setAnalyzing çağrıldı - Yeni durum: $_isAnalyzing');
-    
-    // UI'a bildir
-    notifyListeners();
-  }
-  
+ 
   void _setError(String? message) {
     _errorMessage = message;
     notifyListeners();

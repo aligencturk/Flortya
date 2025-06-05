@@ -292,96 +292,6 @@ class _ReportViewState extends State<ReportView> {
     });
   }
 
-  void _startNewReport(BuildContext context) async {
-    final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
-    
-    final canRegenerate = await _accessService.canRegenerateReport(isPremium);
-    
-    if (!canRegenerate) {
-      if (!context.mounted) return;
-      _showReportRegenerateDialog();
-      return;
-    }
-    
-    reportViewModel.resetReport();
-    
-    setState(() {
-      _showReportResult = false;
-    });
-  }
-
-  void _showReportRegenerateDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Premium Gerekli'),
-          content: const Text(
-            'Raporu yeniden oluşturma hakkınız doldu. Premium üyelik satın alarak sınırsız kullanabilir veya reklam izleyerek yeniden oluşturabilirsiniz.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Vazgeç'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _showAdSimulation(AdViewType.REPORT_REGENERATE);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-              child: const Text('Reklam İzle'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _toggleCommentMode() {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
-    
-    if (!isPremium) {
-      Utils.showToast(
-        context,
-        'Yorum ve danışma özelliği sadece Premium üyelere özeldir'
-      );
-      return;
-    }
-    
-    setState(() {
-      _isCommenting = !_isCommenting;
-    });
-  }
-
-  void _sendComment() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-    final comment = _commentController.text.trim();
-    
-    if (comment.isEmpty) {
-      Utils.showToast(context, 'Lütfen yorum yazın');
-      return;
-    }
-    
-    if (authViewModel.user != null) {
-      await reportViewModel.sendComment(authViewModel.user!.id, comment);
-    }
-    
-    Utils.showSuccessFeedback(context, 'Yorumunuz gönderildi');
-    
-    _commentController.clear();
-    setState(() {
-      _isCommenting = false;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1153,13 +1063,7 @@ class _ReportViewState extends State<ReportView> {
     return typeColors[relationshipType] ?? Colors.indigo.shade700;
   }
   
-  Color _getScoreColor(int score) {
-    if (score >= 80) return Colors.green.shade600;
-    if (score >= 60) return Colors.blue.shade600;
-    if (score >= 40) return Colors.amber.shade600;
-    if (score >= 20) return Colors.orange.shade600;
-    return Colors.red.shade600;
-  }
+
 
   List<Widget> _buildSuggestionList(BuildContext context, Map<String, dynamic> report) {
     final List<dynamic> suggestions = report['suggestions'] as List<dynamic>;
@@ -1288,20 +1192,6 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  void _showPastReportsScreen() {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
-    
-    if (!isPremium) {
-      Utils.showToast(
-        context,
-        'Geçmiş raporlara erişim sadece Premium üyelere özeldir'
-      );
-      return;
-    }
-    
-    context.push('/past-reports');
-  }
 
   // İlk erişim kontrolü
   Future<void> _checkInitialAccess() async {

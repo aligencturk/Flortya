@@ -69,9 +69,5 @@ class _TurkishKeyboardHandlerState extends State<TurkishKeyboardHandler> {
     );
   }
   
-  /// Türkçe karakter kullanımını etkinleştir
-  static void enableTurkishKeyboard() {
-    // Sistem düzeyinde bir değişiklik yapma
-    // Flutter'ın kendi mekanizmasına güven
-  }
+ 
 } 
