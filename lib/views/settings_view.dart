@@ -597,12 +597,13 @@ class _SettingsViewState extends State<SettingsView> {
         debugPrint('ReportViewModel temizleme hatası: $e');
       }
       
-      // Ana sayfadaki wrapped hikayeleri temizle
+      // Ana sayfadaki wrapped hikayeleri temizle (UI güncellemesi için)
       try {
         // Event bus servisi ile wrapped hikayeleri sıfırlama olayını yayınla
-        debugPrint('Ana sayfadaki wrapped hikayeleri siliniyor...');
+        debugPrint('Ana sayfadaki wrapped hikayeleri UI üzerinde güncelleniyor...');
         
         // EventBusService aracılığıyla resetWrappedStories olayını yayınla
+        // Bu olay HomeView'deki dinleyici tarafından yakalanacak ve UI güncellenecek
         final EventBusService eventBus = EventBusService();
         eventBus.emit(AppEvents.resetWrappedStories);
         

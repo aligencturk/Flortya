@@ -276,7 +276,7 @@ class DataResetService {
       bool coachResult = await resetMessageCoachData(userId);
       debugPrint('Mesaj koçu silme sonucu: $coachResult');
       
-      // Wrapped (konuşma özeti) verilerini sil
+      // Wrapped (konuşma özeti) verilerini sil - ÖNCELİKLİ OLARAK ÇAĞRILABİLİR
       bool wrappedResult = await resetWrappedData(userId);
       debugPrint('Wrapped analizi silme sonucu: $wrappedResult');
       

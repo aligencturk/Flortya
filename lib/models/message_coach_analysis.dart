@@ -23,6 +23,21 @@ class MessageCoachAnalysis {
   final String? olumluCevapTahmini;    // Olumlu yanıt senaryosu
   final String? olumsuzCevapTahmini;   // Olumsuz yanıt senaryosu
   
+  // Metin analizi için özel alanlar
+  final String? metinOzeti;            // Metnin özeti
+  final String? anaTema;               // Ana tema
+  final String? duygusalTon;           // Duygusal ton
+  final String? amac;                  // Amaç
+  final List<String>? onemliNoktalar;  // Önemli noktalar
+  final String? mesajYorumu;           // Mesaj hakkında yorum
+  final String? olumluSenaryo;         // Olumlu yanıt senaryosu
+  final String? olumsuzSenaryo;        // Olumsuz yanıt senaryosu
+  final List<String>? alternatifMesajlar; // Alternatif mesajlar
+  
+  // Sadece metin analizi için kullanılan bilgiler
+  final String? id;                    // Benzersiz ID
+  final DateTime? createdAt;           // Oluşturulma zamanı
+  
   // İlk 3 analizi tanımlamak için sabit
   static const int ucretlizAnalizSayisi = 3;
 
@@ -44,6 +59,18 @@ class MessageCoachAnalysis {
     this.cevapOnerileri,
     this.olumluCevapTahmini,
     this.olumsuzCevapTahmini,
+    // Yeni alanlar
+    this.metinOzeti,
+    this.anaTema,
+    this.duygusalTon,
+    this.amac,
+    this.onemliNoktalar,
+    this.mesajYorumu,
+    this.olumluSenaryo,
+    this.olumsuzSenaryo,
+    this.alternatifMesajlar,
+    this.id,
+    this.createdAt,
   });
 
   factory MessageCoachAnalysis.from(Map<String, dynamic> json) {
@@ -249,6 +276,17 @@ class MessageCoachAnalysis {
         cevapOnerileri: cevapOnerileriList,
         olumluCevapTahmini: olumluCevapTahmini,
         olumsuzCevapTahmini: olumsuzCevapTahmini,
+        metinOzeti: json['metinOzeti'],
+        anaTema: json['anaTema'],
+        duygusalTon: json['duygusalTon'],
+        amac: json['amac'],
+        onemliNoktalar: json['onemliNoktalar'] as List<String>?,
+        mesajYorumu: json['mesajYorumu'],
+        olumluSenaryo: json['olumluSenaryo'],
+        olumsuzSenaryo: json['olumsuzSenaryo'],
+        alternatifMesajlar: json['alternatifMesajlar'] as List<String>?,
+        id: json['id'],
+        createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       );
     } catch (e) {
       print('❌ MesajKocuAnalizi.from hatası: $e');
@@ -272,7 +310,18 @@ class MessageCoachAnalysis {
           'API yanıtı alınamadı. Lütfen tekrar deneyin.',
         ],
         olumluCevapTahmini: null,
-        olumsuzCevapTahmini: null
+        olumsuzCevapTahmini: null,
+        metinOzeti: null,
+        anaTema: null,
+        duygusalTon: null,
+        amac: null,
+        onemliNoktalar: null,
+        mesajYorumu: null,
+        olumluSenaryo: null,
+        olumsuzSenaryo: null,
+        alternatifMesajlar: null,
+        id: null,
+        createdAt: null,
       );
     }
   }
@@ -296,6 +345,17 @@ class MessageCoachAnalysis {
       'cevap_önerileri': cevapOnerileri,
       'olumlu_cevap_tahmini': olumluCevapTahmini,
       'olumsuz_cevap_tahmini': olumsuzCevapTahmini,
+      'metin_ozeti': metinOzeti,
+      'ana_tema': anaTema,
+      'duygusal_ton': duygusalTon,
+      'amac': amac,
+      'onemli_noktalar': onemliNoktalar,
+      'mesaj_yorumu': mesajYorumu,
+      'olumlu_senaryo': olumluSenaryo,
+      'olumsuz_senaryo': olumsuzSenaryo,
+      'alternatif_mesajlar': alternatifMesajlar,
+      'id': id,
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 
@@ -318,6 +378,17 @@ class MessageCoachAnalysis {
       'cevapOnerileri': cevapOnerileri,
       'olumluCevapTahmini': olumluCevapTahmini,
       'olumsuzCevapTahmini': olumsuzCevapTahmini,
+      'metinOzeti': metinOzeti,
+      'anaTema': anaTema,
+      'duygusalTon': duygusalTon,
+      'amac': amac,
+      'onemliNoktalar': onemliNoktalar,
+      'mesajYorumu': mesajYorumu,
+      'olumluSenaryo': olumluSenaryo,
+      'olumsuzSenaryo': olumsuzSenaryo,
+      'alternatifMesajlar': alternatifMesajlar,
+      'id': id,
+      'createdAt': createdAt?.toIso8601String(),
     };
   }
   

@@ -20,6 +20,7 @@ import '../utils/loading_indicator.dart';
 import '../services/premium_service.dart';
 import '../services/ad_service.dart';
 import '../views/wrapped_quiz_view.dart';
+import '../services/event_bus_service.dart';
 
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
@@ -351,34 +352,30 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                     onPressed: () => context.pop(),
                   ),
-                  Consumer<AuthViewModel>(
-                    builder: (context, authViewModel, _) {
-                      return Text(
-                        'Merhaba, ${authViewModel.user?.displayName ?? ""}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      );
-                    },
+                  Expanded(
+                    child: Consumer<AuthViewModel>(
+                      builder: (context, authViewModel, _) {
+                        return Text(
+                          'Merhaba, ${authViewModel.user?.displayName ?? ""}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      },
+                    ),
                   ),
-                  const Spacer(),
                   // Butonları Wrap içine alarak taşmayı önlüyoruz
-                  Wrap(
-                    spacing: 4, // butonlar arası boşluk
-                    children: [
-                      // Reset veriler butonu - kaldırıldı
-                      IconButton(
-                        icon: const Icon(Icons.info_outline, color: Colors.white),
-                        onPressed: () {
-                          _showInfoDialog(context);
-                        },
-                        padding: const EdgeInsets.all(8),
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.info_outline, color: Colors.white),
+                    onPressed: () {
+                      _showInfoDialog(context);
+                    },
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
@@ -1751,7 +1748,53 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       await prefs.setString('wrappedCacheData', encodedData);
       await prefs.setString('wrappedCacheContent', content);
       
+      // Ana sayfada göstermek için yeni bir wrapped analizi oluştur ve kaydet
+      final String newId = DateTime.now().millisecondsSinceEpoch.toString();
+      final Map<String, dynamic> newAnalysis = {
+        'id': newId,
+        'title': 'Wrapped',
+        'date': DateTime.now().toIso8601String(),
+        'dataRef': 'wrappedCacheData',
+      };
+      
+      // Mevcut wrapped listesini al
+      String? wrappedListJson = prefs.getString('wrappedAnalysesList');
+      List<Map<String, dynamic>> wrappedList = [];
+      
+      if (wrappedListJson != null && wrappedListJson.isNotEmpty) {
+        final List<dynamic> decodedList = jsonDecode(wrappedListJson);
+        wrappedList = List<Map<String, dynamic>>.from(
+          decodedList.map((item) => Map<String, dynamic>.from(item))
+        );
+      }
+      
+      // Veriyi wrapped listesine ekle (eğer aynı dataRef'e sahip bir item yoksa)
+      bool hasWrappedCacheInList = wrappedList.any((item) => item['dataRef'] == 'wrappedCacheData');
+      
+      if (!hasWrappedCacheInList) {
+        wrappedList.add(newAnalysis);
+        await prefs.setString('wrappedAnalysesList', jsonEncode(wrappedList));
+        debugPrint('Yeni wrapped analizi otomatik olarak oluşturuldu ve ana sayfa listesine eklendi');
+      } else {
+        // Var olan wrapped analizini güncelle (tarihi yenile)
+        final int existingIndex = wrappedList.indexWhere((item) => item['dataRef'] == 'wrappedCacheData');
+        if (existingIndex >= 0) {
+          wrappedList[existingIndex]['date'] = DateTime.now().toIso8601String();
+          await prefs.setString('wrappedAnalysesList', jsonEncode(wrappedList));
+          debugPrint('Mevcut wrapped analizi güncellendi');
+        }
+      }
+      
       debugPrint('${summaryData.length} analiz sonucu önbelleğe kaydedildi');
+      
+      // Ana sayfaya bildirim gönder - wrapped listesini güncellemesi için
+      try {
+        final EventBusService eventBus = EventBusService();
+        eventBus.emit(AppEvents.refreshHomeData);
+        debugPrint('refreshHomeData olayı gönderildi - Ana sayfa wrapped analizi güncellenecek');
+      } catch (e) {
+        debugPrint('EventBus gönderme hatası: $e');
+      }
     } catch (e) {
       debugPrint('Önbelleğe kaydetme hatası: $e');
     }
@@ -1942,26 +1985,31 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                                      summaryData[0]['comment'] != null ? 
                                      _extractDateFromComment(summaryData[0]['comment']!) : '';
         
-        // Varsayılan kartları oluştur
-        final List<Map<String, String>> eksikKartlar = _getDefaultWrappedCards(ilkMesajTarihi);
+        // Temel kartı oluştur
+        final Map<String, String> ilkMesajKarti = _createFirstMessageCard(ilkMesajTarihi);
+        
+        // İlk mesaj kartı yoksa ekle
+        if (!summaryData.any((kart) => kart['title']?.contains('İlk Mesaj') == true)) {
+          summaryData.insert(0, ilkMesajKarti);
+        }
+        
+        // Eğer hala 10 kart yoksa, genel istatistik kartları ekle
+        final List<Map<String, String>> genelKartBasliklari = [
+          {'title': 'Mesaj Sayıları', 'comment': 'Toplam mesaj sayısı ve dağılımları.'},
+          {'title': 'En Yoğun Ay/Gün', 'comment': 'En çok mesajlaşılan ay ve gün bilgisi.'},
+          {'title': 'En Çok Kullanılan Kelimeler', 'comment': 'Sohbette en sık geçen kelimeler.'},
+          {'title': 'Pozitif/Negatif Ton', 'comment': 'Sohbetin duygusal tonu.'},
+          {'title': 'Mesaj Patlaması', 'comment': 'En yoğun mesajlaşma dönemi.'},
+          {'title': 'Sessizlik Süresi', 'comment': 'En uzun cevapsız kalınan süre.'},
+          {'title': 'İletişim Tipi', 'comment': 'Mesajlaşma tarzınız.'},
+          {'title': 'Mesaj Tipleri', 'comment': 'Mesajların içerik türleri.'},
+          {'title': 'Kişisel Performans', 'comment': 'Mesajlaşma performansınız.'}
+        ];
         
         // Eksik kartları ekle
-        final int eksikSayi = 10 - summaryData.length;
-        for (int i = 0; i < eksikSayi; i++) {
-          // Eğer eklenmemiş başlık varsa ondan ekle
-          bool eklendi = false;
-          for (final eksikKart in eksikKartlar) {
-            final String eksikBaslik = eksikKart['title'] ?? '';
-            if (!summaryData.any((kart) => kart['title'] == eksikBaslik)) {
-              summaryData.add(eksikKart);
-              eklendi = true;
-              break;
-            }
-          }
-          
-          // Eğer eklenmediyse eksik kartlardan herhangi birini ekle
-          if (!eklendi && i < eksikKartlar.length) {
-            summaryData.add(eksikKartlar[i]);
+        for (final kartBaslik in genelKartBasliklari) {
+          if (!summaryData.any((kart) => kart['title'] == kartBaslik['title']) && summaryData.length < 10) {
+            summaryData.add(kartBaslik);
           }
         }
       } else if (summaryData.length > 10) {
@@ -1992,6 +2040,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       debugPrint('  Başlık: ${summaryData[i]['title']}');
       debugPrint('  Yorum: ${summaryData[i]['comment']}');
     }
+
+    // Ana sayfaya wrapped analizinin hazır olduğunu bildir
+    final EventBusService eventBus = EventBusService();
+    eventBus.emit(AppEvents.refreshHomeData);
+    debugPrint('refreshHomeData olayı gönderildi - Ana sayfa wrapped analizi güncellenecek');
 
     showDialog(
       context: context,
@@ -2031,6 +2084,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 color: const Color(0xFF1DB954),
                 onTap: () {
                   Navigator.pop(context); // Dialog'u kapat
+                  
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -2038,7 +2092,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                         summaryData: summaryData,
                       ),
                     ),
-                  );
+                  ).then((_) {
+                    // Analiz görüntülendikten sonra ana sayfaya dön
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context); // Analiz sayfasından çık
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -2049,6 +2108,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 color: const Color(0xFF9D3FFF),
                 onTap: () {
                   Navigator.pop(context); // Dialog'u kapat
+                  
                   _startWrappedQuiz(summaryData);
                 },
               ),
@@ -2059,60 +2119,22 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
   
-  // Varsayılan wrapped kartları - daha önce AiService içinde tanımlanan versiyonun kopyası
-  List<Map<String, String>> _getDefaultWrappedCards([String ilkMesajTarihi = '']) {
+  // Tarihten düzgün bir ilk mesaj bilgisi oluşturma
+  Map<String, String> _createFirstMessageCard(String ilkMesajTarihi) {
     final String tarihIfadesi;
     
     if (ilkMesajTarihi.isNotEmpty) {
-      // Gerçek tarih bulunduğunda
-      tarihIfadesi = '$ilkMesajTarihi tarihinde atılmış';
+      tarihIfadesi = ilkMesajTarihi;
     } else {
-      // Tarih bulunamadığında genel ifade kullan
-      tarihIfadesi = 'konuşmanın başlangıcında atılmış';
+      // Şimdiki tarihten 3 ay önce gibi bir tahmin yap
+      final threeMontshAgo = DateTime.now().subtract(const Duration(days: 90));
+      tarihIfadesi = '${threeMontshAgo.day}.${threeMontshAgo.month}.${threeMontshAgo.year}';
     }
     
-    return [
-      {
-        'title': 'İlk Mesaj - Son Mesaj',
-        'comment': 'İlk mesaj $tarihIfadesi. O günden bu yana mesajlaşmanız devam ediyor.'
-      },
-      {
-        'title': 'Mesaj Sayıları',
-        'comment': 'Toplam 1,243 mesaj atmışsınız. Sen %58, karşı taraf %42 oranında mesaj atmış.'
-      },
-      {
-        'title': 'En Yoğun Ay/Gün',
-        'comment': 'En çok Mayıs ayında mesajlaşmışsınız. En yoğun gün ise Cumartesi.'
-      },
-      {
-        'title': 'En Çok Kullanılan Kelimeler',
-        'comment': 'En sık kullanılan kelimeler: "tamam", "evet", "hayır", "belki", "merhaba"'
-      },
-      {
-        'title': 'Pozitif/Negatif Ton',
-        'comment': 'Mesajlarınızın %70\'i pozitif tonlu. Sabah saatlerinde daha pozitif konuşuyorsunuz.'
-      },
-      {
-        'title': 'Mesaj Patlaması',
-        'comment': '15 Nisan günü tam 87 mesaj atarak rekor kırdınız! O gün neler oldu acaba?'
-      },
-      {
-        'title': 'Sessizlik Süresi',
-        'comment': 'En uzun sessizlik 5 gün sürmüş. 10-15 Haziran arasında hiç mesajlaşmamışsınız.'
-      },
-      {
-        'title': 'İletişim Tipi',
-        'comment': 'Mesajlaşma tarzınız "Arkadaşça" olarak sınıflandırılıyor. Flört unsurları da var.'
-      },
-      {
-        'title': 'Mesaj Tipleri',
-        'comment': 'Mesajlarınızın %40\'ı soru, %30\'u onay, %20\'si duygu ifadesi, %10\'u bilgi paylaşımı.'
-      },
-      {
-        'title': 'Kişisel Performans',
-        'comment': 'Ortalama 23 dakikada bir mesaj atıyorsun ve karşı taraftan cevap almak için ortalama 17 dakika bekliyorsun.'
-      }
-    ];
+    return {
+      'title': 'İlk Mesaj - Son Mesaj',
+      'comment': 'İlk mesajınız $tarihIfadesi tarihinde atılmış görünüyor. Analiz için daha fazla mesaj verisi gerekli.'
+    };
   }
   
   // Yorumdan tarih çıkarma yardımcı metodu
@@ -2190,6 +2212,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       MaterialPageRoute(
         builder: (context) => WrappedQuizView(summaryData: summaryData),
       ),
-    );
+    ).then((_) {
+      // Quiz tamamlandıktan sonra ana sayfaya dön
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Analiz sayfasından çık
+      }
+    });
   }
 } 
