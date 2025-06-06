@@ -169,9 +169,19 @@ class _HomeViewState extends State<HomeView> {
         if (event == AppEvents.resetWrappedStories) {
           resetWrappedData();
         } else if (event == AppEvents.refreshHomeData) {
-          // Ana sayfa verilerini yenile - özellikle wrapped analizlerini
-          debugPrint('refreshHomeData olayı alındı - Wrapped analizlerini yeniliyorum');
-          _loadWrappedAnalyses();
+          // Microtask döngüsünü ve UI hatalarını önlemek için gecikme ekle
+          // ve sadece widget bağlıysa işlem yap
+          if (mounted) {
+            Future.delayed(Duration(milliseconds: 800), () {
+              if (mounted) {
+                debugPrint('refreshHomeData olayı alındı - Wrapped analizlerini yeniliyorum');
+                _loadWrappedAnalyses();
+                
+                // UI güncellemesi için setState çağır
+                setState(() {});
+              }
+            });
+          }
         }
       });
     } catch (e) {

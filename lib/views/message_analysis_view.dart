@@ -1789,9 +1789,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       
       // Ana sayfaya bildirim gönder - wrapped listesini güncellemesi için
       try {
-        final EventBusService eventBus = EventBusService();
-        eventBus.emit(AppEvents.refreshHomeData);
-        debugPrint('refreshHomeData olayı gönderildi - Ana sayfa wrapped analizi güncellenecek');
+        // Microtask döngüsünü önlemek için gecikme ekle
+        // Bu EventBus bildirimi, kullanıcı geri döndüğünde ana sayfada wrapped dairesinin görünmesini sağlar
+        Future.delayed(Duration(milliseconds: 500), () {
+          final EventBusService eventBus = EventBusService();
+          eventBus.emit(AppEvents.refreshHomeData);
+          debugPrint('refreshHomeData olayı gönderildi - Ana sayfa wrapped analizi güncellenecek');
+        });
       } catch (e) {
         debugPrint('EventBus gönderme hatası: $e');
       }
@@ -2041,10 +2045,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       debugPrint('  Yorum: ${summaryData[i]['comment']}');
     }
 
-    // Ana sayfaya wrapped analizinin hazır olduğunu bildir
-    final EventBusService eventBus = EventBusService();
-    eventBus.emit(AppEvents.refreshHomeData);
-    debugPrint('refreshHomeData olayı gönderildi - Ana sayfa wrapped analizi güncellenecek');
+    // Ana sayfaya wrapped analizinin hazır olduğunu bildirmek için EventBus kullanmaya gerek yok
+    // Wrapped verileri _cacheSummaryData tarafından kaydedildi ve EventBus oradan gönderiliyor
 
     showDialog(
       context: context,
@@ -2092,12 +2094,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                         summaryData: summaryData,
                       ),
                     ),
-                  ).then((_) {
-                    // Analiz görüntülendikten sonra ana sayfaya dön
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context); // Analiz sayfasından çık
-                    }
-                  });
+                  );
                 },
               ),
               const SizedBox(height: 16),
@@ -2212,11 +2209,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       MaterialPageRoute(
         builder: (context) => WrappedQuizView(summaryData: summaryData),
       ),
-    ).then((_) {
-      // Quiz tamamlandıktan sonra ana sayfaya dön
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Analiz sayfasından çık
-      }
-    });
+    );
   }
 } 
