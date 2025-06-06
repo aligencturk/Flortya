@@ -1515,7 +1515,7 @@ class AiService {
           final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
           
           if (aiContent == null || aiContent.trim().isEmpty) {
-            _logger.e('AI yanıtı boş, ikinci deneme yapılıyor');
+            _logger.e('API yanıtı boş, ikinci deneme yapılıyor');
             // Boş yanıt alırsak, ikinci deneme yap
             return await _ikiciDenemeyiYap(chatContent, _isOcrContent(chatContent));
           }
@@ -2938,26 +2938,90 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
           // JSON bloğunu çıkar
           String jsonStr = aiContent;
           
-          // Markdown kod bloğu varsa temizle
-          if (jsonStr.contains('```json')) {
-            jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
-          } else if (jsonStr.contains('```')) {
-            jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+          // Önce içerikteki saf JSON'u almak için regex kullan
+          RegExp jsonRegex = RegExp(r'\{[\s\S]*\}');
+          Match? jsonMatch = jsonRegex.firstMatch(jsonStr);
+          
+          if (jsonMatch != null) {
+            jsonStr = jsonMatch.group(0) ?? jsonStr;
+          } else {
+            // Markdown kod bloğu varsa temizle
+            if (jsonStr.contains('```json')) {
+              jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+            } else if (jsonStr.contains('```')) {
+              jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+            }
           }
           
-          Map<String, dynamic> jsonData = jsonDecode(jsonStr);
+          // Hata ayıklama
+          _logger.d('JSON ayrıştırılmaya çalışılıyor: ${jsonStr.substring(0, min(100, jsonStr.length))}...');
+          
+          Map<String, dynamic> jsonData;
+          try {
+            jsonData = jsonDecode(jsonStr);
+            _logger.i('JSON başarıyla ayrıştırıldı');
+          } catch (jsonError) {
+            _logger.e('İlk JSON ayrıştırma hatası: $jsonError, alternatif yöntem deneniyor');
+            
+            // Alternatif çözüm: Yanıt düzgün JSON olmayabilir, düzeltmeye çalış
+            jsonStr = jsonStr.replaceAll("'", '"'); // Tek tırnakları çift tırnağa çevir
+            
+            // Eksik çift tırnakları düzelt
+            RegExp keyPattern = RegExp(r'([a-zA-Z0-9_]+):');
+            jsonStr = jsonStr.replaceAllMapped(keyPattern, (Match m) => '"${m.group(1)}":');
+            
+            // Şimdi tekrar dene
+            try {
+              jsonData = jsonDecode(jsonStr);
+              _logger.i('JSON düzeltme sonrası başarıyla ayrıştırıldı');
+            } catch (e) {
+              _logger.e('JSON düzeltme sonrası da ayrıştırılamadı: $e');
+              
+              // Manuel bir yapı oluştur
+              jsonData = {
+                'metinOzeti': 'Metin analiz edilemedi',
+                'anaTema': 'Belirlenemedi',
+                'duygusalTon': 'Nötr',
+                'amac': 'Belirlenemedi',
+                'onemliNoktalar': ['Analiz edilemedi'],
+                'onerilecekCevaplar': ['Üzgünüm, mesajınızı analiz edemedim.', 'Lütfen mesajınızı daha açık bir şekilde yazabilir misiniz?', 'Farklı bir yaklaşımla iletişim kurmayı deneyebilirsiniz.'],
+                'mesajYorumu': 'Mesaj analiz edilemedi, lütfen başka bir metin ile tekrar deneyin.',
+                'olumluSenaryo': 'Analiz edilemedi',
+                'olumsuzSenaryo': 'Analiz edilemedi'
+              };
+            }
+          }
+          
+          // JSON'dan listeyi güvenli şekilde ayıkla
+          List<String> getStringList(dynamic jsonValue) {
+            if (jsonValue == null) return [];
+            
+            if (jsonValue is List) {
+              return jsonValue.map((e) => e.toString()).toList();
+            } else if (jsonValue is String) {
+              // Metin içinde liste formatı olabilir [item1, item2] gibi
+              if (jsonValue.startsWith('[') && jsonValue.endsWith(']')) {
+                final listText = jsonValue.substring(1, jsonValue.length - 1);
+                return listText.split(',').map((e) => e.trim()).toList();
+              }
+              // Tek bir string ise, onu liste yap
+              return [jsonValue];
+            }
+            
+            return [];
+          }
           
           // MessageCoachAnalysis nesnesini oluştur
           final analiz = MessageCoachAnalysis(
             // Zorunlu alanlar
             analiz: jsonData['metinOzeti'] ?? 'Özet yok',
-            oneriler: (jsonData['onerilecekCevaplar'] as List?)?.map((e) => e.toString()).toList() ?? ['Daha fazla bilgi gerekli'],
+            oneriler: getStringList(jsonData['onerilecekCevaplar']),
             etki: {'Nötr': 50, 'Olumlu': 25, 'Olumsuz': 25},
             
             // Opsiyonel alanlar
             iliskiTipi: 'Tanımlanmamış',
             gucluYonler: jsonData['anaTema'] ?? 'Tema belirtilmemiş',
-            cevapOnerileri: (jsonData['onerilecekCevaplar'] as List?)?.map((e) => e.toString()).toList() ?? [],
+            cevapOnerileri: getStringList(jsonData['onerilecekCevaplar']),
             
             // Yeni alanlar - metin analizi için
             id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -2966,10 +3030,16 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
             anaTema: jsonData['anaTema'] ?? 'Tema belirtilmemiş',
             duygusalTon: jsonData['duygusalTon'] ?? 'Nötr',
             amac: jsonData['amac'] ?? 'Amaç belirtilmemiş',
-            onemliNoktalar: (jsonData['onemliNoktalar'] as List?)?.map((e) => e.toString()).toList() ?? [],
+            onemliNoktalar: getStringList(jsonData['onemliNoktalar']),
             mesajYorumu: jsonData['mesajYorumu'] ?? 'Yorum yok',
             olumluSenaryo: jsonData['olumluSenaryo'] ?? 'Olumlu senaryo bulunamadı',
             olumsuzSenaryo: jsonData['olumsuzSenaryo'] ?? 'Olumsuz senaryo bulunamadı',
+            
+            // Ekstra metin koçu alanları
+            sohbetGenelHavasi: jsonData['mesajYorumu'] ?? 'Belirlenemedi',
+            direktYorum: jsonData['metinOzeti'] ?? 'Belirlenemedi',
+            sonMesajTonu: jsonData['duygusalTon'] ?? 'Nötr',
+            
             alternatifMesajlar: []
           );
           
