@@ -2872,30 +2872,39 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       
       // Prompt ve API isteği için veri oluştur
       final prompt = '''
-      Aşağıdaki metni analiz et ve şu bilgileri çıkar:
+      Sen bir mesajlaşma analiz uzmanısın. Aşağıdaki metni mesajlaşma koçu olarak analiz et. 
+      Mesajın genel havasını ve etkisini değerlendir. Metni bir mesajlaşma/sohbet olarak ele al.
       
-      1. Ana konular neler?
-      2. Metin hangi duygusal tonu taşıyor?
-      3. Metnin amacı ne olabilir?
-      4. Metin içinde geçen en önemli kişi, yer veya kavramlar neler?
+      İletişime dair derinlemesine analiz yap:
+      1. Sohbetin genel havası nasıl? (samimi, resmi, soğuk, sıcak, vb.)
+      2. Son mesajın tonu nasıl? (ilgili, ilgisiz, heyecanlı, kızgın, vb.)
+      3. Bu metne verilecek etkili cevaplar neler olabilir?
       
       Metin:
       """
       $metinIcerigi
       """
       
-      Analiz yaparken aşağıdaki formatta JSON olarak yanıt ver:
+      Analiz sonucunu aşağıdaki JSON formatında ver:
       {
-        "metinOzeti": "Metnin kısa özeti",
-        "anaTema": "Ana tema",
-        "duygusalTon": "Metnin duygusal tonu",
-        "amac": "Metnin muhtemel amacı",
-        "onemliNoktalar": ["Önemli nokta 1", "Önemli nokta 2", ...],
-        "onerilecekCevaplar": ["Öneri 1", "Öneri 2", "Öneri 3"],
-        "mesajYorumu": "Metinle ilgili genel bir değerlendirme",
-        "olumluSenaryo": "Olumlu yanıt senaryosu",
-        "olumsuzSenaryo": "Olumsuz yanıt senaryosu"
+        "sohbetGenelHavasi": "Sohbetin genel havasını belirten bir ifade (örn: samimi, resmi, soğuk, sıcak)",
+        "genelYorum": "Sohbete dair genel bir değerlendirme (1-2 cümle)",
+        "sonMesajTonu": "Son mesajın tonu (ilgili, ilgisiz, heyecanlı, kızgın, vb.)",
+        "sonMesajEtkisi": {
+          "sempatik": X,
+          "kararsız": Y,
+          "olumsuz": Z
+        },
+        "direktYorum": "Kısa, net ve gerekiyorsa acımasız bir yorum",
+        "cevapOnerileri": ["Öneri 1", "Öneri 2", "Öneri 3"],
+        "olumluSenaryo": "Olumlu bir yanıt senaryosu",
+        "olumsuzSenaryo": "Olumsuz bir yanıt senaryosu",
+        "mesajYorumu": "Mesaja dair detaylı bir yorum"
       }
+      
+      Önemli: Cevabını SADECE JSON formatında ver, başka açıklama yapma.
+      Cevabında "Analiz edilemedi", "yetersiz içerik" veya benzeri ifadeler KULLANMA.
+      İçerik ne kadar az olursa olsun mutlaka bir yorum yap ve değerleri doldur.
       ''';
       
       // API isteği gönder
@@ -3014,31 +3023,37 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
           // MessageCoachAnalysis nesnesini oluştur
           final analiz = MessageCoachAnalysis(
             // Zorunlu alanlar
-            analiz: jsonData['metinOzeti'] ?? 'Özet yok',
-            oneriler: getStringList(jsonData['onerilecekCevaplar']),
-            etki: {'Nötr': 50, 'Olumlu': 25, 'Olumsuz': 25},
+            analiz: jsonData['genelYorum'] ?? jsonData['mesajYorumu'] ?? 'Analiz yok',
+            oneriler: getStringList(jsonData['cevapOnerileri']),
+            etki: _parseSonMesajEtkisi(jsonData['sonMesajEtkisi']),
             
             // Opsiyonel alanlar
             iliskiTipi: 'Tanımlanmamış',
             gucluYonler: jsonData['anaTema'] ?? 'Tema belirtilmemiş',
-            cevapOnerileri: getStringList(jsonData['onerilecekCevaplar']),
+            cevapOnerileri: getStringList(jsonData['cevapOnerileri']),
+            
+            // Metin koçu alanları
+            sohbetGenelHavasi: jsonData['sohbetGenelHavasi'] ?? 'Belirlenemedi',
+            genelYorum: jsonData['genelYorum'] ?? 'Belirlenemedi',
+            sonMesajTonu: jsonData['sonMesajTonu'] ?? 'Nötr',
+            sonMesajEtkisi: _parseSonMesajEtkisi(jsonData['sonMesajEtkisi']),
+            direktYorum: jsonData['direktYorum'] ?? 'Belirlenemedi',
+            
+            // Yanıt senaryoları
+            olumluCevapTahmini: jsonData['olumluSenaryo'] ?? 'Olumlu senaryo bulunamadı',
+            olumsuzCevapTahmini: jsonData['olumsuzSenaryo'] ?? 'Olumsuz senaryo bulunamadı',
             
             // Yeni alanlar - metin analizi için
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             createdAt: DateTime.now(),
-            metinOzeti: jsonData['metinOzeti'] ?? 'Özet yok',
-            anaTema: jsonData['anaTema'] ?? 'Tema belirtilmemiş',
-            duygusalTon: jsonData['duygusalTon'] ?? 'Nötr',
-            amac: jsonData['amac'] ?? 'Amaç belirtilmemiş',
-            onemliNoktalar: getStringList(jsonData['onemliNoktalar']),
+            metinOzeti: jsonData['direktYorum'] ?? 'Özet yok',
+            anaTema: jsonData['sohbetGenelHavasi'] ?? 'Tema belirtilmemiş',
+            duygusalTon: jsonData['sonMesajTonu'] ?? 'Nötr',
+            amac: jsonData['mesajYorumu'] ?? 'Amaç belirtilmemiş',
+            onemliNoktalar: getStringList(jsonData['onemliNoktalar'] ?? []),
             mesajYorumu: jsonData['mesajYorumu'] ?? 'Yorum yok',
             olumluSenaryo: jsonData['olumluSenaryo'] ?? 'Olumlu senaryo bulunamadı',
             olumsuzSenaryo: jsonData['olumsuzSenaryo'] ?? 'Olumsuz senaryo bulunamadı',
-            
-            // Ekstra metin koçu alanları
-            sohbetGenelHavasi: jsonData['mesajYorumu'] ?? 'Belirlenemedi',
-            direktYorum: jsonData['metinOzeti'] ?? 'Belirlenemedi',
-            sonMesajTonu: jsonData['duygusalTon'] ?? 'Nötr',
             
             alternatifMesajlar: []
           );
@@ -3236,5 +3251,74 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
   // Public metod - Metin içinden ilk mesaj tarihini çıkar (diğer sınıfların erişimi için)
   String extractFirstMessageDate(String text) {
     return _extractFirstMessageDate(text);
+  }
+
+  // Mesaj etkisi JSON'ını ayrıştırma
+  Map<String, int> _parseSonMesajEtkisi(dynamic etkiJson) {
+    // Varsayılan etki değerleri
+    Map<String, int> etkiMap = {'sempatik': 33, 'kararsız': 34, 'olumsuz': 33};
+    
+    // Eğer veri yoksa veya dönüştürülemezse varsayılan değerleri kullan
+    if (etkiJson == null) {
+      return etkiMap;
+    }
+    
+    try {
+      // Map formatında ise dönüştür
+      if (etkiJson is Map) {
+        Map<String, int> yeniMap = {};
+        
+        etkiJson.forEach((key, value) {
+          int deger = 0;
+          
+          if (value is int) {
+            deger = value;
+          } else if (value is double) {
+            deger = value.toInt();
+          } else if (value is String) {
+            // String'i int'e çevirmeye çalış
+            deger = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+          }
+          
+          yeniMap[key.toString()] = deger;
+        });
+        
+        // En az bir değer var mı kontrol et
+        if (yeniMap.isNotEmpty) {
+          // Toplam kontrol et, 100'e yakın değilse ayarla
+          int toplam = yeniMap.values.fold(0, (sum, value) => sum + value);
+          
+          if (toplam < 80 || toplam > 120) {
+            // Değerleri oranla
+            double oran = 100 / toplam;
+            Map<String, int> duzeltilmisMap = {};
+            int yeniToplam = 0;
+            
+            // Değerleri oranla ve yuvarla
+            yeniMap.forEach((key, value) {
+              int yeniDeger = (value * oran).round();
+              duzeltilmisMap[key] = yeniDeger;
+              yeniToplam += yeniDeger;
+            });
+            
+            // Hala 100 değilse, farkı en büyük değere ekle/çıkar
+            if (yeniToplam != 100 && duzeltilmisMap.isNotEmpty) {
+              String enBuyukKey = duzeltilmisMap.entries
+                  .reduce((a, b) => a.value > b.value ? a : b)
+                  .key;
+              duzeltilmisMap[enBuyukKey] = duzeltilmisMap[enBuyukKey]! + (100 - yeniToplam);
+            }
+            
+            return duzeltilmisMap;
+          }
+          
+          return yeniMap;
+        }
+      }
+    } catch (e) {
+      _logger.e('Etki değerlerini ayrıştırma hatası: $e');
+    }
+    
+    return etkiMap;
   }
 }
