@@ -742,15 +742,6 @@ class _HomeViewState extends State<HomeView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'İlişki Özetiniz',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
                               // Hikaye tarzı daire ile wrapped özetini göster
                               Row(
                                 children: [
@@ -3330,8 +3321,8 @@ class _HomeViewState extends State<HomeView> {
           children: [
             // Yuvarlak daire
             Container(
-              width: 80,
-              height: 80,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -3352,34 +3343,24 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
               child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "İlişki",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(
-                      "Özetiniz",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '${DateTime.parse(dateStr).day}/${DateTime.parse(dateStr).month}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '${DateTime.parse(dateStr).day}/${DateTime.parse(dateStr).month}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // "İlişki Özetiniz" yazısı dairenin altına taşındı
+            const Text(
+              'İlişki Özetiniz',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
