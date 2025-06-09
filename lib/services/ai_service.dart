@@ -2712,8 +2712,11 @@ YANIT FORMATI (doğrudan JSON dizi):
         final data = jsonDecode(response.body);
         final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
+        _logger.i('API yanıtı alındı, içerik uzunluğu: ${aiContent?.length ?? 0}');
+        
         if (aiContent != null) {
           String jsonStr = aiContent.trim();
+          _logger.d('Ham AI yanıtı: ${jsonStr.length > 500 ? jsonStr.substring(0, 500) + "..." : jsonStr}');
           
           if (jsonStr.contains('```json')) {
             jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
@@ -2724,44 +2727,76 @@ YANIT FORMATI (doğrudan JSON dizi):
           int startIndex = jsonStr.indexOf('[');
           int endIndex = jsonStr.lastIndexOf(']') + 1;
           
+          _logger.d('JSON parse işlemi: startIndex=$startIndex, endIndex=$endIndex');
+          
           if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
             jsonStr = jsonStr.substring(startIndex, endIndex);
+            _logger.d('Çıkarılan JSON: ${jsonStr.length > 300 ? jsonStr.substring(0, 300) + "..." : jsonStr}');
             
-            final List<dynamic> jsonList = jsonDecode(jsonStr);
-            final List<Map<String, String>> result = [];
-            
-            for (var item in jsonList) {
-              if (item is Map) {
+            try {
+              final List<dynamic> jsonList = jsonDecode(jsonStr);
+              final List<Map<String, String>> result = [];
+              
+              for (var item in jsonList) {
+                if (item is Map) {
+                  result.add({
+                    'title': item['title']?.toString() ?? 'Başlık',
+                    'comment': item['comment']?.toString() ?? 'İçerik',
+                  });
+                }
+              }
+              
+              _logger.i('JSON parse başarılı, ${result.length} kart oluşturuldu');
+              
+              // 10 kart garantisi
+              while (result.length < 10) {
                 result.add({
-                  'title': item['title']?.toString() ?? 'Başlık',
-                  'comment': item['comment']?.toString() ?? 'İçerik',
+                  'title': 'Ek Analiz ${result.length + 1}',
+                  'comment': 'Bu veri dosya analizi sırasında oluşturuldu.'
                 });
               }
+              
+              if (result.length > 10) {
+                result.removeRange(10, result.length);
+              }
+              
+              _logger.i('Wrapped analizi tamamlandı: ${result.length} kart oluşturuldu');
+              return result;
+            } catch (jsonError) {
+              _logger.e('JSON decode hatası: $jsonError');
+              _logger.e('Hatalı JSON içeriği: $jsonStr');
+              throw Exception('JSON parse hatası: $jsonError');
             }
-            
-            // 10 kart garantisi
-            while (result.length < 10) {
-              result.add({
-                'title': 'Ek Analiz ${result.length + 1}',
-                'comment': 'Bu veri dosya analizi sırasında oluşturuldu.'
-              });
-            }
-            
-            if (result.length > 10) {
-              result.removeRange(10, result.length);
-            }
-            
-            _logger.i('Wrapped analizi tamamlandı: ${result.length} kart oluşturuldu');
-            return result;
+          } else {
+            _logger.e('Geçerli JSON array yapısı bulunamadı');
+            _logger.e('Ham içerik: $jsonStr');
+            throw Exception('Geçerli JSON array yapısı bulunamadı');
           }
+        } else {
+          _logger.e('API yanıtı boş veya null');
+          throw Exception('API yanıtı boş');
         }
+      } else {
+        _logger.e('API hatası: HTTP ${response.statusCode}');
+        _logger.e('API yanıt içeriği: ${response.body}');
+        throw Exception('API hatası: HTTP ${response.statusCode}');
       }
       
-      throw Exception('Wrapped analizi başarısız');
-      
     } catch (e) {
-      _logger.e('Wrapped analizi hatası: $e');
-      throw Exception('Wrapped analizi hatası: $e');
+      _logger.e('Wrapped analizi genel hatası: $e');
+      
+      // Spesifik hata tiplerini kontrol et
+      if (e.toString().contains('JSON parse hatası')) {
+        throw Exception('Wrapped analizi JSON hatası: AI yanıtı geçersiz format');
+      } else if (e.toString().contains('API hatası')) {
+        throw Exception('Wrapped analizi API hatası: Sunucu yanıtı alınamadı');
+      } else if (e.toString().contains('timeout') || e.toString().contains('zaman aşımı')) {
+        throw Exception('Wrapped analizi zaman aşımı: İşlem çok uzun sürdü');
+      } else if (e.toString().contains('iptal')) {
+        throw Exception('Wrapped analizi iptal edildi');
+      } else {
+        throw Exception('Wrapped analizi beklenmeyen hata: $e');
+      }
     }
   }
 
@@ -2794,28 +2829,53 @@ YANIT FORMATI (doğrudan JSON dizi):
     final lines = content.split('\n');
     final totalLines = lines.length;
     
-    final firstPart = (totalLines * 0.3).round();
-    final lastPart = (totalLines * 0.3).round();
+    _logger.i('Büyük dosya özetleniyor: $totalLines satır -> maksimum 8000 karakter');
+    
+    // Maksimum 8000 karakter hedefle (API limiti için güvenli)
+    const int maxChars = 8000;
+    
+    if (content.length <= maxChars) {
+      _logger.i('Dosya zaten uygun boyutta: ${content.length} karakter');
+      return content;
+    }
+    
+    final firstPart = (totalLines * 0.4).round(); // %40 başlangıç
+    final lastPart = (totalLines * 0.4).round();  // %40 son
     final middlePart = totalLines - firstPart - lastPart;
     
     final List<String> summarized = [];
     
-    // İlk %30
+    // İlk %40
     summarized.addAll(lines.take(firstPart));
-    summarized.add('\n--- Orta kısım özetlendi ---\n');
     
-    // Orta kısımdan örnekler (her 10. satır)
+    // Orta kısımdan sadece mesaj başlıkları (tarih/saat içeren satırlar)
+    summarized.add('\n--- Orta dönem mesaj örnekleri ---\n');
     final middleStart = firstPart;
-    for (int i = middleStart; i < middleStart + middlePart && i < lines.length; i += 10) {
-      summarized.add(lines[i]);
+    for (int i = middleStart; i < middleStart + middlePart && i < lines.length; i += 20) {
+      final line = lines[i];
+      // Sadece tarih/saat içeren satırları al
+      if (RegExp(r'\d{1,2}[\.\/-]\d{1,2}[\.\/-](\d{2}|\d{4}).*\d{1,2}:\d{2}').hasMatch(line) ||
+          RegExp(r'\[\d{1,2}:\d{2}:\d{2}\]').hasMatch(line)) {
+        summarized.add(line);
+      }
     }
     
-    summarized.add('\n--- Son kısım ---\n');
+    summarized.add('\n--- Son dönem ---\n');
     
-    // Son %30
+    // Son %40
     summarized.addAll(lines.skip(totalLines - lastPart));
     
-    return summarized.join('\n');
+    final result = summarized.join('\n');
+    
+    // Eğer hala çok büyükse daha agresif kes
+    if (result.length > maxChars) {
+      final truncated = result.substring(0, maxChars) + '\n\n... (dosya kesilerek özetlendi)';
+      _logger.i('Özetleme tamamlandı: ${content.length} -> ${truncated.length} karakter');
+      return truncated;
+    }
+    
+    _logger.i('Özetleme tamamlandı: ${content.length} -> ${result.length} karakter');
+    return result;
   }
 
   // Büyük dosyalar için parçalı analiz - TÜM PARÇALARI ANALİZ EDER
