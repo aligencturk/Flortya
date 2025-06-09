@@ -1076,7 +1076,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Bu dosya analiz edilecek ve sohbet özetiniz hazırlanacak.',
+                          'Bu dosya analiz edilecek ve hem normal analiz hem de Wrapped analizi otomatik olarak hazırlanacak.',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.9),
                             fontSize: 13,
@@ -1152,17 +1152,44 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       // Dosya içeriğini zenginleştir
       fileContent = "---- .txt dosyası içeriği ----\nDosya: ${pickedFile.name}\n\n$fileContent\n---- Dosya içeriği sonu ----";
       
-      // Analiz et
-      final bool result = await viewModel.analyzeMessage(fileContent);
+      // Normal mesaj analizi + otomatik wrapped analizi
+      // NOT: analizSohbetVerisi metodu artık hem normal analiz hem de wrapped analizi yapıyor
+      final AiService aiService = AiService();
       
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _showDetailedAnalysisResult = result;
-        });
+      try {
+        // Normal mesaj analizi
+        final bool normalAnalysisResult = await viewModel.analyzeMessage(fileContent);
         
-        if (result) {
-          Utils.showSuccessFeedback(context, 'Dosya başarıyla analiz edildi');
+        if (!normalAnalysisResult) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+            Utils.showErrorFeedback(context, 'Normal analiz yapılırken hata oluştu');
+          }
+          return false;
+        }
+        
+        // Wrapped analizi için dosya içeriğini hazırla (orijinal hali)
+        String wrappedFileContent = await file.readAsString();
+        
+        // Wrapped analizi yap ve otomatik olarak kaydet
+        debugPrint('Wrapped analizi otomatik başlatılıyor...');
+        final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(wrappedFileContent);
+        
+        if (wrappedData.isNotEmpty) {
+          // Wrapped verileri önbelleğe kaydet
+                     await _cacheSummaryData(wrappedFileContent, wrappedData);
+          debugPrint('Wrapped analizi tamamlandı ve önbelleğe kaydedildi: ${wrappedData.length} kart');
+        }
+        
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _showDetailedAnalysisResult = normalAnalysisResult;
+          });
+          
+          Utils.showSuccessFeedback(context, 'Dosya analizi ve Wrapped analizi başarıyla tamamlandı');
           
           // Ana sayfayı güncelleme işlemini biraz geciktir
           Future.delayed(const Duration(milliseconds: 500)).then((_) {
@@ -1177,10 +1204,16 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           });
           
           return true; // Başarılı analiz
-        } else {
-          Utils.showErrorFeedback(context, 'Dosya analiz edilirken bir hata oluştu');
-          return false;
         }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          debugPrint('Analiz hatası: $e');
+          Utils.showErrorFeedback(context, 'Analiz sırasında hata oluştu: $e');
+        }
+        return false;
       }
     } catch (e) {
       if (mounted) {
@@ -1376,7 +1409,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             //   ),
             // <-- KALDIRILACAK KOD SONU
             
-            // .txt dosyası analizi için Konuşma Özeti butonu
+            // .txt dosyası analizi için Wrapped Görüntüleme butonu
             // Sadece metin analizi ise butonu göster
             if (latestMessage.analysisSource == AnalysisSource.text) 
               Padding(
@@ -1384,142 +1417,29 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 child: Center(
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      // UI'da yükleme durumunu göster
-                      setState(() {
-                        _isLoading = true;
-                      });
-                      
+                      // Önbellekten wrapped verilerini kontrol et ve göster
                       try {
-                        // Mevcut analiz sonucunu kontrol et
-                        if (latestMessage.analysisResult == null) {
-                          throw Exception('Analiz sonucu bulunamadı');
-                        }
+                        final SharedPreferences prefs = await SharedPreferences.getInstance();
+                        final String? cachedDataJson = prefs.getString('wrappedCacheData');
                         
-                        // Metin içinden ilk mesaj tarihini çıkar (varsa)
-                        String? initialDate;
-                        try {
-                          final aiService = AiService();
-                          initialDate = aiService.extractFirstMessageDate(latestMessage.content);
-                          debugPrint('Metin içinden çıkarılan ilk mesaj tarihi: $initialDate');
-                        } catch (e) {
-                          debugPrint('İlk mesaj tarihi çıkarma hatası: $e');
-                        }
-                        
-                        // Premium kontrolü
-                        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-                        final bool isPremium = authViewModel.isPremium;
-                        final premiumService = PremiumService();
-                        
-                        // Önbellekten veri kontrolü
-                        List<Map<String, String>> summaryData = [];
-                        bool isCached = false;
-                        
-                        // Önbellekte veri kontrolü - önce önbellekten yüklemeyi dene
-                        if (await _checkAndLoadCachedSummary(latestMessage.content)) {
-                          // Veri önbellekten yüklendi, doğrudan erişim kontrolü yap
-                          isCached = true;
-                          final prefs = await SharedPreferences.getInstance();
-                          final cachedDataJson = prefs.getString('wrappedCacheData');
-                          if (cachedDataJson != null) {
-                            try {
-                              final List<dynamic> decodedData = jsonDecode(cachedDataJson);
-                              summaryData = List<Map<String, String>>.from(
-                                decodedData.map((item) => Map<String, String>.from(item))
-                              );
-                              
-                              // Önbellekten alınan veri sayısı kontrolü
-                              if (summaryData.length != 10) {
-                                debugPrint('UYARI: Önbellekten alınan veri 10 kartı içermiyor (${summaryData.length} kart). Veri yeniden oluşturulacak.');
-                                isCached = false; // Veri sayısı uygun değil, önbellek geçersiz sayılacak
-                              } else if (initialDate != null && initialDate.isNotEmpty) {
-                                // İlk mesaj tarihini kontrol et
-                                if (summaryData.isNotEmpty && summaryData[0]['title']?.contains('İlk Mesaj') == true) {
-                                  final comment = summaryData[0]['comment'] ?? '';
-                                  if (!comment.contains(initialDate)) {
-                                    debugPrint('UYARI: Önbellekteki veri yanlış tarih içeriyor. Veri yeniden oluşturulacak.');
-                                    isCached = false; // Tarih uyuşmazlığı, önbellek geçersiz sayılacak
-                                  }
-                                }
-                              }
-                            } catch (e) {
-                              debugPrint('Önbellek verisi ayrıştırma hatası: $e');
-                              isCached = false;
-                            }
-                          }
-                        }
-                        
-                        // Premium olmayan kullanıcılar için erişim kontrolü
-                        bool wrappedOpenedOnce = false; // Scope dışına taşıyorum
-                        if (!isPremium) {
-                          wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
-                          
-                          if (wrappedOpenedOnce && !isCached) {
-                            // Kullanım hakkı dolmuş ve önbellekte veri yok - premium dialog göster
-                            if (mounted) {
-                              showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
-                            }
-                            
-                            setState(() {
-                              _isLoading = false;
-                            });
-                            return;
-                          }
-                        }
-                        
-                        // Önbellekte veri yoksa yeni analiz yap
-                        if (!isCached) {
-                          // AI servisini al
-                          final aiService = AiService();
-                          
-                          // Mesaj içeriğini kullanarak Spotify Wrapped tarzı sohbet analizi yap
-                          summaryData = await aiService.analizSohbetVerisi(
-                            latestMessage.content
+                        if (cachedDataJson != null && cachedDataJson.isNotEmpty) {
+                          // Önbellekteki verileri parse et
+                          final List<dynamic> decodedData = jsonDecode(cachedDataJson);
+                          final List<Map<String, String>> summaryData = List<Map<String, String>>.from(
+                            decodedData.map((item) => Map<String, String>.from(item))
                           );
                           
-                          if (summaryData.isEmpty) {
-                            throw Exception('Konuşma özeti alınamadı');
+                          if (summaryData.isNotEmpty) {
+                            // Wrapped seçenek dialogunu göster
+                            _showWrappedOptionsDialog(summaryData);
+                          } else {
+                            Utils.showErrorFeedback(context, 'Wrapped verisi bulunamadı');
                           }
-                          
-                          // Sonuçları önbelleğe kaydet
-                          await _cacheSummaryData(latestMessage.content, summaryData);
-                          
-                          // Premium olmayan kullanıcı için ilk kullanım işaretle
-                          if (!isPremium && !wrappedOpenedOnce) {
-                            await premiumService.setWrappedOpenedOnce();
-                            
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Bu özelliği bir kez ücretsiz kullanabilirsiniz.'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          }
-                        }
-                        
-                        // Yükleme durumunu kapat
-                        setState(() {
-                          _isLoading = false;
-                        });
-                        
-                        // Kullanıcıya seçenek sunma dialogu göster
-                        if (mounted) {
-                          _showWrappedOptionsDialog(summaryData);
+                        } else {
+                          Utils.showErrorFeedback(context, 'Wrapped analizi bulunamadı. Lütfen txt dosyasını tekrar analiz edin.');
                         }
                       } catch (e) {
-                        // Hata durumunda yükleme göstergesini kapat
-                        setState(() {
-                          _isLoading = false;
-                        });
-                        
-                        // Hata mesajı göster
-                        if (mounted) {
-                          Utils.showErrorFeedback(
-                            context, 
-                            'Spotify Wrapped analizi alınırken hata oluştu: $e'
-                          );
-                        }
+                        Utils.showErrorFeedback(context, 'Wrapped verisi yüklenirken hata oluştu: $e');
                       }
                     },
                     icon: const Icon(
@@ -1527,7 +1447,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       size: 22,
                     ),
                     label: const Text(
-                      "✨ Spotify Wrapped Analizi",
+                      "✨ Wrapped Analizini Göster",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,

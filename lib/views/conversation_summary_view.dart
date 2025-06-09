@@ -776,14 +776,14 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
       });
       
       if (_summaryData.isNotEmpty) {
-        // NOT: Wrapped analizi artık otomatik olarak analizSohbetVerisi içinde yapılıyor
-        // Bu yüzden burada tekrar kaydetmeye gerek yok
-        _logger.i('Ana analiz tamamlandı, wrapped analizi otomatik kaydedildi');
+        // NOT: Bu sadece wrapped kartlarını oluşturan analizdir
+        // Normal txt mesaj analizi ayrı olarak yapılmalıdır
+        _logger.i('Wrapped analizi tamamlandı');
         
-        // Ayrıca eski yöntemle de kaydet (geriye uyumluluk için)
+        // Wrapped verilerini önbelleğe kaydet
         await _cacheSummaryData();
         
-        // Analiz sonrasında direkt wrapped görünümünü göster (yeniden analiz yapma)
+        // Wrapped görünümünü göster
         _showDirectWrappedView();
       } else {
         setState(() {

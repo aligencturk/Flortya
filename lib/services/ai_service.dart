@@ -237,6 +237,9 @@ class AiService {
   // Mesajı analiz etme
   Future<AnalysisResult?> analyzeMessage(String messageContent) async {
     try {
+      // İptal durumunu sıfırla - yeni analiz başlıyor
+      _resetCancellation();
+      
       _logger.i('Mesaj analizi başlatılıyor...');
       
       // Mesaj içeriğini kontrol etme
@@ -586,6 +589,9 @@ class AiService {
   // Uzun mesajları parçalayarak analiz etme
   Future<AnalysisResult?> _analyzeMessageInChunks(String fullMessageContent, String apiUrl) async {
     try {
+      // İptal durumunu sıfırla - yeni parçalı analiz başlıyor  
+      _resetCancellation();
+      
       _logger.i('Mesaj parçalı analiz başlatılıyor. Toplam uzunluk: ${fullMessageContent.length} karakter');
       
       // Mesajı akıllı parçalama ile böl
@@ -2615,23 +2621,6 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       
       // İptal kontrolü
       _checkCancellation();
-      
-      // OTOMATIK WRAPPED ANALIZİ - TÜM txt dosyaları için
-      _logger.i('Txt dosyası wrapped analizi otomatik başlatılıyor');
-      
-      try {
-        // Wrapped analizi arka planda yap ve kaydet
-        await _wrappedService.saveWrappedAnalysis(
-          summaryData: mainAnalysisResult,
-          fileContent: sohbetMetni,
-          isTxtFile: true,
-        );
-        
-        _logger.i('Wrapped analizi otomatik olarak kaydedildi');
-      } catch (e) {
-        _logger.w('Otomatik wrapped analizi kaydedilemedi: $e');
-        // Ana analiz devam etsin, wrapped hata verdiğinde durmasın
-      }
       
       return mainAnalysisResult;
       
