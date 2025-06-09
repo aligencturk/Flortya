@@ -338,20 +338,40 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   Widget build(BuildContext context) {
     final messageViewModel = Provider.of<MessageViewModel>(context);
     
-    return Scaffold(
-      backgroundColor: const Color(0xFF4A2A80),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => context.pop(),
-                  ),
+    return PopScope(
+      canPop: !_isLoading,
+      onPopInvoked: (bool didPop) async {
+        // Eğer yükleme durumundaysa ve henüz çıkış yapılmamışsa onay iste
+        if (_isLoading && !didPop) {
+          final bool shouldPop = await _showExitConfirmationDialog(context);
+          if (shouldPop && mounted) {
+            Navigator.of(context).pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF4A2A80),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () async {
+                        if (_isLoading) {
+                          final bool shouldPop = await _showExitConfirmationDialog(context);
+                          if (shouldPop && mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        } else {
+                          context.pop();
+                        }
+                      },
+                    ),
                   Expanded(
                     child: Consumer<AuthViewModel>(
                       builder: (context, authViewModel, _) {
@@ -521,8 +541,86 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
           ],
         ),
-      ),
-    );
+      ), // Scaffold kapanışı
+    ), // PopScope kapanışı
+  );
+  }
+  
+  // Çıkış onay diyaloğu
+  Future<bool> _showExitConfirmationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // Dışarıya dokunarak kapatılamaz
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Çıkmak istediğinize emin misiniz?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Şu anda analiz devam ediyor. Çıkarsanız analiz iptal olacak ve işlem yarıda kalacak.',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false); // Çıkma
+              },
+              child: Text(
+                'Devam Et',
+                style: TextStyle(
+                  color: const Color(0xFF9D3FFF),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true); // Çık
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Çık',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ) ?? false; // Null durumunda false döndür
   }
   
   // Upload section - Yükleme bölümü

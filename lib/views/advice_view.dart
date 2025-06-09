@@ -229,214 +229,247 @@ class _AdviceViewState extends State<AdviceView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF9D3FFF),
-        title: const Text(
-          'Mesaj Koçu',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          // Mod değiştirme butonu
-          IconButton(
-            icon: Icon(_imageMode ? Icons.text_fields : Icons.image),
-            onPressed: () {
-              setState(() {
-                _imageMode = !_imageMode;
-                // Mod değiştiğinde içerikleri temizle
-                if (_imageMode) {
-                  _messageController.clear();
-                } else {
-                  _selectedImages.clear();
-                }
-              });
-            },
-            tooltip: _imageMode ? 'Metin Moduna Geç' : 'Görsel Moduna Geç',
-          ),
-        ],
-      ),
-      backgroundColor: const Color(0xFF121212),
-      body: Consumer<AdviceViewModel>(
-        builder: (context, viewModel, child) {
-          
-          // Yükleniyor göstergesi (View'ın kendi isLoading'i VEYA ViewModel'in isAnalyzing durumu)
-          if (_isLoading || viewModel.isAnalyzing) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const YuklemeAnimasyonu(
-                    renk: Color(0xFF9D3FFF),
-                    analizTipi: AnalizTipi.DANISMA,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Mesajınız analiz ediliyor...',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
+    return Consumer<AdviceViewModel>(
+      builder: (context, viewModel, child) {
+        
+        // Yükleme durumunu kontrol et
+        final bool isLoading = _isLoading || viewModel.isAnalyzing;
+        
+        return PopScope(
+          canPop: !isLoading,
+          onPopInvoked: (bool didPop) async {
+            // Eğer yükleme durumundaysa ve henüz çıkış yapılmamışsa onay iste
+            if (isLoading && !didPop) {
+              final bool shouldPop = await _showExitConfirmationDialog(context);
+              if (shouldPop && mounted) {
+                Navigator.of(context).pop();
+              }
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              backgroundColor: const Color(0xFF9D3FFF),
+              title: const Text(
+                'Mesaj Koçu',
+                style: TextStyle(color: Colors.white),
               ),
-            );
-          }
-          
-          // Ana sayfa
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Sol üst köşede kullanıcı selamlama bölümü
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Consumer<AuthViewModel>(
-                    builder: (context, authViewModel, _) {
-                      final displayName = authViewModel.currentUser?.displayName ?? 'Ziyaretçi';
-                      return Text(
-                        'Merhaba, $displayName',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      );
-                    },
-                  ),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () async {
+                  if (isLoading) {
+                    final bool shouldPop = await _showExitConfirmationDialog(context);
+                    if (shouldPop && mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              actions: [
+                // Mod değiştirme butonu
+                IconButton(
+                  icon: Icon(_imageMode ? Icons.text_fields : Icons.image),
+                  onPressed: () {
+                    setState(() {
+                      _imageMode = !_imageMode;
+                      // Mod değiştiğinde içerikleri temizle
+                      if (_imageMode) {
+                        _messageController.clear();
+                      } else {
+                        _selectedImages.clear();
+                      }
+                    });
+                  },
+                  tooltip: _imageMode ? 'Metin Moduna Geç' : 'Görsel Moduna Geç',
                 ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF121212),
+            body: Consumer<AdviceViewModel>(
+              builder: (context, viewModel, child) {
                 
-                // Mesaj girişi veya görsel yükleme - Ana fonksiyonu direkt olarak en üste taşıyorum
-                Container(
-                  width: double.infinity,
+                // Yükleniyor göstergesi (View'ın kendi isLoading'i VEYA ViewModel'in isAnalyzing durumu)
+                if (_isLoading || viewModel.isAnalyzing) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const YuklemeAnimasyonu(
+                          renk: Color(0xFF9D3FFF),
+                          analizTipi: AnalizTipi.DANISMA,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Mesajınız analiz ediliyor...',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                
+                // Ana sayfa
+                return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF9D3FFF).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Analiz yapmak için mesajını yaz veya görsel yükle',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      // Sol üst köşede kullanıcı selamlama bölümü
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Consumer<AuthViewModel>(
+                          builder: (context, authViewModel, _) {
+                            final displayName = authViewModel.currentUser?.displayName ?? 'Ziyaretçi';
+                            return Text(
+                              'Merhaba, $displayName',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(height: 16),
                       
-                      // Açıklama
-                      Text(
-                        'Mesaj Koçu kartı aracılığıyla analiz yapabilirsiniz.',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 14,
+                      // Mesaj girişi veya görsel yükleme - Ana fonksiyonu direkt olarak en üste taşıyorum
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9D3FFF).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF9D3FFF).withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Analiz yapmak için mesajını yaz veya görsel yükle',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            // Açıklama
+                            Text(
+                              'Mesaj Koçu kartı aracılığıyla analiz yapabilirsiniz.',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                
-                // Kalan ücretsiz analiz sayısı
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A3986),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.timer_outlined,
-                        color: Colors.white.withOpacity(0.7),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Kalan ücretsiz analiz: ${MessageCoachAnalysis.ucretlizAnalizSayisi - viewModel.ucretlizAnalizSayisi}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 14,
-                          ),
+                      
+                      // Kalan ücretsiz analiz sayısı
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4A3986),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Mesaj Koçu kartı (en sonda gösterelim)
-                const MessageCoachCard(),
-                
-                const SizedBox(height: 24),
-                
-                // Hata Mesajı Bölümü (ViewModel'den gelen veya View'ın kendi hatası)
-                if (viewModel.errorMessage != null || _errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.error_outline, color: Colors.red),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Hata',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.timer_outlined,
+                              color: Colors.white.withOpacity(0.7),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Kalan ücretsiz analiz: ${MessageCoachAnalysis.ucretlizAnalizSayisi - viewModel.ucretlizAnalizSayisi}',
                                 style: TextStyle(
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 14,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            viewModel.errorMessage ?? _errorMessage ?? 'Bilinmeyen bir hata oluştu.',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                viewModel.resetError();
-                                setState(() {
-                                  _errorMessage = null;
-                                });
-                              },
-                              child: const Text('Tamam'),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                      
+                      // Mesaj Koçu kartı (en sonda gösterelim)
+                      const MessageCoachCard(),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Hata Mesajı Bölümü (ViewModel'den gelen veya View'ın kendi hatası)
+                      if (viewModel.errorMessage != null || _errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.error_outline, color: Colors.red),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Hata',
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  viewModel.errorMessage ?? _errorMessage ?? 'Bilinmeyen bir hata oluştu.',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () {
+                                      viewModel.resetError();
+                                      setState(() {
+                                        _errorMessage = null;
+                                      });
+                                    },
+                                    child: const Text('Tamam'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      
+                      // Analiz sonuçları 
+                      if (viewModel.hasAnalizi && viewModel.mesajAnalizi != null)
+                        _buildAnalysisResults(viewModel.mesajAnalizi!),
+                    ],
                   ),
-                
-                // Analiz sonuçları 
-                if (viewModel.hasAnalizi && viewModel.mesajAnalizi != null)
-                  _buildAnalysisResults(viewModel.mesajAnalizi!),
-              ],
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
   
@@ -693,6 +726,82 @@ class _AdviceViewState extends State<AdviceView> {
       default:
         return const Color(0xFF9D3FFF); // Uygulama ana rengi
     }
+  }
+
+  Future<bool> _showExitConfirmationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // Dışarıya dokunarak kapatılamaz
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Çıkmak istediğinize emin misiniz?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Şu anda analiz devam ediyor. Çıkarsanız analiz iptal olacak ve işlem yarıda kalacak.',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false); // Çıkma
+              },
+              child: Text(
+                'Devam Et',
+                style: TextStyle(
+                  color: const Color(0xFF9D3FFF),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true); // Çık
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Çık',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ) ?? false; // Null durumunda false döndür
   }
 }
 
