@@ -6,9 +6,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/analysis_result_model.dart';
 import '../models/message_coach_analysis.dart'; // Mesaj koçu modelini import et
 import 'logger_service.dart';
+import 'wrapped_service.dart';
 
 class AiService {
   final LoggerService _logger = LoggerService();
+  final WrappedService _wrappedService = WrappedService();
   
   // Gemini API anahtarını ve ayarlarını .env dosyasından alma
   String get _geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
@@ -556,17 +558,8 @@ class AiService {
     try {
       _logger.i('Mesaj parçalı analiz başlatılıyor. Toplam uzunluk: ${fullMessageContent.length} karakter');
       
-      // Mesajı makul boyutlu parçalara böl
-      const int chunkSize = 800000; // 800K karakter (Firestore 1MB limitinin altında)
-      List<String> chunks = [];
-      
-      for (int i = 0; i < fullMessageContent.length; i += chunkSize) {
-        int end = i + chunkSize;
-        if (end > fullMessageContent.length) {
-          end = fullMessageContent.length;
-        }
-        chunks.add(fullMessageContent.substring(i, end));
-      }
+      // Mesajı akıllı parçalama ile böl
+      List<String> chunks = _akilliparcalama(fullMessageContent);
       
       _logger.i('Mesaj ${chunks.length} parçaya bölündü, her parça ayrı analiz edilecek');
       
@@ -2543,7 +2536,7 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
     ];
   }
 
-  // Sohbet verisini analiz etme
+  // Sohbet verisini analiz etme + otomatik wrapped analizi
   Future<List<Map<String, String>>> analizSohbetVerisi(String sohbetMetni) async {
     _logger.i('Sohbet verisi analiz ediliyor');
     
@@ -2559,14 +2552,37 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
         throw Exception('Analiz için geçerli bir sohbet içeriği gerekli');
       }
       
+      List<Map<String, String>> mainAnalysisResult;
+      
       // Büyük dosyaları parçalı analiz et
       if (sohbetMetni.length > 15000) {
         _logger.i('Büyük dosya tespit edildi (${sohbetMetni.length} karakter), parçalı analiz başlatılıyor');
-        return await _analizBuyukDosyaParacali(sohbetMetni);
+        mainAnalysisResult = await _analizBuyukDosyaParacali(sohbetMetni);
+      } else {
+        // Küçük dosyalar için standart analiz
+        mainAnalysisResult = await _analizStandart(sohbetMetni);
       }
       
-      // Küçük dosyalar için standart analiz
-      return await _analizStandart(sohbetMetni);
+      // OTOMATIK WRAPPED ANALIZİ - büyük dosyalar için (txt dosyaları)
+      if (sohbetMetni.length > 15000) {
+        _logger.i('Txt dosyası wrapped analizi otomatik başlatılıyor');
+        
+        try {
+          // Wrapped analizi arka planda yap ve kaydet
+          await _wrappedService.saveWrappedAnalysis(
+            summaryData: mainAnalysisResult,
+            fileContent: sohbetMetni,
+            isTxtFile: true,
+          );
+          
+          _logger.i('Wrapped analizi otomatik olarak kaydedildi');
+        } catch (e) {
+          _logger.w('Otomatik wrapped analizi kaydedilemedi: $e');
+          // Ana analiz devam etsin, wrapped hata verdiğinde durmasın
+        }
+      }
+      
+      return mainAnalysisResult;
       
     } catch (e) {
       _logger.e('Sohbet analizi hatası: $e');
@@ -2583,19 +2599,10 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       final Map<String, dynamic> genelIstatistikler = await _genelIstatistikleriCikar(tumSohbetMetni);
       _logger.i('Genel istatistikler çıkarıldı: ${genelIstatistikler.toString()}');
       
-      // 2. ADIM: Dosyayı parçalara böl (12KB parçalar)
-      const int parcaBoyutu = 12000;
-      List<String> parcalar = [];
+      // 2. ADIM: Dosyayı akıllı parçalama ile böl
+      List<String> parcalar = _akilliparcalama(tumSohbetMetni);
       
-      for (int i = 0; i < tumSohbetMetni.length; i += parcaBoyutu) {
-        int bitis = i + parcaBoyutu;
-        if (bitis > tumSohbetMetni.length) {
-          bitis = tumSohbetMetni.length;
-        }
-        parcalar.add(tumSohbetMetni.substring(i, bitis));
-      }
-      
-      _logger.i('Dosya ${parcalar.length} parçaya bölündü');
+      _logger.i('Dosya ${parcalar.length} parçaya bölündü (akıllı parçalama)');
       
       // 3. ADIM: Her parçayı analiz et
       List<Map<String, dynamic>> parcaAnalizleri = [];
@@ -2603,12 +2610,15 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
         _logger.i('Parça ${i + 1}/${parcalar.length} analiz ediliyor');
         try {
           final parcaAnalizi = await _analizParcaDetayli(parcalar[i], i + 1, parcalar.length);
-          parcaAnalizleri.add(parcaAnalizi);
-          _logger.i('Parça ${i + 1} analiz tamamlandı');
+          if (parcaAnalizi != null) {
+            parcaAnalizleri.add(parcaAnalizi);
+            _logger.i('Parça ${i + 1} analiz tamamlandı');
+          } else {
+            _logger.w('Parça ${i + 1} analizi null döndü, atlanıyor');
+          }
         } catch (e) {
           _logger.w('Parça ${i + 1} analiz edilemedi: $e');
-          // Boş analiz ekle ki parça sayısı korunsun
-          parcaAnalizleri.add({'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []});
+          // Parse edilemeyen parçaları atla, varsayılan değer ekleme
         }
       }
       
@@ -2670,7 +2680,7 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
   }
 
   // Her parçayı detaylı analiz et
-  Future<Map<String, dynamic>> _analizParcaDetayli(String parcaMetni, int parcaNo, int toplamParca) async {
+  Future<Map<String, dynamic>?> _analizParcaDetayli(String parcaMetni, int parcaNo, int toplamParca) async {
     try {
       String apiUrl = _getApiUrl();
       
@@ -2717,29 +2727,55 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
         final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent != null) {
-          // JSON çıkar
-          String jsonStr = aiContent;
+          // JSON çıkar ve temizle
+          String jsonStr = aiContent.trim();
+          
+          // JSON bloğunu ayıkla
           if (jsonStr.contains('```json')) {
             jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
           } else if (jsonStr.contains('```')) {
             jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
           }
           
-          try {
-            return jsonDecode(jsonStr);
-          } catch (e) {
-            _logger.w('Parça $parcaNo JSON parse hatası: $e');
-            return {'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []};
-          }
+          // JSON başlangıç ve bitiş kontrolü
+          int startIndex = jsonStr.indexOf('{');
+          int endIndex = jsonStr.lastIndexOf('}') + 1;
+          
+          if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
+            jsonStr = jsonStr.substring(startIndex, endIndex);
+            
+            try {
+              final result = jsonDecode(jsonStr);
+              _logger.i('Parça $parcaNo başarıyla parse edildi');
+              return result;
+            } catch (e) {
+              _logger.w('Parça $parcaNo JSON parse hatası: $e');
+              _logger.w('Hatalı JSON içeriği: ${jsonStr.length > 200 ? jsonStr.substring(0, 200) + "..." : jsonStr}');
+              
+              // Alternatif parse denemesi - eksik olan JSON'u tamamlamaya çalış
+              try {
+                String fixedJson = _tryFixJson(jsonStr);
+                final result = jsonDecode(fixedJson);
+                _logger.i('Parça $parcaNo düzeltilmiş JSON ile parse edildi');
+                return result;
+                             } catch (e2) {
+                 _logger.w('Parça $parcaNo JSON düzeltme de başarısız: $e2');
+                 return null;
+               }
+             }
+           } else {
+             _logger.w('Parça $parcaNo\'da geçerli JSON yapısı bulunamadı');
+             return null;
+           }
         }
       }
       
       _logger.w('Parça $parcaNo API hatası: ${response.statusCode}');
-      return {'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []};
+      return null;
       
     } catch (e) {
       _logger.w('Parça $parcaNo analiz hatası: $e');
-      return {'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []};
+      return null;
     }
   }
 
@@ -2761,6 +2797,9 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
       int toplamKisaMesajlar = 0;
       
       for (final parca in parcaAnalizleri) {
+        // Null veya boş parçaları atla
+        if (parca.isEmpty) continue;
+        
         if (parca['kelimeler'] is List) {
           tumKelimeler.addAll((parca['kelimeler'] as List).cast<String>());
         }
@@ -2795,6 +2834,7 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
           ..sort((a, b) => b.value.compareTo(a.value));
       
       _logger.i('Birleşik veriler: ${genelIstatistikler['toplam_mesaj_sayisi']} mesaj, ${benzersizKisiAdlari.length} kişi');
+      _logger.i('Başarılı parça analizi: ${parcaAnalizleri.where((p) => p.isNotEmpty).length} / ${parcaAnalizleri.length}');
       
       // Final wrapped analizi yap
       return await _finalWrappedAnalizi(genelIstatistikler, {
@@ -3820,17 +3860,8 @@ YANIT FORMATI:
       // API URL'sini hazırla
       String apiUrl = _getApiUrl();
       
-      // Dosyayı parçalara böl (16KB parçalar)
-      const int parcaBoyutu = 16000;
-      List<String> parcalar = [];
-      
-      for (int i = 0; i < sohbetMetni.length; i += parcaBoyutu) {
-        int bitis = i + parcaBoyutu;
-        if (bitis > sohbetMetni.length) {
-          bitis = sohbetMetni.length;
-        }
-        parcalar.add(sohbetMetni.substring(i, bitis));
-      }
+      // Dosyayı akıllı parçalama ile böl
+      List<String> parcalar = _akilliparcalama(sohbetMetni);
       
       _logger.i('Dosya ${parcalar.length} parçaya bölündü');
       
@@ -4088,4 +4119,160 @@ YANIT FORMATI (doğrudan JSON dizi):
     _logger.i('${fallbackKartlar.length} fallback kart oluşturuldu');
     return fallbackKartlar;
   }
-}
+
+  /// Akıllı parçalama sistemi
+  /// Maksimum 5 parça ile sınırlı, büyük parçalar oluşturur
+  List<String> _akilliparcalama(String metin) {
+    // Maksimum parça sayısı limiti
+    const int maxChunks = 5;
+    
+    // Gemini model limitleri
+    const int maxTokensPerRequest = 120000; // Daha yüksek limit kullan
+    const int tokensPerChar = 3; // Daha optimistik oran
+    const int safetyMargin = 5000; // Daha büyük güvenlik marjı
+    const int usableTokens = maxTokensPerRequest - safetyMargin;
+    
+    // Token bazlı optimal parça boyutu
+    final int tokenBasedChunkSize = (usableTokens / tokensPerChar).floor();
+    
+    // Dosya boyutuna göre minimum parça boyutu (maksimum 5 parça için)
+    final int minChunkSizeForMaxChunks = (metin.length / maxChunks).ceil();
+    
+    // İki değerden büyük olanını seç
+    final int finalChunkSize = tokenBasedChunkSize > minChunkSizeForMaxChunks 
+        ? tokenBasedChunkSize 
+        : minChunkSizeForMaxChunks;
+    
+    _logger.i('Akıllı parçalama parametreleri:');
+    _logger.i('- Maksimum parça sayısı: $maxChunks');
+    _logger.i('- Token bazlı parça boyutu: $tokenBasedChunkSize karakter');
+    _logger.i('- Dosya bazlı min parça boyutu: $minChunkSizeForMaxChunks karakter');
+    _logger.i('- Seçilen parça boyutu: $finalChunkSize karakter');
+    _logger.i('- Toplam metin uzunluğu: ${metin.length} karakter');
+    
+    // Tahmini parça sayısını hesapla
+    final int estimatedChunks = (metin.length / finalChunkSize).ceil();
+    _logger.i('- Tahmini parça sayısı: $estimatedChunks');
+    
+    // Eğer dosya çok küçükse parçalama
+    if (metin.length <= finalChunkSize || estimatedChunks <= 1) {
+      _logger.i('Dosya küçük, parçalama yapılmayacak');
+      return [metin];
+    }
+    
+    List<String> parcalar = [];
+    int baslangic = 0;
+    int parcaSayaci = 0;
+    
+        while (baslangic < metin.length && parcaSayaci < maxChunks) {
+      parcaSayaci++;
+      int bitis = baslangic + finalChunkSize;
+      
+      // Son parça kontrolü veya maksimum parça sayısına ulaştık
+      if (bitis >= metin.length || parcaSayaci == maxChunks) {
+        bitis = metin.length; // Son parçada kalan tüm metni al
+        String sonParca = metin.substring(baslangic, bitis);
+        parcalar.add(sonParca);
+        _logger.i('Son parça $parcaSayaci oluşturuldu: ${sonParca.length} karakter');
+        break;
+      }
+      
+      // Doğal bir kırılma noktası bul (satır sonu veya nokta)
+      int dogalKirilma = _dogalKirilmaNoktasiBul(metin, baslangic, bitis);
+      
+      if (dogalKirilma > baslangic) {
+        bitis = dogalKirilma;
+      }
+      
+      String parca = metin.substring(baslangic, bitis);
+      parcalar.add(parca);
+      
+      _logger.i('Parça $parcaSayaci oluşturuldu: ${parca.length} karakter');
+      
+      baslangic = bitis;
+    }
+    
+    _logger.i('Akıllı parçalama tamamlandı: ${parcalar.length} parça oluşturuldu');
+    
+    // Parça boyutlarını logla
+    for (int i = 0; i < parcalar.length; i++) {
+      _logger.d('Parça ${i + 1}: ${parcalar[i].length} karakter');
+    }
+    
+    // Özet bilgi
+    _logger.i('PARÇALAMA ÖZETİ:');
+    _logger.i('- Toplam dosya boyutu: ${metin.length} karakter');
+    _logger.i('- Oluşturulan parça sayısı: ${parcalar.length}');
+    _logger.i('- Maksimum izin verilen parça: $maxChunks');
+    _logger.i('- Ortalama parça boyutu: ${(metin.length / parcalar.length).round()} karakter');
+    
+    return parcalar;
+  }
+
+  /// Doğal kırılma noktası bulur (satır sonu, nokta, vb.)
+  int _dogalKirilmaNoktasiBul(String metin, int baslangic, int maksimumBitis) {
+    // Geriye doğru 1000 karaktere kadar ara
+    const int aramaGenisligi = 1000;
+    int aramaBaslangici = maksimumBitis - aramaGenisligi;
+    if (aramaBaslangici < baslangic) {
+      aramaBaslangici = baslangic;
+    }
+    
+    String aramaBolgesi = metin.substring(aramaBaslangici, maksimumBitis);
+    
+         // Oncelik sirasi: cift satir sonu, tek satir sonu, nokta+bosluk, virgul+bosluk
+         List<String> kirilmaDesenleri = [
+      '\n\n',  // Paragraf sonu
+      '\n',    // Satır sonu
+      '. ',    // Cümle sonu
+      ', ',    // Virgül sonrası
+    ];
+    
+           for (String desen in kirilmaDesenleri) {
+      int sonIndex = aramaBolgesi.lastIndexOf(desen);
+      if (sonIndex != -1) {
+        int globalIndex = aramaBaslangici + sonIndex + desen.length;
+        if (globalIndex > baslangic && globalIndex < maksimumBitis) {
+          return globalIndex;
+        }
+      }
+    }
+    
+         // Doğal kırılma bulunamazsa orijinal biti döndür
+     return maksimumBitis;
+   }
+
+   /// JSON'u düzeltmeye çalışır
+   String _tryFixJson(String brokenJson) {
+     String fixed = brokenJson.trim();
+     
+     // Eksik kapatma parantezleri ekle
+     int openBraces = 0;
+     for (int i = 0; i < fixed.length; i++) {
+       if (fixed[i] == '{') openBraces++;
+       if (fixed[i] == '}') openBraces--;
+     }
+     
+     // Eksik kapatma parantezlerini ekle
+     while (openBraces > 0) {
+       fixed += '}';
+       openBraces--;
+     }
+     
+     // Eksik kapatma tırnakları düzelt
+     if (fixed.split('"').length % 2 == 0) {
+       fixed += '"';
+     }
+     
+     // Eksik virgülleri kontrol et ve düzelt (temel seviyede)
+     if (!fixed.endsWith('}') && !fixed.endsWith(',') && !fixed.endsWith(']')) {
+       if (fixed.contains(':') && !fixed.endsWith('"')) {
+         fixed += '"';
+       }
+     }
+     
+     return fixed;
+   }
+
+
+ }

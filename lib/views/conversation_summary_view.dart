@@ -709,13 +709,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
       });
       
       if (_summaryData.isNotEmpty) {
-        // Analiz sonuçlarını Firestore'a kaydet
-        await _wrappedService.saveWrappedAnalysis(
-          summaryData: _summaryData,
-          fileContent: _fileContent,
-          isTxtFile: _isTxtFile,
-        );
-        _logger.i('Analiz sonuçları Firestore\'a kaydedildi');
+        // NOT: Wrapped analizi artık otomatik olarak analizSohbetVerisi içinde yapılıyor
+        // Bu yüzden burada tekrar kaydetmeye gerek yok
+        _logger.i('Ana analiz tamamlandı, wrapped analizi otomatik kaydedildi');
         
         // Ayrıca eski yöntemle de kaydet (geriye uyumluluk için)
         await _cacheSummaryData();
@@ -735,6 +731,42 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     }
   }
   
+  // Wrapped analizi cache'den hızlı yükleme
+  Future<void> _showWrappedAnalysisFromCache() async {
+    _logger.i('Wrapped analizi cache\'den yükleniyor');
+    
+    setState(() {
+      _isAnalyzing = true;
+      _errorMessage = '';
+    });
+    
+    try {
+      // Önce cache'den yüklemeyi dene
+      await _loadCachedSummaryData();
+      
+      if (_summaryData.isNotEmpty) {
+        setState(() {
+          _isAnalyzing = false;
+        });
+        _logger.i('Cache\'den ${_summaryData.length} wrapped sonucu yüklendi');
+        _showSummaryViewWithPremiumCheck();
+      } else {
+        // Cache'de veri yoksa kullanıcıya bildir
+        setState(() {
+          _isAnalyzing = false;
+          _errorMessage = 'Wrapped analizi bulunamadı. Lütfen önce bir txt dosyası analiz edin.';
+        });
+        _logger.w('Cache\'de wrapped analizi bulunamadı');
+      }
+    } catch (e) {
+      setState(() {
+        _isAnalyzing = false;
+        _errorMessage = 'Wrapped analizi yüklenirken hata oluştu: $e';
+      });
+      _logger.e('Cache\'den wrapped yükleme hatası', e);
+    }
+  }
+
   // Wrapped tarzı analiz sonuçlarını gösterme - Premium kontrolü ile
   Future<void> _showSummaryViewWithPremiumCheck() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
@@ -1151,7 +1183,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                         child: Stack(
                           children: [
                             InkWell(
-                              onTap: () => _showSummaryViewWithPremiumCheck(),
+                              onTap: () => _showWrappedAnalysisFromCache(),
                               borderRadius: BorderRadius.circular(16),
                               child: Padding(
                                 padding: const EdgeInsets.all(20.0),
@@ -1181,7 +1213,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                                     ),
                                     const SizedBox(height: 8),
                                     const Text(
-                                      'Spotify Wrapped tarzı analiz sonuçlarını görmek için tıklayın!',
+                                      'Daha önce analiz edilmiş txt dosyanızın wrapped sonuçlarını görmek için tıklayın!',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Colors.white,

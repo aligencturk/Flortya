@@ -108,7 +108,7 @@ class YuklemeAnimasyonu extends StatelessWidget {
       case AnalizTipi.MESAJ_KOCU:
         return 'Mesajınız değerlendiriliyor, en etkili iletişim önerisi hazırlanıyor...';
       case AnalizTipi.TXT_DOSYASI:
-        return 'Yazışmalarınız işleniyor, iletişim örüntüleriniz çözümleniyor...';
+        return 'Yazışmalarınız işleniyor... Yüklenen dosya büyükse işlem uzun sürebilir.';
       case AnalizTipi.ILISKI_ANKETI:
         return 'Anket yanıtlarınız işleniyor, ilişki haritanız oluşturuluyor...';
       case AnalizTipi.DANISMA:
