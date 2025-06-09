@@ -758,7 +758,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     });
     
     try {
-      final result = await _aiService.analizSohbetVerisi(_fileContent);
+      final result = await _aiService.wrappedAnaliziYap(_fileContent);
       
       // Analiz iptal edilmişse işlemi durdu
       if (_isAnalysisCancelled) {

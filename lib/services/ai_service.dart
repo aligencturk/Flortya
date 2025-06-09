@@ -2630,6 +2630,194 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
     }
   }
 
+  // Wrapped analizi için özel metod - TÜM DOSYAYI TEK SEFERDE ANALİZ EDER
+  Future<List<Map<String, String>>> wrappedAnaliziYap(String sohbetMetni) async {
+    _logger.i('Wrapped analizi başlatılıyor - Dosya boyutu: ${sohbetMetni.length} karakter');
+    
+    try {
+      // İptal kontrolü
+      _checkCancellation();
+      
+      // API anahtarını kontrol et
+      if (_geminiApiKey.isEmpty) {
+        throw Exception('API anahtarı bulunamadı');
+      }
+      
+      // İlk ve son mesaj tarihlerini bul
+      String ilkMesajTarihi = _extractFirstMessageDate(sohbetMetni);
+      String sonMesajTarihi = _extractLastMessageDate(sohbetMetni);
+      
+      // Toplam mesaj sayısını hesapla
+      int toplamMesajSayisi = _calculateTotalMessages(sohbetMetni);
+      
+      // Büyük dosyalar için içeriği özetle
+      String analizMetni = sohbetMetni;
+      if (sohbetMetni.length > 20000) {
+        _logger.i('Büyük dosya için wrapped analizi - özet çıkarılacak');
+        analizMetni = _summarizeForWrapped(sohbetMetni);
+      }
+      
+      String apiUrl = _getApiUrl();
+      
+      final prompt = '''
+Sen bir veri analisti olarak görev yapacaksın. Verilen mesajlaşma geçmişini inceleyerek Spotify Wrapped benzeri bir yıllık özet hazırlayacaksın.
+
+GERÇEKÇİ VERİLER:
+- İlk Mesaj Tarihi: $ilkMesajTarihi
+- Son Mesaj Tarihi: $sonMesajTarihi  
+- Toplam Mesaj Sayısı: $toplamMesajSayisi
+
+Mesajlaşma geçmişi:
+"""
+$analizMetni
+"""
+
+ÖNEMLİ KURALLAR:
+1. TAM OLARAK 10 adet farklı kart oluşturmalısın.
+2. Yukarıdaki GERÇEKÇİ VERİLERİ kartlarda MUTLAKA kullan.
+3. Yanıtını doğrudan JSON formatında ver, başka açıklama ekleme.
+4. İlk kartta MUTLAKA ilk mesaj ($ilkMesajTarihi) ve son mesaj ($sonMesajTarihi) tarihleri olmalı.
+5. İkinci kartta MUTLAKA toplam mesaj sayısı ($toplamMesajSayisi) olmalı.
+
+YANIT FORMATI (doğrudan JSON dizi):
+[
+  {"title": "İlk Mesaj - Son Mesaj", "comment": "İlk mesajınız $ilkMesajTarihi tarihinde, son mesajınız $sonMesajTarihi tarihinde gönderildi."},
+  {"title": "Toplam Mesajlar", "comment": "Bu dönemde toplam $toplamMesajSayisi mesaj gönderdiniz."},
+  {"title": "En Yoğun Gün", "comment": "En çok mesajlaştığınız gün ve saatler."},
+  {"title": "En Çok Kullanılan Kelimeler", "comment": "Sohbetinizde en sık geçen kelimeler."},
+  {"title": "Mesaj Patlaması", "comment": "En yoğun mesajlaşma dönemi."},
+  {"title": "Sessizlik Süresi", "comment": "En uzun cevapsız kalınan süre."},
+  {"title": "İletişim Tarzı", "comment": "Mesajlaşma tarzınız."},
+  {"title": "Emoji Kullanımı", "comment": "Emoji tercihleri ve sayıları."},
+  {"title": "Ortalama Mesaj Uzunluğu", "comment": "Mesajlarınızın ortalama kelime sayısı."},
+  {"title": "Konuşma Saatleri", "comment": "En aktif olduğunuz saatler."}
+]
+''';
+      
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+          'generationConfig': {
+            'temperature': 0.4,
+            'maxOutputTokens': 2500,
+          }
+        }),
+      ).timeout(_httpTimeout, onTimeout: () {
+        throw Exception('Wrapped analizi zaman aşımına uğradı');
+      });
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent != null) {
+          String jsonStr = aiContent.trim();
+          
+          if (jsonStr.contains('```json')) {
+            jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+          } else if (jsonStr.contains('```')) {
+            jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+          }
+          
+          int startIndex = jsonStr.indexOf('[');
+          int endIndex = jsonStr.lastIndexOf(']') + 1;
+          
+          if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
+            jsonStr = jsonStr.substring(startIndex, endIndex);
+            
+            final List<dynamic> jsonList = jsonDecode(jsonStr);
+            final List<Map<String, String>> result = [];
+            
+            for (var item in jsonList) {
+              if (item is Map) {
+                result.add({
+                  'title': item['title']?.toString() ?? 'Başlık',
+                  'comment': item['comment']?.toString() ?? 'İçerik',
+                });
+              }
+            }
+            
+            // 10 kart garantisi
+            while (result.length < 10) {
+              result.add({
+                'title': 'Ek Analiz ${result.length + 1}',
+                'comment': 'Bu veri dosya analizi sırasında oluşturuldu.'
+              });
+            }
+            
+            if (result.length > 10) {
+              result.removeRange(10, result.length);
+            }
+            
+            _logger.i('Wrapped analizi tamamlandı: ${result.length} kart oluşturuldu');
+            return result;
+          }
+        }
+      }
+      
+      throw Exception('Wrapped analizi başarısız');
+      
+    } catch (e) {
+      _logger.e('Wrapped analizi hatası: $e');
+      throw Exception('Wrapped analizi hatası: $e');
+    }
+  }
+
+  // Toplam mesaj sayısını hesapla
+  int _calculateTotalMessages(String content) {
+    int count = 0;
+    final lines = content.split('\n');
+    
+    for (final line in lines) {
+      if (RegExp(r'\d{1,2}[\.\/-]\d{1,2}[\.\/-](\d{2}|\d{4}).*\d{1,2}:\d{2}').hasMatch(line) ||
+          RegExp(r'\[\d{1,2}:\d{2}:\d{2}\]').hasMatch(line) ||
+          RegExp(r'\d{1,2}:\d{2}\s*-').hasMatch(line)) {
+        count++;
+      }
+    }
+    
+    if (count == 0) {
+      for (final line in lines) {
+        if (line.trim().isNotEmpty && !line.startsWith('[') && line.contains(':')) {
+          count++;
+        }
+      }
+    }
+    
+    return count > 0 ? count : 50;
+  }
+
+  // Büyük dosyalar için özetleme
+  String _summarizeForWrapped(String content) {
+    final lines = content.split('\n');
+    final totalLines = lines.length;
+    
+    final firstPart = (totalLines * 0.3).round();
+    final lastPart = (totalLines * 0.3).round();
+    final middlePart = totalLines - firstPart - lastPart;
+    
+    final List<String> summarized = [];
+    
+    // İlk %30
+    summarized.addAll(lines.take(firstPart));
+    summarized.add('\n--- Orta kısım özetlendi ---\n');
+    
+    // Orta kısımdan örnekler (her 10. satır)
+    final middleStart = firstPart;
+    for (int i = middleStart; i < middleStart + middlePart && i < lines.length; i += 10) {
+      summarized.add(lines[i]);
+    }
+    
+    summarized.add('\n--- Son kısım ---\n');
+    
+    // Son %30
+    summarized.addAll(lines.skip(totalLines - lastPart));
+    
+    return summarized.join('\n');
+  }
+
   // Büyük dosyalar için parçalı analiz - TÜM PARÇALARI ANALİZ EDER
   Future<List<Map<String, String>>> _analizBuyukDosyaParacali(String tumSohbetMetni) async {
     _logger.i('Büyük dosya parçalı analiz başlatılıyor - Toplam ${tumSohbetMetni.length} karakter');
