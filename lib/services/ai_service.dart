@@ -2660,7 +2660,7 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       String apiUrl = _getApiUrl();
       
       final prompt = '''
-Sen bir veri analisti olarak görev yapacaksın. Verilen mesajlaşma geçmişini inceleyerek Spotify Wrapped benzeri bir yıllık özet hazırlayacaksın.
+Sen bir profesyonel veri analisti olarak görev yapacaksın. Verilen mesajlaşma geçmişini DETAYLIYLA ANALİZ EDEREK Spotify Wrapped benzeri gerçekçi bir özet hazırlayacaksın.
 
 GERÇEKÇİ VERİLER:
 - İlk Mesaj Tarihi: $ilkMesajTarihi
@@ -2672,26 +2672,41 @@ Mesajlaşma geçmişi:
 $analizMetni
 """
 
-ÖNEMLİ KURALLAR:
-1. TAM OLARAK 10 adet farklı kart oluşturmalısın.
-2. Yukarıdaki GERÇEKÇİ VERİLERİ kartlarda MUTLAKA kullan.
-3. Yanıtını doğrudan JSON formatında ver, başka açıklama ekleme.
-4. İlk kartta MUTLAKA ilk mesaj ($ilkMesajTarihi) ve son mesaj ($sonMesajTarihi) tarihleri olmalı.
-5. İkinci kartta MUTLAKA toplam mesaj sayısı ($toplamMesajSayisi) olmalı.
+GÖREVLER - AŞAĞIDAKİ HER BİRİNİ YAPMALISIN:
+1. Mesajlaşma saatlerini analiz et (hangi saatlerde daha aktif)
+2. Tarih bazında yoğunluğu bul (hangi günlerde/aylarda daha çok mesaj)
+3. En çok kullanılan kelimeleri say (top 5-10)
+4. Emoji kullanımını say ve analiz et
+5. Mesaj uzunluklarını analiz et (ortalama, en uzun, en kısa)
+6. Konuşma desenlerini bul (arka arkaya mesaj, uzun aralar vs)
+7. Kişi başına mesaj dağılımını hesapla
+8. İlk mesaj - son mesaj ve geçen süreyi belirt
+9. Konuşmalarda dikkat çeken özel bir tema çıkar (örn: kayıp eşya, sürpriz, kıskançlık vb.)
+10. Mesajların duygu tonunu çıkar (pozitif/nötr/negatif oranı)
+
+📌 ÖNEMLİ KURALLAR:
+- TAM OLARAK 10 adet farklı kart oluştur.
+- Yukarıdaki GERÇEKÇİ VERİLERİ kullan + dosyadan analiz sonucu ekle.
+- "veriler incelendiğinde" gibi belirsiz ifadeler KULLANMA.
+- SADECE JSON formatında yanıt ver, açıklama yazma.
+- Her kartta SOMUT VERİLER ve RAKAMLAR olmalı.
+- Kart yapısı: {"title": "...", "comment": "..."} biçiminde olmalı.
 
 YANIT FORMATI (doğrudan JSON dizi):
 [
-  {"title": "İlk Mesaj - Son Mesaj", "comment": "İlk mesajınız $ilkMesajTarihi tarihinde, son mesajınız $sonMesajTarihi tarihinde gönderildi."},
-  {"title": "Toplam Mesajlar", "comment": "Bu dönemde toplam $toplamMesajSayisi mesaj gönderdiniz."},
-  {"title": "En Yoğun Gün", "comment": "En çok mesajlaştığınız gün ve saatler."},
-  {"title": "En Çok Kullanılan Kelimeler", "comment": "Sohbetinizde en sık geçen kelimeler."},
-  {"title": "Mesaj Patlaması", "comment": "En yoğun mesajlaşma dönemi."},
-  {"title": "Sessizlik Süresi", "comment": "En uzun cevapsız kalınan süre."},
-  {"title": "İletişim Tarzı", "comment": "Mesajlaşma tarzınız."},
-  {"title": "Emoji Kullanımı", "comment": "Emoji tercihleri ve sayıları."},
-  {"title": "Ortalama Mesaj Uzunluğu", "comment": "Mesajlarınızın ortalama kelime sayısı."},
-  {"title": "Konuşma Saatleri", "comment": "En aktif olduğunuz saatler."}
+  {"title": "Konuşma Süresi", "comment": "$ilkMesajTarihi - $sonMesajTarihi arası, toplam X gün sürdü."},
+  {"title": "Toplam Mesajlar", "comment": "Bu dönemde toplam $toplamMesajSayisi mesaj gönderildi."},
+  {"title": "En Aktif Saatler", "comment": "En çok mesaj X:XX-Y:YY saatleri arasında atıldı (Z mesaj)."},
+  {"title": "En Yoğun Günler", "comment": "En çok mesajlaşılan gün: X günü (Y mesaj). En yoğun ay: Z ayı."},
+  {"title": "Kelime Şampiyonları", "comment": "En çok kullanılan kelimeler: 1) abc (X kez), 2) def (Y kez), 3) ghi (Z kez)."},
+  {"title": "Emoji Analizi", "comment": "Toplam X emoji kullanıldı. En popüler: Y (Z kez), abc (W kez)."},
+  {"title": "Mesaj Karakteri", "comment": "Ortalama mesaj uzunluğu X kelime. En uzun mesaj Y kelime, en kısa Z kelime."},
+  {"title": "Konuşma Ritmi", "comment": "En uzun sessizlik X gün sürdü. Arka arkaya en fazla Y mesaj atıldı."},
+  {"title": "Duygu Tonu", "comment": "Pozitif: %X, Nötr: %Y, Negatif: %Z tonunda mesajlar."},
+  {"title": "Özel Tema", "comment": "Konuşmalarda öne çıkan tema: [tespit edilen tema] - [açıklama]."}
 ]
+
+DİKKAT: X, Y, Z gibi placeholder'ları mesajlaşma geçmişinden çıkardığın GERÇEK SAYILAR ve VERİLERLE değiştir!
 ''';
       
       final response = await http.post(
