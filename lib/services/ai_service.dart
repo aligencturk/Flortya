@@ -300,7 +300,7 @@ class AiService {
         Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yapabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
         
         1. Duygu Çözümlemesi
-        - Metindeki baskın duyguları belirle (örnek: kırgınlık, umut, öfke, boşvermişlik, özlem...)
+        - Metindeki baskın duyguları belirle (örnek: kızgınlık, umut, öfke, boşvermişlik, özlem...)
         - Gerekirse karışık duyguları birlikte yorumla ("kızgın ama hâlâ önemsiyor" gibi)
 
         2. Niyet Yorumu
@@ -633,7 +633,7 @@ class AiService {
           Bunun yerine "Mesajlarında şunu görebiliyorum", "Bu durumda şunları yapabilirsin", "Şu mesajı gönderirsen..." gibi DOĞRUDAN KULLANICIYA HİTAP ET.
           
           1. Duygu Çözümlemesi
-          - Metindeki baskın duyguları belirle (örnek: kırgınlık, umut, öfke, boşvermişlik, özlem...)
+          - Metindeki baskın duyguları belirle (örnek: kızgınlık, umut, öfke, boşvermişlik, özlem...)
           - Gerekirse karışık duyguları birlikte yorumla ("kızgın ama hâlâ önemsiyor" gibi)
 
           2. Niyet Yorumu
@@ -2553,19 +2553,404 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
         throw Exception('API anahtarı bulunamadı');
       }
       
-      // Metin içinden ilk mesaj tarihini çıkarmaya çalış
-      String ilkMesajTarihi = _extractFirstMessageDate(sohbetMetni);
-      _logger.i('Metin içinden çıkarılan ilk mesaj tarihi: $ilkMesajTarihi');
-
       // Sohbet içeriğini hazırla
       if (sohbetMetni.trim().isEmpty) {
         _logger.w('Boş sohbet içeriği, analiz yapılamıyor');
         throw Exception('Analiz için geçerli bir sohbet içeriği gerekli');
       }
       
+      // Büyük dosyaları parçalı analiz et
+      if (sohbetMetni.length > 15000) {
+        _logger.i('Büyük dosya tespit edildi (${sohbetMetni.length} karakter), parçalı analiz başlatılıyor');
+        return await _analizBuyukDosyaParacali(sohbetMetni);
+      }
+      
+      // Küçük dosyalar için standart analiz
+      return await _analizStandart(sohbetMetni);
+      
+    } catch (e) {
+      _logger.e('Sohbet analizi hatası: $e');
+      throw Exception('Analiz hatası: $e');
+    }
+  }
+
+  // Büyük dosyalar için parçalı analiz - TÜM PARÇALARI ANALİZ EDER
+  Future<List<Map<String, String>>> _analizBuyukDosyaParacali(String tumSohbetMetni) async {
+    _logger.i('Büyük dosya parçalı analiz başlatılıyor - Toplam ${tumSohbetMetni.length} karakter');
+    
+    try {
+      // 1. ADIM: Genel istatistikleri çıkar
+      final Map<String, dynamic> genelIstatistikler = await _genelIstatistikleriCikar(tumSohbetMetni);
+      _logger.i('Genel istatistikler çıkarıldı: ${genelIstatistikler.toString()}');
+      
+      // 2. ADIM: Dosyayı parçalara böl (12KB parçalar)
+      const int parcaBoyutu = 12000;
+      List<String> parcalar = [];
+      
+      for (int i = 0; i < tumSohbetMetni.length; i += parcaBoyutu) {
+        int bitis = i + parcaBoyutu;
+        if (bitis > tumSohbetMetni.length) {
+          bitis = tumSohbetMetni.length;
+        }
+        parcalar.add(tumSohbetMetni.substring(i, bitis));
+      }
+      
+      _logger.i('Dosya ${parcalar.length} parçaya bölündü');
+      
+      // 3. ADIM: Her parçayı analiz et
+      List<Map<String, dynamic>> parcaAnalizleri = [];
+      for (int i = 0; i < parcalar.length; i++) {
+        _logger.i('Parça ${i + 1}/${parcalar.length} analiz ediliyor');
+        try {
+          final parcaAnalizi = await _analizParcaDetayli(parcalar[i], i + 1, parcalar.length);
+          parcaAnalizleri.add(parcaAnalizi);
+          _logger.i('Parça ${i + 1} analiz tamamlandı');
+        } catch (e) {
+          _logger.w('Parça ${i + 1} analiz edilemedi: $e');
+          // Boş analiz ekle ki parça sayısı korunsun
+          parcaAnalizleri.add({'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []});
+        }
+      }
+      
+      // 4. ADIM: Tüm parça analizlerini birleştir ve final analizi yap
+      _logger.i('Tüm parça analizleri birleştiriliyor');
+      return await _parcaAnalizleriBirlestir(parcaAnalizleri, genelIstatistikler);
+      
+    } catch (e) {
+      _logger.e('Parçalı analiz hatası: $e');
+      throw Exception('Parçalı analiz hatası: $e');
+    }
+  }
+
+  // Genel istatistikleri çıkar - dosyanın tamamından
+  Future<Map<String, dynamic>> _genelIstatistikleriCikar(String tumMetin) async {
+    _logger.i('Genel istatistikler çıkarılıyor');
+    
+    // İlk ve son mesaj tarihlerini bul
+    String ilkMesajTarihi = _extractFirstMessageDate(tumMetin);
+    String sonMesajTarihi = _extractLastMessageDate(tumMetin);
+    
+    // Toplam mesaj sayısını hesapla
+    int toplamMesajSayisi = 0;
+    final List<String> satirlar = tumMetin.split('\n');
+    for (final satir in satirlar) {
+      // Tarih formatlarını ara (WhatsApp, Telegram, vb.)
+      if (RegExp(r'\d{1,2}[\.\/-]\d{1,2}[\.\/-](\d{2}|\d{4}).*\d{1,2}:\d{2}').hasMatch(satir) ||
+          RegExp(r'\[\d{1,2}:\d{2}:\d{2}\]').hasMatch(satir) ||
+          RegExp(r'\d{1,2}:\d{2}\s*-').hasMatch(satir)) {
+        toplamMesajSayisi++;
+      }
+    }
+    
+    // Eğer tarih bazlı bulamazsa, genel mesaj sayacı kullan
+    if (toplamMesajSayisi == 0) {
+      for (final satir in satirlar) {
+        if (satir.trim().isNotEmpty && !satir.startsWith('[') && satir.contains(':')) {
+          toplamMesajSayisi++;
+        }
+      }
+    }
+    
+    // Toplam kelime sayısı
+    int toplamKelimeSayisi = tumMetin.split(RegExp(r'\s+')).length;
+    
+    // Ortalama mesaj uzunluğu
+    double ortalamaMesajUzunlugu = toplamMesajSayisi > 0 ? toplamKelimeSayisi / toplamMesajSayisi : 0;
+    
+    _logger.i('Genel istatistikler: Mesaj: $toplamMesajSayisi, Kelime: $toplamKelimeSayisi');
+    
+    return {
+      'ilk_mesaj_tarihi': ilkMesajTarihi,
+      'son_mesaj_tarihi': sonMesajTarihi,
+      'toplam_mesaj_sayisi': toplamMesajSayisi,
+      'toplam_kelime_sayisi': toplamKelimeSayisi,
+      'ortalama_mesaj_uzunlugu': ortalamaMesajUzunlugu.round(),
+      'toplam_karakter_sayisi': tumMetin.length,
+    };
+  }
+
+  // Her parçayı detaylı analiz et
+  Future<Map<String, dynamic>> _analizParcaDetayli(String parcaMetni, int parcaNo, int toplamParca) async {
+    try {
+      String apiUrl = _getApiUrl();
+      
+      final prompt = '''
+Sen bir veri analisti olarak görev yapacaksın. Verilen metin parçasını analiz edeceksin.
+
+Bu parça $parcaNo/$toplamParca numaralı parça. TÜM PARÇALARIN ANALİZİ BİRLEŞTİRİLECEK.
+
+Metin Parçası:
+"""
+$parcaMetni
+"""
+
+Aşağıdaki verileri JSON formatında çıkar:
+
+{
+  "mesaj_sayisi": (bu parçadaki mesaj sayısı),
+  "kisi_adlari": ["isim1", "isim2"], (bu parçada konuşan kişi isimleri)
+  "tarihler": ["tarih1", "tarih2"], (bu parçadaki tüm tarihler GG.AA.YYYY formatında)
+  "saatler": ["saat1", "saat2"], (bu parçadaki mesaj saatleri HH:MM formatında)
+  "kelimeler": ["kelime1", "kelime2"], (en çok kullanılan 20 kelime)
+  "emoji_sayisi": (emoji sayısı),
+  "uzun_mesajlar": (50+ karakterli mesaj sayısı),
+  "kisa_mesajlar": (10- karakterli mesaj sayısı)
+}
+
+SADECE JSON yanıtı ver, başka açıklama ekleme.
+''';
+      
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+          'generationConfig': {
+            'temperature': 0.3,
+            'maxOutputTokens': 1000,
+          }
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent != null) {
+          // JSON çıkar
+          String jsonStr = aiContent;
+          if (jsonStr.contains('```json')) {
+            jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+          } else if (jsonStr.contains('```')) {
+            jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+          }
+          
+          try {
+            return jsonDecode(jsonStr);
+          } catch (e) {
+            _logger.w('Parça $parcaNo JSON parse hatası: $e');
+            return {'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []};
+          }
+        }
+      }
+      
+      _logger.w('Parça $parcaNo API hatası: ${response.statusCode}');
+      return {'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []};
+      
+    } catch (e) {
+      _logger.w('Parça $parcaNo analiz hatası: $e');
+      return {'mesaj_sayisi': 0, 'kelimeler': [], 'tarihler': []};
+    }
+  }
+
+  // Tüm parça analizlerini birleştirip final wrapped analizi yap
+  Future<List<Map<String, String>>> _parcaAnalizleriBirlestir(
+      List<Map<String, dynamic>> parcaAnalizleri, 
+      Map<String, dynamic> genelIstatistikler) async {
+    
+    _logger.i('Parça analizleri birleştiriliyor - ${parcaAnalizleri.length} parça');
+    
+    try {
+      // Tüm parça verilerini birleştir
+      List<String> tumKelimeler = [];
+      List<String> tumTarihler = [];
+      List<String> tumSaatler = [];
+      List<String> tumKisiAdlari = [];
+      int toplamEmojiSayisi = 0;
+      int toplamUzunMesajlar = 0;
+      int toplamKisaMesajlar = 0;
+      
+      for (final parca in parcaAnalizleri) {
+        if (parca['kelimeler'] is List) {
+          tumKelimeler.addAll((parca['kelimeler'] as List).cast<String>());
+        }
+        if (parca['tarihler'] is List) {
+          tumTarihler.addAll((parca['tarihler'] as List).cast<String>());
+        }
+        if (parca['saatler'] is List) {
+          tumSaatler.addAll((parca['saatler'] as List).cast<String>());
+        }
+        if (parca['kisi_adlari'] is List) {
+          tumKisiAdlari.addAll((parca['kisi_adlari'] as List).cast<String>());
+        }
+        
+        toplamEmojiSayisi += (parca['emoji_sayisi'] as int? ?? 0);
+        toplamUzunMesajlar += (parca['uzun_mesajlar'] as int? ?? 0);
+        toplamKisaMesajlar += (parca['kisa_mesajlar'] as int? ?? 0);
+      }
+      
+      // Benzersiz değerleri al
+      final benzersizKisiAdlari = tumKisiAdlari.toSet().toList();
+      final benzersizTarihler = tumTarihler.toSet().toList();
+      
+      // En çok kullanılan kelimeleri bul
+      Map<String, int> kelimeSayaclari = {};
+      for (String kelime in tumKelimeler) {
+        kelimeSayaclari[kelime] = (kelimeSayaclari[kelime] ?? 0) + 1;
+      }
+      
+      // En çok kullanılan kelimeleri sırala
+      final enCokKelimeler = kelimeSayaclari.entries
+          .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+      
+      _logger.i('Birleşik veriler: ${genelIstatistikler['toplam_mesaj_sayisi']} mesaj, ${benzersizKisiAdlari.length} kişi');
+      
+      // Final wrapped analizi yap
+      return await _finalWrappedAnalizi(genelIstatistikler, {
+        'benzersiz_kisi_adlari': benzersizKisiAdlari,
+        'benzersiz_tarihler': benzersizTarihler,
+        'tum_saatler': tumSaatler,
+        'en_cok_kelimeler': enCokKelimeler.take(20).toList(),
+        'toplam_emoji_sayisi': toplamEmojiSayisi,
+        'toplam_uzun_mesajlar': toplamUzunMesajlar,
+        'toplam_kisa_mesajlar': toplamKisaMesajlar,
+      });
+      
+    } catch (e) {
+      _logger.e('Parça birleştirme hatası: $e');
+      throw Exception('Parça birleştirme hatası: $e');
+    }
+  }
+
+  // Final wrapped analizi - tüm verileri kullanarak 10 kart oluştur
+  Future<List<Map<String, String>>> _finalWrappedAnalizi(
+      Map<String, dynamic> genelIstatistikler,
+      Map<String, dynamic> birlesikVeriler) async {
+    
+    try {
+      String apiUrl = _getApiUrl();
+      
+      final prompt = '''
+Sen bir veri analisti olarak görev yapacaksın. Verilen kapsamlı analiz verilerinden Spotify Wrapped benzeri kartlar oluşturacaksın.
+
+ANALİZ VERİLERİ:
+- İlk Mesaj Tarihi: ${genelIstatistikler['ilk_mesaj_tarihi']}
+- Son Mesaj Tarihi: ${genelIstatistikler['son_mesaj_tarihi']}
+- Toplam Mesaj Sayısı: ${genelIstatistikler['toplam_mesaj_sayisi']}
+- Toplam Kelime Sayısı: ${genelIstatistikler['toplam_kelime_sayisi']}
+- Ortalama Mesaj Uzunluğu: ${genelIstatistikler['ortalama_mesaj_uzunlugu']} kelime
+- Konuşan Kişiler: ${birlesikVeriler['benzersiz_kisi_adlari']}
+- Toplam Emoji Sayısı: ${birlesikVeriler['toplam_emoji_sayisi']}
+- Uzun Mesajlar (50+ karakter): ${birlesikVeriler['toplam_uzun_mesajlar']}
+- Kısa Mesajlar (10- karakter): ${birlesikVeriler['toplam_kisa_mesajlar']}
+- En Çok Kullanılan Kelimeler: ${birlesikVeriler['en_cok_kelimeler']}
+
+Bu VERİLERİ KULLANARAK tam olarak 10 adet wrapped kartı oluştur.
+
+ÖNEMLİ KURALLAR:
+1. Yukarıdaki VERİLERİ OLDUĞU GİBİ kullan - değiştirme!
+2. Her kartta mutlaka nicel veri olmalı (sayı, tarih, yüzde)
+3. SADECE JSON formatında yanıt ver
+4. Asla "yaklaşık", "muhtemelen" kullanma
+
+YANIT FORMATI:
+[
+  {"title": "İlk Mesaj - Son Mesaj", "comment": "İlk mesajınız ${genelIstatistikler['ilk_mesaj_tarihi']} tarihinde, son mesajınız ${genelIstatistikler['son_mesaj_tarihi']} tarihinde gönderildi."},
+  {"title": "Toplam Mesajlar", "comment": "Bu yıl toplam ${genelIstatistikler['toplam_mesaj_sayisi']} mesaj gönderdiniz. ${birlesikVeriler['benzersiz_kisi_adlari'].length} farklı kişiyle konuştunuz."},
+  // ... 8 kart daha
+]
+''';
+      
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+          'generationConfig': {
+            'temperature': 0.5,
+            'maxOutputTokens': 2000,
+          }
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        
+        if (aiContent != null) {
+          // JSON çıkar ve parse et
+          String jsonStr = aiContent;
+          if (jsonStr.contains('```json')) {
+            jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+          } else if (jsonStr.contains('```')) {
+            jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+          }
+          
+          // Dizi başlangıcı ve bitişini kontrol et
+          final int startIndex = jsonStr.indexOf('[');
+          final int endIndex = jsonStr.lastIndexOf(']') + 1;
+          
+          if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
+            jsonStr = jsonStr.substring(startIndex, endIndex);
+            
+            final List<dynamic> jsonList = jsonDecode(jsonStr);
+            final List<Map<String, String>> result = [];
+            
+            for (var item in jsonList) {
+              if (item is Map) {
+                String title = item['title']?.toString() ?? 'Başlık bulunamadı';
+                String comment = item['comment']?.toString() ?? 'İçerik bulunamadı';
+                
+                result.add({
+                  'title': title,
+                  'comment': comment,
+                });
+              }
+            }
+            
+            _logger.i('Final wrapped analizi tamamlandı: ${result.length} kart oluşturuldu');
+            return result;
+          }
+        }
+      }
+      
+      throw Exception('Final analiz API hatası');
+      
+    } catch (e) {
+      _logger.e('Final wrapped analizi hatası: $e');
+      throw Exception('Final wrapped analizi hatası: $e');
+    }
+  }
+
+  // Küçük dosyalar için standart analiz
+  Future<List<Map<String, String>>> _analizStandart(String sohbetMetni) async {
+    _logger.i('Küçük dosya standart analiz başlatılıyor - ${sohbetMetni.length} karakter');
+    
+    try {
+      // Metin içinden ilk mesaj tarihini çıkarmaya çalış
+      String ilkMesajTarihi = _extractFirstMessageDate(sohbetMetni);
+      _logger.i('Metin içinden çıkarılan ilk mesaj tarihi: $ilkMesajTarihi');
+
       // Mesaj çok uzunsa kısalt
+      String sonMesajTarihi = '';
+      int tumMesajSayisi = 0;
+      
+      // Tüm metin üzerinden bazı genel istatistikleri çıkar
+      try {
+        // Mesaj sayısını tahmini olarak hesapla
+        final List<String> satirlar = sohbetMetni.split('\n');
+        int mesajSayaci = 0;
+        for (final satir in satirlar) {
+          // Tipik mesaj başlangıcı genelde tarih içerir veya : ile biter
+          if (RegExp(r'\d{1,2}[\.\/-]\d{1,2}[\.\/-](\d{2}|\d{4})').hasMatch(satir) || 
+              RegExp(r'.*:').hasMatch(satir)) {
+            mesajSayaci++;
+          }
+        }
+        tumMesajSayisi = mesajSayaci > 0 ? mesajSayaci : 100; // En az 100 mesaj varsay
+        _logger.i('Tahmini toplam mesaj sayısı: $tumMesajSayisi');
+      } catch (e) {
+        _logger.w('Mesaj sayısı hesaplanırken hata: $e');
+        tumMesajSayisi = 100; // Varsayılan değer
+      }
+      
       if (sohbetMetni.length > 16000) {
         _logger.w('Sohbet içeriği çok uzun (${sohbetMetni.length} karakter), kısaltılıyor...');
+        // Uzun içerikte son mesaj tarihini bulmaya çalış
+        sonMesajTarihi = _extractLastMessageDate(sohbetMetni);
+        _logger.i('Uzun içerikten çıkarılan son mesaj tarihi: $sonMesajTarihi');
+        
         sohbetMetni = "${sohbetMetni.substring(0, 16000)}\n...(devamı kısaltıldı)...";
       }
       
@@ -2573,15 +2958,37 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       String apiUrl;
       try {
         apiUrl = _getApiUrl();
-        _logger.i('Wrapped analizi API URL oluşturuldu');
+        _logger.i('Standart analizi API URL oluşturuldu');
       } catch (apiError) {
-        _logger.e('Wrapped analizi API URL oluşturulurken hata: $apiError');
+        _logger.e('Standart analizi API URL oluşturulurken hata: $apiError');
         throw Exception('API yapılandırma hatası: $apiError');
       }
       
-      _logger.d('Wrapped analizi API isteği hazırlanıyor');
+      _logger.d('Standart analizi API isteği hazırlanıyor');
       
       // AI prompt'u hazırla
+      String promptEk = "";
+      if (sonMesajTarihi.isNotEmpty || tumMesajSayisi > 0) {
+        promptEk = """
+        ⚠️ ÇOK ÖNEMLİ UYARI ⚠️
+
+        Bu sohbet çok uzun olduğu için kısaltıldı. ASLA SADECE VERILEN METNE DAYANMA!
+        Aşağıdaki GERÇEK VERİLERİ kartları oluştururken MUTLAKA KULLAN:
+        
+        1. İLK MESAJ TARİHİ: ${ilkMesajTarihi.isNotEmpty ? ilkMesajTarihi : 'Belirlenemedi'}
+        2. SON MESAJ TARİHİ: ${sonMesajTarihi.isNotEmpty ? sonMesajTarihi : 'Belirlenemedi'}
+        3. TOPLAM MESAJ SAYISI: $tumMesajSayisi
+        
+        Kartları oluştururken:
+        - "İlk Mesaj - Son Mesaj" kartında yukarıdaki tarihleri OLDUĞU GİBİ kullan
+        - "Mesaj Sayıları" kartında toplam mesaj sayısını $tumMesajSayisi olarak kullan
+        - Tüm istatistikleri bu GERÇEK VERİLERE dayanarak hesapla
+        - İçeriği kısaltılmış olsa bile, tüm analizinde BU TOPLAM SAYILARI kullan
+        
+        UYARI: Verilen metin tam sohbeti içermiyor! Sadece bir kısmını görüyorsun. O yüzden yukarıdaki GERÇEK VERİLERİ KULLAN!
+        """;
+      }
+      
       final prompt = '''
       Sen bir veri analisti olarak görev yapacaksın. Aşağıda verilen mesajlaşma geçmişini inceleyerek Spotify Wrapped benzeri bir yıllık özet hazırlayacaksın.
       
@@ -2591,6 +2998,8 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       """
       $sohbetMetni
       """
+      
+      ${promptEk.isNotEmpty ? promptEk : ""}
       
       ÖNEMLİ KURALLAR:
       1. TAM OLARAK 10 adet farklı kart oluşturmalısın.
@@ -2651,7 +3060,7 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
         }
       });
       
-      _logger.d('Wrapped analizi API isteği gönderiliyor');
+      _logger.d('Standart analizi API isteği gönderiliyor');
       
       final response = await http.post(
         Uri.parse(apiUrl),
@@ -2715,60 +3124,21 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
             }
           }
           
-          // Tam olarak 10 kart olduğundan emin ol
-          if (result.length < 10) {
-            _logger.w('API yanıtında yeterli kart yok (${result.length}/10), eksik kartlar tamamlanacak');
-            
-            // Eksik kartlar için başlıklar ve açıklamalar
-            final List<Map<String, String>> eksikKartBilgileri = [
-              {'title': 'İlk Mesaj - Son Mesaj', 'comment': 'İlk mesajınız ${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year - 1} tarihinde, son mesajınız ise ${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year} tarihinde atılmış.'},
-              {'title': 'Mesaj Sayıları', 'comment': 'Toplam 347 mesaj atmışsınız. Sen %52, karşı taraf %48 oranında mesaj atmış.'},
-              {'title': 'En Yoğun Ay/Gün', 'comment': 'En çok ${_randomAy()} ayında mesajlaşmışsınız. En yoğun gün ise ${_randomGun()}.'},
-              {'title': 'En Çok Kullanılan Kelimeler', 'comment': 'En sık kullandığınız kelimeler: "merhaba", "evet", "hayır", "belki", "tamam"'},
-              {'title': 'Mesaj Patlaması', 'comment': '${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year - 1} günü tam 36 mesaj atarak rekor kırdınız!'},
-              {'title': 'Sessizlik Süresi', 'comment': 'En uzun sessizlik 3 gün sürmüş. ${DateTime.now().day-5}-${DateTime.now().day-2}.${DateTime.now().month}.${DateTime.now().year} arasında hiç mesajlaşmamışsınız.'},
-              {'title': 'İletişim Tarzı', 'comment': 'Mesajlaşma tarzınız "Samimi" olarak sınıflandırılıyor. Karşılıklı saygı unsurları belirgin.'},
-              {'title': 'Emoji Kullanımı', 'comment': 'Sen toplam 83 emoji kullanmışsın. En çok kullandığın emoji: 😊'},
-              {'title': 'Ortalama Mesaj Uzunluğu', 'comment': 'Ortalama mesaj uzunluğun 15 kelime. Karşı tarafın ortalama mesaj uzunluğu 12 kelime.'},
-              {'title': 'Konuşma Saatleri', 'comment': 'En çok saat 21:00-23:00 arasında mesajlaşıyorsunuz. Sabah 07:00-09:00 arası en az mesajlaştığınız zaman dilimi.'}
-            ];
-            
-            // Eksik kartları tamamla
-            for (int i = result.length; i < 10; i++) {
-              // Mevcut başlıklarla çakışmayan bir kart ekle
-              final mevcut = result.map((e) => e['title']).toSet();
-              
-              for (var kart in eksikKartBilgileri) {
-                if (!mevcut.contains(kart['title'])) {
-                  result.add(kart);
-                  break;
-                }
-              }
-              
-              // Eğer hiç uygun kart bulunamazsa, varsayılan kartlardan birini ekle
-              if (result.length <= i) {
-                result.add(eksikKartBilgileri[i % eksikKartBilgileri.length]);
-              }
-            }
-          } else if (result.length > 10) {
-            _logger.w('API yanıtında fazla kart var (${result.length}/10), fazla kartlar çıkarılacak');
-            return result.sublist(0, 10);
-          }
-          
-          _logger.i('Wrapped analizi tamamlandı, ${result.length} kart oluşturuldu');
+          _logger.i('Standart analiz tamamlandı: ${result.length} kart oluşturuldu');
           return result;
-        } catch (e) {
-          _logger.e('JSON ayrıştırma hatası: $e');
-          throw Exception('API yanıtı ayrıştırılamadı: $e');
+          
+        } catch (jsonError) {
+          _logger.e('JSON ayrıştırma hatası: $jsonError');
+          throw Exception('Analiz sonucu formatı hatalı: $jsonError');
         }
       } else {
-        _logger.e('API Hatası: ${response.statusCode}');
-        throw Exception('API yanıtı alınamadı: HTTP ${response.statusCode}');
+        _logger.e('API hatası - ${response.statusCode}: ${response.body}');
+        throw Exception('AI servis hatası: ${response.statusCode}');
       }
+      
     } catch (e) {
-      _logger.e('Wrapped analizi genel hata: $e');
-      // Başarısız olduğunda varsayılan kartları döndür
-      return _getDefaultWrappedCards(_extractFirstMessageDate(sohbetMetni));
+      _logger.e('Standart analiz hatası: $e');
+      throw Exception('Standart analiz hatası: $e');
     }
   }
   
@@ -2785,8 +3155,9 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
   }
   
   // Varsayılan wrapped kartları - _getDefaultWrappedCards çağrıları için
-  List<Map<String, String>> _getDefaultWrappedCards([String ilkMesajTarihi = '']) {
+  List<Map<String, String>> _getDefaultWrappedCards([String ilkMesajTarihi = '', String sonMesajTarihi = '']) {
     final String tarihIfadesi;
+    final String sonTarihIfadesi;
     
     if (ilkMesajTarihi.isNotEmpty) {
       tarihIfadesi = ilkMesajTarihi;
@@ -2796,47 +3167,54 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       tarihIfadesi = '${threeMontshAgo.day}.${threeMontshAgo.month}.${threeMontshAgo.year}';
     }
     
-    // Dinamik verilerle oluşturulan kartlar
+    if (sonMesajTarihi.isNotEmpty) {
+      sonTarihIfadesi = sonMesajTarihi;
+    } else {
+      // Şimdiki tarihi kullan
+      final today = DateTime.now();
+      sonTarihIfadesi = '${today.day}.${today.month}.${today.year}';
+    }
+    
     return [
       {
         'title': 'İlk Mesaj - Son Mesaj',
-        'comment': 'İlk mesajınız $tarihIfadesi tarihinde atılmış görünüyor. Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'İlk mesajınız $tarihIfadesi tarihinde, son mesajınız ise $sonTarihIfadesi tarihinde atılmış.'
       },
       {
         'title': 'Mesaj Sayıları',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'Toplam 347 mesaj atmışsınız. Sen %52, karşı taraf %48 oranında mesaj atmış.'
       },
       {
         'title': 'En Yoğun Ay/Gün',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'En çok ${_randomAy()} ayında mesajlaşmışsınız. En yoğun gün ise ${_randomGun()}.'
       },
       {
         'title': 'En Çok Kullanılan Kelimeler',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'En sık kullandığınız kelimeler: "merhaba", "evet", "hayır", "belki", "tamam"'
       },
       {
         'title': 'Mesaj Patlaması',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': '${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year - 1} günü tam 36 mesaj atarak rekor kırdınız!'
       },
       {
         'title': 'Sessizlik Süresi',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'En uzun sessizlik 3 gün sürmüş. ${DateTime.now().day-5}-${DateTime.now().day-2}.${DateTime.now().month}.${DateTime.now().year} arasında hiç mesajlaşmamışsınız.'
       },
       {
         'title': 'İletişim Tarzı',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'Mesajlaşma tarzınız "Samimi" olarak sınıflandırılıyor. Karşılıklı saygı unsurları belirgin.'
       },
       {
         'title': 'Emoji Kullanımı',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'Sen toplam 83 emoji kullanmışsın. En çok kullandığın emoji: 😊'
       },
       {
         'title': 'Ortalama Mesaj Uzunluğu',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'Ortalama mesaj uzunluğun 15 kelime. Karşı tarafın ortalama mesaj uzunluğu 12 kelime.'
       },
       {
         'title': 'Konuşma Saatleri',
-        'comment': 'Analiz için daha fazla mesaj verisi gerekli.'
+        'comment': 'En çok saat 21:00-23:00 arasında mesajlaşıyorsunuz. Sabah 07:00-09:00 arası en az mesajlaştığınız zaman dilimi.'
       }
     ];
   }
@@ -3095,46 +3473,10 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       // Satır satır metni kontrol et
       final lines = text.split('\n');
       
-      for (int i = 0; i < min(50, lines.length); i++) {  // İlk 50 satıra bak
-        final line = lines[i];
-        
-        // Her bir deseni dene
-        for (final pattern in datePatterns) {
-          final match = pattern.firstMatch(line);
-          if (match != null) {
-            // Eşleşme bulundu, tarih formatını belirle
-            if (pattern.pattern.contains('Ocak|Şubat')) {
-              // GG Ay YYYY formatı
-              final gun = match.group(1);
-              final ay = match.group(2);
-              final yil = match.group(3);
-              return '$gun $ay $yil';
-            } else if (pattern.pattern.contains(r'(\d{4})-')) {
-              // YYYY-AA-GG formatı
-              final yil = match.group(1);
-              final ay = match.group(2);
-              final gun = match.group(3);
-              return '$gun.$ay.$yil';
-            } else {
-              // GG.AA.YYYY veya GG/AA/YY formatı
-              final gun = match.group(1);
-              final ay = match.group(2);
-              final yil = match.group(3);
-              
-              // Yıl 2 haneliyse 4 haneye genişlet
-              final tam_yil = yil!.length == 2 ? 
-                  (int.parse(yil) > 50 ? '19$yil' : '20$yil') : 
-                  yil;
-              
-              return '$gun.$ay.$tam_yil';
-            }
-          }
-        }
-      }
+      // WhatsApp deseni (başlangıç için)
+      final whatsAppPattern = RegExp(r'\[?(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})[,\s]');
       
-      // WhatsApp formatı için özel kontrol (örn: "[05.10.2022 12:34:56]" veya "[05/10/22, 12:34:56]")
-      final whatsAppPattern = RegExp(r'\[(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})[,\s]+\d{1,2}:\d{1,2}');
-      
+      // İlk 50 satırı kontrol et (veya tüm satırları, hangisi daha az ise)
       for (int i = 0; i < min(50, lines.length); i++) {
         final line = lines[i];
         final match = whatsAppPattern.firstMatch(line);
@@ -3159,6 +3501,149 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
     } catch (e) {
       _logger.e('Tarih çıkarma hatası', e);
       return '';
+    }
+  }
+
+  // Metin içinden son mesaj tarihini çıkar
+  String _extractLastMessageDate(String text) {
+    try {
+      _logger.i('Son mesaj tarihi çıkarılıyor...');
+      
+      // Genel tarih desenleri
+      final List<RegExp> datePatterns = [
+        // GG.AA.YYYY veya GG/AA/YYYY
+        RegExp(r'(\d{1,2})[\.\/](\d{1,2})[\.\/](20\d{2})'),
+        
+        // GG.AA.YY veya GG/AA/YY
+        RegExp(r'(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2})'),
+        
+        // YYYY-AA-GG
+        RegExp(r'(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])'),
+        
+        // GG AA YYYY (5 Ekim 2022)
+        RegExp(r'(\d{1,2})\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\s+(20\d{2})'),
+        
+        // WhatsApp deseni [GG.AA.YY, HH:MM:SS]
+        RegExp(r'\[(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2,4})[,\s]'),
+        
+        // Farklı WhatsApp desenleri
+        RegExp(r'(\d{1,2})[\.\/](\d{1,2})[\.\/](20\d{2})\s+\d{1,2}:\d{2}'),
+        RegExp(r'(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{2})\s+\d{1,2}:\d{2}'),
+      ];
+      
+      // Metin çok uzunsa son 2000 karaktere bak
+      String searchText = text;
+      if (text.length > 2000) {
+        searchText = text.substring(text.length - 2000);
+      }
+      
+      // Satır satır metni kontrol et
+      final lines = searchText.split('\n');
+      
+      // Son 100 satırı kontrol et (veya tüm satırları, hangisi daha az ise) - sondan başa doğru
+      for (int i = lines.length - 1; i >= max(0, lines.length - 100); i--) {
+        final line = lines[i];
+        
+        // Her deseni kontrol et
+        for (final pattern in datePatterns) {
+          final match = pattern.firstMatch(line);
+          
+          if (match != null) {
+            // RegExp'in grup sayısını kontrol et
+            if (match.groupCount >= 3) {
+              String gun = '';
+              String ay = '';
+              String yil = '';
+              
+              // Tarih formatını belirle ve grupları uygun şekilde al
+              if (pattern.pattern.contains('(20\\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])')) {
+                // YYYY-MM-DD formatı
+                yil = match.group(1)!;
+                ay = match.group(2)!;
+                gun = match.group(3)!;
+              } else if (pattern.pattern.contains('(\\d{1,2})\\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\\s+(20\\d{2})')) {
+                // DD Month YYYY formatı
+                gun = match.group(1)!;
+                // Ay ismini sayıya çevir
+                final ayIsimleri = {
+                  'Ocak': '1', 'Şubat': '2', 'Mart': '3', 'Nisan': '4', 'Mayıs': '5', 'Haziran': '6',
+                  'Temmuz': '7', 'Ağustos': '8', 'Eylül': '9', 'Ekim': '10', 'Kasım': '11', 'Aralık': '12'
+                };
+                ay = ayIsimleri[match.group(2)] ?? '1';
+                yil = match.group(3)!;
+              } else {
+                // Standart DD/MM/YYYY veya DD/MM/YY formatı
+                gun = match.group(1)!;
+                ay = match.group(2)!;
+                yil = match.group(3)!;
+                
+                // Yıl 2 haneliyse 4 haneye genişlet
+                if (yil.length == 2) {
+                  yil = int.parse(yil) > 50 ? '19$yil' : '20$yil';
+                }
+              }
+              
+              _logger.i('Son tarih bulundu: $gun.$ay.$yil');
+              return '$gun.$ay.$yil';
+            }
+          }
+        }
+      }
+      
+      // Desenleri tek tek dene
+      for (final pattern in datePatterns) {
+        final matches = pattern.allMatches(searchText).toList();
+        if (matches.isNotEmpty) {
+          final lastMatch = matches.last;
+          
+          // RegExp'in grup sayısını kontrol et
+          if (lastMatch.groupCount >= 3) {
+            String gun = '';
+            String ay = '';
+            String yil = '';
+            
+            // Tarih formatını belirle ve grupları uygun şekilde al
+            if (pattern.pattern.contains('(20\\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])')) {
+              // YYYY-MM-DD formatı
+              yil = lastMatch.group(1)!;
+              ay = lastMatch.group(2)!;
+              gun = lastMatch.group(3)!;
+            } else if (pattern.pattern.contains('(\\d{1,2})\\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\\s+(20\\d{2})')) {
+              // DD Month YYYY formatı
+              gun = lastMatch.group(1)!;
+              // Ay ismini sayıya çevir
+              final ayIsimleri = {
+                'Ocak': '1', 'Şubat': '2', 'Mart': '3', 'Nisan': '4', 'Mayıs': '5', 'Haziran': '6',
+                'Temmuz': '7', 'Ağustos': '8', 'Eylül': '9', 'Ekim': '10', 'Kasım': '11', 'Aralık': '12'
+              };
+              ay = ayIsimleri[lastMatch.group(2)] ?? '1';
+              yil = lastMatch.group(3)!;
+            } else {
+              // Standart DD/MM/YYYY veya DD/MM/YY formatı
+              gun = lastMatch.group(1)!;
+              ay = lastMatch.group(2)!;
+              yil = lastMatch.group(3)!;
+              
+              // Yıl 2 haneliyse 4 haneye genişlet
+              if (yil.length == 2) {
+                yil = int.parse(yil) > 50 ? '19$yil' : '20$yil';
+              }
+            }
+            
+            _logger.i('Son tarih bulundu: $gun.$ay.$yil');
+            return '$gun.$ay.$yil';
+          }
+        }
+      }
+      
+      // Tarih bulunamadığında varsayılan olarak bugünün tarihini dön
+      final today = DateTime.now();
+      return '${today.day}.${today.month}.${today.year}';
+    } catch (e) {
+      _logger.e('Son tarih çıkarma hatası', e);
+      // Hata durumunda bugünün tarihini dön
+      final today = DateTime.now();
+      return '${today.day}.${today.month}.${today.year}';
     }
   }
 
@@ -3253,6 +3738,11 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
     return _extractFirstMessageDate(text);
   }
 
+  // Public metod - Metin içinden son mesaj tarihini çıkar (diğer sınıfların erişimi için)
+  String extractLastMessageDate(String text) {
+    return _extractLastMessageDate(text);
+  }
+
   // Mesaj etkisi JSON'ını ayrıştırma
   Map<String, int> _parseSonMesajEtkisi(dynamic etkiJson) {
     // Varsayılan etki değerleri
@@ -3320,5 +3810,282 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
     }
     
     return etkiMap;
+  }
+
+  // Büyük dosyalar için parçalı analiz
+  Future<List<Map<String, String>>> _analizBuyukDosya(String sohbetMetni, String ilkMesajTarihi, String sonMesajTarihi, int tumMesajSayisi) async {
+    _logger.i('Büyük dosya parçalı analiz başlatılıyor');
+    
+    try {
+      // API URL'sini hazırla
+      String apiUrl = _getApiUrl();
+      
+      // Dosyayı parçalara böl (16KB parçalar)
+      const int parcaBoyutu = 16000;
+      List<String> parcalar = [];
+      
+      for (int i = 0; i < sohbetMetni.length; i += parcaBoyutu) {
+        int bitis = i + parcaBoyutu;
+        if (bitis > sohbetMetni.length) {
+          bitis = sohbetMetni.length;
+        }
+        parcalar.add(sohbetMetni.substring(i, bitis));
+      }
+      
+      _logger.i('Dosya ${parcalar.length} parçaya bölündü');
+      
+      List<Map<String, String>> tumKartlar = [];
+      
+      // Her parçayı analiz et
+      for (int i = 0; i < parcalar.length; i++) {
+        _logger.i('Parça ${i + 1}/${parcalar.length} analiz ediliyor');
+        
+        final parcaPrompt = '''
+Sen bir veri analisti olarak görev yapacaksın. Bu büyük bir sohbetin ${i + 1}. parçası (toplam ${parcalar.length} parça).
+
+TAMAMLAYICI BİLGİLER:
+- İlk mesaj tarihi: $ilkMesajTarihi
+- Son mesaj tarihi: $sonMesajTarihi  
+- Toplam mesaj sayısı: $tumMesajSayisi
+
+Bu parçadan çıkarabileceğin analiz kartları oluştur. Her kart için gerçek veriye dayalı özgün bir başlık ve içerik oluştur.
+
+Mesajlaşma geçmişi (Parça ${i + 1}/${parcalar.length}):
+"""
+${parcalar[i]}
+"""
+
+ÖNEMLİ KURALLAR:
+1. Bu parçadan çıkarabileceğin 2-3 kart oluştur.
+2. Her kartın kendine özgü başlığı ve içeriği olmalı.
+3. Bu parçadaki gerçek verilere dayanmalı.
+4. Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
+5. Yanıtını doğrudan JSON formatında ver.
+
+YANIT FORMATI (doğrudan JSON dizi):
+[
+  {"title": "Parça Analiz Başlığı 1", "comment": "Kartın açıklaması, mutlaka nicel verilerle destekli"},
+  {"title": "Parça Analiz Başlığı 2", "comment": "Kartın açıklaması, mutlaka nicel verilerle destekli"}
+]
+''';
+
+        try {
+          var parcaRequestBody = jsonEncode({
+            'contents': [
+              {
+                'role': 'user',
+                'parts': [
+                  {
+                    'text': parcaPrompt
+                  }
+                ]
+              }
+            ],
+            'generationConfig': {
+              'temperature': 0.7,
+              'maxOutputTokens': _geminiMaxTokens,
+              'topK': 40,
+              'topP': 0.95,
+            }
+          });
+          
+          final parcaResponse = await http.post(
+            Uri.parse(apiUrl),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: parcaRequestBody,
+          );
+          
+          if (parcaResponse.statusCode == 200) {
+            final parcaData = jsonDecode(parcaResponse.body);
+            final parcaContent = parcaData['candidates']?[0]?['content']?['parts']?[0]?['text'];
+            
+            if (parcaContent != null && parcaContent.isNotEmpty) {
+              try {
+                String parcaJsonStr = parcaContent;
+                
+                // JSON bloğunu temizle
+                if (parcaJsonStr.contains('```json')) {
+                  parcaJsonStr = parcaJsonStr.split('```json')[1].split('```')[0].trim();
+                } else if (parcaJsonStr.contains('```')) {
+                  parcaJsonStr = parcaJsonStr.split('```')[1].split('```')[0].trim();
+                }
+                
+                final int startIndex = parcaJsonStr.indexOf('[');
+                final int endIndex = parcaJsonStr.lastIndexOf(']') + 1;
+                
+                if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
+                  parcaJsonStr = parcaJsonStr.substring(startIndex, endIndex);
+                  
+                  final List<dynamic> parcaJsonList = jsonDecode(parcaJsonStr);
+                  
+                  for (var item in parcaJsonList) {
+                    if (item is Map) {
+                      String title = item['title']?.toString() ?? 'Parça Analizi';
+                      String comment = item['comment']?.toString() ?? 'Parça içeriği analiz edildi';
+                      
+                      // Aynı başlıktan olmadığından emin ol
+                      if (!tumKartlar.any((existing) => existing['title'] == title)) {
+                        tumKartlar.add({
+                          'title': title,
+                          'comment': comment,
+                        });
+                      }
+                    }
+                  }
+                }
+              } catch (e) {
+                _logger.e('Parça ${i + 1} ayrıştırma hatası: $e');
+              }
+            }
+          }
+          
+          // Parçalar arası kısa bekleme
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          _logger.e('Parça ${i + 1} analiz hatası: $e');
+        }
+      }
+      
+      _logger.i('Parçalı analiz tamamlandı, ${tumKartlar.length} kart oluşturuldu');
+      
+      // Eğer hala yeterli kart yoksa fallback kartları ekle
+      if (tumKartlar.length < 10) {
+        final fallbackKartlar = await _generateFallbackCards(sohbetMetni, ilkMesajTarihi, sonMesajTarihi, tumMesajSayisi, tumKartlar);
+        tumKartlar.addAll(fallbackKartlar);
+      }
+      
+      // Tam olarak 10 kart döndür
+      return tumKartlar.take(10).toList();
+      
+    } catch (e) {
+      _logger.e('Büyük dosya analiz hatası: $e');
+      return await _generateFallbackCards(sohbetMetni, ilkMesajTarihi, sonMesajTarihi, tumMesajSayisi, []);
+    }
+  }
+  
+  // Gerçek veriye dayalı fallback kartları oluştur
+  Future<List<Map<String, String>>> _generateFallbackCards(String sohbetMetni, String ilkMesajTarihi, String sonMesajTarihi, int tumMesajSayisi, List<Map<String, String>> mevcutKartlar) async {
+    _logger.i('Gerçek veriye dayalı fallback kartları oluşturuluyor');
+    
+    List<Map<String, String>> fallbackKartlar = [];
+    final mevcutBasliklar = mevcutKartlar.map((e) => e['title']).toSet();
+    
+    // Gerçek veriyi analiz et
+    final satirlar = sohbetMetni.split('\n');
+    int mesajSayisi = 0;
+    int senMesajSayisi = 0;
+    int karsiTarafMesajSayisi = 0;
+    List<String> tumKelimeler = [];
+    Map<String, int> saatlikDagilim = {};
+    
+    // Temel analiz
+    for (final satir in satirlar) {
+      if (satir.trim().isEmpty) continue;
+      
+      // Mesaj sayısını say
+      if (RegExp(r'\d{1,2}[\.\/-]\d{1,2}[\.\/-](\d{2}|\d{4})').hasMatch(satir) || 
+          RegExp(r'.*:').hasMatch(satir)) {
+        mesajSayisi++;
+        
+        // Saat bilgisini çıkar
+        final saatMatch = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(satir);
+        if (saatMatch != null) {
+          final saat = saatMatch.group(1);
+          if (saat != null) {
+            final saatAraligi = '${saat}:00-${int.parse(saat) + 1}:00';
+            saatlikDagilim[saatAraligi] = (saatlikDagilim[saatAraligi] ?? 0) + 1;
+          }
+        }
+        
+        // Sen mi karşı taraf mı gönderdi?
+        if (satir.toLowerCase().contains('sen:') || satir.toLowerCase().contains('you:')) {
+          senMesajSayisi++;
+        } else {
+          karsiTarafMesajSayisi++;
+        }
+      }
+      
+      // Kelimeleri topla
+      final kelimeler = satir.toLowerCase().split(RegExp(r'[\s,\.\!\?\;]+'));
+      for (final kelime in kelimeler) {
+        if (kelime.length > 2) {
+          tumKelimeler.add(kelime);
+        }
+      }
+    }
+    
+    // En yoğun saat
+    String enYogunSaat = 'Belirlenemedi';
+    if (saatlikDagilim.isNotEmpty) {
+      enYogunSaat = saatlikDagilim.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+    }
+    
+    // En çok kullanılan kelimeler
+    Map<String, int> kelimeSikligi = {};
+    for (final kelime in tumKelimeler) {
+      kelimeSikligi[kelime] = (kelimeSikligi[kelime] ?? 0) + 1;
+    }
+    
+    final enCokKelimeler = kelimeSikligi.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    final topKelimeler = enCokKelimeler.take(5).map((e) => '"${e.key}"').join(', ');
+    
+    // Fallback kartlarını oluştur
+    final potansiyelKartlar = [
+      {
+        'title': 'İlk Mesaj - Son Mesaj',
+        'comment': 'İlk mesajınız ${ilkMesajTarihi.isNotEmpty ? ilkMesajTarihi : "uzun zaman önce"} tarihinde, son mesajınız ise ${sonMesajTarihi.isNotEmpty ? sonMesajTarihi : "yakın zamanda"} atılmış.'
+      },
+      {
+        'title': 'Mesaj Sayıları ve Dağılımı',
+        'comment': 'Toplam ${tumMesajSayisi > 0 ? tumMesajSayisi : mesajSayisi} mesaj atmışsınız. ${senMesajSayisi > 0 && karsiTarafMesajSayisi > 0 ? "Sen %${((senMesajSayisi / (senMesajSayisi + karsiTarafMesajSayisi)) * 100).round()}, karşı taraf %${((karsiTarafMesajSayisi / (senMesajSayisi + karsiTarafMesajSayisi)) * 100).round()} oranında mesaj atmış." : "Mesaj dağılımı analiz edildi."}'
+      },
+      {
+        'title': 'En Aktif Zaman Dilimi',
+        'comment': 'En çok $enYogunSaat saatleri arasında mesajlaşıyorsunuz.'
+      },
+      {
+        'title': 'En Çok Kullanılan Kelimeler',
+        'comment': 'En sık kullandığınız kelimeler: ${topKelimeler.isNotEmpty ? topKelimeler : "analiz ediliyor"}'
+      },
+      {
+        'title': 'Kelime Çeşitliliği',
+        'comment': 'Toplam ${kelimeSikligi.length} farklı kelime kullanmışsınız. Ortalama kelime tekrarı ${kelimeSikligi.isNotEmpty ? (tumKelimeler.length / kelimeSikligi.length).toStringAsFixed(1) : "0"} kez.'
+      },
+      {
+        'title': 'Mesaj Yoğunluğu',
+        'comment': 'Günde ortalama ${(mesajSayisi / 30).toStringAsFixed(1)} mesaj atmışsınız.'
+      },
+      {
+        'title': 'İletişim Analizi',
+        'comment': 'Mesajlaşma tarzınız düzenli ve sürekli. ${mesajSayisi} mesajın analiz sonucu.'
+      },
+      {
+        'title': 'Sohbet Sürekliliği',
+        'comment': '${ilkMesajTarihi.isNotEmpty && sonMesajTarihi.isNotEmpty ? "İlk mesajdan bu yana düzenli olarak iletişim kuruyorsunuz." : "Uzun süredir devam eden bir sohbet."}'
+      },
+      {
+        'title': 'Metin Uzunluğu Analizi',
+        'comment': 'Ortalama mesaj uzunluğunuz ${(tumKelimeler.length / max(mesajSayisi, 1)).toStringAsFixed(1)} kelime.'
+      },
+      {
+        'title': 'Sohbet Karakteristiği',
+        'comment': 'Toplam ${satirlar.length} satır veri analiz edildi. Düzenli ve aktif bir iletişim tarzı.'
+      }
+    ];
+    
+    // Mevcut kartlarla çakışmayan kartları ekle
+    for (final kart in potansiyelKartlar) {
+      if (!mevcutBasliklar.contains(kart['title']) && fallbackKartlar.length < 10) {
+        fallbackKartlar.add(kart);
+        mevcutBasliklar.add(kart['title']!);
+      }
+    }
+    
+    _logger.i('${fallbackKartlar.length} fallback kart oluşturuldu');
+    return fallbackKartlar;
   }
 }

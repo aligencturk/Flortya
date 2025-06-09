@@ -122,23 +122,12 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                           width: 80,
                           height: 80,
                           child: Lottie.asset(
-                            'assets/lottie/Animation - 1749118125989.lottie',
+                            'assets/lottie/Animation - 1749082023050.json',
                             width: 80,
                             height: 80,
                             fit: BoxFit.contain,
                             repeat: true,
                             animate: true,
-                            delegates: LottieDelegates(
-                              values: <ValueDelegate<ColorFilter>>[
-                                ValueDelegate.colorFilter(
-                                  const <String>['**'], // Animasyondaki tüm katmanlara uygula
-                                  value: const ColorFilter.mode(
-                                    Colors.white, // Hedef renk: Beyaz
-                                    BlendMode.srcIn, // Renkleri beyazla değiştirmek için mod
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -478,23 +467,12 @@ class LoginView extends StatelessWidget {
                         width: 100,
                         height: 100,
                         child: Lottie.asset(
-                          'assets/lottie/Animation - 1749118125989.lottie',
+                          'assets/lottie/Animation - 1749082023050.json',
                           width: 80,
                           height: 80,
                           fit: BoxFit.contain,
                           repeat: true,
                           animate: true,
-                          delegates: LottieDelegates(
-                            values: <ValueDelegate<ColorFilter>>[
-                              ValueDelegate.colorFilter(
-                                const <String>['**'], // Animasyondaki tüm katmanlara uygula
-                                value: const ColorFilter.mode(
-                                  Colors.white, // Hedef renk: Beyaz
-                                  BlendMode.srcIn, // Renkleri beyazla değiştirmek için mod
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -765,7 +743,7 @@ class RegisterView extends StatelessWidget {
                         width: 80,
                         height: 80,
                         child: Lottie.asset(
-                          'assets/lottie/Animation - 1749118125989.lottie',
+                          'assets/lottie/Animation - 1749082023050.json',
                           width: 80,
                           height: 80,
                           fit: BoxFit.contain,
@@ -1054,23 +1032,12 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                             width: 80,
                             height: 80,
                             child: Lottie.asset(
-                              'assets/lottie/Animation - 1749118125989.lottie',
+                              'assets/lottie/Animation - 1749082023050.json',
                               width: 80,
                               height: 80,
                               fit: BoxFit.contain,
                               repeat: true,
                               animate: true,
-                              delegates: LottieDelegates(
-                                values: <ValueDelegate<ColorFilter>>[
-                                  ValueDelegate.colorFilter(
-                                    const <String>['**'], // Animasyondaki tüm katmanlara uygula
-                                    value: const ColorFilter.mode(
-                                      Colors.white, // Hedef renk: Beyaz
-                                      BlendMode.srcIn, // Renkleri beyazla değiştirmek için mod
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -1565,7 +1532,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                             width: 80,
                             height: 80,
                             child: Lottie.asset(
-                              'assets/lottie/Animation - 1749118125989.lottie',
+                              'assets/lottie/Animation - 1749082023050.json',
                               width: 80,
                               height: 80,
                               fit: BoxFit.contain,

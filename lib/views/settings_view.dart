@@ -19,8 +19,6 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
-  bool _otomatikGuncellemelerAcik = true;
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,16 +67,6 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ),
             _buildSectionHeader('Genel Ayarlar'),
-            
-            _buildSwitchItem(
-              title: 'Otomatik Güncellemeler',
-              value: _otomatikGuncellemelerAcik,
-              onChanged: (value) {
-                setState(() {
-                  _otomatikGuncellemelerAcik = value;
-                });
-              },
-            ),
             
             _buildSwitchItem(
               title: 'Premium Modu',
