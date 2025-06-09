@@ -716,7 +716,8 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         // Ayrıca eski yöntemle de kaydet (geriye uyumluluk için)
         await _cacheSummaryData();
         
-        _showSummaryViewWithPremiumCheck();
+        // Analiz sonrasında direkt wrapped görünümünü göster (yeniden analiz yapma)
+        _showDirectWrappedView();
       } else {
         setState(() {
           _errorMessage = 'Analiz sırasında bir hata oluştu, sonuç alınamadı';
@@ -749,7 +750,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
           _isAnalyzing = false;
         });
         _logger.i('Cache\'den ${_summaryData.length} wrapped sonucu yüklendi');
-        _showSummaryViewWithPremiumCheck();
+        
+        // Direkt wrapped görünümünü aç - YENİDEN ANALİZ YAPMA!
+        _showDirectWrappedView();
       } else {
         // Cache'de veri yoksa kullanıcıya bildir
         setState(() {
@@ -764,6 +767,39 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         _errorMessage = 'Wrapped analizi yüklenirken hata oluştu: $e';
       });
       _logger.e('Cache\'den wrapped yükleme hatası', e);
+    }
+  }
+
+  // Direkt wrapped görünümünü aç - premium kontrolü ile ama YENİ ANALİZ YAPMA
+  Future<void> _showDirectWrappedView() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final bool isPremium = authViewModel.isPremium;
+    final premiumService = PremiumService();
+    
+    // Premium değilse, kullanım kontrolü
+    if (!isPremium) {
+      final bool wrappedOpenedOnce = await premiumService.getWrappedOpenedOnce();
+      
+      if (!wrappedOpenedOnce) {
+        // İlk kullanım - durumu güncelle
+        await premiumService.setWrappedOpenedOnce();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bu özelliği bir kez ücretsiz kullanabilirsiniz.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Wrapped görünümünü aç
+        _showSummaryView();
+      } else {
+        // Kullanım hakkı dolmuşsa premium dialog göster
+        showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
+      }
+    } else {
+      // Premium kullanıcı için wrapped görünümünü aç
+      _showSummaryView();
     }
   }
 
@@ -883,7 +919,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
             _summaryData = [];
           }
         } else {
-          _logger.i('Dosya içeriği değişmiş veya kayıtlı değil, analiz yeniden yapılacak');
+          _logger.i('Dosya içeriği değişmiş veya kayıtlı değil');
           _summaryData = [];
         }
       } else {
