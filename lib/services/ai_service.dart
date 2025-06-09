@@ -9,8 +9,38 @@ import 'logger_service.dart';
 import 'wrapped_service.dart';
 
 class AiService {
+  // Singleton pattern
+  static final AiService _instance = AiService._internal();
+  factory AiService() => _instance;
+  AiService._internal();
+  
   final LoggerService _logger = LoggerService();
   final WrappedService _wrappedService = WrappedService();
+  
+  // Analiz iptal kontrolü
+  bool _isAnalysisCancelled = false;
+  
+  // HTTP client için timeout
+  static const Duration _httpTimeout = Duration(seconds: 30);
+  
+  // Analizi iptal etme metodu
+  void cancelAnalysis() {
+    _isAnalysisCancelled = true;
+    _logger.i('AiService: Analiz iptal edildi');
+  }
+  
+  // İptal durumunu kontrol etme metodu
+  void _checkCancellation() {
+    if (_isAnalysisCancelled) {
+      _logger.i('AiService: Analiz iptal edildiği tespit edildi');
+      throw Exception('Analiz kullanıcı tarafından iptal edildi');
+    }
+  }
+  
+  // İptal durumunu sıfırlama metodu
+  void _resetCancellation() {
+    _isAnalysisCancelled = false;
+  }
   
   // Gemini API anahtarını ve ayarlarını .env dosyasından alma
   String get _geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
@@ -568,6 +598,9 @@ class AiService {
       int chunkIndex = 0;
       
       for (String chunk in chunks) {
+        // İptal kontrolü - her parça başında
+        _checkCancellation();
+        
         chunkIndex++;
         _logger.i('Parça $chunkIndex/${chunks.length} analiz ediliyor (${chunk.length} karakter)');
         
@@ -690,6 +723,9 @@ class AiService {
         
         _logger.d('Parça $chunkIndex API isteği gönderiliyor');
         
+        // İptal kontrolü - HTTP isteği öncesi
+        _checkCancellation();
+        
         // HTTP isteği gönder
         try {
           final response = await http.post(
@@ -735,6 +771,9 @@ class AiService {
         _logger.e('Hiçbir parça başarıyla analiz edilemedi');
         return null;
       }
+      
+      // İptal kontrolü - sonuçları birleştirmeden önce
+      _checkCancellation();
       
       _logger.i('${chunkResults.length} parça başarıyla analiz edildi, sonuçlar birleştiriliyor');
       
@@ -2540,7 +2579,13 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
   Future<List<Map<String, String>>> analizSohbetVerisi(String sohbetMetni) async {
     _logger.i('Sohbet verisi analiz ediliyor');
     
+    // İptal durumunu sıfırla
+    _resetCancellation();
+    
     try {
+      // İptal kontrolü
+      _checkCancellation();
+      
       // API anahtarını kontrol et
       if (_geminiApiKey.isEmpty) {
         throw Exception('API anahtarı bulunamadı');
@@ -2552,16 +2597,24 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
         throw Exception('Analiz için geçerli bir sohbet içeriği gerekli');
       }
       
+      // İptal kontrolü
+      _checkCancellation();
+      
       List<Map<String, String>> mainAnalysisResult;
       
       // Büyük dosyaları parçalı analiz et
       if (sohbetMetni.length > 15000) {
         _logger.i('Büyük dosya tespit edildi (${sohbetMetni.length} karakter), parçalı analiz başlatılıyor');
+        _checkCancellation(); // İptal kontrolü
         mainAnalysisResult = await _analizBuyukDosyaParacali(sohbetMetni);
       } else {
         // Küçük dosyalar için standart analiz
+        _checkCancellation(); // İptal kontrolü
         mainAnalysisResult = await _analizStandart(sohbetMetni);
       }
+      
+      // İptal kontrolü
+      _checkCancellation();
       
       // OTOMATIK WRAPPED ANALIZİ - TÜM txt dosyaları için
       _logger.i('Txt dosyası wrapped analizi otomatik başlatılıyor');
@@ -2605,6 +2658,9 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
       // 3. ADIM: Her parçayı analiz et
       List<Map<String, dynamic>> parcaAnalizleri = [];
       for (int i = 0; i < parcalar.length; i++) {
+        // İptal kontrolü
+        _checkCancellation();
+        
         _logger.i('Parça ${i + 1}/${parcalar.length} analiz ediliyor');
         try {
           final parcaAnalizi = await _analizParcaDetayli(parcalar[i], i + 1, parcalar.length);
@@ -2615,6 +2671,10 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
             _logger.w('Parça ${i + 1} analizi null döndü, atlanıyor');
           }
         } catch (e) {
+          // İptal exception'ını yakala ve yukarı fırlat
+          if (e.toString().contains('iptal')) {
+            rethrow;
+          }
           _logger.w('Parça ${i + 1} analiz edilemedi: $e');
           // Parse edilemeyen parçaları atla, varsayılan değer ekleme
         }
@@ -2708,6 +2768,9 @@ Aşağıdaki verileri JSON formatında çıkar:
 SADECE JSON yanıtı ver, başka açıklama ekleme.
 ''';
       
+      // İptal kontrolü HTTP istemi öncesi
+      _checkCancellation();
+      
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
@@ -2718,7 +2781,13 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
             'maxOutputTokens': 1000,
           }
         }),
-      );
+      ).timeout(_httpTimeout, onTimeout: () {
+        _logger.w('HTTP isteği timeout oldu');
+        throw Exception('İstek zaman aşımına uğradı');
+      });
+      
+      // İptal kontrolü HTTP yanıtı sonrası
+      _checkCancellation();
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -3100,13 +3169,22 @@ YANIT FORMATI:
       
       _logger.d('Standart analizi API isteği gönderiliyor');
       
+      // İptal kontrolü HTTP istemi öncesi
+      _checkCancellation();
+      
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {
           'Content-Type': 'application/json',
         },
         body: requestBody,
-      );
+      ).timeout(_httpTimeout, onTimeout: () {
+        _logger.w('Standart analiz HTTP isteği timeout oldu');
+        throw Exception('İstek zaman aşımına uğradı');
+      });
+      
+      // İptal kontrolü HTTP yanıtı sonrası
+      _checkCancellation();
       
       _logger.d('API yanıtı - status: ${response.statusCode}');
       

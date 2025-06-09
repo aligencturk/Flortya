@@ -54,37 +54,37 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Konuşma Analizi'),
-        backgroundColor: const Color(0xFF6A11CB),
-        foregroundColor: Colors.white,
-      ),
-      backgroundColor: Colors.transparent,
-      body: PageView.builder(
-        controller: _pageController,
-        physics: const BouncingScrollPhysics(),
-        itemCount: widget.summaryData.length + 1, // Ekstra sayfa için +1
-        onPageChanged: (int page) {
-          setState(() {
-            _currentPage = page;
-          });
-        },
-        itemBuilder: (context, index) {
-          // Son sayfada "Bitir" butonunu göster
-          if (index == widget.summaryData.length) {
-            return _buildFinalCard();
-          }
-          
-          // Normal özet kartı
-          final item = widget.summaryData[index];
-          return _buildSummaryCard(
-            title: item['title'] ?? '',
-            comment: item['comment'] ?? '',
-            index: index,
-          );
-        },
-      ),
-    );
+        appBar: AppBar(
+          title: const Text('Konuşma Analizi'),
+          backgroundColor: const Color(0xFF6A11CB),
+          foregroundColor: Colors.white,
+        ),
+        backgroundColor: Colors.transparent,
+        body: PageView.builder(
+          controller: _pageController,
+          physics: const BouncingScrollPhysics(),
+          itemCount: widget.summaryData.length + 1, // Ekstra sayfa için +1
+          onPageChanged: (int page) {
+            setState(() {
+              _currentPage = page;
+            });
+          },
+          itemBuilder: (context, index) {
+            // Son sayfada "Bitir" butonunu göster
+            if (index == widget.summaryData.length) {
+              return _buildFinalCard();
+            }
+            
+            // Normal özet kartı
+            final item = widget.summaryData[index];
+            return _buildSummaryCard(
+              title: item['title'] ?? '',
+              comment: item['comment'] ?? '',
+              index: index,
+            );
+          },
+        ),
+      );
   }
 
   Widget _buildSummaryCard({
@@ -506,32 +506,25 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
 
   // Başlığı emojilerle süsleme metodu
   String _decorateTitle(String title) {
-    // Belirli anahtar kelimelere göre başlığa emoji ekler
-    Map<String, String> emojis = {
-      'İlk Mesaj': '🔮 İlk Mesaj',
-      'Mesaj Sayıları': '📊 Mesaj Sayıları',
-      'En Yoğun': '📅 En Yoğun',
-      'Kelimeler': '🔤 Kelimeler',
-      'Ton': '😊 Ton',
-      'Patlaması': '🚀 Patlaması',
-      'Sessizlik': '🔕 Sessizlik',
-      'İletişim': '💬 İletişim',
-      'Mesaj Tipleri': '📝 Mesaj Tipleri',
-      'Performans': '🎯 Performans',
-      'Zaman': '⏱️ Zaman',
-      'Toplam': '📈 Toplam',
-      'Etkileşim': '👥 Etkileşim',
-    };
-    
-    // Emojileri ekleme
-    for (var key in emojis.keys) {
-      if (title.contains(key)) {
-        // Başlıkta zaten emoji varsa ekleme (emoji başına eklenirken çift emoji olmasını önler)
-        if (!title.contains(emojis[key]!.split(' ')[0])) {
-          return emojis[key]!;
-        }
-        break;
-      }
+    // Başlık tipine göre emoji ekleme
+    if (title.toLowerCase().contains('mesaj') || title.toLowerCase().contains('en çok')) {
+      return '📱 $title';
+    } else if (title.toLowerCase().contains('emoji') || title.toLowerCase().contains('sticker')) {
+      return '😄 $title';
+    } else if (title.toLowerCase().contains('saat') || title.toLowerCase().contains('zaman')) {
+      return '⏰ $title';
+    } else if (title.toLowerCase().contains('kelime') || title.toLowerCase().contains('söz')) {
+      return '📝 $title';
+    } else if (title.toLowerCase().contains('favori') || title.toLowerCase().contains('sevdiği')) {
+      return '💖 $title';
+    } else if (title.toLowerCase().contains('komik') || title.toLowerCase().contains('eğlenceli')) {
+      return '😆 $title';
+    } else if (title.toLowerCase().contains('duygusal') || title.toLowerCase().contains('hüzün')) {
+      return '💕 $title';
+    } else if (title.toLowerCase().contains('aktivite') || title.toLowerCase().contains('etkinlik')) {
+      return '🎯 $title';
+    } else {
+      return '✨ $title';
     }
     
     return title;
@@ -554,6 +547,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
   File? _selectedFile;
   String _fileContent = '';
   bool _isAnalyzing = false;
+  bool _isAnalysisCancelled = false; // Analiz iptal kontrolü
   String _errorMessage = '';
   List<Map<String, String>> _summaryData = [];
   bool _isTxtFile = false; // .txt dosyası olup olmadığını takip etmek için
@@ -675,6 +669,67 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     try {
       if (_selectedFile != null) {
         final content = await _selectedFile!.readAsString();
+        
+        // Dosya boyutunu kontrol et ve kullanıcıya bilgi ver
+        final sizeInMB = (content.length / 1024 / 1024);
+        final messageCount = content.split('\n').where((line) => 
+          line.trim().isNotEmpty && 
+          (RegExp(r'\d{1,2}[\.\/-]\d{1,2}[\.\/-](\d{2}|\d{4}).*\d{1,2}:\d{2}').hasMatch(line) ||
+           line.contains(':'))
+        ).length;
+        
+        // Onaylama dialogu göster
+        if (context.mounted) {
+          final bool? shouldProceed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Dosya Yüklendi'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('📄 Dosya: ${_selectedFile!.path.split('/').last}'),
+                  const SizedBox(height: 8),
+                  Text('📊 Boyut: ${sizeInMB.toStringAsFixed(2)} MB'),
+                  const SizedBox(height: 8),
+                  Text('💬 Tahmini mesaj sayısı: $messageCount'),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Dosya başarıyla yüklendi. Analiz yapmak için "Analizi Başlat" butonuna basabilirsiniz.',
+                    style: TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Başka Dosya Seç'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6A11CB),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Tamam'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldProceed == false) {
+            // Kullanıcı başka dosya seçmek istiyor
+            setState(() {
+              _selectedFile = null;
+              _fileContent = '';
+              _summaryData = [];
+              _errorMessage = '';
+              _isTxtFile = false;
+            });
+            return;
+          }
+        }
+        
         setState(() {
           _fileContent = content;
           _errorMessage = '';
@@ -698,11 +753,23 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     
     setState(() {
       _isAnalyzing = true;
+      _isAnalysisCancelled = false; // İptal durumunu sıfırla
       _errorMessage = '';
     });
     
     try {
       final result = await _aiService.analizSohbetVerisi(_fileContent);
+      
+      // Analiz iptal edilmişse işlemi durdu
+      if (_isAnalysisCancelled) {
+        _logger.i('Analiz kullanıcı tarafından iptal edildi');
+        setState(() {
+          _isAnalyzing = false;
+          _errorMessage = 'Analiz iptal edildi';
+        });
+        return;
+      }
+      
       setState(() {
         _summaryData = result;
         _isAnalyzing = false;
@@ -731,39 +798,45 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
       _logger.e('Sohbet analizi hatası', e);
     }
   }
+
+  // Analizi iptal etme metodu
+  void _cancelAnalysis() {
+    setState(() {
+      _isAnalysisCancelled = true;
+      _isAnalyzing = false;
+    });
+    
+    // AiService'e de iptal sinyali gönder
+    _aiService.cancelAnalysis();
+    _logger.i('Analiz iptal edildi');
+  }
   
   // Wrapped analizi cache'den hızlı yükleme
   Future<void> _showWrappedAnalysisFromCache() async {
     _logger.i('Wrapped analizi cache\'den yükleniyor');
     
-    setState(() {
-      _isAnalyzing = true;
-      _errorMessage = '';
-    });
-    
     try {
-      // Önce cache'den yüklemeyi dene
+      if (_summaryData.isNotEmpty) {
+        _logger.i('Memory\'de zaten ${_summaryData.length} wrapped sonucu var');
+        _showDirectWrappedView();
+        return;
+      }
+      
+      // Cache'den yüklemeyi dene
       await _loadCachedSummaryData();
       
       if (_summaryData.isNotEmpty) {
-        setState(() {
-          _isAnalyzing = false;
-        });
         _logger.i('Cache\'den ${_summaryData.length} wrapped sonucu yüklendi');
-        
-        // Direkt wrapped görünümünü aç - YENİDEN ANALİZ YAPMA!
         _showDirectWrappedView();
       } else {
         // Cache'de veri yoksa kullanıcıya bildir
         setState(() {
-          _isAnalyzing = false;
           _errorMessage = 'Wrapped analizi bulunamadı. Lütfen önce bir txt dosyası analiz edin.';
         });
         _logger.w('Cache\'de wrapped analizi bulunamadı');
       }
     } catch (e) {
       setState(() {
-        _isAnalyzing = false;
         _errorMessage = 'Wrapped analizi yüklenirken hata oluştu: $e';
       });
       _logger.e('Cache\'den wrapped yükleme hatası', e);
@@ -792,14 +865,14 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         );
         
         // Wrapped görünümünü aç
-        _showSummaryView();
+        _showSummaryViewDirect();
       } else {
         // Kullanım hakkı dolmuşsa premium dialog göster
         showPremiumInfoDialog(context, PremiumFeature.WRAPPED_ANALYSIS);
       }
     } else {
       // Premium kullanıcı için wrapped görünümünü aç
-      _showSummaryView();
+      _showSummaryViewDirect();
     }
   }
 
@@ -902,9 +975,13 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
           
           try {
             final List<dynamic> decodedData = jsonDecode(cachedDataJson);
-            _summaryData = List<Map<String, String>>.from(
+            final loadedSummaryData = List<Map<String, String>>.from(
               decodedData.map((item) => Map<String, String>.from(item))
             );
+            
+            setState(() {
+              _summaryData = loadedSummaryData;
+            });
             
             _logger.i('Önbellekten ${_summaryData.length} analiz sonucu yüklendi');
             
@@ -916,19 +993,27 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
             );
           } catch (e) {
             _logger.e('Önbellek verisi ayrıştırma hatası', e);
-            _summaryData = [];
+            setState(() {
+              _summaryData = [];
+            });
           }
         } else {
           _logger.i('Dosya içeriği değişmiş veya kayıtlı değil');
-          _summaryData = [];
+          setState(() {
+            _summaryData = [];
+          });
         }
       } else {
         _logger.i('Önbellekte veri bulunamadı');
-        _summaryData = [];
+        setState(() {
+          _summaryData = [];
+        });
       }
     } catch (e) {
       _logger.e('Önbellek okuma hatası', e);
-      _summaryData = [];
+      setState(() {
+        _summaryData = [];
+      });
     }
   }
   
@@ -958,6 +1043,13 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
   }
   
   void _showSummaryView() {
+    if (_summaryData.isEmpty) {
+      setState(() {
+        _errorMessage = 'Gösterilecek analiz sonucu bulunamadı.';
+      });
+      return;
+    }
+    
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => KonusmaSummaryView(
@@ -967,55 +1059,117 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     );
   }
   
+  void _showSummaryViewDirect() {
+    _showSummaryView();
+  }
+  
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Konuşma Analizi'),
-        backgroundColor: const Color(0xFF6A11CB),
-        foregroundColor: Colors.white,
-        actions: [
-          // Tüm verileri sıfırla butonu
-          IconButton(
-            icon: const Icon(Icons.delete_sweep),
-            tooltip: 'Tüm Verileri Sıfırla',
-            onPressed: () {
-              // Silme işlemi öncesi onay al
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Tüm Verileri Sıfırla'),
-                  content: const Text(
-                    'Tüm analiz verileri silinecek ve wrapped görünümü kaldırılacak. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?'
+    return PopScope(
+      canPop: !_isAnalyzing, // Analiz sırasında doğrudan çıkışı engelle
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        
+        // Analiz devam ediyorsa kullanıcıya sor
+        if (_isAnalyzing) {
+          final bool? shouldPop = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Analiz Devam Ediyor'),
+              content: const Text(
+                'Analiz işlemi devam ediyor. Eğer çıkarsanız analiz sonlandırılacaktır. '
+                'Çıkmak istediğinizden emin misiniz?'
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('İptal'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('İptal'),
+                  child: const Text('Çık'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldPop == true) {
+            // Analizi iptal et ve çık
+            _cancelAnalysis();
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          }
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Konuşma Analizi'),
+          backgroundColor: const Color(0xFF6A11CB),
+          foregroundColor: Colors.white,
+          actions: [
+            // Tüm verileri sıfırla butonu
+            IconButton(
+              icon: const Icon(Icons.delete_sweep),
+              tooltip: 'Tüm Verileri Sıfırla',
+              onPressed: () {
+                // Silme işlemi öncesi onay al
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Tüm Verileri Sıfırla'),
+                    content: const Text(
+                      'Tüm analiz verileri silinecek ve wrapped görünümü kaldırılacak. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?'
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _resetAllData();
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('İptal'),
                       ),
-                      child: const Text('Sıfırla'),
-                    ),
-                  ],
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _resetAllData();
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text('Sıfırla'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        body: FutureBuilder(
+          // Future değeri olarak verilerin yüklenmesini bekle
+          future: _ensureDataLoaded(),
+          builder: (context, snapshot) {
+            // Veriler yüklenirken yükleme göstergesi göster
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                  ),
+                ),
+                child: const Center(
+                  child: YuklemeAnimasyonu(
+                    renk: Colors.white,
+                    boyut: 40.0,
+                  ),
                 ),
               );
-            },
-          ),
-        ],
-      ),
-      body: FutureBuilder(
-        // Future değeri olarak verilerin yüklenmesini bekle
-        future: _ensureDataLoaded(),
-        builder: (context, snapshot) {
-          // Veriler yüklenirken yükleme göstergesi göster
-          if (snapshot.connectionState == ConnectionState.waiting) {
+            }
+            
+            // Veriler yüklendikten sonra ana içeriği göster
             return Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -1024,146 +1178,79 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                   colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
                 ),
               ),
-              child: const Center(
-                child: YuklemeAnimasyonu(
-                  renk: Colors.white,
-                  boyut: 40.0,
-                ),
-              ),
-            );
-          }
-          
-          // Veriler yüklendikten sonra ana içeriği göster
-          return Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Üst bilgi kartı
-                    Card(
-                      elevation: 8,
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Wrapped Tarzı Konuşma Analizi',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF6A11CB),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Bu analiz aracı, seçtiğiniz .txt dosyasındaki konuşma verisini analiz ederek '
-                              'eğlenceli ve istatistiksel içgörüler sunar. Konuşmalarınızdaki ilginç '
-                              'detayları keşfedin!',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.black87,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            
-                            // Dosya seçim butonu
-                            ElevatedButton.icon(
-                              onPressed: _isAnalyzing ? null : _selectFile,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF6A11CB),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: const Icon(Icons.file_upload),
-                              label: Text(
-                                _selectedFile != null 
-                                    ? 'Dosyayı Değiştir' 
-                                    : 'TXT Dosyası Seç',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                            
-                            if (_selectedFile != null) ...[
-                              const SizedBox(height: 16),
-                              Text(
-                                'Seçilen Dosya: ${_selectedFile!.path.split('/').last}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black54,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ]
-                          ],
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Dosya içeriği önizleme ve Analiz Başlat butonu
-                    if (_selectedFile != null && _fileContent.isNotEmpty && _summaryData.isEmpty) ...[
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Üst bilgi kartı
                       Card(
-                        elevation: 4,
-                        color: Colors.white.withOpacity(0.9),
+                        elevation: 8,
+                        color: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.all(20.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Dosya Önizleme',
+                                'Wrapped Tarzı Konuşma Analizi',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF6A11CB),
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              Container(
-                                height: 120,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: SingleChildScrollView(
-                                  child: Text(
-                                    _fileContent.length > 1000 
-                                        ? '${_fileContent.substring(0, 1000)}...' 
-                                        : _fileContent,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black87,
-                                      height: 1.5,
-                                    ),
-                                  ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Bu analiz aracı, seçtiğiniz .txt dosyasındaki konuşma verisini analiz ederek '
+                                'eğlenceli ve istatistiksel içgörüler sunar. Konuşmalarınızdaki ilginç '
+                                'detayları keşfedin!',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                  height: 1.5,
                                 ),
                               ),
+                              const SizedBox(height: 24),
+                              
+                              // Dosya seçim butonu
+                              ElevatedButton.icon(
+                                onPressed: _isAnalyzing ? null : _selectFile,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6A11CB),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.file_upload),
+                                label: Text(
+                                  _selectedFile != null 
+                                      ? 'Dosyayı Değiştir' 
+                                      : 'TXT Dosyası Seç',
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              
+                              if (_selectedFile != null) ...[
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Seçilen Dosya: ${_selectedFile!.path.split('/').last}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ]
                             ],
                           ),
                         ),
@@ -1171,191 +1258,286 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                       
                       const SizedBox(height: 24),
                       
-                      // Analiz Başlat Butonu
-                      ElevatedButton.icon(
-                        onPressed: _isAnalyzing ? null : _analyzeChatContent,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9D3FFF),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 18,
-                          ),
+                      // Dosya içeriği önizleme ve Analiz Başlat butonu
+                      if (_selectedFile != null && _fileContent.isNotEmpty && _summaryData.isEmpty) ...[
+                        Card(
+                          elevation: 4,
+                          color: Colors.white.withOpacity(0.9),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          elevation: 8,
-                        ),
-                        icon: _isAnalyzing 
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: YuklemeAnimasyonu(
-                                  renk: Colors.white,
-                                  boyut: 20.0,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Dosya Önizleme',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF6A11CB),
+                                  ),
                                 ),
-                              )
-                            : const Icon(Icons.analytics),
-                        label: Text(
-                          _isAnalyzing ? 'Analiz Ediliyor...' : 'Analizi Başlat',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                                const SizedBox(height: 12),
+                                Container(
+                                  height: 120,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: Text(
+                                      _fileContent.length > 1000 
+                                          ? '${_fileContent.substring(0, 1000)}...' 
+                                          : _fileContent,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                    
-                    // Spotify Wrapped tarzı analiz sonuçları butonu - SADECE .txt analizi yapıldığında gösterilir
-                    if (_summaryData.isNotEmpty && _isTxtFile) ...[
-                      const SizedBox(height: 24),
-                      
-                      Card(
-                        elevation: 8,
-                        color: const Color(0xFF9D3FFF),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Stack(
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Analiz Başlat ve Başka Dosya Seç Butonları
+                        Row(
                           children: [
-                            InkWell(
-                              onTap: () => _showWrappedAnalysisFromCache(),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20.0),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.auto_awesome,
-                                        color: Colors.white,
-                                        size: 36,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'Konuşma Wrapped',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      'Daha önce analiz edilmiş txt dosyanızın wrapped sonuçlarını görmek için tıklayın!',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        'Göster',
-                                        style: TextStyle(
-                                          color: Color(0xFF9D3FFF),
-                                          fontWeight: FontWeight.bold,
+                            // Analiz Başlat Butonu
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: _isAnalyzing ? null : _analyzeChatContent,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF9D3FFF),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 18,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  elevation: 8,
+                                ),
+                                icon: _isAnalyzing 
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: YuklemeAnimasyonu(
+                                          renk: Colors.white,
+                                          boyut: 20.0,
                                         ),
-                                      ),
-                                    ),
-                                  ],
+                                      )
+                                    : const Icon(Icons.analytics),
+                                label: Text(
+                                  _isAnalyzing ? 'Analiz Ediliyor...' : 'Analizi Başlat',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
                             
-                            // Kilit ikonu için FutureBuilder kullan, ama pozisyonu değiştirme
-                            FutureBuilder<bool>(
-                              future: _checkWrappedAccess(),
-                              builder: (context, snapshot) {
-                                final bool isLocked = snapshot.data == false;
-                                if (!isLocked) return const SizedBox.shrink();
-                                
-                                return Positioned(
-                                  top: 12,
-                                  right: 12,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(
-                                      Icons.lock,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    
-                    // Hata Mesajı
-                    if (_errorMessage.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red.shade300),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 24,
-                            ),
                             const SizedBox(width: 12),
+                            
+                            // Başka Dosya Seç Butonu
                             Expanded(
-                              child: Text(
-                                _errorMessage,
-                                style: TextStyle(
-                                  color: Colors.red.shade800,
-                                  fontWeight: FontWeight.w500,
+                              child: ElevatedButton.icon(
+                                onPressed: _isAnalyzing ? null : () {
+                                  setState(() {
+                                    _selectedFile = null;
+                                    _fileContent = '';
+                                    _summaryData = [];
+                                    _errorMessage = '';
+                                    _isTxtFile = false;
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey.shade600,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 18,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  elevation: 4,
+                                ),
+                                icon: const Icon(Icons.folder_open, size: 20),
+                                label: const Text(
+                                  'Başka Dosya',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
                           ],
                         ),
+                      ],
+                      
+                      // Spotify Wrapped tarzı analiz sonuçları butonu - SADECE .txt analizi yapıldığında gösterilir
+                      if (_summaryData.isNotEmpty && _isTxtFile) ...[
+                        const SizedBox(height: 24),
+                        
+                        Card(
+                          elevation: 8,
+                          color: const Color(0xFF9D3FFF),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Stack(
+                            children: [
+                              InkWell(
+                                onTap: () => _showWrappedAnalysisFromCache(),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20.0),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: 60,
+                                        height: 60,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.auto_awesome,
+                                          color: Colors.white,
+                                          size: 36,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Konuşma Wrapped',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      const Text(
+                                        'Daha önce analiz edilmiş txt dosyanızın wrapped sonuçlarını görmek için tıklayın!',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: const Text(
+                                          'Göster',
+                                          style: TextStyle(
+                                            color: Color(0xFF9D3FFF),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              
+                              // Kilit ikonu için FutureBuilder kullan, ama pozisyonu değiştirme
+                              FutureBuilder<bool>(
+                                future: _checkWrappedAccess(),
+                                builder: (context, snapshot) {
+                                  final bool isLocked = snapshot.data == false;
+                                  if (!isLocked) return const SizedBox.shrink();
+                                  
+                                  return Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.lock,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      
+                      // Hata Mesajı
+                      if (_errorMessage.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage,
+                                  style: TextStyle(
+                                    color: Colors.red.shade800,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      
+                      const Spacer(),
+                      
+                      // Alt Bilgi
+                      Text(
+                        'Bu analiz yapay zeka kullanılarak gerçekleştirilir ve sonuçlar tamamen eğlence amaçlıdır.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.7),
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ],
-                    
-                    const Spacer(),
-                    
-                    // Alt Bilgi
-                    Text(
-                      'Bu analiz yapay zeka kullanılarak gerçekleştirilir ve sonuçlar tamamen eğlence amaçlıdır.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.7),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -1479,4 +1661,4 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
       });
     }
   }
-} 
+}

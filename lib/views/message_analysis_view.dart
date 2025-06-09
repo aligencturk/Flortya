@@ -22,6 +22,7 @@ import '../services/ad_service.dart';
 import '../views/wrapped_quiz_view.dart';
 import '../services/event_bus_service.dart';
 
+
 // String için extension - capitalizeFirst metodu
 extension StringExtension on String {
   String get capitalizeFirst => length > 0 
@@ -598,8 +599,16 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                 ),
               ),
             ),
-            ElevatedButton(
-              onPressed: () {
+                          ElevatedButton(
+              onPressed: () async {
+                                 // AiService'den analizi iptal et
+                 try {
+                   final aiService = AiService();
+                   aiService.cancelAnalysis();
+                   debugPrint('Analiz iptal edildi');
+                 } catch (e) {
+                   debugPrint('Analiz iptal edilirken hata: $e');
+                 }
                 Navigator.of(context).pop(true); // Çık
               },
               style: ElevatedButton.styleFrom(
@@ -996,10 +1005,133 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         });
         return false;
       }
-      
+
       // Dosya içeriğini oku
       final File file = File(pickedFile.path);
       String fileContent = await file.readAsString();
+      
+      // Dosya bilgilerini hesapla
+      final fileSizeBytes = await file.length();
+      final double fileSizeMB = fileSizeBytes / (1024 * 1024);
+      final String fileSizeText = fileSizeMB >= 1 
+          ? '${fileSizeMB.toStringAsFixed(2)} MB'
+          : '${(fileSizeBytes / 1024).toStringAsFixed(1)} KB';
+      
+      // Mesaj sayısını kabaca hesapla (satır başına yaklaşık 1 mesaj)
+      final lines = fileContent.split('\n');
+      final estimatedMessageCount = lines.where((line) => line.trim().isNotEmpty).length;
+      
+      // Dosya bilgilerini onay dialog'u ile göster
+      final bool shouldContinue = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF352269),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.description,
+                  color: const Color(0xFF9D3FFF),
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Dosya Bilgileri',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoRow('Dosya Adı:', pickedFile.name),
+                _buildInfoRow('Dosya Boyutu:', fileSizeText),
+                _buildInfoRow('Tahmini Mesaj Sayısı:', estimatedMessageCount.toString()),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Bu dosya analiz edilecek ve sohbet özetiniz hazırlanacak.',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                },
+                child: Text(
+                  'Başka Dosya Seç',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9D3FFF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Analizi Başlat',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+      
+      // Kullanıcı "Başka Dosya Seç" dedi
+      if (!shouldContinue) {
+        setState(() {
+          _isLoading = false;
+        });
+        return false;
+      }
       
       if (fileContent.isEmpty) {
         if (mounted) {
@@ -2306,6 +2438,39 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       context,
       MaterialPageRoute(
         builder: (context) => WrappedQuizView(summaryData: summaryData),
+      ),
+    );
+  }
+  
+  // Bilgi satırı oluşturma yardımcı metodu
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
