@@ -19,7 +19,7 @@ import '../controllers/home_controller.dart';
 import '../utils/loading_indicator.dart';
 import '../services/premium_service.dart';
 import '../services/ad_service.dart';
-import '../views/wrapped_quiz_view.dart';
+
 import '../services/event_bus_service.dart';
 
 
@@ -2247,18 +2247,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                   );
                 },
               ),
-              const SizedBox(height: 16),
-              // Quiz ile göster butonu
-              _buildWrappedOptionButton(
-                title: 'Quiz ile Keşfet',
-                icon: Icons.quiz,
-                color: const Color(0xFF9D3FFF),
-                onTap: () {
-                  Navigator.pop(context); // Dialog'u kapat
-                  
-                  _startWrappedQuiz(summaryData);
-                },
-              ),
+
             ],
           ),
         );
@@ -2351,16 +2340,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
 
-  // Wrapped Quiz başlatma metodu
-  void _startWrappedQuiz(List<Map<String, String>> summaryData) {
-    // Quiz ekranına geçiş yapılacak
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WrappedQuizView(summaryData: summaryData),
-      ),
-    );
-  }
+
   
   // Bilgi satırı oluşturma yardımcı metodu
   Widget _buildInfoRow(String label, String value) {
