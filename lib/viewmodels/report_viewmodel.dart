@@ -118,8 +118,7 @@ class ReportViewModel extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Sorular yüklenirken hata oluştu: $e');
-      _questions = _fallbackQuestions;
-      _initializeAnswers();
+      _setError('Sorular yüklenirken hata oluştu: $e');
     } finally {
       _setLoading(false);
     }
@@ -128,11 +127,14 @@ class ReportViewModel extends ChangeNotifier {
   // Yeni sorular üret
   Future<void> _generateNewQuestions() async {
     try {
+      debugPrint('Yeni sorular üretiliyor...');
+      
       // Yapay zekadan 15 yeni soru üret
       final newQuestions = await _aiService.generateRelationshipQuestions();
       
-      if (newQuestions.isNotEmpty) {
+      if (newQuestions.isNotEmpty && newQuestions.length >= 10) {
         _questions = newQuestions;
+        debugPrint('AI\'dan ${newQuestions.length} yeni soru alındı');
         
         // Bir hafta sonrası için güncelleme zamanı ayarla
         _nextQuestionUpdateTime = DateTime.now().add(const Duration(days: 7));
@@ -142,6 +144,8 @@ class ReportViewModel extends ChangeNotifier {
         await prefs.setStringList('relationship_questions', _questions);
         await prefs.setInt('next_question_update_time', _nextQuestionUpdateTime!.millisecondsSinceEpoch);
         
+        debugPrint('Sorular SharedPreferences\'a kaydedildi. Sonraki güncelleme: $_nextQuestionUpdateTime');
+        
         // Cevapları sıfırla
         _initializeAnswers();
         
@@ -150,16 +154,25 @@ class ReportViewModel extends ChangeNotifier {
         
         notifyListeners();
       } else {
-        // Yapay zeka soru üretemediyse yedek soruları kullan
-        _questions = _fallbackQuestions;
-        _initializeAnswers();
+        // Yapay zeka yeterli soru üretemedi
+        debugPrint('AI\'dan yeterli soru alınamadı (${newQuestions.length})');
+        throw Exception('AI\'dan yeterli soru alınamadı. Lütfen daha sonra tekrar deneyin.');
       }
     } catch (e) {
       debugPrint('Yeni sorular üretilirken hata oluştu: $e');
-      _questions = _fallbackQuestions;
-      _initializeAnswers();
+      
+      // Sonraki deneme için kısa bir süre ayarla (2 saat)
+      _nextQuestionUpdateTime = DateTime.now().add(const Duration(hours: 2));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('next_question_update_time', _nextQuestionUpdateTime!.millisecondsSinceEpoch);
+      
+      _startCountdownTimer();
+      
+      // Hatayı yukarı fırlat
+      rethrow;
     }
   }
+
   
   // Cevapları sıfırla
   void _initializeAnswers() {

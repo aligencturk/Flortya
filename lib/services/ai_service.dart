@@ -2495,9 +2495,31 @@ Tavsiyeler pratik, uygulanabilir ve ilişki için faydalı olmalı.
     try {
       // API anahtarını kontrol et
       if (_geminiApiKey.isEmpty) {
-        return _getFallbackQuestions();
+        throw Exception('AI servisine erişim sağlanamıyor. Lütfen internet bağlantınızı kontrol edin.');
       }
 
+      // Her hafta farklı sorular için timestamp tabanlı seed oluştur
+      final now = DateTime.now();
+      final weekNumber = ((now.millisecondsSinceEpoch ~/ (1000 * 60 * 60 * 24 * 7)) % 1000);
+      final randomSeed = (now.year + now.month + weekNumber) % 50;
+      
+      // Çeşitli soru kategorileri ve varyasyonları
+      final questionThemes = [
+        'iletişim ve anlayış',
+        'güven ve sadakat', 
+        'duygusal bağ ve yakınlık',
+        'çatışma çözümü ve uzlaşı',
+        'gelecek planları ve hedefler',
+        'destek ve empati',
+        'özgürlük ve kişisel alan',
+        'sevgi gösterimi ve romantizm',
+        'aile ve sosyal çevre',
+        'değerler ve yaşam felsefesi'
+      ];
+      
+      // Bu hafta için belirli temalar seç
+      final selectedThemes = questionThemes.take(5).toList()..shuffle();
+      
       final response = await http.post(
         Uri.parse(_geminiApiUrl),
         headers: {
@@ -2510,24 +2532,38 @@ Tavsiyeler pratik, uygulanabilir ve ilişki için faydalı olmalı.
               'parts': [
                 {
                   'text': '''
-İlişki uzmanı olarak görevin, ilişki değerlendirmesi için 15 adet soru oluşturmak.
-Sorular, ilişkinin farklı yönlerini (iletişim, güven, samimiyet, destek, uyum vb.) değerlendirmeli.
-Yanıtını sadece soru listesi olarak ver, JSON formatı kullanma, başka açıklama ekleme.
+Sen uzman bir ilişki psikoloğusun. İlişki değerlendirmesi için 15 adet YENİ ve FARKLI soru oluşturacaksın.
 
-ÇOK ÖNEMLİ! Sorular kesinlikle "Kesinlikle evet", "Kararsızım", "Pek sanmam" seçenekleriyle cevaplanabilecek formatta olmalı.
-Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
-- "Partnerinize tamamen güvendiğinizi düşünüyor musunuz?" (Uygun)
-- "Partnerinizle ne kadar sıklıkla görüşüyorsunuz?" (Uygun değil, sayısal cevap gerektirir)
-- "İlişkinizde hangi konularda sorun yaşıyorsunuz?" (Uygun değil, açık uçludur)
+Bu hafta özellikle şu konulara odaklan: ${selectedThemes.join(', ')}.
 
-İlişki değerlendirmesi için 15 adet farklı konularda soru oluştur.
+ZORUNLU GEREKSINIMLER:
+1. Her soru "Kesinlikle evet", "Kararsızım", "Pek sanmam" ile cevaplanabilmeli
+2. Sorular farklı ilişki alanlarını kapsamalı
+3. Önceki haftalardaki sorulardan MUTLAKA farklı olmalı
+4. Yaratıcı ve çeşitli sorular kullan
+5. Soru numarası kullanma, sadece soruları listele
+
+Odaklanılacak alanlar (her birinden en az 2-3 soru):
+- İletişim ve karşılıklı anlayış
+- Güven ve bağlılık  
+- Duygusal yakınlık ve samimiyet
+- Problem çözme becerilerı
+- Gelecek planları ve uyum
+- Sevgi gösterimi ve romantizm
+- Kişisel özgürlük ve sınırlar
+- Aile-arkadaş ilişkileri
+- Değerler ve hayat görüşü
+- Fiziksel ve duygusal destek
+
+Bu hafta için (Hafta Kodu: W$weekNumber-$randomSeed) özel sorular oluştur.
+Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
 '''
                 }
               ]
             }
           ],
           'generationConfig': {
-            'temperature': 0.7,
+            'temperature': 0.9,
             'maxOutputTokens': _geminiMaxTokens
           }
         }),
@@ -2538,7 +2574,7 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
         final String? aiContent = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         
         if (aiContent == null || aiContent.isEmpty) {
-          return _getFallbackQuestions();
+          throw Exception('AI\'dan yanıt alınamadı. Lütfen daha sonra tekrar deneyin.');
         }
         
         // İçerikteki soruları satır satır ayırıp liste haline getir
@@ -2549,37 +2585,24 @@ Açık uçlu veya yoruma dayalı sorular oluşturma. Örneğin:
             .where((line) => line.isNotEmpty && line.endsWith('?'))
             .toList();
         
-        return sorular.isNotEmpty ? sorular : _getFallbackQuestions();
+        if (sorular.isEmpty || sorular.length < 10) {
+          throw Exception('AI\'dan yeterli soru alınamadı. Lütfen daha sonra tekrar deneyin.');
+        }
+        return sorular;
       } else {
         _logger.e('API Hatası', '${response.statusCode} - ${response.body}');
-        return _getFallbackQuestions();
+        throw Exception('AI servisi şu anda kullanılamıyor (Hata: ${response.statusCode}). Lütfen daha sonra tekrar deneyin.');
       }
     } catch (e) {
       _logger.e('İlişki soruları oluşturma hatası', e);
-      return _getFallbackQuestions();
+      if (e is Exception) {
+        rethrow; // Önceki hata mesajlarını koru
+      }
+      throw Exception('Soru oluşturma sırasında beklenmeyen hata: $e');
     }
   }
   
-  // Yedek sorular
-  List<String> _getFallbackQuestions() {
-    return [
-      'Partnerinizin duygularınıza değer verdiğini düşünüyor musunuz?',
-      'İlişkinizde isteklerinizi açıkça ifade edebildiğinizi hissediyor musunuz?',
-      'Partnerinize tamamen güvendiğinizi söyleyebilir misiniz?',
-      'İlişkinizde yeterince takdir edildiğinizi düşünüyor musunuz?',
-      'Partnerinizle gelecek planlarınızın uyumlu olduğuna inanıyor musunuz?',
-      'İlişkinizde kendinizi özgür hissettiğinizi düşünüyor musunuz?',
-      'Partnerinizle ortak ilgi alanlarınızın yeterli olduğunu düşünüyor musunuz?',
-      'İlişkinizde sorunları etkili şekilde çözebildiğinize inanıyor musunuz?',
-      'Partnerinizin sizi her konuda desteklediğini hissediyor musunuz?',
-      'İlişkinizde sevgi gösterme biçimlerinizin uyumlu olduğunu düşünüyor musunuz?',
-      'Partnerinizle olan iletişiminizin sağlıklı olduğunu düşünüyor musunuz?',
-      'İlişkinizde yeterince saygı gördüğünüzü hissediyor musunuz?',
-      'Partnerinizle birlikte geçirdiğiniz zamanın yeterli olduğunu düşünüyor musunuz?',
-      'İlişkinizde fedakarlıkların karşılıklı olduğuna inanıyor musunuz?',
-      'Partnerinizin ailenizle ilişkilerinin iyi olduğunu düşünüyor musunuz?',
-    ];
-  }
+
 
   // Sohbet verisini analiz etme + otomatik wrapped analizi
   Future<List<Map<String, String>>> analizSohbetVerisi(String sohbetMetni) async {
