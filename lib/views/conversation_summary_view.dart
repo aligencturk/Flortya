@@ -1,3 +1,4 @@
+import 'package:animated_background/animated_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
@@ -32,7 +33,7 @@ class KonusmaSummaryView extends StatefulWidget {
   State<KonusmaSummaryView> createState() => _KonusmaSummaryViewState();
 }
 
-class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
+class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProviderStateMixin {
   late PageController _pageController;
   int _currentPage = 0;
 
@@ -56,11 +57,6 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Konuşma Analizi'),
-          backgroundColor: const Color(0xFF6A11CB),
-          foregroundColor: Colors.white,
-        ),
         backgroundColor: Colors.transparent,
         body: PageView.builder(
           controller: _pageController,
@@ -109,8 +105,20 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
     final colorIndex = index % gradients.length;
     final (decoratedTitle, iconData) = _decorateTitle(title);
 
-    return _AnimatedAuroraBackground(
-      colors: gradients[colorIndex],
+    return AnimatedBackground(
+      behaviour: RandomParticleBehaviour(
+        options: ParticleOptions(
+          baseColor: gradients[colorIndex][0],
+          spawnMaxRadius: 30,
+          spawnMinRadius: 10,
+          particleCount: 40,
+          spawnMaxSpeed: 100,
+          spawnMinSpeed: 30,
+          minOpacity: 0.1,
+          maxOpacity: 0.4,
+        ),
+      ),
+      vsync: this,
       child: Stack(
         children: [
           // Arka plan kalp animasyonları
@@ -123,14 +131,22 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Üst Kısım: Sayfa göstergesi
+                  // Üst Kısım: Sayfa göstergesi ve Kapat Butonu
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Kapat butonu
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: 'Kapat',
+                      ),
+                      
+                      // Sayfa göstergesi
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withOpacity(0.25),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -520,82 +536,6 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
   }
 }
 
-/// Aurora (kutup ışıkları) efektli hareketli bir arka plan oluşturan widget.
-///
-/// Bu widget, verilen renk listesini kullanarak yavaşça ve akışkan bir şekilde
-/// hareket eden bir gradyan oluşturur, bu da tasarıma dinamik ve
-/// büyülü bir his katar.
-class _AnimatedAuroraBackground extends StatefulWidget {
-  final List<Color> colors;
-  final Widget child;
-
-  const _AnimatedAuroraBackground({
-    required this.colors,
-    required this.child,
-  });
-
-  @override
-  State<_AnimatedAuroraBackground> createState() =>
-      _AnimatedAuroraBackgroundState();
-}
-
-class _AnimatedAuroraBackgroundState extends State<_AnimatedAuroraBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 25), // Yavaş ve sakin bir animasyon için uzun süre
-    )..repeat(reverse: true);
-
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        // Animasyonun değerini kullanarak gradyan hizalamalarını değiştir
-        final alignment1 = AlignmentTween(
-          begin: Alignment.topLeft,
-          end: Alignment.topRight,
-        ).evaluate(_animation);
-
-        final alignment2 = AlignmentTween(
-          begin: Alignment.bottomRight,
-          end: Alignment.bottomLeft,
-        ).evaluate(_animation);
-
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.colors,
-              begin: alignment1,
-              end: alignment2,
-            ),
-          ),
-          child: widget.child,
-        );
-      },
-      child: widget.child,
-    );
-  }
-}
-
 class _DynamicAnimatedBackground extends StatelessWidget {
   const _DynamicAnimatedBackground();
 
@@ -764,7 +704,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
               fileContent: _fileContent,
               isTxtFile: _isTxtFile,
             );
-            _logger.i('SharedPreferences\'dan yüklenen veriler Firestore\'a aktarıldı');
+            _logger.i('SharedPreferences\'dan yuklenen veriler Firestore\'a aktarildi');
           }
         } catch (e) {
           _logger.e('Önbellek verisi ayrıştırma hatası', e);
