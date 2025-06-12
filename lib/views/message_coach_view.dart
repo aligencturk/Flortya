@@ -1284,6 +1284,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     final Color lightPurple = const Color(0xFF4A2A80);
     
     return Scaffold(
+      resizeToAvoidBottomInset: false, // Klavye overflow'unu engeller
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

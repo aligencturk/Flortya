@@ -352,10 +352,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF4A2A80),
+        resizeToAvoidBottomInset: false, // Klavye overflow'unu engeller
         body: SafeArea(
           child: Column(
             children: [
-              // App Bar
+              // App Bar - Sabit
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -373,178 +374,179 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                         }
                       },
                     ),
-                  Expanded(
-                    child: Consumer<AuthViewModel>(
-                      builder: (context, authViewModel, _) {
-                        return Text(
-                          'Merhaba, ${authViewModel.user?.displayName ?? ""}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        );
-                      },
-                    ),
-                  ),
-                  // Butonları Wrap içine alarak taşmayı önlüyoruz
-                  IconButton(
-                    icon: const Icon(Icons.info_outline, color: Colors.white),
-                    onPressed: () {
-                      _showInfoDialog(context);
-                    },
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
-            
-            // Ana içerik
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF352269),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Başlık ve Danışma Butonu
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Analiz Et',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        FutureBuilder(
-                          future: _checkFeatureAccess(),
-                          builder: (context, AsyncSnapshot<Map<PremiumFeature, bool>> snapshot) {
-                            final featureAccess = snapshot.data ?? {
-                              PremiumFeature.CONSULTATION: false,
-                            };
-                            final bool canUseConsultation = featureAccess[PremiumFeature.CONSULTATION] ?? false;
-                            
-                            return Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    // Premium kontrolü - eğer premium değilse bilgilendirme göster
-                                    if (canUseConsultation) {
-                                      // Danışma sayfasına yönlendir
-                                      context.push('/consultation');
-                                    } else {
-                                      // Premium bilgilendirme diyaloğu göster
-                                      showPremiumInfoDialog(context, PremiumFeature.CONSULTATION);
-                                    }
-                                  },
-                                  icon: Icon(Icons.chat_outlined, size: 18),
-                                  label: Text('Danış'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF9D3FFF),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                                
-                                // Premium değilse kilit simgesi göster
-                                if (!canUseConsultation)
-                                  Positioned(
-                                    top: -5,
-                                    right: -5,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.lock,
-                                        color: Color(0xFF9D3FFF),
-                                        size: 12,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Bilgi notu
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: Row(
-                        children: [
-                          const Text(
-                            "ℹ️",
-                            style: TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "Bir ekran görüntüsü yükleyerek veya .txt dosyası seçerek mesajlarınızı analiz edebilirsiniz.",
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Upload section - Yükleme bölümü
-                    _buildUploadSection(),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Analiz sonuçları bölümü
                     Expanded(
-                      child: _isLoading
-                        ? Center(child: YuklemeAnimasyonu(
-                            renk: Color(0xFF9D3FFF), 
-                            analizTipi: _isImageAnalysis ? AnalizTipi.FOTOGRAF : AnalizTipi.TXT_DOSYASI
-                          ))
-                        : _forceEmptyState || messageViewModel.messages.isEmpty
-                          ? _buildEmptyState()
-                          : _buildCurrentAnalysisResult(messageViewModel),
+                      child: Consumer<AuthViewModel>(
+                        builder: (context, authViewModel, _) {
+                          return Text(
+                            'Merhaba, ${authViewModel.user?.displayName ?? ""}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
+                      ),
+                    ),
+                    // Butonları Wrap içine alarak taşmayı önlüyoruz
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, color: Colors.white),
+                      onPressed: () {
+                        _showInfoDialog(context);
+                      },
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              
+              // Ana içerik
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF352269),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Başlık ve Danışma Butonu
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Analiz Et',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          FutureBuilder(
+                            future: _checkFeatureAccess(),
+                            builder: (context, AsyncSnapshot<Map<PremiumFeature, bool>> snapshot) {
+                              final featureAccess = snapshot.data ?? {
+                                PremiumFeature.CONSULTATION: false,
+                              };
+                              final bool canUseConsultation = featureAccess[PremiumFeature.CONSULTATION] ?? false;
+                              
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      // Premium kontrolü - eğer premium değilse bilgilendirme göster
+                                      if (canUseConsultation) {
+                                        // Danışma sayfasına yönlendir
+                                        context.push('/consultation');
+                                      } else {
+                                        // Premium bilgilendirme diyaloğu göster
+                                        showPremiumInfoDialog(context, PremiumFeature.CONSULTATION);
+                                      }
+                                    },
+                                    icon: Icon(Icons.chat_outlined, size: 18),
+                                    label: Text('Danış'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF9D3FFF),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // Premium değilse kilit simgesi göster
+                                  if (!canUseConsultation)
+                                    Positioned(
+                                      top: -5,
+                                      right: -5,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.lock,
+                                          color: Color(0xFF9D3FFF),
+                                          size: 12,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Bilgi notu
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text(
+                              "ℹ️",
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "Bir ekran görüntüsü yükleyerek veya .txt dosyası seçerek mesajlarınızı analiz edebilirsiniz.",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Upload section - Yükleme bölümü
+                      _buildUploadSection(),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Analiz sonuçları bölümü
+                      Expanded(
+                        child: _isLoading
+                          ? Center(child: YuklemeAnimasyonu(
+                              renk: Color(0xFF9D3FFF), 
+                              analizTipi: _isImageAnalysis ? AnalizTipi.FOTOGRAF : AnalizTipi.TXT_DOSYASI
+                            ))
+                          : _forceEmptyState || messageViewModel.messages.isEmpty
+                            ? _buildEmptyState()
+                            : _buildCurrentAnalysisResult(messageViewModel),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ), // Scaffold kapanışı
-    ), // PopScope kapanışı
-  );
+    ); // PopScope kapanışı
   }
   
   // Çıkış onay diyaloğu

@@ -92,21 +92,21 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
     required String comment,
     required int index,
   }) {
-    // Her kart için farklı gradient arka plan
-    List<List<Color>> gradients = [
-      [const Color(0xFF6A11CB), const Color(0xFF2575FC)], // Mor-Mavi
-      [const Color(0xFFFF416C), const Color(0xFFFF4B2B)], // Kırmızı
-      [const Color(0xFF00C9FF), const Color(0xFF92FE9D)], // Mavi-Yeşil
-      [const Color(0xFFFF9A9E), const Color(0xFFFAD0C4)], // Pembe
-      [const Color(0xFFA18CD1), const Color(0xFFFBC2EB)], // Mor-Pembe
-      [const Color(0xFF1A2980), const Color(0xFF26D0CE)], // Koyu Mavi-Turkuaz
+    // Her kart için farklı ve canlı gradient arka planlar
+    final List<List<Color>> gradients = [
+      [const Color(0xFF6A11CB), const Color(0xFF2575FC)],
+      [const Color(0xFFFF416C), const Color(0xFFFF4B2B)],
+      [const Color(0xFF00C9FF), const Color(0xFF92FE9D)],
+      [const Color(0xFF1E9600), const Color(0xFFFFF200)],
+      [const Color(0xFFA18CD1), const Color(0xFFFBC2EB)],
+      [const Color(0xFF1A2980), const Color(0xFF26D0CE)],
+      [const Color(0xFFFDBB2D), const Color(0xFF22C1C3)],
+      [const Color(0xFFf857a6), const Color(0xffff5858)],
     ];
 
     final colorIndex = index % gradients.length;
-    
-    // Başlığı emojilerle süsleme metodu
-    String decoratedTitle = _decorateTitle(title);
-    
+    final (_, iconData) = _decorateTitle(title);
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -117,99 +117,77 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Stack(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Sayfa göstergesi
-              Positioned(
-                top: 16,
-                right: 0,
-                child: Text(
-                  '${index + 1}/${widget.summaryData.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              
-              // Ana içerik
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Pırıltılı başlık efekti
-                    ShaderMask(
-                      shaderCallback: (bounds) => LinearGradient(
-                        colors: [Colors.white, Colors.white.withOpacity(0.8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ).createShader(bounds),
-                      child: Text(
-                        decoratedTitle,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Yorum metni
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20, 
-                        vertical: 16
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        comment,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.9),
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 40),
-                    
-                    // Kaydırma göstergesi
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '✨ Devam etmek için kaydırın',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+              // Üst Kısım: Sayfa göstergesi
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '${index + 1}/${widget.summaryData.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      shadows: [
+                        Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
                       ],
                     ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              
+              // Orta Kısım: İkon, Başlık ve Yorum
+              Icon(iconData, color: Colors.white, size: 64),
+              const SizedBox(height: 24),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(color: Colors.black26, offset: Offset(2, 2), blurRadius: 4),
                   ],
                 ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                comment,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.95),
+                  height: 1.5,
+                ),
+              ),
+              const Spacer(),
+              
+              // Alt Kısım: Kaydırma göstergesi
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Devam etmek için kaydırın',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ],
               ),
             ],
           ),
@@ -504,30 +482,27 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
   }
 
 
-  // Başlığı emojilerle süsleme metodu
-  String _decorateTitle(String title) {
-    // Başlık tipine göre emoji ekleme
+  // Başlığı emojilerle süsleme ve ikon döndürme metodu
+  (String, IconData) _decorateTitle(String title) {
     if (title.toLowerCase().contains('mesaj') || title.toLowerCase().contains('en çok')) {
-      return '📱 $title';
+      return ('📱 $title', Icons.chat_bubble_outline);
     } else if (title.toLowerCase().contains('emoji') || title.toLowerCase().contains('sticker')) {
-      return '😄 $title';
+      return ('😄 $title', Icons.emoji_emotions_outlined);
     } else if (title.toLowerCase().contains('saat') || title.toLowerCase().contains('zaman')) {
-      return '⏰ $title';
+      return ('⏰ $title', Icons.access_time_filled_outlined);
     } else if (title.toLowerCase().contains('kelime') || title.toLowerCase().contains('söz')) {
-      return '📝 $title';
+      return ('📝 $title', Icons.text_fields_outlined);
     } else if (title.toLowerCase().contains('favori') || title.toLowerCase().contains('sevdiği')) {
-      return '💖 $title';
+      return ('💖 $title', Icons.favorite_border);
     } else if (title.toLowerCase().contains('komik') || title.toLowerCase().contains('eğlenceli')) {
-      return '😆 $title';
+      return ('😆 $title', Icons.sentiment_very_satisfied_outlined);
     } else if (title.toLowerCase().contains('duygusal') || title.toLowerCase().contains('hüzün')) {
-      return '💕 $title';
+      return ('💕 $title', Icons.sentiment_satisfied_alt_outlined);
     } else if (title.toLowerCase().contains('aktivite') || title.toLowerCase().contains('etkinlik')) {
-      return '🎯 $title';
+      return ('🎯 $title', Icons.track_changes);
     } else {
-      return '✨ $title';
+      return ('✨ $title', Icons.auto_awesome);
     }
-    
-    return title;
   }
 }
 
