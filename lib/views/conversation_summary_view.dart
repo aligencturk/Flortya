@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
+import 'dart:math'; // Rastgele değerler için eklendi
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter_animate/flutter_animate.dart'; // Animasyonlar için eklendi
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../utils/loading_indicator.dart';
@@ -105,93 +107,105 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
     ];
 
     final colorIndex = index % gradients.length;
-    final (_, iconData) = _decorateTitle(title);
+    final (decoratedTitle, iconData) = _decorateTitle(title);
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradients[colorIndex],
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Üst Kısım: Sayfa göstergesi
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+    return _AnimatedAuroraBackground(
+      colors: gradients[colorIndex],
+      child: Stack(
+        children: [
+          // Arka plan kalp animasyonları
+          const _DynamicAnimatedBackground(),
+
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Üst Kısım: Sayfa göstergesi
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${index + 1}/${widget.summaryData.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  
+                  // Orta Kısım: İkon, Başlık ve Yorum
+                  Icon(iconData, color: Colors.white, size: 64)
+                      .animate()
+                      .fade(duration: 500.ms)
+                      .scale(delay: 200.ms),
+                  const SizedBox(height: 24),
                   Text(
-                    '${index + 1}/${widget.summaryData.length}',
+                    decoratedTitle,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                       shadows: [
+                        Shadow(color: Colors.black38, offset: Offset(2, 2), blurRadius: 4),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    comment,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.95),
+                      height: 1.5,
+                      shadows: const [
                         Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
                       ],
                     ),
                   ),
+                  const Spacer(),
+                  
+                  // Alt Kısım: Kaydırma göstergesi
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Devam etmek için kaydırın',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ],
+                  ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                   .shimmer(delay: 1000.ms, duration: 1800.ms, color: Colors.white.withOpacity(0.5)),
                 ],
               ),
-              const Spacer(),
-              
-              // Orta Kısım: İkon, Başlık ve Yorum
-              Icon(iconData, color: Colors.white, size: 64),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(color: Colors.black26, offset: Offset(2, 2), blurRadius: 4),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                comment,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.95),
-                  height: 1.5,
-                ),
-              ),
-              const Spacer(),
-              
-              // Alt Kısım: Kaydırma göstergesi
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Devam etmek için kaydırın',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -503,6 +517,160 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> {
     } else {
       return ('✨ $title', Icons.auto_awesome);
     }
+  }
+}
+
+/// Aurora (kutup ışıkları) efektli hareketli bir arka plan oluşturan widget.
+///
+/// Bu widget, verilen renk listesini kullanarak yavaşça ve akışkan bir şekilde
+/// hareket eden bir gradyan oluşturur, bu da tasarıma dinamik ve
+/// büyülü bir his katar.
+class _AnimatedAuroraBackground extends StatefulWidget {
+  final List<Color> colors;
+  final Widget child;
+
+  const _AnimatedAuroraBackground({
+    required this.colors,
+    required this.child,
+  });
+
+  @override
+  State<_AnimatedAuroraBackground> createState() =>
+      _AnimatedAuroraBackgroundState();
+}
+
+class _AnimatedAuroraBackgroundState extends State<_AnimatedAuroraBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 25), // Yavaş ve sakin bir animasyon için uzun süre
+    )..repeat(reverse: true);
+
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        // Animasyonun değerini kullanarak gradyan hizalamalarını değiştir
+        final alignment1 = AlignmentTween(
+          begin: Alignment.topLeft,
+          end: Alignment.topRight,
+        ).evaluate(_animation);
+
+        final alignment2 = AlignmentTween(
+          begin: Alignment.bottomRight,
+          end: Alignment.bottomLeft,
+        ).evaluate(_animation);
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: widget.colors,
+              begin: alignment1,
+              end: alignment2,
+            ),
+          ),
+          child: widget.child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _DynamicAnimatedBackground extends StatelessWidget {
+  const _DynamicAnimatedBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final random = Random();
+
+    // Animate edilecek elementleri tanımla
+    final List<IconData> elements = [
+      Icons.favorite,
+      Icons.favorite_border,
+      Icons.all_inclusive, // Sonsuzluk
+      Icons.key_outlined,
+      Icons.diamond_outlined,
+      Icons.lock_open_outlined,
+    ];
+
+    const elementCount = 25; // Toplam element sayısı
+
+    return Stack(
+      children: List.generate(elementCount, (index) {
+        final iconData = elements[random.nextInt(elements.length)];
+        final isHeart = iconData == Icons.favorite || iconData == Icons.favorite_border;
+
+        // Element tipine göre animasyonu özelleştir
+        final elementSize = isHeart
+            ? random.nextDouble() * 20 + 10 // Kalpler daha küçük
+            : random.nextDouble() * 30 + 20; // Diğer objeler daha büyük
+        
+        final duration = (random.nextDouble() * 8000 + 8000).ms; // Daha yavaş animasyonlar
+        final delay = (random.nextDouble() * 10000).ms;
+
+        final startX = random.nextDouble() * size.width;
+        final startY = size.height + elementSize;
+        
+        // Daha dinamik hareket için bitiş pozisyonunu rastgele yap
+        final endX = startX + (random.nextDouble() * 100 - 50); // Hafif yatay sürüklenme
+        final endY = -elementSize;
+
+        // Kalp olmayan objeler için rotasyon ekle
+        final rotation = isHeart ? 0.0 : (random.nextDouble() * 0.5 - 0.25);
+
+        return Positioned(
+          left: startX,
+          top: startY,
+          child: Animate(
+            effects: [
+              FadeEffect(begin: 0.0, end: 0.6, duration: 1500.ms, delay: delay),
+              MoveEffect(
+                begin: const Offset(0, 0),
+                end: Offset(endX - startX, endY - startY),
+                duration: duration,
+                delay: delay,
+                curve: Curves.linear,
+              ),
+              if (!isHeart)
+                RotateEffect(
+                  begin: 0,
+                  end: rotation,
+                  duration: duration,
+                  delay: delay,
+                ),
+              FadeEffect(begin: 0.6, end: 0.0, duration: 1500.ms, delay: duration + delay - 1500.ms),
+            ],
+            onComplete: (controller) => controller.loop(),
+            child: Icon(
+              iconData,
+              color: Colors.white.withOpacity(isHeart ? 0.3 : 0.2), // Objeleri daha belirsiz yap
+              size: elementSize,
+            ),
+          ),
+        );
+      }),
+    );
   }
 }
 
