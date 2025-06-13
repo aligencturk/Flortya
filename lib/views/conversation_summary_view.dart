@@ -514,22 +514,26 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
 
   // Başlığı emojilerle süsleme ve ikon döndürme metodu
   (String, IconData) _decorateTitle(String title) {
-    if (title.toLowerCase().contains('mesaj') || title.toLowerCase().contains('en çok')) {
-      return ('📱 $title', Icons.chat_bubble_outline);
+    if (title.toLowerCase().contains('konuşma süresi') || title.toLowerCase().contains('süre')) {
+      return ('⏰ $title', Icons.access_time_filled_outlined);
+    } else if (title.toLowerCase().contains('başlatıyor') || title.toLowerCase().contains('kim')) {
+      return ('👑 $title', Icons.person_pin_outlined);
+    } else if (title.toLowerCase().contains('gergin') || title.toLowerCase().contains('tartışma')) {
+      return ('⚡ $title', Icons.bolt_outlined);
+    } else if (title.toLowerCase().contains('romantik') || title.toLowerCase().contains('ateşli')) {
+      return ('🔥 $title', Icons.favorite_outlined);
+    } else if (title.toLowerCase().contains('kelime') || title.toLowerCase().contains('şampiyon')) {
+      return ('🏆 $title', Icons.emoji_events_outlined);
     } else if (title.toLowerCase().contains('emoji') || title.toLowerCase().contains('sticker')) {
       return ('😄 $title', Icons.emoji_emotions_outlined);
-    } else if (title.toLowerCase().contains('saat') || title.toLowerCase().contains('zaman')) {
-      return ('⏰ $title', Icons.access_time_filled_outlined);
-    } else if (title.toLowerCase().contains('kelime') || title.toLowerCase().contains('söz')) {
+    } else if (title.toLowerCase().contains('karakter') || title.toLowerCase().contains('mesaj')) {
       return ('📝 $title', Icons.text_fields_outlined);
-    } else if (title.toLowerCase().contains('favori') || title.toLowerCase().contains('sevdiği')) {
-      return ('💖 $title', Icons.favorite_border);
-    } else if (title.toLowerCase().contains('komik') || title.toLowerCase().contains('eğlenceli')) {
-      return ('😆 $title', Icons.sentiment_very_satisfied_outlined);
-    } else if (title.toLowerCase().contains('duygusal') || title.toLowerCase().contains('hüzün')) {
-      return ('💕 $title', Icons.sentiment_satisfied_alt_outlined);
-    } else if (title.toLowerCase().contains('aktivite') || title.toLowerCase().contains('etkinlik')) {
-      return ('🎯 $title', Icons.track_changes);
+    } else if (title.toLowerCase().contains('ritim') || title.toLowerCase().contains('konuşma')) {
+      return ('🎵 $title', Icons.graphic_eq_outlined);
+    } else if (title.toLowerCase().contains('duygu') || title.toLowerCase().contains('ton')) {
+      return ('💭 $title', Icons.psychology_outlined);
+    } else if (title.toLowerCase().contains('dikkat') || title.toLowerCase().contains('sohbet')) {
+      return ('🎯 $title', Icons.auto_awesome_outlined);
     } else {
       return ('✨ $title', Icons.auto_awesome);
     }
