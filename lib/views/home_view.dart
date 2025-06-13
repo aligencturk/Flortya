@@ -131,7 +131,7 @@ class HomeView extends StatefulWidget {
   State<HomeView> createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late final PageController _pageController;
   final TextEditingController _searchController = TextEditingController();
@@ -139,6 +139,10 @@ class _HomeViewState extends State<HomeView> {
   List<String> _unlockedAdvices = []; // Kilidini açtığımız tavsiyeler
   // Wrapped analizlerini tutmak için liste
   List<Map<String, dynamic>> _wrappedAnalyses = [];
+  
+  late AnimationController _colorAnimationController;
+  late Animation<Color?> _gradientBeginColor;
+  late Animation<Color?> _gradientEndColor;
   
   // Widget referans anahtarları
   final GlobalKey _analyzeButtonKey = GlobalKey(debugLabel: 'AnalyzeButtonKey');
@@ -158,6 +162,42 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+
+    _colorAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat(reverse: true);
+
+    _gradientBeginColor = TweenSequence<Color?>([
+      TweenSequenceItem(
+        tween: ColorTween(begin: const Color(0xFF6A11CB), end: const Color(0xFF2575FC)),
+        weight: 1.0,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(begin: const Color(0xFF2575FC), end: const Color(0xFFFF416C)),
+        weight: 1.0,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(begin: const Color(0xFFFF416C), end: const Color(0xFF6A11CB)),
+        weight: 1.0,
+      ),
+    ]).animate(_colorAnimationController);
+
+    _gradientEndColor = TweenSequence<Color?>([
+      TweenSequenceItem(
+        tween: ColorTween(begin: const Color(0xFF2575FC), end: const Color(0xFFFF4B2B)),
+        weight: 1.0,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(begin: const Color(0xFFFF4B2B), end: const Color(0xFF6A11CB)),
+        weight: 1.0,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(begin: const Color(0xFF6A11CB), end: const Color(0xFF2575FC)),
+        weight: 1.0,
+      ),
+    ]).animate(_colorAnimationController);
+    
     // Başlangıç sekmesini widget'tan al
     _selectedIndex = widget.initialTabIndex;
     _pageController = PageController(initialPage: _selectedIndex);
@@ -468,6 +508,7 @@ class _HomeViewState extends State<HomeView> {
     _searchController.dispose();
     _scrollController.dispose();
     _eventBusSubscription?.cancel();
+    _colorAnimationController.dispose();
     super.dispose();
   }
 
@@ -670,21 +711,30 @@ class _HomeViewState extends State<HomeView> {
                             // Yuvarlak logo ikonu
                             Stack(
                               children: [
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-                                    ),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.3),
-                                      width: 2,
-                                    ),
-                                  ),
+                                AnimatedBuilder(
+                                  animation: _colorAnimationController,
+                                  builder: (context, child) {
+                                    return Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            _gradientBeginColor.value ?? const Color(0xFF6A11CB),
+                                            _gradientEndColor.value ?? const Color(0xFF2575FC),
+                                          ],
+                                        ),
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.3),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: child,
+                                    );
+                                  },
                                   child: const Center(
                                     child: Icon(
                                       Icons.auto_awesome,
