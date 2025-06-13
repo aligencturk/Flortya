@@ -980,6 +980,275 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
   
+  // WhatsApp mesajlarından katılımcıları çıkaran fonksiyon
+  List<String> _extractParticipantsFromText(String content) {
+    Set<String> participants = {};
+    
+    // WhatsApp mesaj formatları:
+    // Format 1: [Tarih, Saat] Kişi: Mesaj
+    // Format 2: Tarih, Saat - Kişi: Mesaj  
+    // Format 3: Kişi (Tarih Saat): Mesaj
+    
+    final List<RegExp> patterns = [
+      // [25.12.2023, 14:30:45] Ahmet: Merhaba
+      RegExp(r'\[.*?\]\s*([^:]+):'),
+      
+      // 25.12.2023, 14:30 - Ahmet: Merhaba
+      RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[,\s]+\d{1,2}:\d{2}\s*-\s*([^:]+):'),
+      
+      // Ahmet (25.12.2023 14:30): Merhaba
+      RegExp(r'([^(]+)\s*\([^)]*\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[^)]*\):'),
+      
+      // Basit format: Ahmet: Merhaba
+      RegExp(r'^([^:\[\]]+):'),
+    ];
+    
+    final lines = content.split('\n');
+    
+    for (final line in lines) {
+      if (line.trim().isEmpty) continue;
+      
+      for (final pattern in patterns) {
+        final match = pattern.firstMatch(line);
+        if (match != null && match.groupCount >= 1) {
+          String participant = match.group(1)!.trim();
+          
+          // Temizlik işlemleri
+          participant = participant.replaceAll(RegExp(r'^\[|\]$'), ''); // Köşeli parantezleri temizle
+          participant = participant.replaceAll(RegExp(r'^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[,\s]*'), ''); // Tarihleri temizle
+          participant = participant.replaceAll(RegExp(r'\d{1,2}:\d{2}'), ''); // Saatleri temizle
+          participant = participant.replaceAll(RegExp(r'[,\-\s]+$'), ''); // Son kısımdaki gereksizleri temizle
+          participant = participant.trim();
+          
+          if (participant.isNotEmpty && 
+              participant.length > 1 && 
+              participant.length < 50 && // Çok uzun isimleri filtrele
+              !RegExp(r'^\d+$').hasMatch(participant) && // Sadece sayı olanları filtrele
+              !participant.toLowerCase().contains('whatsapp') &&
+              !participant.toLowerCase().contains('message') &&
+              !participant.toLowerCase().contains('system')) {
+            participants.add(participant);
+          }
+          break; // İlk eşleşme bulundu, diğer pattern'leri deneme
+        }
+      }
+    }
+    
+    return participants.toList()..sort();
+  }
+
+  // Kişi seçim dialog'unu göster
+  Future<String?> _showParticipantSelectionDialog(List<String> participants, String fileName, String fileSize, int messageCount) async {
+    if (participants.isEmpty) {
+      return 'Tüm Katılımcılar'; // Varsayılan seçenek
+    }
+    
+    return await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        String? selectedParticipant = participants.isNotEmpty ? participants.first : null;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF352269),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.group,
+                    color: const Color(0xFF9D3FFF),
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Kişi Seçimi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Dosya bilgileri özeti
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoRow('Dosya:', fileName),
+                          _buildInfoRow('Boyut:', fileSize),
+                          _buildInfoRow('Mesaj Sayısı:', messageCount.toString()),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    Text(
+                      'Dosyada ${participants.length} kişi bulundu. Analiz etmek istediğiniz kişiyi seçin:',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Tüm katılımcılar seçeneği
+                    RadioListTile<String>(
+                      value: 'Tüm Katılımcılar',
+                      groupValue: selectedParticipant,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedParticipant = value;
+                        });
+                      },
+                      title: Text(
+                        'Tüm Katılımcılar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Tüm sohbeti analiz et',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                      activeColor: const Color(0xFF9D3FFF),
+                    ),
+                    
+                    const Divider(color: Colors.white24),
+                    
+                    // Katılımcılar listesi
+                    ...participants.map((participant) {
+                      return RadioListTile<String>(
+                        value: participant,
+                        groupValue: selectedParticipant,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedParticipant = value;
+                          });
+                        },
+                        title: Text(
+                          participant,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Bu kişinin mesajlarını analiz et',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 12,
+                          ),
+                        ),
+                        activeColor: const Color(0xFF9D3FFF),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(null);
+                  },
+                  child: Text(
+                    'İptal',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: selectedParticipant != null ? () {
+                    Navigator.of(context).pop(selectedParticipant);
+                  } : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9D3FFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Analizi Başlat',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Seçilen katılımcıya göre mesajları filtrele
+  String _filterMessagesByParticipant(String content, String selectedParticipant) {
+    if (selectedParticipant == 'Tüm Katılımcılar') {
+      return content; // Tüm mesajları döndür
+    }
+    
+    final lines = content.split('\n');
+    final filteredLines = <String>[];
+    
+    for (final line in lines) {
+      if (line.trim().isEmpty) {
+        filteredLines.add(line);
+        continue;
+      }
+      
+      // Bu satır seçilen katılımcıya ait mi kontrol et
+      final patterns = [
+        RegExp(r'\[.*?\]\s*' + RegExp.escape(selectedParticipant) + r':'),
+        RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[,\s]+\d{1,2}:\d{2}\s*-\s*' + RegExp.escape(selectedParticipant) + r':'),
+        RegExp('^' + RegExp.escape(selectedParticipant) + r'\s*\([^)]*\):'),
+        RegExp('^' + RegExp.escape(selectedParticipant) + r':'),
+      ];
+      
+      bool isParticipantMessage = false;
+      for (final pattern in patterns) {
+        if (pattern.hasMatch(line)) {
+          isParticipantMessage = true;
+          break;
+        }
+      }
+      
+      if (isParticipantMessage) {
+        filteredLines.add(line);
+      }
+    }
+    
+    return filteredLines.join('\n');
+  }
+
   // Metin dosyası seçme işlemi
   Future<bool?> _pickTextFile() async {
     try {
@@ -1023,161 +1292,78 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       final lines = fileContent.split('\n');
       final estimatedMessageCount = lines.where((line) => line.trim().isNotEmpty).length;
       
-      // Dosya bilgilerini onay dialog'u ile göster
-      final bool shouldContinue = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF352269),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Icon(
-                  Icons.description,
-                  color: const Color(0xFF9D3FFF),
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Dosya Bilgileri',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildInfoRow('Dosya Adı:', pickedFile.name),
-                _buildInfoRow('Dosya Boyutu:', fileSizeText),
-                _buildInfoRow('Tahmini Mesaj Sayısı:', estimatedMessageCount.toString()),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Bu dosya analiz edilecek ve hem normal analiz hem de Wrapped analizi otomatik olarak hazırlanacak.',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(false);
-                },
-                child: Text(
-                  'Başka Dosya Seç',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop(true);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF9D3FFF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  'Analizi Başlat',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ) ?? false;
+      // Dosyadan katılımcıları çıkar
+      final participants = _extractParticipantsFromText(fileContent);
       
-      // Kullanıcı "Başka Dosya Seç" dedi
-      if (!shouldContinue) {
+      // Kişi seçim dialog'unu göster
+      final String? selectedParticipant = await _showParticipantSelectionDialog(
+        participants, 
+        pickedFile.name, 
+        fileSizeText, 
+        estimatedMessageCount
+      );
+      
+      // Kullanıcı iptal ettiyse
+      if (selectedParticipant == null) {
         setState(() {
           _isLoading = false;
         });
         return false;
       }
       
-      if (fileContent.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          Utils.showErrorFeedback(context, 'Metin dosyası boş');
-        }
-        return false;
-      }
-      
-      // ViewModeli al
-      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
-      
-      // Önceki analiz işlemlerini sıfırla
-      viewModel.resetCurrentAnalysis();
-      
-      // Dosya içeriğini zenginleştir
-      fileContent = "---- .txt dosyası içeriği ----\nDosya: ${pickedFile.name}\n\n$fileContent\n---- Dosya içeriği sonu ----";
+             if (fileContent.isEmpty) {
+         if (mounted) {
+           setState(() {
+             _isLoading = false;
+           });
+           Utils.showErrorFeedback(context, 'Metin dosyası boş');
+         }
+         return false;
+       }
+       
+       // Seçilen katılımcıya göre mesajları filtrele
+       String filteredContent = _filterMessagesByParticipant(fileContent, selectedParticipant);
+       
+       // ViewModeli al
+       final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+       
+       // Önceki analiz işlemlerini sıfırla
+       viewModel.resetCurrentAnalysis();
+       
+       // Dosya içeriğini zenginleştir
+       final String analysisNote = selectedParticipant == 'Tüm Katılımcılar' 
+           ? 'Tüm katılımcıların mesajları analiz ediliyor'
+           : '"$selectedParticipant" kişisinin mesajları analiz ediliyor';
+           
+       filteredContent = "---- .txt dosyası içeriği ----\nDosya: ${pickedFile.name}\nAnaliz kapsamı: $analysisNote\n\n$filteredContent\n---- Dosya içeriği sonu ----";
       
       // Normal mesaj analizi + otomatik wrapped analizi
       // NOT: analizSohbetVerisi metodu artık hem normal analiz hem de wrapped analizi yapıyor
       final AiService aiService = AiService();
       
-      try {
-        // Normal mesaj analizi
-        final bool normalAnalysisResult = await viewModel.analyzeMessage(fileContent);
-        
-        if (!normalAnalysisResult) {
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-            Utils.showErrorFeedback(context, 'Normal analiz yapılırken hata oluştu');
-          }
-          return false;
-        }
-        
-        // Wrapped analizi için dosya içeriğini hazırla (orijinal hali)
-        String wrappedFileContent = await file.readAsString();
-        
-        // Wrapped analizi yap ve otomatik olarak kaydet
-        debugPrint('Wrapped analizi otomatik başlatılıyor...');
-        final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(wrappedFileContent);
+             try {
+         // Normal mesaj analizi - filtrelenmiş içerikle
+         final bool normalAnalysisResult = await viewModel.analyzeMessage(filteredContent);
+         
+         if (!normalAnalysisResult) {
+           if (mounted) {
+             setState(() {
+               _isLoading = false;
+             });
+             Utils.showErrorFeedback(context, 'Normal analiz yapılırken hata oluştu');
+           }
+           return false;
+         }
+         
+         // Wrapped analizi için dosya içeriğini hazırla
+         // Eğer spesifik bir kişi seçildiyse onun mesajlarını kullan, yoksa tüm dosyayı kullan
+         String wrappedFileContent = selectedParticipant == 'Tüm Katılımcılar' 
+             ? await file.readAsString() 
+             : filteredContent;
+         
+         // Wrapped analizi yap ve otomatik olarak kaydet
+         debugPrint('Wrapped analizi otomatik başlatılıyor... (Seçilen katılımcı: $selectedParticipant)');
+         final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(wrappedFileContent);
         
         if (wrappedData.isNotEmpty) {
           // Wrapped verileri önbelleğe kaydet
@@ -1191,7 +1377,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             _showDetailedAnalysisResult = normalAnalysisResult;
           });
           
-          Utils.showSuccessFeedback(context, 'Dosya analizi ve Wrapped analizi başarıyla tamamlandı');
+                     final String successMessage = selectedParticipant == 'Tüm Katılımcılar' 
+               ? 'Tüm katılımcıların mesajları başarıyla analiz edildi!'
+               : '"$selectedParticipant" kişisinin mesajları başarıyla analiz edildi!';
+           Utils.showSuccessFeedback(context, successMessage);
           
           // Ana sayfayı güncelleme işlemini biraz geciktir
           Future.delayed(const Duration(milliseconds: 500)).then((_) {
@@ -1280,8 +1469,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     final lastAnalyzedMessage = viewModel.messages
         .where((message) => message.isAnalyzed)
         .toList()
-        ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
-        
+      ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+    
     if (lastAnalyzedMessage.isEmpty) {
       return _buildEmptyState();
     }
