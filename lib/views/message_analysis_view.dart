@@ -1363,7 +1363,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
          
          // Wrapped analizi yap ve otomatik olarak kaydet
          debugPrint('Wrapped analizi otomatik başlatılıyor... (Seçilen katılımcı: $selectedParticipant)');
-         final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(wrappedFileContent);
+         final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(
+           wrappedFileContent,
+           secilenKisi: selectedParticipant,
+         );
         
         if (wrappedData.isNotEmpty) {
           // Wrapped verileri önbelleğe kaydet

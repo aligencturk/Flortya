@@ -812,7 +812,7 @@ class AiService {
       // Kişileri birleştir
       Set<String> uniquePersons = {};
       for (var result in chunkResults) {
-        if (result.persons.isNotEmpty && result.persons != 'Belirtilmemiş') {
+        if (result.persons.isNotEmpty && result.persons != 'Belirtilenmemiş') {
           uniquePersons.add(result.persons);
         }
       }
@@ -2653,9 +2653,22 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
     }
   }
 
-  // Wrapped analizi için özel metod - TÜM DOSYAYI TEK SEFERDE ANALİZ EDER
-  Future<List<Map<String, String>>> wrappedAnaliziYap(String sohbetMetni) async {
+  // Wrapped analizi için özel metod - TÜM DOSYAYI TEK SEFERDE ANALİZ EDE 
+  Future<List<Map<String, String>>> wrappedAnaliziYap(String sohbetMetni, {String? secilenKisi}) async {
     _logger.i('Wrapped analizi başlatılıyor - Dosya boyutu: ${sohbetMetni.length} karakter');
+    
+    // Seçilen kişinin sadece ilk ismini al
+    String? ilkIsim;
+    List<String> digerKisiIsimleri = [];
+    
+    if (secilenKisi != null && secilenKisi != 'Tüm Katılımcılar') {
+      ilkIsim = secilenKisi.split(' ').first.trim();
+      _logger.i('Wrapped analizi kişiye özel yapılıyor: $ilkIsim');
+      
+      // Sohbet metninden diğer katılımcıları çıkar
+      digerKisiIsimleri = _extractOtherParticipants(sohbetMetni, secilenKisi);
+      _logger.i('Diğer katılımcılar: $digerKisiIsimleri');
+    }
     
     try {
       // İptal kontrolü
@@ -2682,13 +2695,40 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
       
       String apiUrl = _getApiUrl();
       
+      // Kişiye özel prompt hazırla
+      String kisiAnalizi = '';
+      if (ilkIsim != null) {
+        String digerKisilerText = '';
+        if (digerKisiIsimleri.isNotEmpty) {
+          if (digerKisiIsimleri.length == 1) {
+            digerKisilerText = ', diğer kişi için "${digerKisiIsimleri.first}" ismini kullan';
+          } else {
+            digerKisilerText = ', diğer kişiler için ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan';
+          }
+        } else {
+          digerKisilerText = ', diğer kişiler için [Arkadaşı] yaz';
+        }
+        
+        kisiAnalizi = '''
+
+📍 ÖZEL ANALİZ TALEBİ:
+Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor. Aşağıdaki kurallara DİKKAT ET:
+- Analizde "$ilkIsim" ismini kullan (kişi1, kişi2 değil!)
+- "$ilkIsim"'ın mesajlarına odaklan
+- "$ilkIsim"'ın konuşma stilini analiz et
+- "$ilkIsim"'ın etkileşim şeklini yorumla$digerKisilerText
+
+ÖRNEK: "$ilkIsim sohbeti daha çok başlatıyor mu?" gibi kişiselleştirilmiş analizler yap.
+''';
+      }
+      
       final prompt = '''
 Sen bir eğlenceli veri analisti olarak görev yapacaksın. Verilen mesajlaşma geçmişini DETAYLIYLA ANALİZ EDEREK Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ bir özet hazırlayacaksın.
 
 GERÇEKÇİ VERİLER:
 - İlk Mesaj Tarihi: $ilkMesajTarihi
 - Son Mesaj Tarihi: $sonMesajTarihi  
-- Toplam Mesaj Sayısı: $toplamMesajSayisi
+- Toplam Mesaj Sayısı: $toplamMesajSayisi$kisiAnalizi
 
 Mesajlaşma geçmişi:
 """
@@ -2710,7 +2750,11 @@ GÖREVLER - AŞAĞIDAKİ HER BİRİNİ EĞLENCELİ ŞEKİLDE YAPMALISIN:
 📌 ÖNEMLİ KURALLAR:
 - TAM OLARAK 10 adet farklı kart oluştur.
 - YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
-- Gerçek alıntılar kullan (gizlilik için isimleri gizle)
+- Gerçek alıntılar kullan${ilkIsim != null 
+  ? (digerKisiIsimleri.isNotEmpty 
+      ? ' ("$ilkIsim" ve ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan)'
+      : ' ("$ilkIsim" ismini kullan, diğerleri için [Arkadaşı] yaz)')
+  : ' (isimleri [Kişi1], [Kişi2] olarak gizle)'}
 - SADECE JSON formatında yanıt ver, açıklama yazma.
 - Her kartta SOMUT VERİLER ve EĞLENCELİ YORUMLAR olmalı.
 - Samimi ve dostça bir dil kullan.
@@ -2730,7 +2774,11 @@ Bu başlıklar için tam 10 kart oluştur (başlık isimleri aynen kullan):
 
 🎯 YARATICILIK KURALLARI:
 - HER YORUM TAMAMEN ORİJİNAL ve YARATICI olsun!
-- Gerçek sohbet verilerinden alıntılar yap (isimleri gizle: [Kişi1], [Kişi2])
+- Gerçek sohbet verilerinden alıntılar yap${ilkIsim != null 
+  ? (digerKisiIsimleri.isNotEmpty
+      ? ' ("$ilkIsim" ve ${digerKisiIsimleri.join(', ')} isimlerini kullan)'
+      : ' ("$ilkIsim" için gerçek isim kullan)')
+  : ' (isimleri gizle: [Kişi1], [Kişi2])'}
 - Samimi, dostça, eğlenceli bir dil kullan
 - Her kart için farklı emojiler ve ifadeler kullan
 - Statik şablonlar KULLANMA, her seferinde farklı yorumlar yap!
@@ -4638,5 +4686,63 @@ YANIT FORMATI (doğrudan JSON dizi):
      return fixed;
    }
 
+  // Sohbet metninden diğer katılımcıları çıkaran yardımcı metod
+  List<String> _extractOtherParticipants(String content, String secilenKisi) {
+    Set<String> participants = {};
+    
+    // WhatsApp mesaj formatları:
+    // Format 1: [Tarih, Saat] Kişi: Mesaj
+    // Format 2: Tarih, Saat - Kişi: Mesaj  
+    // Format 3: Kişi (Tarih Saat): Mesaj
+    
+    final List<RegExp> patterns = [
+      // [25.12.2023, 14:30:45] Ahmet: Merhaba
+      RegExp(r'\[.*?\]\s*([^:]+):'),
+      
+      // 25.12.2023, 14:30 - Ahmet: Merhaba
+      RegExp(r'\d{1,2}[\.\\/]\d{1,2}[\.\\/]\d{2,4}[,\s]+\d{1,2}:\d{2}\s*-\s*([^:]+):'),
+      
+      // Ahmet (25.12.2023 14:30): Merhaba
+      RegExp(r'([^(]+)\s*\([^)]*\d{1,2}[\.\\/]\d{1,2}[\.\\/]\d{2,4}[^)]*\):'),
+      
+      // Basit format: Ahmet: Merhaba
+      RegExp(r'^([^:<>\n\r]+):'),
+    ];
+    
+    final List<String> lines = content.split('\n');
+    
+    for (String line in lines) {
+      line = line.trim();
+      if (line.isEmpty) continue;
+      
+      for (RegExp pattern in patterns) {
+        final RegExpMatch? match = pattern.firstMatch(line);
+        if (match != null) {
+          String participantName = match.group(1)?.trim() ?? '';
+          if (participantName.isNotEmpty) {
+            // Sistem mesajlarını filtrele
+            if (!participantName.toLowerCase().contains('sohbet') &&
+                !participantName.toLowerCase().contains('grup') &&
+                !participantName.toLowerCase().contains('admin') &&
+                !participantName.toLowerCase().contains('system') &&
+                !participantName.toLowerCase().contains('whatsapp') &&
+                participantName.length > 1) {
+              participants.add(participantName);
+            }
+          }
+          break; // İlk eşleşen pattern'i bulduk, diğerlerini dene
+        }
+      }
+    }
+    
+    // Seçilen kişiyi çıkar ve sadece diğerlerini döndür
+    List<String> digerKisiler = participants
+        .where((name) => name != secilenKisi)
+        .map((name) => name.split(' ').first.trim()) // Sadece ilk isim
+        .where((name) => name.isNotEmpty)
+        .toList();
+    
+    return digerKisiler;
+  }
 
  }
