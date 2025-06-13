@@ -48,6 +48,7 @@ class MessageViewModel extends ChangeNotifier {
   analysis.AnalysisResult? _currentAnalysisResult;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isAnalysisCancelled = false;
 
   // Getters
   List<Message> get messages => _messages;
@@ -659,9 +660,21 @@ class MessageViewModel extends ChangeNotifier {
         return false;
       }
       
+      // İptal kontrolü
+      if (_isAnalysisCancelled) {
+        _logger.i('Analiz iptal edildi, işlem durduruluyor');
+        return false;
+      }
+      
       // API'ye gönder ve sonucu al
       _logger.i('AI servisine analiz isteği gönderiliyor');
       final analysisResult = await _aiService.analyzeMessage(content);
+      
+      // Analiz sonrası iptal kontrolü
+      if (_isAnalysisCancelled) {
+        _logger.i('Analiz tamamlandı ama iptal edildi, sonuç kaydedilmeyecek');
+        return false;
+      }
       
       // Sonucu kontrol et
       if (analysisResult == null) {
@@ -1886,6 +1899,16 @@ class MessageViewModel extends ChangeNotifier {
     _logger.i('Mevcut analiz durumu sıfırlanıyor');
     _currentMessage = null;
     _currentAnalysisResult = null;
+    _isAnalysisCancelled = false;
+    notifyListeners();
+  }
+  
+  // Analizi iptal et
+  void cancelAnalysis() {
+    _logger.i('MessageViewModel: Analiz iptal ediliyor');
+    _isAnalysisCancelled = true;
+    _isLoading = false;
+    _aiService.cancelAnalysis(); // AiService'deki analizi de iptal et
     notifyListeners();
   }
 

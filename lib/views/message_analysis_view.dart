@@ -603,14 +603,29 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
                           ElevatedButton(
               onPressed: () async {
-                                 // AiService'den analizi iptal et
-                 try {
-                   final aiService = AiService();
-                   aiService.cancelAnalysis();
-                   debugPrint('Analiz iptal edildi');
-                 } catch (e) {
-                   debugPrint('Analiz iptal edilirken hata: $e');
-                 }
+                // Tüm analizleri iptal et
+                try {
+                  // AiService'den analizi iptal et
+                  final aiService = AiService();
+                  aiService.cancelAnalysis();
+                  debugPrint('AiService analizi iptal edildi');
+                  
+                  // MessageViewModel'deki analizi iptal et
+                  final messageViewModel = Provider.of<MessageViewModel>(context, listen: false);
+                  messageViewModel.cancelAnalysis();
+                  debugPrint('MessageViewModel analizi iptal edildi');
+                  
+                  // Loading durumunu sıfırla
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                  
+                  debugPrint('Tüm analizler iptal edildi');
+                } catch (e) {
+                  debugPrint('Analiz iptal edilirken hata: $e');
+                }
                 Navigator.of(context).pop(true); // Çık
               },
               style: ElevatedButton.styleFrom(
