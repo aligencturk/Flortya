@@ -639,6 +639,11 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
   List<Map<String, String>> _summaryData = [];
   bool _isTxtFile = false; // .txt dosyası olup olmadığını takip etmek için
   
+  // Katılımcı seçimi için yeni değişkenler
+  List<String> _participants = [];
+  String? _selectedParticipant;
+  bool _isParticipantsExtracted = false;
+  
   // Cache için değişkenler
   static const String WRAPPED_CACHE_KEY = 'wrappedCacheData';
   static const String WRAPPED_CACHE_CONTENT_KEY = 'wrappedCacheContent';
@@ -765,6 +770,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
            line.contains(':'))
         ).length;
         
+        // Katılımcıları çıkar
+        final participants = _extractParticipantsFromText(content);
+        
         // Onaylama dialogu göster
         if (context.mounted) {
           final bool? shouldProceed = await showDialog<bool>(
@@ -780,9 +788,11 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                   Text('📊 Boyut: ${sizeInMB.toStringAsFixed(2)} MB'),
                   const SizedBox(height: 8),
                   Text('💬 Tahmini mesaj sayısı: $messageCount'),
+                  const SizedBox(height: 8),
+                  Text('👥 Katılımcı sayısı: ${participants.length}'),
                   const SizedBox(height: 16),
                   const Text(
-                    'Dosya başarıyla yüklendi. Analiz yapmak için "Analizi Başlat" butonuna basabilirsiniz.',
+                    'Dosya başarıyla yüklendi. Katılımcı seçimi için "Devam Et" butonuna basabilirsiniz.',
                     style: TextStyle(fontSize: 14, color: Colors.black87),
                   ),
                 ],
@@ -798,7 +808,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                     backgroundColor: const Color(0xFF6A11CB),
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Tamam'),
+                  child: const Text('Devam Et'),
                 ),
               ],
             ),
@@ -812,6 +822,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
               _summaryData = [];
               _errorMessage = '';
               _isTxtFile = false;
+              _participants = [];
+              _selectedParticipant = null;
+              _isParticipantsExtracted = false;
             });
             return;
           }
@@ -820,13 +833,478 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         setState(() {
           _fileContent = content;
           _errorMessage = '';
+          _participants = participants;
+          _isParticipantsExtracted = true;
         });
+        
+        // Katılımcı seçim dialogunu göster
+        if (participants.length > 1) {
+          await _showParticipantSelectionDialog();
+        } else if (participants.length == 1) {
+          setState(() {
+            _selectedParticipant = participants.first;
+          });
+        } else {
+          setState(() {
+            _selectedParticipant = 'Tüm Katılımcılar';
+          });
+        }
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Dosya okunurken bir hata oluştu: $e';
       });
       _logger.e('Dosya okuma hatası', e);
+    }
+  }
+  
+  // WhatsApp mesajlarından katılımcıları çıkaran fonksiyon
+  List<String> _extractParticipantsFromText(String content) {
+    Set<String> participants = {};
+    Map<String, int> participantFrequency = {}; // Mesaj sayısını takip et
+    
+    final lines = content.split('\n');
+    _logger.i('Toplam ${lines.length} satır analiz ediliyor...');
+    
+    int validMessageLines = 0;
+    int invalidLines = 0;
+    
+    for (String line in lines) {
+      line = line.trim();
+      if (line.isEmpty) continue;
+      
+      // WhatsApp mesaj formatlarını kontrol et
+      String? participantName = _extractParticipantFromLine(line);
+      
+      if (participantName != null && participantName.isNotEmpty) {
+        if (_isValidParticipantName(participantName)) {
+          participants.add(participantName);
+          participantFrequency[participantName] = (participantFrequency[participantName] ?? 0) + 1;
+          validMessageLines++;
+        } else {
+          invalidLines++;
+          if (invalidLines < 10) { // İlk 10 geçersiz satırı logla
+            _logger.d('Geçersiz katılımcı adı: "$participantName" satır: "${line.length > 100 ? line.substring(0, 100) + "..." : line}"');
+          }
+        }
+      }
+    }
+    
+    _logger.i('Analiz sonuçları:');
+    _logger.i('- Geçerli mesaj satırı: $validMessageLines');
+    _logger.i('- Geçersiz satır: $invalidLines');
+    _logger.i('- Bulunan benzersiz katılımcı: ${participants.length}');
+    
+    // Katılımcı sıklıklarını logla
+    var sortedParticipants = participantFrequency.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    _logger.i('En aktif katılımcılar:');
+    for (var entry in sortedParticipants.take(10)) {
+      _logger.i('- ${entry.key}: ${entry.value} mesaj');
+    }
+    
+    // Eğer çok fazla katılımcı varsa (büyük ihtimalle hatalı parsing), filtrele
+    if (participants.length > 15) {
+      _logger.w('Çok fazla katılımcı bulundu (${participants.length}), filtreleme yapılıyor...');
+      return _filterRelevantParticipants(sortedParticipants);
+    }
+    
+    return participants.toList()..sort();
+  }
+  
+  // Tek bir satırdan katılımcı adını çıkar
+  String? _extractParticipantFromLine(String line) {
+    // WhatsApp mesaj formatları - sadece iki nokta öncesi önemli
+    
+    // Format 1: [25/12/2023, 14:30:45] Ahmet: Mesaj
+    RegExp format1 = RegExp(r'^\[([^\]]+)\]\s*([^:]+):(.*)$');
+    Match? match1 = format1.firstMatch(line);
+    if (match1 != null) {
+      String nameWithDate = match1.group(2)?.trim() ?? '';
+      // Tarih/saat bilgilerini temizle
+      String cleanName = _cleanParticipantName(nameWithDate);
+      return cleanName;
+    }
+    
+    // Format 2: 25/12/2023, 14:30 - Ahmet: Mesaj
+    RegExp format2 = RegExp(r'^(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4})[,\s]+(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–]\s*([^:]+):(.*)$');
+    Match? match2 = format2.firstMatch(line);
+    if (match2 != null) {
+      String name = match2.group(3)?.trim() ?? '';
+      return _cleanParticipantName(name);
+    }
+    
+    // Format 3: 25.12.2023 14:30 - Ahmet: Mesaj
+    RegExp format3 = RegExp(r'^(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–]\s*([^:]+):(.*)$');
+    Match? match3 = format3.firstMatch(line);
+    if (match3 != null) {
+      String name = match3.group(3)?.trim() ?? '';
+      return _cleanParticipantName(name);
+    }
+    
+    // Format 4: Basit format - Ahmet: Mesaj (tarih olmadan, sadece isim kontrolü yaparak)
+    if (!line.contains('[') && !RegExp(r'^\d{1,2}[\.\/]\d{1,2}').hasMatch(line)) {
+      RegExp simpleFormat = RegExp(r'^([^:]+):(.+)$');
+      Match? simpleMatch = simpleFormat.firstMatch(line);
+      if (simpleMatch != null) {
+        String name = simpleMatch.group(1)?.trim() ?? '';
+        // Bu format için daha sıkı kontrol
+        if (name.length > 1 && name.length < 30 && !name.contains('/') && !name.contains('\\')) {
+          return _cleanParticipantName(name);
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  // Katılımcı adını temizle
+  String _cleanParticipantName(String name) {
+    // Tarih ve saat bilgilerini temizle
+    name = name.replaceAll(RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}'), '');
+    name = name.replaceAll(RegExp(r'\d{1,2}:\d{2}(?::\d{2})?'), '');
+    
+    // Özel karakterleri temizle
+    name = name.replaceAll(RegExp(r'[,\-–\[\]()]+'), '');
+    
+    // Çoklu boşlukları tek boşluk yap
+    name = name.replaceAll(RegExp(r'\s+'), ' ');
+    
+    return name.trim();
+  }
+  
+  // Geçerli katılımcı adı kontrolü - daha sıkı kurallar
+  bool _isValidParticipantName(String name) {
+    if (name.isEmpty || name.length < 2 || name.length > 40) return false;
+    
+    // Sadece sayılardan oluşan isimler
+    if (RegExp(r'^\d+$').hasMatch(name)) return false;
+    
+    // Çok fazla sayı içeren isimler (%50'den fazla)
+    int digitCount = RegExp(r'\d').allMatches(name).length;
+    if (digitCount > name.length * 0.5) return false;
+    
+    // Yasaklı kelimeler (case-insensitive)
+    final List<String> bannedWords = [
+      'whatsapp', 'message', 'system', 'admin', 'notification', 'grup', 'group',
+      'genre', 'plot', 'title', 'year', 'movie', 'film', 'episode', 'season',
+      'series', 'video', 'audio', 'image', 'document', 'location', 'contact',
+      'call', 'missed', 'left', 'joined', 'changed', 'removed', 'added',
+      'created', 'deleted', 'silindi', 'eklendi', 'çıktı', 'katıldı',
+      'http', 'https', 'www', 'com', 'org', 'net', 'download', 'upload',
+      'link', 'url', 'file', 'dosya', 'resim', 'ses', 'video'
+    ];
+    
+    String lowerName = name.toLowerCase();
+    for (String banned in bannedWords) {
+      if (lowerName.contains(banned)) return false;
+    }
+    
+    // URL benzeri yapılar
+    if (name.contains('://') || name.contains('.com') || name.contains('.org') || name.contains('.net')) {
+      return false;
+    }
+    
+    // Dosya yolu benzeri
+    if (name.contains('/') || name.contains('\\')) return false;
+    
+    // Çok fazla özel karakter (Latin harfler, Türkçe karakterler ve boşluk hariç)
+    int specialCharCount = RegExp(r'[^a-zA-ZğüşöçıİĞÜŞÖÇ\s]').allMatches(name).length;
+    if (specialCharCount > 3) return false;
+    
+    // Telefon numarası benzeri
+    if (RegExp(r'^\+?\d[\d\s\-()]{7,}$').hasMatch(name)) return false;
+    
+    return true;
+  }
+  
+  // En ilgili katılımcıları filtrele
+  List<String> _filterRelevantParticipants(List<MapEntry<String, int>> sortedParticipants) {
+    // En az 3 mesaj göndermiş ve en fazla 10 kişi
+    List<String> filtered = sortedParticipants
+        .where((entry) => entry.value >= 3) // En az 3 mesaj
+        .take(10) // En fazla 10 kişi
+        .map((entry) => entry.key)
+        .toList();
+    
+    _logger.i('Filtreleme sonrası ${filtered.length} katılımcı kaldı:');
+    for (int i = 0; i < filtered.length; i++) {
+      var participant = sortedParticipants[i];
+      _logger.i('${i + 1}. ${participant.key}: ${participant.value} mesaj');
+    }
+    
+    return filtered;
+  }
+
+  // Hassas bilgileri sansürleyen fonksiyon
+  String _sansurleHassasBilgiler(String metin) {
+    // TC Kimlik Numarası (11 haneli sayı)
+    metin = metin.replaceAll(RegExp(r'\b\d{11}\b'), '***********');
+    
+    // Kredi Kartı Numarası (16 haneli, boşluk/tire ile ayrılmış olabilir)
+    metin = metin.replaceAll(RegExp(r'\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b'), '**** **** **** ****');
+    
+    // Telefon Numarası (Türkiye formatları)
+    metin = metin.replaceAll(RegExp(r'\b(\+90|0)[\s\-]?\d{3}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}\b'), '0*** *** ** **');
+    
+    // IBAN (TR ile başlayan 26 karakter)
+    metin = metin.replaceAll(RegExp(r'\bTR\d{24}\b'), 'TR** **** **** **** **** **');
+    
+    // E-posta adresleri (kısmi sansür)
+    metin = metin.replaceAllMapped(RegExp(r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b'), 
+        (match) {
+          String email = match.group(0)!;
+          int atIndex = email.indexOf('@');
+          if (atIndex > 2) {
+            String username = email.substring(0, atIndex);
+            String domain = email.substring(atIndex);
+            String maskedUsername = username.substring(0, 2) + '*' * (username.length - 2);
+            return maskedUsername + domain;
+          }
+          return '***@***';
+        });
+    
+    // Şifre benzeri ifadeler (şifre, password, pin kelimelerinden sonra gelen değerler)
+    metin = metin.replaceAllMapped(RegExp(r'(şifre|password|pin|parola|sifre)[\s:=]+[^\s]+', caseSensitive: false), 
+        (match) => match.group(0)!.split(RegExp(r'[\s:=]+'))[0] + ': ****');
+    
+    // Adres bilgileri (mahalle, sokak, cadde içeren uzun metinler)
+    metin = metin.replaceAll(RegExp(r'\b[^.!?]*?(mahalle|sokak|cadde|bulvar|apt|daire|no)[^.!?]*[.!?]?', caseSensitive: false), 
+        '[Adres bilgisi sansürlendi]');
+    
+    // Doğum tarihi (DD/MM/YYYY, DD.MM.YYYY formatları)
+    metin = metin.replaceAll(RegExp(r'\b\d{1,2}[./]\d{1,2}[./](19|20)\d{2}\b'), '**/**/****');
+    
+    // Plaka numaraları (Türkiye formatı)
+    metin = metin.replaceAll(RegExp(r'\b\d{2}[\s]?[A-Z]{1,3}[\s]?\d{2,4}\b'), '** *** ****');
+    
+    // Banka hesap numaraları (uzun sayı dizileri)
+    metin = metin.replaceAllMapped(RegExp(r'\b\d{8,20}\b'), (match) {
+      String number = match.group(0)!;
+      if (number.length >= 8) {
+        return '*' * number.length;
+      }
+      return number;
+    });
+    
+    return metin;
+  }
+
+  // Kişi seçim dialog'unu göster
+  Future<void> _showParticipantSelectionDialog() async {
+    if (_participants.isEmpty) {
+      setState(() {
+        _selectedParticipant = 'Tüm Katılımcılar';
+      });
+      return;
+    }
+    
+    final String? result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        String? selectedInDialog = _participants.isNotEmpty ? _participants.first : null;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF352269),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(
+                    Icons.group,
+                    color: Color(0xFF9D3FFF),
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Katılımcı Seçimi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dosyada ${_participants.length} katılımcı bulundu:',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: _participants.map((name) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9D3FFF).withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    Text(
+                      'Wrapped analizinde hangi katılımcıya odaklanmak istiyorsunuz?',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Tüm katılımcılar seçeneği
+                    RadioListTile<String>(
+                      value: 'Tüm Katılımcılar',
+                      groupValue: selectedInDialog,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedInDialog = value;
+                        });
+                      },
+                      title: const Text(
+                        'Tüm Katılımcılar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Genel sohbet analizi yap',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                      activeColor: const Color(0xFF9D3FFF),
+                    ),
+                    
+                    const Divider(color: Colors.white24),
+                    
+                    // Katılımcılar listesi
+                    ..._participants.map((participant) {
+                      return RadioListTile<String>(
+                        value: participant,
+                        groupValue: selectedInDialog,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedInDialog = value;
+                          });
+                        },
+                        title: Text(
+                          participant,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Bu kişiye odaklı analiz yap',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 12,
+                          ),
+                        ),
+                        activeColor: const Color(0xFF9D3FFF),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(null);
+                  },
+                  child: Text(
+                    'İptal',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: selectedInDialog != null ? () {
+                    Navigator.of(context).pop(selectedInDialog);
+                  } : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9D3FFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Seç',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    
+    if (result != null) {
+      setState(() {
+        _selectedParticipant = result;
+      });
+    } else {
+      // Dialog iptal edildi, dosyayı sıfırla
+      setState(() {
+        _selectedFile = null;
+        _fileContent = '';
+        _summaryData = [];
+        _errorMessage = '';
+        _isTxtFile = false;
+        _participants = [];
+        _selectedParticipant = null;
+        _isParticipantsExtracted = false;
+      });
     }
   }
   
@@ -838,6 +1316,13 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
       return;
     }
     
+    if (!_isParticipantsExtracted || _selectedParticipant == null) {
+      setState(() {
+        _errorMessage = 'Lütfen önce katılımcı seçimi yapın';
+      });
+      return;
+    }
+    
     setState(() {
       _isAnalyzing = true;
       _isAnalysisCancelled = false; // İptal durumunu sıfırla
@@ -845,7 +1330,10 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     });
     
     try {
-      final result = await _aiService.wrappedAnaliziYap(_fileContent);
+      // Hassas bilgileri sansürle
+      String sansurluIcerik = _sansurleHassasBilgiler(_fileContent);
+      
+      final result = await _aiService.wrappedAnaliziYap(sansurluIcerik, secilenKisi: _selectedParticipant);
       
       // Analiz iptal edilmişse işlemi durdu
       if (_isAnalysisCancelled) {
@@ -1072,7 +1560,7 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
             
             _logger.i('Önbellekten ${_summaryData.length} analiz sonucu yüklendi');
             
-            // SharedPreferences'dan yüklenen verileri Firestore'a da kaydet
+            // SharedPreferences'tan yüklenen verileri Firestore'a da kaydet
             await _wrappedService.saveWrappedAnalysis(
               summaryData: _summaryData,
               fileContent: _fileContent,
@@ -1327,17 +1815,56 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                                 ),
                               ),
                               
-                              if (_selectedFile != null) ...[
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Seçilen Dosya: ${_selectedFile!.path.split('/').last}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black54,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ]
+                                            if (_selectedFile != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Seçilen Dosya: ${_selectedFile!.path.split('/').last}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                if (_isParticipantsExtracted && _selectedParticipant != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6A11CB).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF6A11CB).withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.person,
+                          size: 16,
+                          color: Color(0xFF6A11CB),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Seçilen: $_selectedParticipant',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6A11CB),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => _showParticipantSelectionDialog(),
+                          child: const Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: Color(0xFF6A11CB),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ]
                             ],
                           ),
                         ),
@@ -1394,14 +1921,14 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                         
                         const SizedBox(height: 24),
                         
-                        // Analiz Başlat ve Başka Dosya Seç Butonları
+                                                  // Analiz Başlat ve Başka Dosya Seç Butonları
                         Row(
                           children: [
                             // Analiz Başlat Butonu
                             Expanded(
                               flex: 2,
                               child: ElevatedButton.icon(
-                                onPressed: _isAnalyzing ? null : _analyzeChatContent,
+                                onPressed: (_isAnalyzing || !_isParticipantsExtracted || _selectedParticipant == null) ? null : _analyzeChatContent,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF9D3FFF),
                                   foregroundColor: Colors.white,
@@ -1446,6 +1973,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
                                     _summaryData = [];
                                     _errorMessage = '';
                                     _isTxtFile = false;
+                                    _participants = [];
+                                    _selectedParticipant = null;
+                                    _isParticipantsExtracted = false;
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -1728,6 +2258,9 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
         _summaryData = [];
         _isTxtFile = false;
         _errorMessage = '';
+        _participants = [];
+        _selectedParticipant = null;
+        _isParticipantsExtracted = false;
       });
       
       _logger.i('Tüm veriler başarıyla sıfırlandı');

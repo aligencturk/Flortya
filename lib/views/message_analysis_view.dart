@@ -995,61 +995,290 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     }
   }
   
-  // WhatsApp mesajlarından katılımcıları çıkaran fonksiyon
+  // WhatsApp mesajlarından katılımcıları çıkaran fonksiyon - SADECE SOL TARAFTAKİ İSİMLER
   List<String> _extractParticipantsFromText(String content) {
     Set<String> participants = {};
-    
-    // WhatsApp mesaj formatları:
-    // Format 1: [Tarih, Saat] Kişi: Mesaj
-    // Format 2: Tarih, Saat - Kişi: Mesaj  
-    // Format 3: Kişi (Tarih Saat): Mesaj
-    
-    final List<RegExp> patterns = [
-      // [25.12.2023, 14:30:45] Ahmet: Merhaba
-      RegExp(r'\[.*?\]\s*([^:]+):'),
-      
-      // 25.12.2023, 14:30 - Ahmet: Merhaba
-      RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[,\s]+\d{1,2}:\d{2}\s*-\s*([^:]+):'),
-      
-      // Ahmet (25.12.2023 14:30): Merhaba
-      RegExp(r'([^(]+)\s*\([^)]*\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[^)]*\):'),
-      
-      // Basit format: Ahmet: Merhaba
-      RegExp(r'^([^:\[\]]+):'),
-    ];
+    Map<String, int> participantFrequency = {}; // Mesaj sayısını takip et
     
     final lines = content.split('\n');
+    debugPrint('=== KATILIMCI ÇIKARMA BAŞLIYOR ===');
+    debugPrint('Toplam ${lines.length} satır analiz ediliyor...');
     
-    for (final line in lines) {
-      if (line.trim().isEmpty) continue;
+    int validMessageLines = 0;
+    int invalidLines = 0;
+    int rejectedDueToFormat = 0;
+    int rejectedDueToValidation = 0;
+    
+    for (String line in lines) {
+      line = line.trim();
+      if (line.isEmpty) continue;
       
-      for (final pattern in patterns) {
-        final match = pattern.firstMatch(line);
-        if (match != null && match.groupCount >= 1) {
-          String participant = match.group(1)!.trim();
-          
-          // Temizlik işlemleri
-          participant = participant.replaceAll(RegExp(r'^\[|\]$'), ''); // Köşeli parantezleri temizle
-          participant = participant.replaceAll(RegExp(r'^\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[,\s]*'), ''); // Tarihleri temizle
-          participant = participant.replaceAll(RegExp(r'\d{1,2}:\d{2}'), ''); // Saatleri temizle
-          participant = participant.replaceAll(RegExp(r'[,\-\s]+$'), ''); // Son kısımdaki gereksizleri temizle
-          participant = participant.trim();
-          
-          if (participant.isNotEmpty && 
-              participant.length > 1 && 
-              participant.length < 50 && // Çok uzun isimleri filtrele
-              !RegExp(r'^\d+$').hasMatch(participant) && // Sadece sayı olanları filtrele
-              !participant.toLowerCase().contains('whatsapp') &&
-              !participant.toLowerCase().contains('message') &&
-              !participant.toLowerCase().contains('system')) {
-            participants.add(participant);
-          }
-          break; // İlk eşleşme bulundu, diğer pattern'leri deneme
+      // WhatsApp mesaj formatlarını kontrol et
+      String? participantName = _extractParticipantFromLine(line);
+      
+      if (participantName == null) {
+        rejectedDueToFormat++;
+        continue;
+      }
+      
+      if (participantName.isNotEmpty) {
+        if (_isValidParticipantName(participantName)) {
+          participants.add(participantName);
+          participantFrequency[participantName] = (participantFrequency[participantName] ?? 0) + 1;
+          validMessageLines++;
+          // Debug log kaldırıldı - çok fazla spam yapıyor
+        } else {
+          rejectedDueToValidation++;
+                      // Debug log kaldırıldı - çok fazla spam yapıyor
         }
       }
     }
     
+    debugPrint('=== KATILIMCI ÇIKARMA SONUÇLARI ===');
+    debugPrint('- Geçerli mesaj satırı: $validMessageLines');
+    debugPrint('- Format hatası sebebiyle reddedilen: $rejectedDueToFormat');
+    debugPrint('- Validasyon hatası sebebiyle reddedilen: $rejectedDueToValidation');
+    debugPrint('- Bulunan benzersiz katılımcı: ${participants.length}');
+    
+    // Katılımcı sıklıklarını logla
+    var sortedParticipants = participantFrequency.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    debugPrint('🏆 En aktif katılımcılar:');
+    for (var entry in sortedParticipants.take(10)) {
+      debugPrint('  - ${entry.key}: ${entry.value} mesaj');
+    }
+    
+    // Eğer çok fazla katılımcı varsa (büyük ihtimalle hatalı parsing), filtrele
+    if (participants.length > 10) {
+      debugPrint('⚠️ Çok fazla katılımcı bulundu (${participants.length}), filtreleme uygulanıyor...');
+      return _filterRelevantParticipants(sortedParticipants);
+    }
+    
+    debugPrint('✅ FINAL KATILIMCI LİSTESİ: ${participants.toList()}');
     return participants.toList()..sort();
+  }
+  
+  // Tek bir satırdan katılımcı adını çıkar - SADECE GERÇEKTen WhatsApp formatlarından
+  String? _extractParticipantFromLine(String line) {
+    // SADECE doğrulanmış WhatsApp export formatları kabul edilir
+    
+    // Format 1: [25/12/2023, 14:30:45] Ahmet: Mesaj (Ana WhatsApp export formatı)
+    RegExp format1 = RegExp(r'^\[(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?)\]\s*([^:]+):\s*(.+)$');
+    Match? match1 = format1.firstMatch(line);
+    if (match1 != null) {
+      String name = match1.group(3)?.trim() ?? '';
+      if (_hasValidWhatsAppNameStructure(name)) {
+        return _cleanParticipantName(name);
+      }
+    }
+    
+    // Format 2: 25/12/2023, 14:30 - Ahmet: Mesaj (İkinci yaygın format)
+    RegExp format2 = RegExp(r'^(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}),?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–]\s*([^:]+):\s*(.+)$');
+    Match? match2 = format2.firstMatch(line);
+    if (match2 != null) {
+      String name = match2.group(3)?.trim() ?? '';
+      if (_hasValidWhatsAppNameStructure(name)) {
+        return _cleanParticipantName(name);
+      }
+    }
+    
+    // Diğer formatları KABUL ETMİYORUZ - çok riskli
+    return null;
+  }
+  
+  // WhatsApp isim yapısının geçerli olup olmadığını kontrol et
+  bool _hasValidWhatsAppNameStructure(String name) {
+    if (name.isEmpty || name.length < 2 || name.length > 30) return false;
+    
+    // Tarih/saat kalıntısı varsa reddet
+    if (RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}').hasMatch(name)) return false;
+    if (RegExp(r'\d{1,2}:\d{2}').hasMatch(name)) return false;
+    
+    // Çok fazla sayı içeriyorsa reddet (%30'dan fazla)
+    int digitCount = RegExp(r'\d').allMatches(name).length;
+    if (digitCount > name.length * 0.3) return false;
+    
+    // Özel karakterlerin çok olduğu durumları reddet
+    int specialCharCount = RegExp(r'[^\w\sğüşöçıİĞÜŞÖÇ]').allMatches(name).length;
+    if (specialCharCount > 2) return false;
+    
+    // Sadece büyük harflerden oluşan kelimeler (TITLE, GENRE gibi) muhtemelen geçersiz
+    if (name.length > 4 && name == name.toUpperCase() && !RegExp(r'\d').hasMatch(name)) {
+      return false;
+    }
+    
+    // İngilizce teknik terimler (WhatsApp'ta isim olarak kullanılmaz)
+    final List<String> technicalTerms = [
+      'genre', 'plot', 'title', 'year', 'movie', 'film', 'episode',
+      'season', 'series', 'video', 'audio', 'image', 'document',
+      'file', 'link', 'url', 'http', 'https', 'www', 'com', 'org',
+      'admin', 'system', 'notification', 'message', 'chat', 'group'
+    ];
+    
+    String lowerName = name.toLowerCase();
+    for (String term in technicalTerms) {
+      if (lowerName == term || lowerName.startsWith(term + ' ') || lowerName.endsWith(' ' + term)) {
+        return false;
+      }
+    }
+    
+    // Çok uzun kelimeler (tek kelime 15+ karakter) muhtemelen geçersiz
+    List<String> words = name.split(' ');
+    for (String word in words) {
+      if (word.length > 15) return false;
+    }
+    
+    return true;
+  }
+  
+  // Katılımcı adını temizle
+  String _cleanParticipantName(String name) {
+    // Tarih ve saat bilgilerini temizle
+    name = name.replaceAll(RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}'), '');
+    name = name.replaceAll(RegExp(r'\d{1,2}:\d{2}(?::\d{2})?'), '');
+    
+    // Özel karakterleri temizle
+    name = name.replaceAll(RegExp(r'[,\-–\[\]()]+'), '');
+    
+    // Çoklu boşlukları tek boşluk yap
+    name = name.replaceAll(RegExp(r'\s+'), ' ');
+    
+    return name.trim();
+  }
+  
+  // Geçerli katılımcı adı kontrolü - ÇOK SIKTI kurallar (sadece gerçek WhatsApp isimleri)
+  bool _isValidParticipantName(String name) {
+    if (name.isEmpty || name.length < 2 || name.length > 25) return false;
+    
+    // Sadece sayılardan oluşan isimler ASLA
+    if (RegExp(r'^\d+$').hasMatch(name)) return false;
+    
+    // Çok fazla sayı içeren isimler (%20'den fazla)
+    int digitCount = RegExp(r'\d').allMatches(name).length;
+    if (digitCount > name.length * 0.2) return false;
+    
+    // KESIN YASAK kelimeler - tek kelime olarak da geçmez
+    final List<String> strictlyBannedWords = [
+      'genre', 'plot', 'title', 'year', 'movie', 'film', 'episode', 'season',
+      'series', 'video', 'audio', 'image', 'document', 'location', 'contact',
+      'whatsapp', 'message', 'system', 'admin', 'notification', 'grup', 'group',
+      'call', 'missed', 'left', 'joined', 'changed', 'removed', 'added',
+      'created', 'deleted', 'silindi', 'eklendi', 'çıktı', 'katıldı',
+      'http', 'https', 'www', 'com', 'org', 'net', 'download', 'upload',
+      'link', 'url', 'file', 'dosya', 'resim', 'ses', 'music', 'song'
+    ];
+    
+    String lowerName = name.toLowerCase();
+    
+    // Kesin yasak kelimelerden herhangi birini içeriyorsa reddet
+    for (String banned in strictlyBannedWords) {
+      if (lowerName == banned || lowerName.contains(banned)) return false;
+    }
+    
+    // Büyük harfle başlayıp tamamı büyük harf olan kelimeler (teknik terimler)
+    if (name.length > 3 && name == name.toUpperCase()) return false;
+    
+    // URL benzeri yapılar
+    if (name.contains('://') || name.contains('.com') || name.contains('.org') || 
+        name.contains('.net') || name.contains('www.')) return false;
+    
+    // Dosya yolu benzeri
+    if (name.contains('/') || name.contains('\\') || name.contains('.txt') || 
+        name.contains('.jpg') || name.contains('.png')) return false;
+    
+    // Çok fazla özel karakter (sadece 1 özel karaktere izin ver)
+    int specialCharCount = RegExp(r'[^a-zA-ZğüşöçıİĞÜŞÖÇ0-9\s]').allMatches(name).length;
+    if (specialCharCount > 1) return false;
+    
+    // Telefon numarası benzeri
+    if (RegExp(r'^\+?\d[\d\s\-()]{7,}$').hasMatch(name)) return false;
+    
+    // E-mail benzeri
+    if (name.contains('@')) return false;
+    
+    // Sadece boşluk ve özel karakterlerden oluşan
+    if (RegExp(r'^[\s\W]+$').hasMatch(name)) return false;
+    
+    // En az bir harf içermeli (sadece sayı ve özel karakter olamaz)
+    if (!RegExp(r'[a-zA-ZğüşöçıİĞÜŞÖÇ]').hasMatch(name)) return false;
+    
+    // Çok fazla kelime (5+ kelime muhtemelen isim değil)
+    if (name.split(' ').length > 4) return false;
+    
+    return true;
+  }
+  
+  // En ilgili katılımcıları filtrele
+  List<String> _filterRelevantParticipants(List<MapEntry<String, int>> sortedParticipants) {
+    // En az 3 mesaj göndermiş ve en fazla 10 kişi
+    List<String> filtered = sortedParticipants
+        .where((entry) => entry.value >= 3) // En az 3 mesaj
+        .take(10) // En fazla 10 kişi
+        .map((entry) => entry.key)
+        .toList();
+    
+    debugPrint('Filtreleme sonrası ${filtered.length} katılımcı kaldı:');
+    for (int i = 0; i < filtered.length; i++) {
+      var participant = sortedParticipants[i];
+      debugPrint('${i + 1}. ${participant.key}: ${participant.value} mesaj');
+    }
+    
+    return filtered;
+  }
+
+  // Hassas bilgileri sansürleyen fonksiyon
+  String _sansurleHassasBilgiler(String metin) {
+    // TC Kimlik Numarası (11 haneli sayı)
+    metin = metin.replaceAll(RegExp(r'\b\d{11}\b'), '***********');
+    
+    // Kredi Kartı Numarası (16 haneli, boşluk/tire ile ayrılmış olabilir)
+    metin = metin.replaceAll(RegExp(r'\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b'), '**** **** **** ****');
+    
+    // Telefon Numarası (Türkiye formatları)
+    metin = metin.replaceAll(RegExp(r'\b(\+90|0)[\s\-]?\d{3}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}\b'), '0*** *** ** **');
+    
+    // IBAN (TR ile başlayan 26 karakter)
+    metin = metin.replaceAll(RegExp(r'\bTR\d{24}\b'), 'TR** **** **** **** **** **');
+    
+    // E-posta adresleri (kısmi sansür)
+    metin = metin.replaceAllMapped(RegExp(r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b'), 
+        (match) {
+          String email = match.group(0)!;
+          int atIndex = email.indexOf('@');
+          if (atIndex > 2) {
+            String username = email.substring(0, atIndex);
+            String domain = email.substring(atIndex);
+            String maskedUsername = username.substring(0, 2) + '*' * (username.length - 2);
+            return maskedUsername + domain;
+          }
+          return '***@***';
+        });
+    
+    // Şifre benzeri ifadeler (şifre, password, pin kelimelerinden sonra gelen değerler)
+    metin = metin.replaceAllMapped(RegExp(r'(şifre|password|pin|parola|sifre)[\s:=]+[^\s]+', caseSensitive: false), 
+        (match) => match.group(0)!.split(RegExp(r'[\s:=]+'))[0] + ': ****');
+    
+    // Adres bilgileri (mahalle, sokak, cadde içeren uzun metinler)
+    metin = metin.replaceAll(RegExp(r'\b[^.!?]*?(mahalle|sokak|cadde|bulvar|apt|daire|no)[^.!?]*[.!?]?', caseSensitive: false), 
+        '[Adres bilgisi sansürlendi]');
+    
+    // Doğum tarihi (DD/MM/YYYY, DD.MM.YYYY formatları)
+    metin = metin.replaceAll(RegExp(r'\b\d{1,2}[./]\d{1,2}[./](19|20)\d{2}\b'), '**/**/****');
+    
+    // Plaka numaraları (Türkiye formatı)
+    metin = metin.replaceAll(RegExp(r'\b\d{2}[\s]?[A-Z]{1,3}[\s]?\d{2,4}\b'), '** *** ****');
+    
+    // Banka hesap numaraları (uzun sayı dizileri)
+    metin = metin.replaceAllMapped(RegExp(r'\b\d{8,20}\b'), (match) {
+      String number = match.group(0)!;
+      if (number.length >= 8) {
+        return '*' * number.length;
+      }
+      return number;
+    });
+    
+    return metin;
   }
 
   // Kişi seçim dialog'unu göster
@@ -1225,10 +1454,64 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     );
   }
 
-  // Seçilen katılımcıya göre mesajları filtrele
+  // Seçilen katılımcıya göre mesajları filtrele ve diğer katılımcıyı tespit et
+  Map<String, String> _filterMessagesByParticipantWithOther(String content, String selectedParticipant, List<String> allParticipants) {
+    if (selectedParticipant == 'Tüm Katılımcılar') {
+      return {
+        'filteredContent': content,
+        'otherParticipant': '',
+      };
+    }
+    
+    final lines = content.split('\n');
+    final filteredLines = <String>[];
+    
+    // Diğer katılımcıyı bul (seçilen hariç)
+    String otherParticipant = '';
+    for (String participant in allParticipants) {
+      if (participant != selectedParticipant) {
+        otherParticipant = participant;
+        break; // İlk bulunan diğer katılımcıyı al
+      }
+    }
+    
+    for (final line in lines) {
+      if (line.trim().isEmpty) {
+        filteredLines.add(line);
+        continue;
+      }
+      
+      // Bu satır seçilen katılımcıya ait mi kontrol et
+      final patterns = [
+        RegExp(r'\[.*?\]\s*' + RegExp.escape(selectedParticipant) + r':'),
+        RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}[,\s]+\d{1,2}:\d{2}\s*-\s*' + RegExp.escape(selectedParticipant) + r':'),
+        RegExp('^' + RegExp.escape(selectedParticipant) + r'\s*\([^)]*\):'),
+        RegExp('^' + RegExp.escape(selectedParticipant) + r':'),
+      ];
+      
+      bool isParticipantMessage = false;
+      for (final pattern in patterns) {
+        if (pattern.hasMatch(line)) {
+          isParticipantMessage = true;
+          break;
+        }
+      }
+      
+      if (isParticipantMessage) {
+        filteredLines.add(line);
+      }
+    }
+    
+    return {
+      'filteredContent': filteredLines.join('\n'),
+      'otherParticipant': otherParticipant,
+    };
+  }
+
+  // Geriye uyumluluk için eski metod
   String _filterMessagesByParticipant(String content, String selectedParticipant) {
     if (selectedParticipant == 'Tüm Katılımcılar') {
-      return content; // Tüm mesajları döndür
+      return content;
     }
     
     final lines = content.split('\n');
@@ -1336,8 +1619,13 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
          return false;
        }
        
-       // Seçilen katılımcıya göre mesajları filtrele
-       String filteredContent = _filterMessagesByParticipant(fileContent, selectedParticipant);
+       // Seçilen katılımcıya göre mesajları filtrele ve diğer katılımcıyı tespit et
+       final filterResult = _filterMessagesByParticipantWithOther(fileContent, selectedParticipant, participants);
+       String filteredContent = filterResult['filteredContent']!;
+       String otherParticipant = filterResult['otherParticipant']!;
+       
+       // Hassas bilgileri sansürle (güvenlik için)
+       filteredContent = _sansurleHassasBilgiler(filteredContent);
        
        // ViewModeli al
        final viewModel = Provider.of<MessageViewModel>(context, listen: false);
@@ -1345,12 +1633,34 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
        // Önceki analiz işlemlerini sıfırla
        viewModel.resetCurrentAnalysis();
        
-       // Dosya içeriğini zenginleştir
-       final String analysisNote = selectedParticipant == 'Tüm Katılımcılar' 
-           ? 'Tüm katılımcıların mesajları analiz ediliyor'
-           : '"$selectedParticipant" kişisinin mesajları analiz ediliyor';
-           
-       filteredContent = "---- .txt dosyası içeriği ----\nDosya: ${pickedFile.name}\nAnaliz kapsamı: $analysisNote\n\n$filteredContent\n---- Dosya içeriği sonu ----";
+       // Mesaj içeriğini AI için hazırla - seçilen kişiye göre
+       String aiPromptContent;
+       if (selectedParticipant == 'Tüm Katılımcılar') {
+         aiPromptContent = "---- WhatsApp Sohbet Analizi ----\n"
+             "Bu bir WhatsApp sohbet dışa aktarımıdır. Tüm katılımcıların mesajları dahil edilmiştir.\n"
+             "Lütfen bu sohbeti genel olarak analiz edin.\n\n"
+             "$filteredContent\n"
+             "---- Sohbet Sonu ----";
+       } else {
+         // Diğer katılımcı bilgisi varsa onu da belirt
+         String conversationContext = otherParticipant.isNotEmpty 
+             ? "$selectedParticipant'in $otherParticipant ile olan sohbeti"
+             : "$selectedParticipant'in sohbeti";
+             
+         aiPromptContent = "---- WhatsApp Sohbet Analizi ----\n"
+             "Bu bir WhatsApp sohbet dışa aktarımıdır. Sadece '$selectedParticipant' kişisinin mesajları dahil edilmiştir.\n"
+             "Bu $conversationContext analiz ediliyor.\n"
+             "Lütfen bu analizi '$selectedParticipant' kişisinin bakış açısından yapın.\n"
+             "Analiz sonuçlarında '$selectedParticipant' kişisinin mesajlaşma tarzı, duygu durumu ve iletişim yaklaşımına odaklanın.\n";
+             
+         if (otherParticipant.isNotEmpty) {
+           aiPromptContent += "Karşısındaki kişi: $otherParticipant\n";
+         }
+         
+         aiPromptContent += "\n$filteredContent\n---- Sohbet Sonu ----";
+       }
+       
+       filteredContent = aiPromptContent;
       
       // Normal mesaj analizi + otomatik wrapped analizi
       // NOT: analizSohbetVerisi metodu artık hem normal analiz hem de wrapped analizi yapıyor
@@ -1370,22 +1680,34 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
            return false;
          }
          
-         // Wrapped analizi için dosya içeriğini hazırla
-         // Eğer spesifik bir kişi seçildiyse onun mesajlarını kullan, yoksa tüm dosyayı kullan
-         String wrappedFileContent = selectedParticipant == 'Tüm Katılımcılar' 
-             ? await file.readAsString() 
-             : filteredContent;
+         // Wrapped analizi için içeriği hazırla - seçilen kişiye göre
+         String wrappedContent;
+         if (selectedParticipant == 'Tüm Katılımcılar') {
+           // Tüm katılımcılar seçildiyse ham dosya içeriğini kullan
+           wrappedContent = await file.readAsString();
+         } else {
+           // Spesifik kişi seçildiyse, sadece o kişinin mesajlarını kullan
+           // Ama Wrapped için ham WhatsApp formatında olmalı (AI prompt'u olmadan)
+           wrappedContent = _filterMessagesByParticipant(await file.readAsString(), selectedParticipant);
+         }
+         
+         // Wrapped analizi için de hassas bilgileri sansürle
+         wrappedContent = _sansurleHassasBilgiler(wrappedContent);
          
          // Wrapped analizi yap ve otomatik olarak kaydet
-         debugPrint('Wrapped analizi otomatik başlatılıyor... (Seçilen katılımcı: $selectedParticipant)');
+         debugPrint('Wrapped analizi otomatik başlatılıyor...');
+         debugPrint('- Seçilen katılımcı: $selectedParticipant');
+         debugPrint('- Karşısındaki kişi: $otherParticipant');
+         
          final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(
-           wrappedFileContent,
+           wrappedContent,
            secilenKisi: selectedParticipant,
+           karsiKisi: otherParticipant, // Karşısındaki kişiyi de gönder
          );
         
         if (wrappedData.isNotEmpty) {
           // Wrapped verileri önbelleğe kaydet
-                     await _cacheSummaryData(wrappedFileContent, wrappedData);
+                     await _cacheSummaryData(wrappedContent, wrappedData);
           debugPrint('Wrapped analizi tamamlandı ve önbelleğe kaydedildi: ${wrappedData.length} kart');
         }
         

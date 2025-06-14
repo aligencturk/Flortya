@@ -2653,21 +2653,89 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
     }
   }
 
+  // Hassas bilgileri sansürleyen fonksiyon
+  String _sansurleHassasBilgiler(String metin) {
+    // TC Kimlik Numarası (11 haneli sayı)
+    metin = metin.replaceAll(RegExp(r'\b\d{11}\b'), '***********');
+    
+    // Kredi Kartı Numarası (16 haneli, boşluk/tire ile ayrılmış olabilir)
+    metin = metin.replaceAll(RegExp(r'\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b'), '**** **** **** ****');
+    
+    // Telefon Numarası (Türkiye formatları)
+    metin = metin.replaceAll(RegExp(r'\b(\+90|0)[\s\-]?\d{3}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}\b'), '0*** *** ** **');
+    
+    // IBAN (TR ile başlayan 26 karakter)
+    metin = metin.replaceAll(RegExp(r'\bTR\d{24}\b'), 'TR** **** **** **** **** **');
+    
+    // E-posta adresleri (kısmi sansür)
+    metin = metin.replaceAllMapped(RegExp(r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b'), 
+        (match) {
+          String email = match.group(0)!;
+          int atIndex = email.indexOf('@');
+          if (atIndex > 2) {
+            String username = email.substring(0, atIndex);
+            String domain = email.substring(atIndex);
+            String maskedUsername = username.substring(0, 2) + '*' * (username.length - 2);
+            return maskedUsername + domain;
+          }
+          return '***@***';
+        });
+    
+    // Şifre benzeri ifadeler (şifre, password, pin kelimelerinden sonra gelen değerler)
+    metin = metin.replaceAllMapped(RegExp(r'(şifre|password|pin|parola|sifre)[\s:=]+[^\s]+', caseSensitive: false), 
+        (match) => match.group(0)!.split(RegExp(r'[\s:=]+'))[0] + ': ****');
+    
+    // Adres bilgileri (mahalle, sokak, cadde içeren uzun metinler)
+    metin = metin.replaceAll(RegExp(r'\b[^.!?]*?(mahalle|sokak|cadde|bulvar|apt|daire|no)[^.!?]*[.!?]?', caseSensitive: false), 
+        '[Adres bilgisi sansürlendi]');
+    
+    // Doğum tarihi (DD/MM/YYYY, DD.MM.YYYY formatları)
+    metin = metin.replaceAll(RegExp(r'\b\d{1,2}[./]\d{1,2}[./](19|20)\d{2}\b'), '**/**/****');
+    
+    // Plaka numaraları (Türkiye formatı)
+    metin = metin.replaceAll(RegExp(r'\b\d{2}[\s]?[A-Z]{1,3}[\s]?\d{2,4}\b'), '** *** ****');
+    
+    // Banka hesap numaraları (uzun sayı dizileri)
+    metin = metin.replaceAllMapped(RegExp(r'\b\d{8,20}\b'), (match) {
+      String number = match.group(0)!;
+      if (number.length >= 8) {
+        return '*' * number.length;
+      }
+      return number;
+    });
+    
+    return metin;
+  }
+
   // Wrapped analizi için özel metod - TÜM DOSYAYI TEK SEFERDE ANALİZ EDE 
-  Future<List<Map<String, String>>> wrappedAnaliziYap(String sohbetMetni, {String? secilenKisi}) async {
+  Future<List<Map<String, String>>> wrappedAnaliziYap(String sohbetMetni, {String? secilenKisi, String? karsiKisi}) async {
     _logger.i('Wrapped analizi başlatılıyor - Dosya boyutu: ${sohbetMetni.length} karakter');
+    
+    // Hassas bilgileri sansürle
+    sohbetMetni = _sansurleHassasBilgiler(sohbetMetni);
+    _logger.i('Hassas bilgiler sansürlendi');
     
     // Seçilen kişinin sadece ilk ismini al
     String? ilkIsim;
+    String? karsiKisiIsmi;
     List<String> digerKisiIsimleri = [];
     
     if (secilenKisi != null && secilenKisi != 'Tüm Katılımcılar') {
       ilkIsim = secilenKisi.split(' ').first.trim();
       _logger.i('Wrapped analizi kişiye özel yapılıyor: $ilkIsim');
       
-      // Sohbet metninden diğer katılımcıları çıkar
-      digerKisiIsimleri = _extractOtherParticipants(sohbetMetni, secilenKisi);
-      _logger.i('Diğer katılımcılar: $digerKisiIsimleri');
+      // Karşı kişi bilgisi varsa onu da al
+      if (karsiKisi != null && karsiKisi.isNotEmpty) {
+        karsiKisiIsmi = karsiKisi.split(' ').first.trim();
+        _logger.i('Karşısındaki kişi: $karsiKisiIsmi');
+      } else {
+        // Sohbet metninden diğer katılımcıları çıkar
+        digerKisiIsimleri = _extractOtherParticipants(sohbetMetni, secilenKisi);
+        if (digerKisiIsimleri.isNotEmpty) {
+          karsiKisiIsmi = digerKisiIsimleri.first.split(' ').first.trim();
+        }
+        _logger.i('Diğer katılımcılar: $digerKisiIsimleri');
+      }
     }
     
     try {
@@ -2699,20 +2767,29 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
       String kisiAnalizi = '';
       if (ilkIsim != null) {
         String digerKisilerText = '';
-        if (digerKisiIsimleri.isNotEmpty) {
+        String kisiContext = '';
+        
+        // Karşı kişi bilgisi varsa onu kullan, yoksa diğer katılımcıları ara
+        if (karsiKisiIsmi != null && karsiKisiIsmi.isNotEmpty) {
+          digerKisilerText = ', karşısındaki kişi için "$karsiKisiIsmi" ismini kullan';
+          kisiContext = "$ilkIsim'in $karsiKisiIsmi ile olan sohbeti";
+        } else if (digerKisiIsimleri.isNotEmpty) {
           if (digerKisiIsimleri.length == 1) {
             digerKisilerText = ', diğer kişi için "${digerKisiIsimleri.first}" ismini kullan';
+            kisiContext = "$ilkIsim'in ${digerKisiIsimleri.first} ile olan sohbeti";
           } else {
             digerKisilerText = ', diğer kişiler için ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan';
+            kisiContext = "$ilkIsim'in sohbeti";
           }
         } else {
           digerKisilerText = ', diğer kişiler için [Arkadaşı] yaz';
+          kisiContext = "$ilkIsim'in sohbeti";
         }
         
         kisiAnalizi = '''
 
 📍 ÖZEL ANALİZ TALEBİ:
-Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor. Aşağıdaki kurallara DİKKAT ET:
+Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor ($kisiContext). Aşağıdaki kurallara DİKKAT ET:
 - Analizde "$ilkIsim" ismini kullan (kişi1, kişi2 değil!)
 - "$ilkIsim"'ın mesajlarına odaklan
 - "$ilkIsim"'ın konuşma stilini analiz et
@@ -2751,9 +2828,11 @@ GÖREVLER - AŞAĞIDAKİ HER BİRİNİ EĞLENCELİ ŞEKİLDE YAPMALISIN:
 - TAM OLARAK 10 adet farklı kart oluştur.
 - YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
 - Gerçek alıntılar kullan${ilkIsim != null 
-  ? (digerKisiIsimleri.isNotEmpty 
-      ? ' ("$ilkIsim" ve ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan)'
-      : ' ("$ilkIsim" ismini kullan, diğerleri için [Arkadaşı] yaz)')
+  ? (karsiKisiIsmi != null && karsiKisiIsmi.isNotEmpty
+      ? ' ("$ilkIsim" ve "$karsiKisiIsmi" isimlerini kullan)'
+      : (digerKisiIsimleri.isNotEmpty 
+          ? ' ("$ilkIsim" ve ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan)'
+          : ' ("$ilkIsim" ismini kullan, diğerleri için [Arkadaşı] yaz)'))
   : ' (isimleri [Kişi1], [Kişi2] olarak gizle)'}
 - SADECE JSON formatında yanıt ver, açıklama yazma.
 - Her kartta SOMUT VERİLER ve EĞLENCELİ YORUMLAR olmalı.
@@ -2775,9 +2854,11 @@ Bu başlıklar için tam 10 kart oluştur (başlık isimleri aynen kullan):
 🎯 YARATICILIK KURALLARI:
 - HER YORUM TAMAMEN ORİJİNAL ve YARATICI olsun!
 - Gerçek sohbet verilerinden alıntılar yap${ilkIsim != null 
-  ? (digerKisiIsimleri.isNotEmpty
-      ? ' ("$ilkIsim" ve ${digerKisiIsimleri.join(', ')} isimlerini kullan)'
-      : ' ("$ilkIsim" için gerçek isim kullan)')
+  ? (karsiKisiIsmi != null && karsiKisiIsmi.isNotEmpty
+      ? ' ("$ilkIsim" ve "$karsiKisiIsmi" isimlerini kullan)'
+      : (digerKisiIsimleri.isNotEmpty
+          ? ' ("$ilkIsim" ve ${digerKisiIsimleri.join(', ')} isimlerini kullan)'
+          : ' ("$ilkIsim" için gerçek isim kullan)'))
   : ' (isimleri gizle: [Kişi1], [Kişi2])'}
 - Samimi, dostça, eğlenceli bir dil kullan
 - Her kart için farklı emojiler ve ifadeler kullan
@@ -2978,7 +3059,10 @@ DİKKAT:
   }
 
   // Büyük dosyalar için parçalı analiz - TÜM PARÇALARI ANALİZ EDER
-  Future<List<Map<String, String>>> _analizBuyukDosyaParacali(String tumSohbetMetni) async {
+  Future<List<Map<String, String>>> _analizBuyukDosyaParacali(String tumSohbetMetni, {String? secilenKisi, String? karsiKisi}) async {
+    // Hassas bilgileri sansürle
+    tumSohbetMetni = _sansurleHassasBilgiler(tumSohbetMetni);
+    _logger.i('Büyük dosya için hassas bilgiler sansürlendi');
     _logger.i('Büyük dosya parçalı analiz başlatılıyor - Toplam ${tumSohbetMetni.length} karakter');
     
     try {
@@ -3018,7 +3102,7 @@ DİKKAT:
       
       // 4. ADIM: Tüm parça analizlerini birleştir ve final analizi yap
       _logger.i('Tüm parça analizleri birleştiriliyor');
-      return await _parcaAnalizleriBirlestir(parcaAnalizleri, genelIstatistikler);
+      return await _parcaAnalizleriBirlestir(parcaAnalizleri, genelIstatistikler, secilenKisi: secilenKisi, karsiKisi: karsiKisi);
       
     } catch (e) {
       _logger.e('Parçalı analiz hatası: $e');
@@ -3185,7 +3269,8 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
   // Tüm parça analizlerini birleştirip final wrapped analizi yap
   Future<List<Map<String, String>>> _parcaAnalizleriBirlestir(
       List<Map<String, dynamic>> parcaAnalizleri, 
-      Map<String, dynamic> genelIstatistikler) async {
+      Map<String, dynamic> genelIstatistikler,
+      {String? secilenKisi, String? karsiKisi}) async {
     
     _logger.i('Parça analizleri birleştiriliyor - ${parcaAnalizleri.length} parça');
     
@@ -3248,7 +3333,7 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
         'toplam_emoji_sayisi': toplamEmojiSayisi,
         'toplam_uzun_mesajlar': toplamUzunMesajlar,
         'toplam_kisa_mesajlar': toplamKisaMesajlar,
-      });
+      }, secilenKisi: secilenKisi, karsiKisi: karsiKisi);
       
     } catch (e) {
       _logger.e('Parça birleştirme hatası: $e');
@@ -3259,13 +3344,54 @@ SADECE JSON yanıtı ver, başka açıklama ekleme.
   // Final wrapped analizi - tüm verileri kullanarak 10 kart oluştur
   Future<List<Map<String, String>>> _finalWrappedAnalizi(
       Map<String, dynamic> genelIstatistikler,
-      Map<String, dynamic> birlesikVeriler) async {
+      Map<String, dynamic> birlesikVeriler,
+      {String? secilenKisi, String? karsiKisi}) async {
     
     try {
       String apiUrl = _getApiUrl();
       
+      // Kişiye özel prompt hazırla
+      String kisiAnalizi = '';
+      String kisiContext = '';
+      
+      if (secilenKisi != null && secilenKisi != 'Tüm Katılımcılar') {
+        String ilkIsim = secilenKisi.split(' ').first.trim();
+        
+        if (karsiKisi != null && karsiKisi.isNotEmpty) {
+          String karsiKisiIsmi = karsiKisi.split(' ').first.trim();
+          kisiContext = "$ilkIsim'in $karsiKisiIsmi ile olan sohbeti";
+          kisiAnalizi = '''
+
+📍 ÖZEL ANALİZ TALEBİ:
+Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor. Karşısındaki kişi: "$karsiKisiIsmi"
+- Analizde "$ilkIsim" ve "$karsiKisiIsmi" isimlerini kullan
+- "$ilkIsim"'ın bakış açısından analiz yap
+- "$ilkIsim"'ın $karsiKisiIsmi ile olan iletişimini analiz et
+- Kartlarda "$ilkIsim ile $karsiKisiIsmi" formatını kullan
+
+ÖRNEK: "$ilkIsim'in $karsiKisiIsmi ile olan sohbeti..." gibi kişiselleştirilmiş analizler yap.
+''';
+        } else {
+          kisiContext = "$ilkIsim'in sohbeti";
+          kisiAnalizi = '''
+
+📍 ÖZEL ANALİZ TALEBİ:
+Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor.
+- Analizde "$ilkIsim" ismini kullan
+- "$ilkIsim"'ın bakış açısından analiz yap
+- Kartlarda "$ilkIsim" odaklı ifadeler kullan
+
+ÖRNEK: "$ilkIsim'in sohbet analizi..." gibi kişiselleştirilmiş analizler yap.
+''';
+        }
+      } else {
+        kisiContext = "Genel sohbet analizi";
+      }
+
       final prompt = '''
 Sen bir veri analisti olarak görev yapacaksın. Verilen kapsamlı analiz verilerinden Spotify Wrapped benzeri kartlar oluşturacaksın.
+
+ANALIZ KONUSU: $kisiContext$kisiAnalizi
 
 ANALİZ VERİLERİ:
 - İlk Mesaj Tarihi: ${genelIstatistikler['ilk_mesaj_tarihi']}
@@ -3286,6 +3412,7 @@ Bu VERİLERİ KULLANARAK tam olarak 10 adet wrapped kartı oluştur.
 2. Her kartta mutlaka nicel veri olmalı (sayı, tarih, yüzde)
 3. SADECE JSON formatında yanıt ver
 4. Asla "yaklaşık", "muhtemelen" kullanma
+5. Kişiye özel analiz yapıyorsan, isimlerini doğru kullan
 
 YANIT FORMATI:
 [
