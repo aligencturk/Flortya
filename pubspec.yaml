@@ -22,6 +22,7 @@ dependencies:
   firebase_app_check: ^0.3.2+5
   firebase_storage: ^12.4.5
   firebase_messaging: ^15.2.5
+  firebase_remote_config: 5.4.3
   google_sign_in: ^6.2.1
   
   # State Management
@@ -67,6 +68,9 @@ dependencies:
   printing: ^5.14.2
   google_mobile_ads: ^6.0.0
   animated_background: ^2.0.0
+  platform: ^3.1.6
+  device_info_plus: ^11.4.0
+  package_info_plus: ^8.3.0
 
 dev_dependencies:
   flutter_test:

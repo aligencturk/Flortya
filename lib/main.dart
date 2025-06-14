@@ -3,6 +3,7 @@ import 'package:provider/provider.dart' as provider;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -26,6 +27,11 @@ import 'services/user_service.dart';
 import 'viewmodels/past_analyses_viewmodel.dart';
 import 'viewmodels/past_reports_viewmodel.dart';
 import 'services/notification_service.dart';
+import 'services/remote_config_service.dart';
+import 'services/platform_service.dart';
+import 'services/version_update_service.dart';
+import 'services/campaign_service.dart';
+import 'controllers/remote_config_controller.dart';
 import 'controllers/message_coach_controller.dart';
 
 // Global bayraklar servislerin durumunu takip etmek için
@@ -86,16 +92,52 @@ void main() async {
       logger.i('Mobile Ads zaten başlatılmış');
     }
     
-    // Firebase App Check - Geçici olarak deaktif, internal-error hatasını test etmek için
-    /*
-    await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-      appleProvider: AppleProvider.debug,
-    );
-    logger.i('Firebase App Check aktifleştirildi');
-    */
-    logger.i('Firebase App Check geçici olarak deaktif');
+    // Firebase App Check - Remote Config için gerekli
+    try {
+      await FirebaseAppCheck.instance.activate(
+        androidProvider: AndroidProvider.debug,
+        appleProvider: AppleProvider.debug,
+      );
+      logger.i('Firebase App Check aktifleştirildi');
+    } catch (e) {
+      logger.w('Firebase App Check aktifleştirilemedi: $e, devam ediliyor');
+    }
     
+    // Platform servisini başlat
+    final platformService = PlatformService(logger: logger);
+    try {
+      await platformService.baslat();
+      logger.i('Platform servisi başlatıldı');
+    } catch (e) {
+      logger.e('Platform servisi başlatılamadı: $e, uygulama devam edecek');
+    }
+
+    // Remote Config servisini başlat
+    final remoteConfigService = RemoteConfigService(
+      platformService: platformService,
+    );
+    try {
+      await remoteConfigService.baslat();
+      logger.i('Remote Config servisi başlatıldı');
+    } catch (e) {
+      // Remote Config hatası uygulama çalışmasını engellemeyecek
+      logger.w('Remote Config servisi başlatılırken hata: $e, uygulama Remote Config olmadan çalışacak');
+    }
+
+    // Versiyon güncelleme servisini başlat
+    final versionUpdateService = VersionUpdateService(
+      remoteConfigService: remoteConfigService,
+      platformService: platformService,
+      logger: logger,
+    );
+
+    // Kampanya servisini başlat
+    final campaignService = CampaignService(
+      remoteConfigService: remoteConfigService,
+      platformService: platformService,
+      logger: logger,
+    );
+
     // Bildirim servisini başlat
     final notificationService = NotificationService();
     
@@ -178,6 +220,24 @@ void main() async {
             provider.ChangeNotifierProvider<MessageCoachController>(
               create: (_) => MessageCoachController(),
             ),
+            // Remote Config Service ve Controller
+            provider.Provider<RemoteConfigService>.value(
+              value: remoteConfigService,
+            ),
+            provider.ChangeNotifierProvider<RemoteConfigController>(
+              create: (context) => RemoteConfigController(
+                remoteConfigService: remoteConfigService,
+                logger: logger,
+              ),
+            ),
+            // Version Update Service
+            provider.Provider<VersionUpdateService>.value(
+              value: versionUpdateService,
+            ),
+            // Campaign Service
+            provider.Provider<CampaignService>.value(
+              value: campaignService,
+            ),
           ],
           child: MyApp(),
         ),
@@ -210,8 +270,15 @@ Future<void> _updateLoginStatusInPrefs() async {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // MyApp'te versiyon kontrolü yapmayacağız, ana sayfada yapacağız
 
   @override
   Widget build(BuildContext context) {

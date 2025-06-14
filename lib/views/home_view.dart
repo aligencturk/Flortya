@@ -21,7 +21,10 @@ import '../views/report_view.dart';
 import '../services/ad_service.dart';
 import '../views/conversation_summary_view.dart';
 import '../services/ai_service.dart';
-import '../services/event_bus_service.dart';
+import '../services/event_bus_service.dart';  
+import '../controllers/remote_config_controller.dart';
+import '../services/version_update_service.dart';
+import '../services/campaign_service.dart';
 import 'dart:async';
 
 // String için extension - capitalizeFirst metodu
@@ -235,6 +238,12 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       
       // Ağır işlemleri arka planda ve kademeli olarak gerçekleştir
       _loadHeavyDataInBackground();
+      
+      // Versiyon kontrolünü başlat (UI yüklendikten sonra)
+      _startVersionCheck();
+      
+      // Kampanya kontrolünü başlat (version check'ten sonra)
+      _startCampaignCheck();
     });
   }
   
@@ -280,6 +289,43 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       });
     } catch (e) {
       debugPrint('İkincil veri yükleme hatası: $e');
+    }
+  }
+
+  // Versiyon kontrolünü başlat
+  Future<void> _startVersionCheck() async {
+    try {
+      // UI tamamen yüklendikten sonra versiyon kontrolünü başlat
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (!mounted) return;
+      
+      final versionService = Provider.of<VersionUpdateService>(context, listen: false);
+      await versionService.otomatikVersionKontrol(context);
+    } catch (e) {
+      debugPrint('HomeView versiyon kontrolü hatası: $e');
+    }
+  }
+
+  // Kampanya kontrolünü başlat
+  Future<void> _startCampaignCheck() async {
+    try {
+      // UI tamamen yüklendikten sonra kampanya kontrolünü başlat
+      await Future.delayed(const Duration(seconds: 4)); // Version check'ten sonra
+      
+      if (!mounted) return;
+      
+      final campaignService = Provider.of<CampaignService>(context, listen: false);
+      
+      // Kampanyaları yükle
+      await campaignService.kampanyalariYukle();
+      
+      // Popup kampanyalarını göster
+      await campaignService.popupKampanyalariGoster(context);
+      
+      debugPrint('Kampanya kontrolü tamamlandı');
+    } catch (e) {
+      debugPrint('HomeView kampanya kontrolü hatası: $e');
     }
   }
   
@@ -3437,6 +3483,8 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       );
     }
   }
+
+  // Welcome message widget'ı kaldırıldı
 
   // Wrapped hikayeleri sıfırlama
   void resetWrappedData() {
