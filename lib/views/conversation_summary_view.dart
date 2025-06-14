@@ -1037,6 +1037,156 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     return filtered;
   }
 
+  // Silinen mesajları ve medya içeriklerini temizleyen fonksiyon
+  String _temizleSilinenVeMedyaMesajlari(String metin) {
+    List<String> lines = metin.split('\n');
+    List<String> temizLines = [];
+    
+    for (String line in lines) {
+      String trimmedLine = line.trim();
+      
+      // Boş satırları koru
+      if (trimmedLine.isEmpty) {
+        temizLines.add(line);
+        continue;
+      }
+      
+      // Silinen mesaj kalıpları (Türkçe ve İngilizce)
+      final List<String> silinenMesajKaliplari = [
+        'Bu mesaj silindi',
+        'This message was deleted',
+        'Mesaj silindi',
+        'Message deleted',
+        'Bu mesaj geri alındı',
+        'This message was recalled',
+        'Silinen mesaj',
+        'Deleted message',
+        '🚫 Bu mesaj silindi',
+        '❌ Bu mesaj silindi',
+      ];
+      
+      // Medya içerik kalıpları
+      final List<String> medyaKaliplari = [
+        '(medya içeriği)',
+        '(media content)',
+        '(görsel)',
+        '(image)',
+        '(video)',
+        '(ses)',
+        '(audio)',
+        '(dosya)',
+        '(file)',
+        '(document)',
+        '(belge)',
+        '(fotoğraf)',
+        '(photo)',
+        '(resim)',
+        '(sticker)',
+        '(çıkartma)',
+        '(gif)',
+        '(konum)',
+        '(location)',
+        '(kişi)',
+        '(contact)',
+        '(arama)',
+        '(call)',
+        '(sesli arama)',
+        '(voice call)',
+        '(görüntülü arama)',
+        '(video call)',
+        '(canlı konum)',
+        '(live location)',
+        '(anket)',
+        '(poll)',
+      ];
+      
+      // Sistem mesajları (grup bildirimleri vs.)
+      final List<String> sistemMesajlari = [
+        'gruba eklendi',
+        'gruptan çıktı',
+        'gruptan çıkarıldı',
+        'grup adını değiştirdi',
+        'grup açıklamasını değiştirdi',
+        'grup resmini değiştirdi',
+        'güvenlik kodunuz değişti',
+        'şifreleme anahtarları değişti',
+        'added to the group',
+        'left the group',
+        'removed from the group',
+        'changed the group name',
+        'changed the group description',
+        'changed the group photo',
+        'security code changed',
+        'encryption keys changed',
+        'mesajlar uçtan uca şifrelendi',
+        'messages are end-to-end encrypted',
+      ];
+      
+      // Satırın mesaj kısmını çıkar (tarih ve isim kısmından sonra)
+      String mesajKismi = '';
+      
+      // WhatsApp formatlarından mesaj kısmını çıkar
+      // Format 1: [25/12/2023, 14:30:45] Ahmet: Mesaj
+      RegExp format1 = RegExp(r'^\[([^\]]+)\]\s*([^:]+):\s*(.+)$');
+      Match? match1 = format1.firstMatch(trimmedLine);
+      if (match1 != null) {
+        mesajKismi = match1.group(3)?.trim() ?? '';
+      } else {
+        // Format 2: 25/12/2023, 14:30 - Ahmet: Mesaj
+        RegExp format2 = RegExp(r'^(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4})[,\s]+(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–]\s*([^:]+):\s*(.+)$');
+        Match? match2 = format2.firstMatch(trimmedLine);
+        if (match2 != null) {
+          mesajKismi = match2.group(4)?.trim() ?? '';
+        } else {
+          // Format 3: Basit format - Ahmet: Mesaj
+          RegExp format3 = RegExp(r'^([^:]+):\s*(.+)$');
+          Match? match3 = format3.firstMatch(trimmedLine);
+          if (match3 != null) {
+            mesajKismi = match3.group(2)?.trim() ?? '';
+          } else {
+            // Mesaj formatı tanınmadı, satırı olduğu gibi kontrol et
+            mesajKismi = trimmedLine;
+          }
+        }
+      }
+      
+      // Silinen mesaj kontrolü
+      bool silinenMesaj = false;
+      for (String kalip in silinenMesajKaliplari) {
+        if (mesajKismi.toLowerCase().contains(kalip.toLowerCase())) {
+          silinenMesaj = true;
+          break;
+        }
+      }
+      
+      // Medya içerik kontrolü
+      bool medyaIcerik = false;
+      for (String kalip in medyaKaliplari) {
+        if (mesajKismi.toLowerCase().contains(kalip.toLowerCase())) {
+          medyaIcerik = true;
+          break;
+        }
+      }
+      
+      // Sistem mesajı kontrolü
+      bool sistemMesaji = false;
+      for (String kalip in sistemMesajlari) {
+        if (mesajKismi.toLowerCase().contains(kalip.toLowerCase()) || 
+            trimmedLine.toLowerCase().contains(kalip.toLowerCase())) {
+          sistemMesaji = true;
+          break;
+        }
+      }
+      
+      // Sadece gerçek mesajları koru
+      if (!silinenMesaj && !medyaIcerik && !sistemMesaji && mesajKismi.isNotEmpty) {
+        temizLines.add(line);
+      }
+    }
+    
+    return temizLines.join('\n');
+  }
+
   // Hassas bilgileri sansürleyen fonksiyon
   String _sansurleHassasBilgiler(String metin) {
     // TC Kimlik Numarası (11 haneli sayı)
@@ -1330,8 +1480,11 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
     });
     
     try {
+      // Silinen mesajları ve medya içeriklerini temizle
+      String temizIcerik = _temizleSilinenVeMedyaMesajlari(_fileContent);
+      
       // Hassas bilgileri sansürle
-      String sansurluIcerik = _sansurleHassasBilgiler(_fileContent);
+      String sansurluIcerik = _sansurleHassasBilgiler(temizIcerik);
       
       final result = await _aiService.wrappedAnaliziYap(sansurluIcerik, secilenKisi: _selectedParticipant);
       
