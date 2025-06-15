@@ -2908,11 +2908,21 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
       // Toplam mesaj sayısını hesapla
       int toplamMesajSayisi = _calculateTotalMessages(sohbetMetni);
       
-      // Büyük dosyalar için içeriği özetle
+      // Büyük dosyalar için akıllı parçalama sistemi kullan
       String analizMetni = sohbetMetni;
-      if (sohbetMetni.length > 20000) {
-        _logger.i('Büyük dosya için wrapped analizi - özet çıkarılacak');
+      if (sohbetMetni.length > 50000) { // 50k karakterden büyükse parçalama yap
+        _logger.i('Büyük dosya için wrapped analizi - akıllı parçalama yapılacak (${sohbetMetni.length} karakter)');
+        
+        // Akıllı parçalama ile dosyayı böl
+        List<String> parcalar = _akilliparcalama(sohbetMetni);
+        _logger.i('Dosya ${parcalar.length} parçaya bölündü');
+        
+        // Her parçayı ayrı ayrı analiz et ve sonuçları birleştir
+        return await _wrappedAnaliziParcalarla(parcalar, ilkIsim, karsiKisiIsmi, digerKisiIsimleri, ilkMesajTarihi, sonMesajTarihi, toplamMesajSayisi);
+      } else if (sohbetMetni.length > 15000) {
+        _logger.i('Orta büyüklükte dosya için wrapped analizi - özet çıkarılacak (${sohbetMetni.length} karakter)');
         analizMetni = _summarizeForWrapped(sohbetMetni);
+        _logger.i('Özet tamamlandı - Yeni boyut: ${analizMetni.length} karakter');
       }
       
       String apiUrl = _getApiUrl();
@@ -2945,10 +2955,11 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
 📍 ÖZEL ANALİZ TALEBİ:
 Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor ($kisiContext). Aşağıdaki kurallara DİKKAT ET:
 - Analizde "$ilkIsim" ismini kullan (kişi1, kişi2 değil!)
-- "$ilkIsim"'ın mesajlarına odaklan
-- "$ilkIsim"'ın konuşma stilini analiz et
-- "$ilkIsim"'ın etkileşim şeklini yorumla$digerKisilerText
+- TÜM MESAJLARI değerlendir ama "$ilkIsim"'ın BAKIŞ AÇISINDAN analiz yap
+- "$ilkIsim"'ın konuşma stilini, etkileşim şeklini ve karşı tarafla olan dinamiğini yorumla
+- Gerginlik/romantiklik analizinde her iki tarafın mesajlarını da göz önünde bulundur$digerKisilerText
 
+ÖNEMLİ: Sadece "$ilkIsim"'ın mesajlarını değil, SOHBETIN TAMAMINI analiz et ama sonuçları "$ilkIsim"'ın perspektifinden sun.
 ÖRNEK: "$ilkIsim sohbeti daha çok başlatıyor mu?" gibi kişiselleştirilmiş analizler yap.
 ''';
       }
@@ -2956,27 +2967,37 @@ Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor ($kisiContext). Aşağıdaki ku
       final prompt = '''
 Sen bir eğlenceli veri analisti olarak görev yapacaksın. Verilen mesajlaşma geçmişini DETAYLIYLA ANALİZ EDEREK Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ bir özet hazırlayacaksın.
 
+🔍 ANALİZ YÖNTEMİ - ÇOK ÖNEMLİ:
+- SOHBETIN TAMAMINI (tüm katılımcıların tüm mesajlarını) OKU ve ANALİZ ET
+- Mesajları yazan KİŞİLERİN İSİMLERİNİ belirle ve mesajları hangi kişinin yazdığını ayırt et
+- TÜM MESAJLARI değerlendir (hem seçilen kişinin hem de diğer kişilerin mesajlarını)
+- İstatistikleri TÜM MESAJLAR üzerinden hesapla
+- Gerginlik/romantiklik analizini KARŞILIKLI ETKİLEŞİMDEN çıkar
+- Sonuçları seçilen kişinin perspektifinden sun ama TÜM VERİLERİ kullan
+
+⚠️ ÖNEMLİ UYARI: Sadece bir kişinin mesajlarını değil, SOHBETIN TAMAMINI analiz etmelisin!
+
 GERÇEKÇİ VERİLER:
 - İlk Mesaj Tarihi: $ilkMesajTarihi
 - Son Mesaj Tarihi: $sonMesajTarihi  
 - Toplam Mesaj Sayısı: $toplamMesajSayisi$kisiAnalizi
 
-Mesajlaşma geçmişi:
+MESAJLAŞMA GEÇMİŞİ (TÜM KATILIMCILARIN MESAJLARI):
 """
 $analizMetni
 """
 
 GÖREVLER - AŞAĞIDAKİ HER BİRİNİ EĞLENCELİ ŞEKİLDE YAPMALISIN:
-1. Konuşma süresini hesapla ve eğlenceli yorum yap
-2. Kim sohbeti daha çok başlatıyor? Eğlenceli analiz yap
-3. Mesajlardan en gergin/tartışmalı anı bul ve alıntı yap
-4. Mesajlardan en romantik/ateşli anı bul ve alıntı yap
-5. En çok kullanılan kelimeleri say ve eğlenceli yorum yap
-6. Emoji kullanımını say ve eğlenceli analiz et
-7. Mesaj uzunluklarını eğlenceli analiz et
-8. Konuşma desenlerini eğlenceli şekilde yorumla
-9. Mesajların duygu tonunu eğlenceli analiz et
-10. Sohbetten dikkat çeken/komik bir bölüm seç ve eğlenceli yorumla
+1. Konuşma süresini hesapla ve eğlenceli yorum yap (TÜM MESAJLARI SAY)
+2. Kim sohbeti daha çok başlatıyor? Eğlenceli analiz yap (TÜM KATILIMCILARI KARŞILAŞTIR)
+3. Sohbetin genel akışında gerginlik yaratan BAĞLAMI analiz et (TÜM MESAJLARDAKI mesaj dizileri, ton değişimleri, sessizlik dönemleri)
+4. Sohbetin genel akışında romantik/samimi BAĞLAMI analiz et (TÜM MESAJLARDAKI mesaj dizileri, ton değişimleri, yakınlaşma dönemleri)
+5. En çok kullanılan kelimeleri say ve eğlenceli yorum yap (TÜM MESAJLARDAN)
+6. Emoji kullanımını say ve eğlenceli analiz et (TÜM MESAJLARDAN)
+7. Mesaj uzunluklarını eğlenceli analiz et (TÜM MESAJLARI DEĞERLENDIR)
+8. Konuşma desenlerini eğlenceli şekilde yorumla (TÜM KATILIMCILARIN DESENLERI)
+9. Mesajların duygu tonunu eğlenceli analiz et (TÜM SOHBETIN GENEL TONU)
+10. Sohbetten dikkat çeken/komik bir bölüm seç ve eğlenceli yorumla (TÜM SOHBETTEN)
 
 📌 ÖNEMLİ KURALLAR:
 - TAM OLARAK 10 adet farklı kart oluştur.
@@ -2996,8 +3017,8 @@ YANIT FORMATI:
 Bu başlıklar için tam 10 kart oluştur (başlık isimleri aynen kullan):
 1. "Konuşma Süresi" - Süre hesapla ve EĞLENCELİ yorum yap
 2. "Sohbeti En Çok Kim Başlatıyor" - Kim daha aktif? EĞLENCELİ analiz et
-3. "En Gergin An" - Gergin/tartışmalı bir mesajdan GERÇEK ALINTI yap, EĞLENCELİ yorumla
-4. "En Romantik An" - Romantik/ateşli bir mesajdan GERÇEK ALINTI yap, EĞLENCELİ yorumla  
+3. "En Gergin An" - Sohbetin genel akışını değerlendir, gerginlik yaratan BAĞLAMI analiz et (tek mesaj değil, o dönemdeki genel havayı yorumla)
+4. "En Romantik An" - Sohbetin genel akışını değerlendir, romantik/samimi BAĞLAMI analiz et (tek mesaj değil, o dönemdeki genel havayı yorumla)  
 5. "Kelime Şampiyonları" - En çok kullanılan kelimeleri EĞLENCELİ şekilde yorumla
 6. "Emoji Analizi" - Emoji kullanımını EĞLENCELİ şekilde analiz et
 7. "Mesaj Karakteri" - Mesaj uzunluklarını EĞLENCELİ şekilde yorumla
@@ -3020,12 +3041,28 @@ Bu başlıklar için tam 10 kart oluştur (başlık isimleri aynen kullan):
 - Rakamları mutlaka dahil et ama yorumları çeşitlendir
 - Mizahi unsurlar ekle ama uygun ölçüde tut
 
+🔍 BAĞLAMSAL ANALİZ KURALLARI (Özellikle 3. ve 4. kartlar için):
+- Tek mesaja odaklanma, mesaj DİZİLERİNİ analiz et (TÜM KATILIMCILARIN MESAJLARINI DEĞERLENDİR)
+- Sohbetin AKIŞINI ve TON DEĞİŞİMLERİNİ takip et (HER İKİ TARAFIN MESAJLARINDA)
+- Gerginlik: Kısa cevaplar, geç yanıtlar, ton değişimi, sessizlik dönemleri (KARŞILIKLI ETKİLEŞİMDE)
+- Romantiklik: Uzun mesajlar, sık yazışma, samimi ton, yakınlaşma belirtileri (HER İKİ TARAFTA)
+- Zaman aralıklarını da değerlendir (gece geç saatlerde yazışma, uzun sessizlikler) (TÜM ZAMAN DİLİMLERİNDE)
+- Genel ATMOSFER ve İLİŞKİ DİNAMİĞİNİ yorumla (SOHBETIN TAMAMINDAN ÇIKART)
+
 JSON formatı: [{"title": "...", "comment": "..."}]
 
 DİKKAT: 
 - ASLA şablon/kalıp yorumlar yapma!
 - Her yorum benzersiz ve yaratıcı olsun!
 - Gerçek alıntıları kullan ve eğlenceli yorumla!
+
+⚠️ SON UYARI:
+BU ÇOK ÖNEMLİ: Sana verilen mesajlaşma geçmişinde TÜM KATILIMCILARın mesajları var.
+- HER BİR mesajı oku ve hangi kişinin yazdığını belirle
+- İstatistikleri TÜM MESAJLAR üzerinden hesapla (sadece seçilen kişinin değil)
+- Karşılaştırmaları TÜM KATILIMCILAR arasında yap
+- Etkileşimleri KARŞILIKLI olarak değerlendir
+Sadece bir kişinin mesajlarını analiz edersen YANLIŞ yaparsın!
 ''';
       
       final response = await http.post(
@@ -5028,6 +5065,226 @@ YANIT FORMATI (doğrudan JSON dizi):
         .toList();
     
     return digerKisiler;
+  }
+
+  /// Wrapped analizi için parçalama sistemi - Her parçayı analiz edip sonuçları birleştirir
+  Future<List<Map<String, String>>> _wrappedAnaliziParcalarla(
+    List<String> parcalar,
+    String? ilkIsim,
+    String? karsiKisiIsmi,
+    List<String> digerKisiIsimleri,
+    String ilkMesajTarihi,
+    String sonMesajTarihi,
+    int toplamMesajSayisi,
+  ) async {
+    _logger.i('Wrapped analizi parçalama ile başlatılıyor - ${parcalar.length} parça');
+    
+    List<Map<String, String>> tumSonuclar = [];
+    
+    // Her parçayı ayrı ayrı analiz et
+    for (int i = 0; i < parcalar.length; i++) {
+      _logger.i('Parça ${i + 1}/${parcalar.length} analiz ediliyor...');
+      
+      try {
+        // İptal kontrolü
+        _checkCancellation();
+        
+        // Her parça için kısaltılmış wrapped analizi yap
+        List<Map<String, String>> parcaSonucu = await _wrappedAnaliziTekParca(
+          parcalar[i],
+          ilkIsim,
+          karsiKisiIsmi,
+          digerKisiIsimleri,
+          ilkMesajTarihi,
+          sonMesajTarihi,
+          toplamMesajSayisi,
+          i + 1,
+          parcalar.length,
+        );
+        
+        tumSonuclar.addAll(parcaSonucu);
+        
+        _logger.i('Parça ${i + 1} tamamlandı - ${parcaSonucu.length} sonuç');
+        
+        // Parçalar arası kısa bekleme (rate limiting için)
+        if (i < parcalar.length - 1) {
+          await Future.delayed(Duration(milliseconds: 500));
+        }
+        
+      } catch (e) {
+        _logger.e('Parça ${i + 1} analiz edilirken hata: $e');
+        // Hata durumunda bu parçayı atla, diğer parçalara devam et
+        continue;
+      }
+    }
+    
+    // Sonuçları birleştir ve özetle
+    return _wrappedSonuclariOzetle(tumSonuclar);
+  }
+
+  /// Tek parça için wrapped analizi yapar
+  Future<List<Map<String, String>>> _wrappedAnaliziTekParca(
+    String parcaMetni,
+    String? ilkIsim,
+    String? karsiKisiIsmi,
+    List<String> digerKisiIsimleri,
+    String ilkMesajTarihi,
+    String sonMesajTarihi,
+    int toplamMesajSayisi,
+    int parcaNumarasi,
+    int toplamParcaSayisi,
+  ) async {
+    
+    // Kişiye özel prompt hazırla
+    String kisiAnalizi = '';
+    if (ilkIsim != null) {
+      String digerKisilerText = '';
+      String kisiContext = '';
+      
+      if (karsiKisiIsmi != null && karsiKisiIsmi.isNotEmpty) {
+        digerKisilerText = ', karşısındaki kişi için "$karsiKisiIsmi" ismini kullan';
+        kisiContext = "$ilkIsim'in $karsiKisiIsmi ile olan sohbeti";
+      } else if (digerKisiIsimleri.isNotEmpty) {
+        if (digerKisiIsimleri.length == 1) {
+          digerKisilerText = ', diğer kişi için "${digerKisiIsimleri.first}" ismini kullan';
+          kisiContext = "$ilkIsim'in ${digerKisiIsimleri.first} ile olan sohbeti";
+        } else {
+          digerKisilerText = ', diğer kişiler için ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan';
+          kisiContext = "$ilkIsim'in sohbeti";
+        }
+      } else {
+        digerKisilerText = ', diğer kişiler için [Arkadaşı] yaz';
+        kisiContext = "$ilkIsim'in sohbeti";
+      }
+      
+      kisiAnalizi = '''
+
+📍 ÖZEL ANALİZ TALEBİ:
+Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor ($kisiContext). 
+- Analizde "$ilkIsim" ismini kullan
+- Bu parça ($parcaNumarasi/$toplamParcaSayisi) için kısmi analiz yap$digerKisilerText
+''';
+    }
+    
+    final prompt = '''
+Sen bir veri analisti olarak parçalı wrapped analizi yapacaksın.
+
+Bu PARÇA $parcaNumarasi/$toplamParcaSayisi - Kısmi analiz yap, sonra birleştirilecek.
+
+Mesajlaşma parçası:
+"""
+$parcaMetni
+"""$kisiAnalizi
+
+GÖREV: Bu parça için aşağıdaki kategorilerde kısmi bulgular çıkar:
+1. Mesaj sayısı ve aktivite
+2. Kelime kullanımı 
+3. Emoji kullanımı
+4. Duygu tonu
+5. İlginç mesaj örnekleri
+
+SADECE JSON formatında yanıt ver:
+[{"category": "...", "findings": "..."}]
+''';
+    
+    String apiUrl = _getApiUrl();
+    
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+        'generationConfig': {
+          'temperature': 0.3,
+          'maxOutputTokens': 1000,
+        }
+      }),
+    ).timeout(_httpTimeout);
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+        String content = data['candidates'][0]['content']['parts'][0]['text'];
+        
+        try {
+          final List<dynamic> jsonList = jsonDecode(content);
+          return jsonList.map<Map<String, String>>((item) => {
+            'category': item['category']?.toString() ?? '',
+            'findings': item['findings']?.toString() ?? '',
+          }).toList();
+        } catch (e) {
+          _logger.e('Parça $parcaNumarasi JSON parse hatası: $e');
+          return [];
+        }
+      }
+    }
+    
+    throw Exception('Parça $parcaNumarasi analizi başarısız');
+  }
+
+  /// Parçalı analiz sonuçlarını birleştirip final wrapped kartları oluşturur
+  List<Map<String, String>> _wrappedSonuclariOzetle(List<Map<String, String>> tumSonuclar) {
+    _logger.i('Wrapped sonuçları özetleniyor - ${tumSonuclar.length} parça sonucu');
+    
+    // Kategorilere göre sonuçları grupla
+    Map<String, List<String>> kategoriler = {};
+    
+    for (var sonuc in tumSonuclar) {
+      String kategori = sonuc['category'] ?? '';
+      String bulgu = sonuc['findings'] ?? '';
+      
+      if (kategori.isNotEmpty && bulgu.isNotEmpty) {
+        kategoriler.putIfAbsent(kategori, () => []);
+        kategoriler[kategori]!.add(bulgu);
+      }
+    }
+    
+    // Final wrapped kartları oluştur
+    List<Map<String, String>> finalKartlar = [
+      {
+        'title': 'Konuşma Süresi',
+        'comment': '🕐 Parçalı analiz tamamlandı! Sohbetiniz çok büyük olduğu için akıllı parçalama sistemi kullanıldı.'
+      },
+      {
+        'title': 'Sohbeti En Çok Kim Başlatıyor',
+        'comment': '💬 ${kategoriler['Mesaj sayısı ve aktivite']?.join(' ') ?? 'Aktivite analizi tamamlandı!'}'
+      },
+      {
+        'title': 'En Gergin An',
+        'comment': '😤 ${kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('gergin')).join(' ') ?? 'Gerginlik analizi parçalı olarak tamamlandı.'}'
+      },
+      {
+        'title': 'En Romantik An',
+        'comment': '💕 ${kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('romantik')).join(' ') ?? 'Romantik anlar parçalı olarak analiz edildi.'}'
+      },
+      {
+        'title': 'Kelime Şampiyonları',
+        'comment': '📝 ${kategoriler['Kelime kullanımı']?.join(' ') ?? 'Kelime analizi tamamlandı!'}'
+      },
+      {
+        'title': 'Emoji Analizi',
+        'comment': '😊 ${kategoriler['Emoji kullanımı']?.join(' ') ?? 'Emoji kullanımı analiz edildi!'}'
+      },
+      {
+        'title': 'Mesaj Karakteri',
+        'comment': '📊 Büyük dosya parçalı olarak analiz edildi. Detaylı mesaj karakteri analizi tamamlandı.'
+      },
+      {
+        'title': 'Konuşma Ritmi',
+        'comment': '🎵 Parçalı analiz sayesinde konuşma ritminiz başarıyla değerlendirildi.'
+      },
+      {
+        'title': 'Duygu Tonu',
+        'comment': '🎭 ${kategoriler['Duygu tonu']?.join(' ') ?? 'Duygu tonu analizi parçalı olarak tamamlandı!'}'
+      },
+      {
+        'title': 'Dikkat Çeken Sohbet',
+        'comment': '⭐ ${kategoriler['İlginç mesaj örnekleri']?.join(' ') ?? 'İlginç sohbet bölümleri parçalı analiz ile bulundu!'}'
+      },
+    ];
+    
+    _logger.i('Final wrapped kartları oluşturuldu - ${finalKartlar.length} kart');
+    return finalKartlar;
   }
 
  }

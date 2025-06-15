@@ -1833,16 +1833,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
            return false;
          }
          
-         // Wrapped analizi için içeriği hazırla - seçilen kişiye göre
-         String wrappedContent;
-         if (selectedParticipant == 'Tüm Katılımcılar') {
-           // Tüm katılımcılar seçildiyse ham dosya içeriğini kullan
-           wrappedContent = await file.readAsString();
-         } else {
-           // Spesifik kişi seçildiyse, sadece o kişinin mesajlarını kullan
-           // Ama Wrapped için ham WhatsApp formatında olmalı (AI prompt'u olmadan)
-           wrappedContent = _filterMessagesByParticipant(await file.readAsString(), selectedParticipant);
-         }
+         // Wrapped analizi için içeriği hazırla - TÜM MESAJLARI KULLAN
+         // Sadece bakış açısı seçilen kişiye göre olacak, mesajlar filtrelenmeyecek
+         String wrappedContent = await file.readAsString();
          
          // Wrapped analizi için silinen mesajları ve medya içeriklerini temizle
          wrappedContent = _temizleSilinenVeMedyaMesajlari(wrappedContent);
