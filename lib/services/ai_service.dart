@@ -2631,13 +2631,15 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
       
       List<Map<String, String>> mainAnalysisResult;
       
-      // Büyük dosyaları parçalı analiz et
-      if (sohbetMetni.length > 15000) {
-        _logger.i('Büyük dosya tespit edildi (${sohbetMetni.length} karakter), parçalı analiz başlatılıyor');
+      // WRAPPED ANALİZİ İLE UYUMLU OLACAK ŞEKİLDE DÜZENLEME:
+      // Sadece çok büyük dosyaları parçalı analiz et (200k+)
+      if (sohbetMetni.length > 200000) {
+        _logger.i('ÇOK büyük dosya tespit edildi (${sohbetMetni.length} karakter), parçalı analiz başlatılıyor');
         _checkCancellation(); // İptal kontrolü
         mainAnalysisResult = await _analizBuyukDosyaParacali(sohbetMetni);
       } else {
-        // Küçük dosyalar için standart analiz
+        // 200k altındaki dosyalar için standart analiz (küçük dosya gibi)
+        _logger.i('Dosya standart analiz ile işleniyor (${sohbetMetni.length} karakter)');
         _checkCancellation(); // İptal kontrolü
         mainAnalysisResult = await _analizStandart(sohbetMetni);
       }
@@ -3012,10 +3014,13 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
       // Toplam mesaj sayısını hesapla
       int toplamMesajSayisi = _calculateTotalMessages(sohbetMetni);
       
-      // Büyük dosyalar için akıllı parçalama sistemi kullan
+      // Büyük dosyalar için de küçük dosyalar gibi davranacak şekilde düzenleme
       String analizMetni = sohbetMetni;
-      if (sohbetMetni.length > 50000) { // 50k karakterden büyükse parçalama yap
-        _logger.i('Büyük dosya için wrapped analizi - akıllı parçalama yapılacak (${sohbetMetni.length} karakter)');
+      
+      // ÇIKTAYI KÜÇÜK DOSYALARLA AYNI YAPMAK İÇİN:
+      // Sadece çok büyük dosyalar (200k+) için parçalama yapıyoruz
+      if (sohbetMetni.length > 200000) { // 200k karakterden büyükse parçalama yap
+        _logger.i('ÇOK büyük dosya için wrapped analizi - akıllı parçalama yapılacak (${sohbetMetni.length} karakter)');
         
         // Akıllı parçalama ile dosyayı böl
         List<String> parcalar = _akilliparcalama(sohbetMetni);
@@ -3023,11 +3028,14 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
         
         // Her parçayı ayrı ayrı analiz et ve sonuçları birleştir
         return await _wrappedAnaliziParcalarla(parcalar, ilkIsim, karsiKisiIsmi, digerKisiIsimleri, ilkMesajTarihi, sonMesajTarihi, toplamMesajSayisi);
-      } else if (sohbetMetni.length > 15000) {
-        _logger.i('Orta büyüklükte dosya için wrapped analizi - özet çıkarılacak (${sohbetMetni.length} karakter)');
+      } else if (sohbetMetni.length > 100000) {
+        _logger.i('Büyük dosya için wrapped analizi - özet çıkarılacak (${sohbetMetni.length} karakter)');
         analizMetni = _summarizeForWrapped(sohbetMetni);
         _logger.i('Özet tamamlandı - Yeni boyut: ${analizMetni.length} karakter');
       }
+      
+      // 100k karakterin altındaki dosyalar için küçük dosyalar gibi DOĞRUDAN AI'ya gönder
+      _logger.i('Wrapped analizi - KÜÇÜK DOSYA GİBİ işleniyor (${analizMetni.length} karakter)');
       
       String apiUrl = _getApiUrl();
       
@@ -3317,8 +3325,8 @@ Sadece bir kişinin mesajlarını analiz edersen YANLIŞ yaparsın!
     
     _logger.i('Büyük dosya özetleniyor: $totalLines satır -> maksimum 8000 karakter');
     
-    // Maksimum 8000 karakter hedefle (API limiti için güvenli)
-    const int maxChars = 8000;
+    // Maksimum 50000 karakter hedefle (daha az özetleme için artırıldı)
+    const int maxChars = 50000;
     
     if (content.length <= maxChars) {
       _logger.i('Dosya zaten uygun boyutta: ${content.length} karakter');
@@ -3699,7 +3707,9 @@ Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor.
       }
 
       final prompt = '''
-Sen bir veri analisti olarak görev yapacaksın. Verilen kapsamlı analiz verilerinden Spotify Wrapped benzeri kartlar oluşturacaksın.
+Sen bir eğlenceli veri analisti olarak görev yapacaksın! Verilen kapsamlı analiz verilerinden Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ kartlar oluşturacaksın.
+
+🎯 ÇOK ÖNEMLİ: Sen bir eğlence uzmanısın! Sıkıcı, teknik, robotik yanıtlar vermek yasak!
 
 ANALIZ KONUSU: $kisiContext$kisiAnalizi
 
@@ -3715,21 +3725,59 @@ ANALİZ VERİLERİ:
 - Kısa Mesajlar (10- karakter): ${birlesikVeriler['toplam_kisa_mesajlar']}
 - En Çok Kullanılan Kelimeler: ${birlesikVeriler['en_cok_kelimeler']}
 
-Bu VERİLERİ KULLANARAK tam olarak 10 adet wrapped kartı oluştur.
+Bu VERİLERİ KULLANARAK tam olarak 10 adet ZORUNLU başlıklı eğlenceli wrapped kartı oluştur.
+
+ZORUNLU BAŞLIKLAR VE AÇIKLAMALARI (AYNEN KULLAN):
+1. "Konuşma Süresi" - İLK MESAJ TARİHİNDEN SON MESAJ TARİHİNE KADAR GEÇEN SÜRE (ay/gün olarak). "X aydan beri konuşuyorsunuz" tarzında
+2. "Sohbeti En Çok Kim Başlatıyor" - Hangi kişi daha çok mesaj atıyor/başlatıyor karşılaştırması
+3. "En Gergin An" - Sohbetin gerginlik yaratan bağlamı
+4. "En Romantik An" - Sohbetin romantik/samimi bağlamı  
+5. "Kelime Şampiyonları" - En çok kullanılan kelimeler
+6. "Emoji Analizi" - Emoji kullanım analizi
+7. "Mesaj Karakteri" - Mesaj uzunluklarının analizi
+8. "Konuşma Ritmi" - Konuşma desenlerinin analizi
+9. "Duygu Tonu" - Duygu analizi
+10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümü
+
+🎨 EĞLENCELİ YORUM KURALLARI:
+- YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
+- Samimi, dostça, eğlenceli bir dil kullan
+- Her kart için farklı emojiler ve ifadeler kullan  
+- Mizahi unsurlar ekle ama uygun ölçüde tut
+- "😂", "🤣", "😅", "💬", "🔥", "💕", "👀", "⚡" gibi emojiler kullan
+- Gerçek veriye dayalı bulgular kullan ama EĞLENCE odaklı yorumla
+
+📝 YORUM TARZLARI (örnekler):
+- "Bu kadar çok mesaj atmışsınız ki WhatsApp bile şaşırmış! 😂"
+- "Sanki mesajlaşma maratonu yapıyormuşsunuz gibi! 🏃‍♂️"
+- "Emoji kullanımında da iddialısınız! 🎨"
+
+🕐 KONUŞMA SÜRESİ ÖZEL ÖRNEKLERİ:
+- "3 aydan beri konuşuyorsunuz! ⏰ Bu gerçek bir arkadaşlık maratonu!"
+- "6 aydır birbirinizle yazışıyorsunuz! 📅 Zamanın nasıl geçtiğini anlamıyorsunuz!"
+- "1 yıldan fazladır sohbet ediyorsunuz! 🎂 Bu bir rekor sayılır!"
 
 ÖNEMLİ KURALLAR:
-1. Yukarıdaki VERİLERİ OLDUĞU GİBİ kullan - değiştirme!
-2. Her kartta mutlaka nicel veri olmalı (sayı, tarih, yüzde)
-3. SADECE JSON formatında yanıt ver
-4. Asla "yaklaşık", "muhtemelen" kullanma
-5. Kişiye özel analiz yapıyorsan, isimlerini doğru kullan
+1. Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
+2. Yukarıdaki VERİLERİ OLDUĞU GİBİ kullan - değiştirme!
+3. Her kartta mutlaka nicel veri olmalı (sayı, tarih, yüzde) + eğlenceli yorum
+4. SADECE JSON formatında yanıt ver
+5. Asla "yaklaşık", "muhtemelen" kullanma
+6. Kişiye özel analiz yapıyorsan, isimlerini doğru kullan
+7. ASLA "analiz edildi", "tespit edildi" gibi robotik ifadeler kullanma
+
+🚫 YASAKLI KELİMELER:
+- "medya", "silindi", "deleted", "parçalı analiz", "büyük dosya"
+- "analiz edildi", "tespit edildi", "belirlenemedi"
 
 YANIT FORMATI:
 [
-  {"title": "İlk Mesaj - Son Mesaj", "comment": "İlk mesajınız ${genelIstatistikler['ilk_mesaj_tarihi']} tarihinde, son mesajınız ${genelIstatistikler['son_mesaj_tarihi']} tarihinde gönderildi."},
-  {"title": "Toplam Mesajlar", "comment": "Bu yıl toplam ${genelIstatistikler['toplam_mesaj_sayisi']} mesaj gönderdiniz. ${birlesikVeriler['benzersiz_kisi_adlari'].length} farklı kişiyle konuştunuz."},
-  // ... 8 kart daha
+  {"title": "Konuşma Süresi", "comment": "Eğlenceli süre analizi + gerçek veriler"},
+  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif - eğlenceli karşılaştırma"},
+  ... (10 kart toplam - başlıkları AYNEN kullan)
 ]
+
+🎪 SON UYARI: BU BİR EĞLENCELİ WRAPPED ANALİZİ! Spotify Wrapped gibi, kullanıcının gülümsemesini sağlayacak, şaşıracağı, "vay be!" diyeceği yorumlar yap. Sıradan, teknik, sıkıcı yorumlar yapmak yasak!
 ''';
       
       final response = await http.post(
@@ -3926,6 +3974,17 @@ YANIT FORMATI:
       - ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma.
       - Sadece gerçek sohbet içeriğini ve dinamiklerini yorumla.
       - Asla "yaklaşık", "muhtemelen", "belirlenemedi" gibi belirsiz ifadeler kullanma.
+
+🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
+Bu kelimeleri ve kavramları ASLA kullanma:
+- "medya" (herhangi bir şekilde)
+- "silindi" / "silinen" / "sildigi" / "silinmiş"
+- "medya dosyası" / "medya içeriği" / "media"
+- "deleted" / "message deleted"
+- "paylaşılan medya" / "shared media"
+- "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
+- "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
+Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
       ''';
       
       // Gemini API isteği yap
@@ -5470,34 +5529,50 @@ SADECE JSON formatında yanıt ver:
       String apiUrl = _getApiUrl();
       
       final prompt = '''
-Sen bir wrapped analiz uzmanısın. Bu büyük dosyadan parçalı olarak çıkarılan verilerle küçük dosyalardaki gibi kaliteli wrapped kartları oluşturacaksın.
+Sen bir eğlenceli veri analisti olarak görev yapacaksın! Bu büyük sohbetten parçalı olarak çıkarılan verileri kullanarak Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ wrapped kartları oluşturacaksın.
 
 PARÇALI ANALİZ VERİLERİ:
 """
 $birlesikAnaliz
 """
 
+🎯 ÇOK ÖNEMLİ: Sen bir eğlence uzmanısın! Sıkıcı, teknik, robotik yanıtlar vermek yasak!
+
 GÖREV: Bu parçalı analiz verilerini kullanarak aşağıdaki ZORUNLU başlıklarla 10 adet wrapped kartı oluştur.
 
-ZORUNLU BAŞLIKLAR (AYNEN KULLAN):
-1. "Konuşma Süresi" 
-2. "Sohbeti En Çok Kim Başlatıyor"
-3. "En Gergin An"
-4. "En Romantik An"
-5. "Kelime Şampiyonları"
-6. "Emoji Analizi"
-7. "Mesaj Karakteri"
-8. "Konuşma Ritmi"
-9. "Duygu Tonu"
-10. "Dikkat Çeken Sohbet"
+ZORUNLU BAŞLIKLAR VE AÇIKLAMALARI (AYNEN KULLAN):
+1. "Konuşma Süresi" - İLK MESAJ TARİHİNDEN SON MESAJ TARİHİNE KADAR GEÇEN SÜRE (ay/gün olarak). "X aydan beri konuşuyorsunuz" tarzında
+2. "Sohbeti En Çok Kim Başlatıyor" - Hangi kişi daha çok mesaj atıyor/başlatıyor karşılaştırması
+3. "En Gergin An" - Sohbetin gerginlik yaratan bağlamı
+4. "En Romantik An" - Sohbetin romantik/samimi bağlamı  
+5. "Kelime Şampiyonları" - En çok kullanılan kelimeler
+6. "Emoji Analizi" - Emoji kullanım analizi
+7. "Mesaj Karakteri" - Mesaj uzunluklarının analizi
+8. "Konuşma Ritmi" - Konuşma desenlerinin analizi
+9. "Duygu Tonu" - Duygu analizi
+10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümü
 
-KURALLAR:
+🎨 EĞLENCELİ YORUM KURALLARI:
 1. Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
-2. Her kart maksimum 2-3 cümle olmalı  
-3. Gerçek veriye dayalı bulgular kullan
-4. ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma
-5. ASLA "medya dahil edilmedi" gibi teknik referanslar kullanma
-6. Sohbetteki gerçek dinamikleri yansıt
+2. YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
+3. Samimi, dostça, eğlenceli bir dil kullan
+4. Her kart için farklı emojiler ve ifadeler kullan
+5. Mizahi unsurlar ekle ama uygun ölçüde tut
+6. Gerçek veriye dayalı bulgular kullan ama EĞLENCE odaklı yorumla
+7. "😂", "🤣", "😅", "💬", "🔥", "💕", "👀", "⚡" gibi emojiler kullan
+8. Sohbetteki gerçek dinamikleri EĞLENCELI şekilde yansıt
+
+📝 YORUM TARZLARI (örnekler):
+- "Bu kadar çok mesaj atmışsınız ki WhatsApp bile şaşırmış! 😂"
+- "Sanki mesajlaşma maratonu yapıyormuşsunuz gibi! 🏃‍♂️"
+- "Gece yarısı mesajlaşması konusunda şampiyonsunuz! 🌙"
+- "Emoji kullanımında da iddialısınız! 🎨"
+- "Bu sohbet gerçek bir roman gibi! 📚"
+
+🕐 KONUŞMA SÜRESİ ÖZEL ÖRNEKLERİ:
+- "3 aydan beri konuşuyorsunuz! ⏰ Bu gerçek bir arkadaşlık maratonu!"
+- "6 aydır birbirinizle yazışıyorsunuz! 📅 Zamanın nasıl geçtiğini anlamıyorsunuz!"
+- "1 yıldan fazladır sohbet ediyorsunuz! 🎂 Bu bir rekor sayılır!"
 
 🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
 Bu kelimeleri ve kavramları ASLA kullanma:
@@ -5505,17 +5580,28 @@ Bu kelimeleri ve kavramları ASLA kullanma:
 - "silindi" / "silinen" / "sildigi" / "silinmiş"
 - "medya dosyası" / "medya içeriği" / "media"
 - "deleted" / "message deleted"
-- "paylaşılan medya" / "shared media"
+- "paylaşılan medya" / "shared media"  
 - "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
 - "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
-Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
+- "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler
+- "analiz edildi", "tespit edildi" gibi robotik ifadeler
+
+✨ YARATICILIK KURALLARI:
+- HER YORUM TAMAMEN ORİJİNAL ve YARATICI olsun!
+- Statik şablonlar KULLANMA, her seferinde farklı yorumlar yap!
+- Rakamları mutlaka dahil et ama yorumları çeşitlendir
+- Gerçek veriden çıkan sonuçları EĞLENCELI şekilde yorumla
+- Samimi, dostça, gülümseten bir ton kullan
+- Sohbetin RUHUNU yakala ve eğlenceli şekilde yansıt
 
 YANIT FORMATI (doğrudan JSON array, başlıkları AYNEN kullan):
 [
-  {"title": "Konuşma Süresi", "comment": "Gerçek veriye dayalı süre analizi"},
-  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analizi"},
+  {"title": "Konuşma Süresi", "comment": "Eğlenceli süre analizi - rakamlar + mizah"},
+  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif - eğlenceli karşılaştırma"},
   ... (10 kart toplam)
 ]
+
+🎪 SON UYARI: BU BİR EĞLENCELİ WRAPPED ANALİZİ! Spotify Wrapped gibi, kullanıcının gülümsemesini sağlayacak, şaşıracağı, "vay be!" diyeceği yorumlar yap. Sıradan, teknik, sıkıcı yorumlar yapmak yasak!
 ''';
 
       final response = await http.post(
@@ -5585,47 +5671,47 @@ YANIT FORMATI (doğrudan JSON array, başlıkları AYNEN kullan):
       _logger.e('AI wrapped analizi hatası: $e');
     }
     
-    // Fallback: AI başarısız olursa standart başlıklarla kartlar oluştur
+    // Fallback: AI başarısız olursa EĞLENCELİ standart kartlar oluştur
     List<Map<String, String>> fallbackKartlar = [
       {
         'title': 'Konuşma Süresi',
-        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Sohbet süreniz analiz edildi.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Aylardır birbirinizle yazışıyorsunuz! ⏰ Bu gerçek bir arkadaşlık maratonu!'
       },
       {
         'title': 'Sohbeti En Çok Kim Başlatıyor',
-        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesaj başlatma analizi tamamlandı.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesaj atma konusunda gerçek bir şampiyon var aranızda! 🏆'
       },
       {
         'title': 'En Gergin An',
-        'comment': kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('gergin')).join(' ') ?? 'Gerginlik analizi tamamlandı.'
+        'comment': kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('gergin')).join(' ') ?? 'Sohbette biraz drama yaşanmış gibi görünüyor! 🎭 Ama sonuçta her şey güzel bitmiş.'
       },
       {
         'title': 'En Romantik An',
-        'comment': kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('romantik')).join(' ') ?? 'Romantik anlar analiz edildi.'
+        'comment': kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('romantik')).join(' ') ?? 'Aranızda çok tatlı anlar var! 💕 Bu sohbet tam bir aşk romanı gibi.'
       },
       {
         'title': 'Kelime Şampiyonları',
-        'comment': kategoriler['Kelime kullanımı']?.first ?? 'Kelime analizi tamamlandı.'
+        'comment': kategoriler['Kelime kullanımı']?.first ?? 'Kelime çeşitliliğiniz gerçekten etkileyici! 📚 Sözlük gibisiniz!'
       },
       {
         'title': 'Emoji Analizi',
-        'comment': kategoriler['Emoji kullanımı']?.first ?? 'Emoji kullanımı analiz edildi.'
+        'comment': kategoriler['Emoji kullanımı']?.first ?? 'Emoji kullanımınız harika! 🎨 Rengarenk bir sohbetiniz var!'
       },
       {
         'title': 'Mesaj Karakteri',
-        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesaj karakteri analiz edildi.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesajlarınız tam kıvamında! 💬 Ne çok uzun ne çok kısa.'
       },
       {
         'title': 'Konuşma Ritmi',
-        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Konuşma ritmi analiz edildi.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Konuşma ritminiz mükemmel! 🎵 Tam bir armoni var aranızda.'
       },
       {
         'title': 'Duygu Tonu',
-        'comment': kategoriler['Duygu tonu']?.first ?? 'Duygu tonu analiz edildi.'
+        'comment': kategoriler['Duygu tonu']?.first ?? 'Sohbetinizin genel havası çok pozitif! ✨ Birbirinizi çok mutlu ediyorsunuz.'
       },
       {
         'title': 'Dikkat Çeken Sohbet',
-        'comment': kategoriler['İlginç mesaj örnekleri']?.first ?? 'İlginç sohbet bölümleri tespit edildi.'
+        'comment': kategoriler['İlginç mesaj örnekleri']?.first ?? 'Bu sohbette gerçekten ilginç konular varmış! 👀 Okurken keyif aldık!'
       },
     ];
     
