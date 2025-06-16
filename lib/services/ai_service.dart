@@ -816,7 +816,7 @@ class AiService {
           uniquePersons.add(result.persons);
         }
       }
-      String combinedPersons = uniquePersons.isEmpty ? 'Belirtilmemiş' : uniquePersons.join(', ');
+      String combinedPersons = uniquePersons.isEmpty ? 'Belirtilenmemiş' : uniquePersons.join(', ');
       
       // Mesaj yorumlarını ve tavsiyeleri birleştir
       List<String> allAdvices = [];
@@ -1743,7 +1743,7 @@ class AiService {
     
     // İki farklı cevap önerisi oluştur
     final cevapOnerileri = isOcrContent
-        ? ["Düşüncelerimi daha net bir şekilde ifade etmek istiyorum. Bu konuda ne düşünüyorsun?", "Görsellerle değil, doğrudan ve açık bir şekilde iletişim kurmayı tercih ediyorum."]
+        ? ["Düşüncelerimi daha net bir şekilde ifade etmek istiyorum. Bu konuda ne düşünüyorsun?", "Görsellerle değil, doğrudan bir şekilde iletişim kurmayı tercih ediyorum."]
         : ["Bu konuda açıkça konuşmak istiyorum. Seninle olan iletişimimizin daha iyi olmasını istiyorum.", "Mesajlarıma cevap vermediğini fark ettim. Seni rahatsız eden bir şey mi var?"];
     
     // Zorunlu bir sonuç döndür
@@ -1805,7 +1805,7 @@ class AiService {
         jsonMap['cevapOnerileri'] is! List || (jsonMap['cevapOnerileri'] as List).isEmpty) {
       jsonMap['cevapOnerileri'] = isOcrContent
           ? ["Görsel yerine doğrudan mesaj yazarak iletişim kurmayı tercih ederim. Düşüncelerini açıkça belirt.", "Bu konuyu detaylı konuşmak istiyorum. Müsait olduğunda bana haber ver."]
-          : ["Düşüncelerimi açıkça ifade etmek istiyorum. Bu konuda senin de açık olmanı bekliyorum.", "İletişimimizi daha açık ve dürüst bir şekilde sürdürmek istiyorum. Ne düşünüyorsun?"];
+          : ["Düşüncelerimi açıkça ifade etmek istiyorum. Senin de açık olmanı bekliyorum.", "İletişimimizi daha açık ve dürüst bir şekilde sürdürmek istiyorum. Ne düşünüyorsun?"];
     }
   }
   
@@ -2667,8 +2667,9 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
         continue;
       }
       
-      // Silinen mesaj kalıpları (Türkçe ve İngilizce)
+      // Silinen mesaj kalıpları (Türkçe ve İngilizce) - GÜÇLENDİRİLMİŞ
       final List<String> silinenMesajKaliplari = [
+        // Temel silinen mesaj kalıpları
         'Bu mesaj silindi',
         'This message was deleted',
         'Mesaj silindi',
@@ -2679,10 +2680,45 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
         'Deleted message',
         '🚫 Bu mesaj silindi',
         '❌ Bu mesaj silindi',
+        
+        // Ek silinen mesaj varyasyonları
+        'mesaj silindi',
+        'silinen',
+        'sildi',
+        'geri alındı',
+        'deleted',
+        'message removed',
+        'mesaj kaldırıldı',
+        'unsent message',
+        'gönderilmedi',
+        'cancelled message',
+        'iptal edildi',
+        
+        // Bu mesaj silindi varyasyonları
+        'bu mesaj silindi.',
+        'this message was deleted.',
+        'mesaj silindi.',
+        'message deleted.',
+        'bu mesaj geri alındı.',
+        'this message was recalled.',
+        
+        // Küçük/büyük harf varyasyonları
+        'BU MESAJ SİLİNDİ',
+        'MESAJ SİLİNDİ',
+        'THIS MESSAGE WAS DELETED',
+        'MESSAGE DELETED',
+        
+        // Noktalama işaretli varyasyonlar
+        '• Bu mesaj silindi',
+        '- Bu mesaj silindi',
+        '* Bu mesaj silindi',
+        '▪ Bu mesaj silindi',
+        '◦ Bu mesaj silindi',
       ];
       
-      // Medya içerik kalıpları
+      // Medya içerik kalıpları - GÜÇLENDİRİLMİŞ
       final List<String> medyaKaliplari = [
+        // Parantez içi kalıplar
         '(medya içeriği)',
         '(media content)',
         '(görsel)',
@@ -2714,6 +2750,53 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
         '(live location)',
         '(anket)',
         '(poll)',
+        
+        // Parantez olmayan kalıplar
+        'medya içeriği',
+        'media content',
+        'fotoğraf paylaştı',
+        'foto gönderdi',
+        'görsel paylaştı',
+        'video paylaştı',
+        'ses kaydı gönderdi',
+        'sticker gönderdi',
+        'çıkartma gönderdi',
+        'dosya paylaştı',
+        'belge gönderdi',
+        'konum paylaştı',
+        'kişi paylaştı',
+        'contact paylaştı',
+        
+        // Emoji ve sembol içeren kalıplar
+        '📷',
+        '🎥',
+        '🎵',
+        '🎧',
+        '📁',
+        '📄',
+        '🗂️',
+        '📎',
+        '🔗',
+        '📹',
+        '📱',
+        '💾',
+        
+        // İngilizce kalıplar
+        'image omitted',
+        'video omitted',
+        'audio omitted',
+        'file omitted',
+        'document omitted',
+        'sticker omitted',
+        'gif omitted',
+        'location omitted',
+        'contact omitted',
+        
+        // Daha spesifik kalıplar
+        'bu tür mesaj bu sürümde desteklenmiyor',
+        'this type of message is not supported',
+        'mesaj türü desteklenmiyor',
+        'unsupported message type',
       ];
       
       // Sistem mesajları (grup bildirimleri vs.)
@@ -2794,8 +2877,29 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
         }
       }
       
-      // Sadece gerçek mesajları koru
-      if (!silinenMesaj && !medyaIcerik && !sistemMesaji && mesajKismi.isNotEmpty) {
+      // Ek kontroller: YASAKLI KELİMELER - TÜM SATIRDA ARAMA
+      final List<String> yasakliKelimeler = [
+        'medya',
+        'media',
+        'silindi',
+        'silinen',
+        'sildigi',
+        'silinmiş',
+        'deleted',
+        'removed',
+      ];
+      
+      bool yasakliIcerik = false;
+      String satirKucuk = trimmedLine.toLowerCase();
+      for (String yasak in yasakliKelimeler) {
+        if (satirKucuk.contains(yasak.toLowerCase())) {
+          yasakliIcerik = true;
+          break;
+        }
+      }
+      
+      // Sadece gerçek mesajları koru (yasaklı içerik yoksa)
+      if (!silinenMesaj && !medyaIcerik && !sistemMesaji && !yasakliIcerik && mesajKismi.isNotEmpty) {
         temizLines.add(line);
       }
     }
@@ -3012,6 +3116,17 @@ GÖREVLER - AŞAĞIDAKİ HER BİRİNİ EĞLENCELİ ŞEKİLDE YAPMALISIN:
 - SADECE JSON formatında yanıt ver, açıklama yazma.
 - Her kartta SOMUT VERİLER ve EĞLENCELİ YORUMLAR olmalı.
 - Samimi ve dostça bir dil kullan.
+
+🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
+Bu kelimeleri ve kavramları ASLA kullanma:
+- "medya" (herhangi bir şekilde)
+- "silindi" / "silinen" / "sildigi" / "silinmiş"
+- "medya dosyası" / "medya içeriği" / "media"
+- "deleted" / "message deleted"
+- "paylaşılan medya" / "shared media"
+- "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
+- "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
+Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
 
 YANIT FORMATI:
 Bu başlıklar için tam 10 kart oluştur (başlık isimleri aynen kullan):
@@ -3358,7 +3473,7 @@ Sadece bir kişinin mesajlarını analiz edersen YANLIŞ yaparsın!
       String apiUrl = _getApiUrl();
       
       final prompt = '''
-Sen bir veri analisti olarak görev yapacaksın. Verilen metin parçasını analiz edeceksin.
+Sen bir veri analisti olarak görev yapacaksın. Verilen metin parçasını analiz edeceksın.
 
 Bu parça $parcaNo/$toplamParca numaralı parça. TÜM PARÇALARIN ANALİZİ BİRLEŞTİRİLECEK.
 
@@ -3627,7 +3742,7 @@ YANIT FORMATI:
             'maxOutputTokens': 2000,
           }
         }),
-      );
+      ).timeout(_httpTimeout);
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -3774,34 +3889,42 @@ YANIT FORMATI:
       5. Yanıtını doğrudan JSON formatında ver, başka açıklama ekleme.
       6. Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
       
-      KART BAŞLIKLARI (değiştirebilirsin):
-      - İlk Mesaj - Son Mesaj
-      - Mesaj Sayıları ve Dağılımı
-      - En Yoğun Ay/Gün
-      - En Çok Kullanılan Kelimeler
-      - Mesaj Patlaması
-      - Sessizlik Süresi
-      - İletişim Tarzı
-      - Emoji Kullanımı
-      - Ortalama Mesaj Uzunluğu
-      - Konuşma Saatleri
+      ZORUNLU KART BAŞLIKLARI (AYNEN KULLAN):
+      1. "Konuşma Süresi" - Süre hesapla ve yorumla
+      2. "Sohbeti En Çok Kim Başlatıyor" - Kim daha aktif? Analiz et
+      3. "En Gergin An" - Sohbetin genel akışından gerginlik yaratan bağlamı analiz et
+      4. "En Romantik An" - Sohbetin genel akışından romantik/samimi bağlamı analiz et
+      5. "Kelime Şampiyonları" - En çok kullanılan kelimeleri yorumla
+      6. "Emoji Analizi" - Emoji kullanımını analiz et
+      7. "Mesaj Karakteri" - Mesaj uzunluklarını analiz et
+      8. "Konuşma Ritmi" - Konuşma desenlerini analiz et
+      9. "Duygu Tonu" - Duygu analizini yorumla
+      10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümünü yorumla
       
-      YANIT FORMATI (doğrudan JSON dizi):
+      YANIT FORMATI (doğrudan JSON dizi, başlıkları AYNEN kullan):
       [
-        {"title": "Kart Başlığı 1", "comment": "Kartın açıklaması, mutlaka nicel verilerle destekli"},
-        {"title": "Kart Başlığı 2", "comment": "Kartın açıklaması, mutlaka nicel verilerle destekli"},
-        ...
-        {"title": "Kart Başlığı 10", "comment": "Kartın açıklaması, mutlaka nicel verilerle destekli"}
+        {"title": "Konuşma Süresi", "comment": "Süre hesaplayıp yorumla"},
+        {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analiz et"},
+        {"title": "En Gergin An", "comment": "Gerginlik bağlamını analiz et"},
+        {"title": "En Romantik An", "comment": "Romantik bağlamı analiz et"},
+        {"title": "Kelime Şampiyonları", "comment": "En çok kullanılan kelimeleri yorumla"},
+        {"title": "Emoji Analizi", "comment": "Emoji kullanımını analiz et"},
+        {"title": "Mesaj Karakteri", "comment": "Mesaj uzunluklarını analiz et"},
+        {"title": "Konuşma Ritmi", "comment": "Konuşma desenlerini analiz et"},
+        {"title": "Duygu Tonu", "comment": "Duygu analizini yorumla"},
+        {"title": "Dikkat Çeken Sohbet", "comment": "En ilginç sohbet bölümünü yorumla"}
       ]
       
-      ÖNEMLİ NOTLAR:
+      ÖNEMLİ KURALLAR:
       - Gerçek veriye dayalı içerik oluştur, varsayılan değerler KULLANMA.
       - Yanıtın SADECE JSON formatında olmalı, başka hiçbir açıklama içermemeli.
       - Doğrudan sayılar, tarihler ve yüzdeler kullan.
       - Tarihleri GG.AA.YYYY formatında göster.
       - Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
-      - İlk kartta ilk mesaj ve son mesaj tarihleri mutlaka bulunmalı.
-      - İkinci kartta toplam mesaj sayısı ve kişi bazlı dağılımı mutlaka bulunmalı.
+      - Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
+      - ASLA "medya dahil edilmedi", "ses kaydı", "fotoğraf" gibi teknik referanslar kullanma.
+      - ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma.
+      - Sadece gerçek sohbet içeriğini ve dinamiklerini yorumla.
       - Asla "yaklaşık", "muhtemelen", "belirlenemedi" gibi belirsiz ifadeler kullanma.
       ''';
       
@@ -5119,7 +5242,7 @@ YANIT FORMATI (doğrudan JSON dizi):
     }
     
     // Sonuçları birleştir ve özetle
-    return _wrappedSonuclariOzetle(tumSonuclar);
+    return await _wrappedSonuclariOzetle(tumSonuclar);
   }
 
   /// Tek parça için wrapped analizi yapar
@@ -5207,14 +5330,43 @@ SADECE JSON formatında yanıt ver:
         String content = data['candidates'][0]['content']['parts'][0]['text'];
         
         try {
-          final List<dynamic> jsonList = jsonDecode(content);
+          // JSON içeriğini temizle - markdown code block'ları kaldır
+          String jsonStr = _cleanJsonResponse(content);
+          _logger.d('Ham AI yanıtı (Parça $parcaNumarasi): ${jsonStr.length > 200 ? jsonStr.substring(0, 200) + "..." : jsonStr}');
+          
+          // JSON array formatını kontrol et
+          int startIndex = jsonStr.indexOf('[');
+          int endIndex = jsonStr.lastIndexOf(']') + 1;
+          
+          if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
+            jsonStr = jsonStr.substring(startIndex, endIndex);
+            _logger.d('Temizlenmiş JSON (Parça $parcaNumarasi): ${jsonStr.length > 200 ? jsonStr.substring(0, 200) + "..." : jsonStr}');
+          }
+          
+          final List<dynamic> jsonList = jsonDecode(jsonStr);
+          _logger.i('Parça $parcaNumarasi JSON parse başarılı - ${jsonList.length} öğe');
+          
           return jsonList.map<Map<String, String>>((item) => {
             'category': item['category']?.toString() ?? '',
             'findings': item['findings']?.toString() ?? '',
           }).toList();
         } catch (e) {
           _logger.e('Parça $parcaNumarasi JSON parse hatası: $e');
-          return [];
+          _logger.e('Hatalı içerik: ${content.length > 300 ? content.substring(0, 300) + "..." : content}');
+          
+          // Alternatif parse denemesi - JSON düzeltme
+          try {
+            String fixedJson = _tryFixParseError(content, parcaNumarasi);
+            final List<dynamic> jsonList = jsonDecode(fixedJson);
+            _logger.i('Parça $parcaNumarasi düzeltilmiş JSON ile parse edildi');
+            return jsonList.map<Map<String, String>>((item) => {
+              'category': item['category']?.toString() ?? '',
+              'findings': item['findings']?.toString() ?? '',
+            }).toList();
+          } catch (e2) {
+            _logger.w('Parça $parcaNumarasi JSON düzeltme de başarısız: $e2');
+            return [];
+          }
         }
       }
     }
@@ -5222,8 +5374,72 @@ SADECE JSON formatında yanıt ver:
     throw Exception('Parça $parcaNumarasi analizi başarısız');
   }
 
-  /// Parçalı analiz sonuçlarını birleştirip final wrapped kartları oluşturur
-  List<Map<String, String>> _wrappedSonuclariOzetle(List<Map<String, String>> tumSonuclar) {
+  /// JSON parse hatalarını düzeltmeye çalışır
+  String _tryFixParseError(String content, int parcaNumarasi) {
+    String jsonStr = content.trim();
+    
+    // Markdown code block'ları kaldır
+    if (jsonStr.contains('```json')) {
+      jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+    } else if (jsonStr.contains('```')) {
+      jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+    }
+    
+    // Kontrol karakterlerini temizle
+    jsonStr = jsonStr.replaceAll(RegExp(r'[\u0000-\u001F]'), '');
+    
+    // JSON array formatını kontrol et ve düzelt
+    if (!jsonStr.startsWith('[')) {
+      int startIndex = jsonStr.indexOf('[');
+      if (startIndex != -1) {
+        jsonStr = jsonStr.substring(startIndex);
+      } else {
+        // Array yoksa basit bir array oluştur
+        return '[{"category": "Parça Analizi", "findings": "Bu parça için analiz tamamlandı."}]';
+      }
+    }
+    
+    if (!jsonStr.endsWith(']')) {
+      int endIndex = jsonStr.lastIndexOf(']');
+      if (endIndex != -1) {
+        jsonStr = jsonStr.substring(0, endIndex + 1);
+      } else {
+        // Closing bracket yoksa ekle
+        jsonStr += ']';
+      }
+    }
+    
+    // Eksik virgülleri ekle
+    jsonStr = jsonStr
+        .replaceAll('}\n{', '},{')
+        .replaceAll('} {', '},{')
+        .replaceAll('}\r\n{', '},{')
+        .replaceAll('}\t{', '},{');
+        
+    _logger.d('Parça $parcaNumarasi için düzeltilmiş JSON: ${jsonStr.length > 200 ? jsonStr.substring(0, 200) + "..." : jsonStr}');
+    
+    return jsonStr;
+  }
+
+  /// Güvenli JSON temizleme ve parse işlemi - tüm JSON parse işlemleri için ortak metod
+  String _cleanJsonResponse(String content) {
+    String jsonStr = content.trim();
+    
+    // Markdown code block'ları kaldır
+    if (jsonStr.contains('```json')) {
+      jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+    } else if (jsonStr.contains('```')) {
+      jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+    }
+    
+    // Kontrol karakterlerini temizle
+    jsonStr = jsonStr.replaceAll(RegExp(r'[\u0000-\u001F]'), '');
+    
+    return jsonStr;
+  }
+
+  /// Parçalı analiz sonuçlarını birleştirip final wrapped kartları oluşturur - Küçük dosyalardaki gibi AI ile
+  Future<List<Map<String, String>>> _wrappedSonuclariOzetle(List<Map<String, String>> tumSonuclar) async {
     _logger.i('Wrapped sonuçları özetleniyor - ${tumSonuclar.length} parça sonucu');
     
     // Kategorilere göre sonuçları grupla
@@ -5239,52 +5455,184 @@ SADECE JSON formatında yanıt ver:
       }
     }
     
-    // Final wrapped kartları oluştur
-    List<Map<String, String>> finalKartlar = [
+    // Parça analizlerini birleştirip özetleyelim
+    String birlesikAnaliz = '';
+    kategoriler.forEach((kategori, bulgular) {
+      birlesikAnaliz += '$kategori:\n';
+      for (String bulgu in bulgular) {
+        birlesikAnaliz += '- $bulgu\n';
+      }
+      birlesikAnaliz += '\n';
+    });
+    
+    // Şimdi AI ile küçük dosyalardaki gibi final wrapped analizi yapalım
+    try {
+      String apiUrl = _getApiUrl();
+      
+      final prompt = '''
+Sen bir wrapped analiz uzmanısın. Bu büyük dosyadan parçalı olarak çıkarılan verilerle küçük dosyalardaki gibi kaliteli wrapped kartları oluşturacaksın.
+
+PARÇALI ANALİZ VERİLERİ:
+"""
+$birlesikAnaliz
+"""
+
+GÖREV: Bu parçalı analiz verilerini kullanarak aşağıdaki ZORUNLU başlıklarla 10 adet wrapped kartı oluştur.
+
+ZORUNLU BAŞLIKLAR (AYNEN KULLAN):
+1. "Konuşma Süresi" 
+2. "Sohbeti En Çok Kim Başlatıyor"
+3. "En Gergin An"
+4. "En Romantik An"
+5. "Kelime Şampiyonları"
+6. "Emoji Analizi"
+7. "Mesaj Karakteri"
+8. "Konuşma Ritmi"
+9. "Duygu Tonu"
+10. "Dikkat Çeken Sohbet"
+
+KURALLAR:
+1. Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
+2. Her kart maksimum 2-3 cümle olmalı  
+3. Gerçek veriye dayalı bulgular kullan
+4. ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma
+5. ASLA "medya dahil edilmedi" gibi teknik referanslar kullanma
+6. Sohbetteki gerçek dinamikleri yansıt
+
+🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
+Bu kelimeleri ve kavramları ASLA kullanma:
+- "medya" (herhangi bir şekilde)
+- "silindi" / "silinen" / "sildigi" / "silinmiş"
+- "medya dosyası" / "medya içeriği" / "media"
+- "deleted" / "message deleted"
+- "paylaşılan medya" / "shared media"
+- "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
+- "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
+Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
+
+YANIT FORMATI (doğrudan JSON array, başlıkları AYNEN kullan):
+[
+  {"title": "Konuşma Süresi", "comment": "Gerçek veriye dayalı süre analizi"},
+  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analizi"},
+  ... (10 kart toplam)
+]
+''';
+
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+          'generationConfig': {
+            'temperature': 0.4,
+            'maxOutputTokens': 2000,
+          }
+        }),
+      ).timeout(_httpTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+          String content = data['candidates'][0]['content']['parts'][0]['text'];
+          
+          try {
+            // JSON içeriğini temizle
+            String jsonStr = _cleanJsonResponse(content);
+            
+            // JSON array formatını kontrol et
+            int startIndex = jsonStr.indexOf('[');
+            int endIndex = jsonStr.lastIndexOf(']') + 1;
+            
+            if (startIndex != -1 && endIndex > 0 && startIndex < endIndex) {
+              jsonStr = jsonStr.substring(startIndex, endIndex);
+              
+              final List<dynamic> jsonList = jsonDecode(jsonStr);
+              final List<Map<String, String>> result = [];
+              
+              for (var item in jsonList) {
+                if (item is Map) {
+                  result.add({
+                    'title': item['title']?.toString() ?? 'Analiz Kartı',
+                    'comment': item['comment']?.toString() ?? 'Analiz tamamlandı.',
+                  });
+                }
+              }
+              
+              // 10 kart garantisi
+              while (result.length < 10) {
+                result.add({
+                  'title': 'Sohbet Analizi ${result.length + 1}',
+                  'comment': 'Bu büyük sohbetinizden çıkarılan özel bir bulgudur.'
+                });
+              }
+              
+              if (result.length > 10) {
+                result.removeRange(10, result.length);
+              }
+              
+              _logger.i('AI ile wrapped kartları oluşturuldu - ${result.length} kart');
+              return result;
+            }
+          } catch (e) {
+            _logger.e('Final wrapped JSON parse hatası: $e');
+          }
+        }
+      }
+      
+      _logger.w('AI wrapped analizi başarısız, fallback kartlar oluşturuluyor');
+      
+    } catch (e) {
+      _logger.e('AI wrapped analizi hatası: $e');
+    }
+    
+    // Fallback: AI başarısız olursa standart başlıklarla kartlar oluştur
+    List<Map<String, String>> fallbackKartlar = [
       {
         'title': 'Konuşma Süresi',
-        'comment': '🕐 Parçalı analiz tamamlandı! Sohbetiniz çok büyük olduğu için akıllı parçalama sistemi kullanıldı.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Sohbet süreniz analiz edildi.'
       },
       {
         'title': 'Sohbeti En Çok Kim Başlatıyor',
-        'comment': '💬 ${kategoriler['Mesaj sayısı ve aktivite']?.join(' ') ?? 'Aktivite analizi tamamlandı!'}'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesaj başlatma analizi tamamlandı.'
       },
       {
         'title': 'En Gergin An',
-        'comment': '😤 ${kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('gergin')).join(' ') ?? 'Gerginlik analizi parçalı olarak tamamlandı.'}'
+        'comment': kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('gergin')).join(' ') ?? 'Gerginlik analizi tamamlandı.'
       },
       {
         'title': 'En Romantik An',
-        'comment': '💕 ${kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('romantik')).join(' ') ?? 'Romantik anlar parçalı olarak analiz edildi.'}'
+        'comment': kategoriler['Duygu tonu']?.where((s) => s.toLowerCase().contains('romantik')).join(' ') ?? 'Romantik anlar analiz edildi.'
       },
       {
         'title': 'Kelime Şampiyonları',
-        'comment': '📝 ${kategoriler['Kelime kullanımı']?.join(' ') ?? 'Kelime analizi tamamlandı!'}'
+        'comment': kategoriler['Kelime kullanımı']?.first ?? 'Kelime analizi tamamlandı.'
       },
       {
         'title': 'Emoji Analizi',
-        'comment': '😊 ${kategoriler['Emoji kullanımı']?.join(' ') ?? 'Emoji kullanımı analiz edildi!'}'
+        'comment': kategoriler['Emoji kullanımı']?.first ?? 'Emoji kullanımı analiz edildi.'
       },
       {
         'title': 'Mesaj Karakteri',
-        'comment': '📊 Büyük dosya parçalı olarak analiz edildi. Detaylı mesaj karakteri analizi tamamlandı.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesaj karakteri analiz edildi.'
       },
       {
         'title': 'Konuşma Ritmi',
-        'comment': '🎵 Parçalı analiz sayesinde konuşma ritminiz başarıyla değerlendirildi.'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Konuşma ritmi analiz edildi.'
       },
       {
         'title': 'Duygu Tonu',
-        'comment': '🎭 ${kategoriler['Duygu tonu']?.join(' ') ?? 'Duygu tonu analizi parçalı olarak tamamlandı!'}'
+        'comment': kategoriler['Duygu tonu']?.first ?? 'Duygu tonu analiz edildi.'
       },
       {
         'title': 'Dikkat Çeken Sohbet',
-        'comment': '⭐ ${kategoriler['İlginç mesaj örnekleri']?.join(' ') ?? 'İlginç sohbet bölümleri parçalı analiz ile bulundu!'}'
+        'comment': kategoriler['İlginç mesaj örnekleri']?.first ?? 'İlginç sohbet bölümleri tespit edildi.'
       },
     ];
     
-    _logger.i('Final wrapped kartları oluşturuldu - ${finalKartlar.length} kart');
-    return finalKartlar;
+    // Zaten 10 kart var, tamamlama gereksiz
+    
+    _logger.i('Fallback wrapped kartları oluşturuldu - ${fallbackKartlar.length} kart');
+    return fallbackKartlar;
   }
 
  }
