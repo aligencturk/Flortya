@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:go_router/go_router.dart';
+import 'dart:convert';
 import '../viewmodels/auth_viewmodel.dart';
 import '../services/premium_service.dart';
+import '../services/remote_config_service.dart';
 import '../utils/utils.dart';
 
 /// Premium abonelik sayfası
@@ -15,11 +17,27 @@ class PremiumView extends StatefulWidget {
 
 class _PremiumViewState extends State<PremiumView> {
   bool _isLoading = false;
+  bool _isContentLoading = true;
   int _selectedPlanIndex = 1; // Varsayılan olarak aylık plan
   final PremiumService _premiumService = PremiumService();
+  final RemoteConfigService _remoteConfigService = RemoteConfigService();
+  
+  // Remote Config'ten gelecek dinamik içerik
+  String _premiumTitle = 'Flörtya Premium';
+  String _premiumDescription = 'İlişkilerinizi geliştirmek için tüm premium özelliklere erişin.';
+  List<String> _premiumFeatures = [
+    'Reklamsız kullanım',
+    'Sınırsız analiz',
+    'Wrapped özeti',
+    'Görsel analiz',
+    '.txt analizi',
+    'İlişki danışmanlığı',
+    'Alternatif öneriler',
+    'Yanıt senaryoları',
+  ];
 
-  // Abonelik planları
-  final List<Map<String, dynamic>> _planlar = [
+  // Abonelik planları - Remote Config'ten gelecek
+  List<Map<String, dynamic>> _planlar = [
     {
       'title': 'Haftalık',
       'price': '₺49,99',
@@ -43,49 +61,81 @@ class _PremiumViewState extends State<PremiumView> {
     },
   ];
 
-  // Premium avantajları
-  final List<Map<String, dynamic>> _avantajlar = [
-    {
-      'icon': Icons.remove_circle,
-      'title': 'Reklamları Kaldır',
-      'description': 'Reklamsız, kesintisiz kullanım deneyimi',
-    },
-    {
-      'icon': Icons.analytics,
-      'title': 'Sınırsız Analiz',
-      'description': 'Sınırsız mesaj ve ilişki analizi',
-    },
-    {
-      'icon': Icons.history,
-      'title': 'Geçmiş Raporlar',
-      'description': 'Tüm geçmiş raporlara erişim',
-    },
-    {
-      'icon': Icons.image,
-      'title': 'Görsel Analiz',
-      'description': 'Sınırsız sohbet görüntüsü analizi',
-    },
-    {
-      'icon': Icons.text_snippet,
-      'title': '.txt Analizi',
-      'description': 'Metin dosyası analizi özelliği',
-    },
-    {
-      'icon': Icons.support_agent,
-      'title': 'İlişki Danışmanlığı',
-      'description': 'Premium ilişki danışmanlığı desteği',
-    },
-    {
-      'icon': Icons.lightbulb,
-      'title': 'Alternatif Öneriler',
-      'description': 'Sınırsız alternatif mesaj önerileri',
-    },
-    {
-      'icon': Icons.psychology,
-      'title': 'Yanıt Senaryoları',
-      'description': 'Olumlu ve olumsuz yanıt tahminleri',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadPremiumContent();
+  }
+
+  /// Remote Config'ten premium içeriğini çeker
+  Future<void> _loadPremiumContent() async {
+    try {
+      setState(() {
+        _isContentLoading = true;
+      });
+
+      // Remote Config'ten verileri çek
+      await _remoteConfigService.baslat();
+      
+      // Premium başlığını çek
+      try {
+        _premiumTitle = await _remoteConfigService.parametreAl('premium_title');
+      } catch (e) {
+        // Varsayılan değer kullanılacak
+        debugPrint('Premium title yüklenemedi, varsayılan değer kullanılıyor: $e');
+      }
+
+      // Premium açıklamasını çek
+      try {
+        _premiumDescription = await _remoteConfigService.parametreAl('premium_description');
+      } catch (e) {
+        // Varsayılan değer kullanılacak
+        debugPrint('Premium description yüklenemedi, varsayılan değer kullanılıyor: $e');
+      }
+
+      // Premium özelliklerini çek
+      try {
+        final featuresJson = await _remoteConfigService.parametreAl('premium_features');
+        if (featuresJson.isNotEmpty) {
+          final List<dynamic> featuresData = jsonDecode(featuresJson);
+          _premiumFeatures = featuresData.cast<String>();
+        }
+      } catch (e) {
+        // Varsayılan değerler kullanılacak
+        debugPrint('Premium features yüklenemedi, varsayılan değerler kullanılıyor: $e');
+      }
+
+      // Premium planlarını çek
+      try {
+        final plansJson = await _remoteConfigService.parametreAl('premium_plans');
+        if (plansJson.isNotEmpty) {
+          final List<dynamic> plansData = jsonDecode(plansJson);
+          _planlar = plansData.cast<Map<String, dynamic>>();
+          
+          // En popüler planı bulup selected index olarak ayarla
+          for (int i = 0; i < _planlar.length; i++) {
+            if (_planlar[i]['mostPopular'] == true) {
+              _selectedPlanIndex = i;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        // Varsayılan planlar kullanılacak
+        debugPrint('Premium plans yüklenemedi, varsayılan planlar kullanılıyor: $e');
+      }
+
+    } catch (e) {
+      debugPrint('Premium içerik yükleme hatası: $e');
+      // Varsayılan değerler kullanılacak
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isContentLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,56 +219,79 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildSubscriptionView(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Flörtya Premium',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+    return _isContentLoading
+        ? _buildLoadingView()
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _premiumTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _premiumDescription,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                
+                // Abonelik planları
+                _buildSubscriptionPlans(),
+                const SizedBox(height: 32),
+                
+                // Premium avantajları
+                const Text(
+                  'Premium Avantajları',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildPremiumAdvantages(),
+                const SizedBox(height: 24),
+                
+                // Satın alma butonu
+                _buildPurchaseButton(),
+                const SizedBox(height: 16),
+                
+                // Geri yükleme butonu
+                _buildRestoreButton(),
+                const SizedBox(height: 32),
+                
+                // Gizlilik ve kullanım şartları
+                _buildTermsAndPrivacyLinks(),
+              ],
             ),
+          );
+  }
+
+  Widget _buildLoadingView() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: Color(0xFF9D3FFF),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'İlişkilerinizi geliştirmek için tüm premium özelliklere erişin.',
+          SizedBox(height: 16),
+          Text(
+            'Premium özellikleri yükleniyor...',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 16,
             ),
           ),
-          const SizedBox(height: 32),
-          
-          // Abonelik planları
-          _buildSubscriptionPlans(),
-          const SizedBox(height: 32),
-          
-          // Premium avantajları
-          const Text(
-            'Premium Avantajları',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildPremiumAdvantages(),
-          const SizedBox(height: 24),
-          
-          // Satın alma butonu
-          _buildPurchaseButton(),
-          const SizedBox(height: 16),
-          
-          // Geri yükleme butonu
-          _buildRestoreButton(),
-          const SizedBox(height: 32),
-          
-          // Gizlilik ve kullanım şartları
-          _buildTermsAndPrivacyLinks(),
         ],
       ),
     );
@@ -326,65 +399,38 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildPremiumAdvantages() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.5,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: _avantajlar.length,
-      itemBuilder: (context, index) {
-        final avantaj = _avantajlar[index];
-        
+    return Column(
+      children: _premiumFeatures.map((feature) {
         return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFF1A2436),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Icon(
-                    avantaj['icon'],
-                    color: const Color(0xFF9D3FFF),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      avantaj['title'],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFF9D3FFF),
+                size: 20,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  avantaj['description'],
+                  '• $feature',
                   style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
         );
-      },
+      }).toList(),
     );
   }
 

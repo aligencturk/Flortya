@@ -177,3 +177,133 @@ Bu koşulları kullanarak platform-specific değerler verebilirsiniz.
 - Parametre adlarını büyük/küçük harf duyarlı olarak kontrol edin
 - JSON formatındaki parametrelerde syntax hatası olup olmadığını kontrol edin
 - Firebase App Check'in düzgün çalıştığından emin olun 
+
+## Premium Sayfası Parametreleri
+
+### 1. premium_title
+**Tip:** String  
+**Açıklama:** Premium sayfasının ana başlığı  
+**Varsayılan Değer:** 
+```
+Flörtya Premium
+```
+
+### 2. premium_description  
+**Tip:** String  
+**Açıklama:** Premium sayfasının açıklama metni  
+**Varsayılan Değer:**
+```
+İlişkilerinizi geliştirmek için tüm premium özelliklere erişin.
+```
+
+### 3. premium_features
+**Tip:** JSON (String olarak)  
+**Açıklama:** Premium özelliklerin listesi. JSON dizisi formatında.  
+**Varsayılan Değer:**
+```json
+[
+  "Reklamsız kullanım",
+  "Sınırsız analiz", 
+  "Wrapped özeti",
+  "Görsel analiz",
+  ".txt analizi",
+  "İlişki danışmanlığı",
+  "Alternatif öneriler",
+  "Yanıt senaryoları"
+]
+```
+
+**Örnek Güncellenmiş Değerler:**
+```json
+[
+  "🚫 Reklamsız kullanım",
+  "📊 Sınırsız mesaj analizi",
+  "🎁 Özel Wrapped özeti",
+  "🖼️ Görsel sohbet analizi", 
+  "📝 .txt dosya analizi",
+  "💕 Kişiselleştirilmiş ilişki danışmanlığı",
+  "💡 Sınırsız alternatif mesaj önerileri",
+  "🎭 Olumlu/olumsuz yanıt senaryoları",
+  "⭐ Premium destek",
+  "🔓 Gelişmiş özellikler"
+]
+```
+
+### 4. premium_plans
+**Tip:** JSON (String olarak)  
+**Açıklama:** Premium abonelik planlarının listesi. JSON objesi dizisi formatında.  
+**Varsayılan Değer:**
+```json
+[
+  {
+    "title": "Haftalık",
+    "price": "₺49,99",
+    "discountInfo": "",
+    "period": "hafta",
+    "mostPopular": false
+  },
+  {
+    "title": "Aylık", 
+    "price": "₺149,99",
+    "discountInfo": "25% indirim",
+    "period": "ay",
+    "mostPopular": true
+  },
+  {
+    "title": "Yıllık",
+    "price": "₺999,99", 
+    "discountInfo": "50% indirim",
+    "period": "yıl",
+    "mostPopular": false
+  }
+]
+```
+
+**Örnek Güncellenmiş Değerler (Kampanyalı Fiyatlar):**
+```json
+[
+  {
+    "title": "Haftalık",
+    "price": "₺39,99",
+    "discountInfo": "20% indirim",
+    "period": "hafta", 
+    "mostPopular": false
+  },
+  {
+    "title": "Aylık",
+    "price": "₺99,99",
+    "discountInfo": "33% indirim",
+    "period": "ay",
+    "mostPopular": true
+  },
+  {
+    "title": "3 Aylık",
+    "price": "₺249,99",
+    "discountInfo": "45% indirim",
+    "period": "3 ay",
+    "mostPopular": false
+  },
+  {
+    "title": "Yıllık",
+    "price": "₺799,99",
+    "discountInfo": "60% indirim",
+    "period": "yıl",
+    "mostPopular": false
+  }
+]
+```
+
+**Plan Özellikleri:**
+- `title`: Plan adı (örn: "Haftalık", "Aylık")
+- `price`: Fiyat metni (örn: "₺149,99")
+- `discountInfo`: İndirim bilgisi metni (örn: "25% indirim", boş da olabilir)
+- `period`: Periyod bilgisi (örn: "hafta", "ay", "yıl") 
+- `mostPopular`: En popüler plan mı? (boolean, sadece bir plan true olmalı)
+
+## Dinamik Fiyatlandırma Avantajları
+
+1. **Anlık Kampanyalar**: Firebase Console'dan anında kampanya fiyatları uygulayabilirsiniz
+2. **A/B Test**: Farklı kullanıcı gruplarına farklı fiyatlar gösterebilirsiniz
+3. **Bölgesel Fiyatlandırma**: Ülkeye/bölgeye göre farklı fiyatlar ayarlayabilirsiniz
+4. **Sezonsal Kampanyalar**: Özel günlerde indirimli fiyatlar uygulayabilirsiniz
+5. **Yeni Plan Ekleme**: Uygulama güncellemesi olmadan yeni planlar ekleyebilirsiniz
