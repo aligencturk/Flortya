@@ -140,9 +140,10 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
     // Controller referansını al - önce controller'ı alalım
     final controller = provider.Provider.of<MessageCoachController>(context, listen: false);
     
-    // Premium kontrolü
+    // Premium kontrolü - gerçek premium durumunu kontrol et
     final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
+    final user = authViewModel.user;
+    final isPremium = user?.actualIsPremium ?? false;
     
     // Önce yükleme durumunu false yap
     setState(() {

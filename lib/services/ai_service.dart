@@ -3077,53 +3077,60 @@ Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor ($kisiContext). Aşağıdaki ku
       }
       
       final prompt = '''
-Sen bir eğlenceli veri analisti olarak görev yapacaksın. Verilen mesajlaşma geçmişini DETAYLIYLA ANALİZ EDEREK Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ bir özet hazırlayacaksın.
+Sen bir veri analisti olarak görev yapacaksın. Aşağıda verilen mesajlaşma geçmişini inceleyerek Spotify Wrapped benzeri bir yıllık özet hazırlayacaksın.
 
-🔍 ANALİZ YÖNTEMİ - ÇOK ÖNEMLİ:
-- SOHBETIN TAMAMINI (tüm katılımcıların tüm mesajlarını) OKU ve ANALİZ ET
-- Mesajları yazan KİŞİLERİN İSİMLERİNİ belirle ve mesajları hangi kişinin yazdığını ayırt et
-- TÜM MESAJLARI değerlendir (hem seçilen kişinin hem de diğer kişilerin mesajlarını)
-- İstatistikleri TÜM MESAJLAR üzerinden hesapla
-- Gerginlik/romantiklik analizini KARŞILIKLI ETKİLEŞİMDEN çıkar
-- Sonuçları seçilen kişinin perspektifinden sun ama TÜM VERİLERİ kullan
+Kesinlikle şablona uyman, STATIK DEĞERLER kullanmaman ve aşağıdaki formatta yanıt vermen gerekiyor. Her kart için gerçek veriye dayalı özgün bir başlık ve içerik oluştur.
 
-⚠️ ÖNEMLİ UYARI: Sadece bir kişinin mesajlarını değil, SOHBETIN TAMAMINI analiz etmelisin!
-
-GERÇEKÇİ VERİLER:
-- İlk Mesaj Tarihi: $ilkMesajTarihi
-- Son Mesaj Tarihi: $sonMesajTarihi  
-- Toplam Mesaj Sayısı: $toplamMesajSayisi$kisiAnalizi
-
-MESAJLAŞMA GEÇMİŞİ (TÜM KATILIMCILARIN MESAJLARI):
+Mesajlaşma geçmişi:
 """
 $analizMetni
 """
 
-GÖREVLER - AŞAĞIDAKİ HER BİRİNİ EĞLENCELİ ŞEKİLDE YAPMALISIN:
-1. Konuşma süresini hesapla ve eğlenceli yorum yap (TÜM MESAJLARI SAY)
-2. Kim sohbeti daha çok başlatıyor? Eğlenceli analiz yap (TÜM KATILIMCILARI KARŞILAŞTIR)
-3. Sohbetin genel akışında gerginlik yaratan BAĞLAMI analiz et (TÜM MESAJLARDAKI mesaj dizileri, ton değişimleri, sessizlik dönemleri)
-4. Sohbetin genel akışında romantik/samimi BAĞLAMI analiz et (TÜM MESAJLARDAKI mesaj dizileri, ton değişimleri, yakınlaşma dönemleri)
-5. En çok kullanılan kelimeleri say ve eğlenceli yorum yap (TÜM MESAJLARDAN)
-6. Emoji kullanımını say ve eğlenceli analiz et (TÜM MESAJLARDAN)
-7. Mesaj uzunluklarını eğlenceli analiz et (TÜM MESAJLARI DEĞERLENDIR)
-8. Konuşma desenlerini eğlenceli şekilde yorumla (TÜM KATILIMCILARIN DESENLERI)
-9. Mesajların duygu tonunu eğlenceli analiz et (TÜM SOHBETIN GENEL TONU)
-10. Sohbetten dikkat çeken/komik bir bölüm seç ve eğlenceli yorumla (TÜM SOHBETTEN)
+ÖNEMLİ KURALLAR:
+1. TAM OLARAK 10 adet farklı kart oluşturmalısın.
+2. Her kartın kendine özgü başlığı ve içeriği olmalı.
+3. Kartlar, sohbetteki gerçek verilere dayanmalı - ASLA varsayılan ya da statik değerler kullanma.
+4. İçerik yoksa bile GEÇERLİ TAHMÎNLER yap.
+5. Yanıtını doğrudan JSON formatında ver, başka açıklama ekleme.
+6. Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
 
-📌 ÖNEMLİ KURALLAR:
-- TAM OLARAK 10 adet farklı kart oluştur.
-- YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
-- Gerçek alıntılar kullan${ilkIsim != null 
-  ? (karsiKisiIsmi != null && karsiKisiIsmi.isNotEmpty
-      ? ' ("$ilkIsim" ve "$karsiKisiIsmi" isimlerini kullan)'
-      : (digerKisiIsimleri.isNotEmpty 
-          ? ' ("$ilkIsim" ve ${digerKisiIsimleri.map((name) => '"$name"').join(', ')} isimlerini kullan)'
-          : ' ("$ilkIsim" ismini kullan, diğerleri için [Arkadaşı] yaz)'))
-  : ' (isimleri [Kişi1], [Kişi2] olarak gizle)'}
-- SADECE JSON formatında yanıt ver, açıklama yazma.
-- Her kartta SOMUT VERİLER ve EĞLENCELİ YORUMLAR olmalı.
-- Samimi ve dostça bir dil kullan.
+ZORUNLU KART BAŞLIKLARI (AYNEN KULLAN):
+1. "Konuşma Süresi" - Süre hesapla ve yorumla
+2. "Sohbeti En Çok Kim Başlatıyor" - Kim daha aktif? Analiz et
+3. "En Gergin An" - Sohbetin genel akışından gerginlik yaratan bağlamı analiz et
+4. "En Romantik An" - Sohbetin genel akışından romantik/samimi bağlamı analiz et
+5. "Kelime Şampiyonları" - En çok kullanılan kelimeleri yorumla
+6. "Emoji Analizi" - Emoji kullanımını analiz et
+7. "Mesaj Karakteri" - Mesaj uzunluklarını analiz et
+8. "Konuşma Ritmi" - Konuşma desenlerini analiz et
+9. "Duygu Tonu" - Duygu analizini yorumla
+10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümünü yorumla
+
+YANIT FORMATI (doğrudan JSON dizi, başlıkları AYNEN kullan):
+[
+  {"title": "Konuşma Süresi", "comment": "Süre hesaplayıp yorumla"},
+  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analiz et"},
+  {"title": "En Gergin An", "comment": "Gerginlik bağlamını analiz et"},
+  {"title": "En Romantik An", "comment": "Romantik bağlamı analiz et"},
+  {"title": "Kelime Şampiyonları", "comment": "En çok kullanılan kelimeleri yorumla"},
+  {"title": "Emoji Analizi", "comment": "Emoji kullanımını analiz et"},
+  {"title": "Mesaj Karakteri", "comment": "Mesaj uzunluklarını analiz et"},
+  {"title": "Konuşma Ritmi", "comment": "Konuşma desenlerini analiz et"},
+  {"title": "Duygu Tonu", "comment": "Duygu analizini yorumla"},
+  {"title": "Dikkat Çeken Sohbet", "comment": "En ilginç sohbet bölümünü yorumla"}
+]
+
+ÖNEMLİ KURALLAR:
+- Gerçek veriye dayalı içerik oluştur, varsayılan değerler KULLANMA.
+- Yanıtın SADECE JSON formatında olmalı, başka hiçbir açıklama içermemeli.
+- Doğrudan sayılar, tarihler ve yüzdeler kullan.
+- Tarihleri GG.AA.YYYY formatında göster.
+- Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
+- Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
+- ASLA "medya dahil edilmedi", "ses kaydı", "fotoğraf" gibi teknik referanslar kullanma.
+- ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma.
+- Sadece gerçek sohbet içeriğini ve dinamiklerini yorumla.
+- Asla "yaklaşık", "muhtemelen", "belirlenemedi" gibi belirsiz ifadeler kullanma.
 
 🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
 Bu kelimeleri ve kavramları ASLA kullanma:
@@ -3135,57 +3142,6 @@ Bu kelimeleri ve kavramları ASLA kullanma:
 - "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
 - "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
 Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
-
-YANIT FORMATI:
-Bu başlıklar için tam 10 kart oluştur (başlık isimleri aynen kullan):
-1. "Konuşma Süresi" - Süre hesapla ve EĞLENCELİ yorum yap
-2. "Sohbeti En Çok Kim Başlatıyor" - Kim daha aktif? EĞLENCELİ analiz et
-3. "En Gergin An" - Sohbetin genel akışını değerlendir, gerginlik yaratan BAĞLAMI analiz et (tek mesaj değil, o dönemdeki genel havayı yorumla)
-4. "En Romantik An" - Sohbetin genel akışını değerlendir, romantik/samimi BAĞLAMI analiz et (tek mesaj değil, o dönemdeki genel havayı yorumla)  
-5. "Kelime Şampiyonları" - En çok kullanılan kelimeleri EĞLENCELİ şekilde yorumla
-6. "Emoji Analizi" - Emoji kullanımını EĞLENCELİ şekilde analiz et
-7. "Mesaj Karakteri" - Mesaj uzunluklarını EĞLENCELİ şekilde yorumla
-8. "Konuşma Ritmi" - Konuşma desenlerini EĞLENCELİ şekilde analiz et
-9. "Duygu Tonu" - Duygu analizini EĞLENCELİ şekilde yorumla
-10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümünden GERÇEK ALINTI/ÖZET yap, EĞLENCELİ yorumla
-
-🎯 YARATICILIK KURALLARI:
-- HER YORUM TAMAMEN ORİJİNAL ve YARATICI olsun!
-- Gerçek sohbet verilerinden alıntılar yap${ilkIsim != null 
-  ? (karsiKisiIsmi != null && karsiKisiIsmi.isNotEmpty
-      ? ' ("$ilkIsim" ve "$karsiKisiIsmi" isimlerini kullan)'
-      : (digerKisiIsimleri.isNotEmpty
-          ? ' ("$ilkIsim" ve ${digerKisiIsimleri.join(', ')} isimlerini kullan)'
-          : ' ("$ilkIsim" için gerçek isim kullan)'))
-  : ' (isimleri gizle: [Kişi1], [Kişi2])'}
-- Samimi, dostça, eğlenceli bir dil kullan
-- Her kart için farklı emojiler ve ifadeler kullan
-- Statik şablonlar KULLANMA, her seferinde farklı yorumlar yap!
-- Rakamları mutlaka dahil et ama yorumları çeşitlendir
-- Mizahi unsurlar ekle ama uygun ölçüde tut
-
-🔍 BAĞLAMSAL ANALİZ KURALLARI (Özellikle 3. ve 4. kartlar için):
-- Tek mesaja odaklanma, mesaj DİZİLERİNİ analiz et (TÜM KATILIMCILARIN MESAJLARINI DEĞERLENDİR)
-- Sohbetin AKIŞINI ve TON DEĞİŞİMLERİNİ takip et (HER İKİ TARAFIN MESAJLARINDA)
-- Gerginlik: Kısa cevaplar, geç yanıtlar, ton değişimi, sessizlik dönemleri (KARŞILIKLI ETKİLEŞİMDE)
-- Romantiklik: Uzun mesajlar, sık yazışma, samimi ton, yakınlaşma belirtileri (HER İKİ TARAFTA)
-- Zaman aralıklarını da değerlendir (gece geç saatlerde yazışma, uzun sessizlikler) (TÜM ZAMAN DİLİMLERİNDE)
-- Genel ATMOSFER ve İLİŞKİ DİNAMİĞİNİ yorumla (SOHBETIN TAMAMINDAN ÇIKART)
-
-JSON formatı: [{"title": "...", "comment": "..."}]
-
-DİKKAT: 
-- ASLA şablon/kalıp yorumlar yapma!
-- Her yorum benzersiz ve yaratıcı olsun!
-- Gerçek alıntıları kullan ve eğlenceli yorumla!
-
-⚠️ SON UYARI:
-BU ÇOK ÖNEMLİ: Sana verilen mesajlaşma geçmişinde TÜM KATILIMCILARın mesajları var.
-- HER BİR mesajı oku ve hangi kişinin yazdığını belirle
-- İstatistikleri TÜM MESAJLAR üzerinden hesapla (sadece seçilen kişinin değil)
-- Karşılaştırmaları TÜM KATILIMCILAR arasında yap
-- Etkileşimleri KARŞILIKLI olarak değerlendir
-Sadece bir kişinin mesajlarını analiz edersen YANLIŞ yaparsın!
 ''';
       
       final response = await http.post(
@@ -3707,12 +3663,12 @@ Bu analiz "$ilkIsim" kişisine ÖZEL yapılıyor.
       }
 
       final prompt = '''
-Sen bir eğlenceli veri analisti olarak görev yapacaksın! Verilen kapsamlı analiz verilerinden Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ kartlar oluşturacaksın.
+Sen bir veri analisti olarak görev yapacaksın. Aşağıda verilen mesajlaşma geçmişini inceleyerek Spotify Wrapped benzeri bir yıllık özet hazırlayacaksın.
 
-🎯 ÇOK ÖNEMLİ: Sen bir eğlence uzmanısın! Sıkıcı, teknik, robotik yanıtlar vermek yasak!
+Kesinlikle şablona uyman, STATIK DEĞERLER kullanmaman ve aşağıdaki formatta yanıt vermen gerekiyor. Her kart için gerçek veriye dayalı özgün bir başlık ve içerik oluştur.
 
-ANALIZ KONUSU: $kisiContext$kisiAnalizi
-
+Mesajlaşma geçmişi:
+"""
 ANALİZ VERİLERİ:
 - İlk Mesaj Tarihi: ${genelIstatistikler['ilk_mesaj_tarihi']}
 - Son Mesaj Tarihi: ${genelIstatistikler['son_mesaj_tarihi']}
@@ -3724,60 +3680,64 @@ ANALİZ VERİLERİ:
 - Uzun Mesajlar (50+ karakter): ${birlesikVeriler['toplam_uzun_mesajlar']}
 - Kısa Mesajlar (10- karakter): ${birlesikVeriler['toplam_kisa_mesajlar']}
 - En Çok Kullanılan Kelimeler: ${birlesikVeriler['en_cok_kelimeler']}
-
-Bu VERİLERİ KULLANARAK tam olarak 10 adet ZORUNLU başlıklı eğlenceli wrapped kartı oluştur.
-
-ZORUNLU BAŞLIKLAR VE AÇIKLAMALARI (AYNEN KULLAN):
-1. "Konuşma Süresi" - İLK MESAJ TARİHİNDEN SON MESAJ TARİHİNE KADAR GEÇEN SÜRE (ay/gün olarak). "X aydan beri konuşuyorsunuz" tarzında
-2. "Sohbeti En Çok Kim Başlatıyor" - Hangi kişi daha çok mesaj atıyor/başlatıyor karşılaştırması
-3. "En Gergin An" - Sohbetin gerginlik yaratan bağlamı
-4. "En Romantik An" - Sohbetin romantik/samimi bağlamı  
-5. "Kelime Şampiyonları" - En çok kullanılan kelimeler
-6. "Emoji Analizi" - Emoji kullanım analizi
-7. "Mesaj Karakteri" - Mesaj uzunluklarının analizi
-8. "Konuşma Ritmi" - Konuşma desenlerinin analizi
-9. "Duygu Tonu" - Duygu analizi
-10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümü
-
-🎨 EĞLENCELİ YORUM KURALLARI:
-- YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
-- Samimi, dostça, eğlenceli bir dil kullan
-- Her kart için farklı emojiler ve ifadeler kullan  
-- Mizahi unsurlar ekle ama uygun ölçüde tut
-- "😂", "🤣", "😅", "💬", "🔥", "💕", "👀", "⚡" gibi emojiler kullan
-- Gerçek veriye dayalı bulgular kullan ama EĞLENCE odaklı yorumla
-
-📝 YORUM TARZLARI (örnekler):
-- "Bu kadar çok mesaj atmışsınız ki WhatsApp bile şaşırmış! 😂"
-- "Sanki mesajlaşma maratonu yapıyormuşsunuz gibi! 🏃‍♂️"
-- "Emoji kullanımında da iddialısınız! 🎨"
-
-🕐 KONUŞMA SÜRESİ ÖZEL ÖRNEKLERİ:
-- "3 aydan beri konuşuyorsunuz! ⏰ Bu gerçek bir arkadaşlık maratonu!"
-- "6 aydır birbirinizle yazışıyorsunuz! 📅 Zamanın nasıl geçtiğini anlamıyorsunuz!"
-- "1 yıldan fazladır sohbet ediyorsunuz! 🎂 Bu bir rekor sayılır!"
+"""
 
 ÖNEMLİ KURALLAR:
-1. Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
-2. Yukarıdaki VERİLERİ OLDUĞU GİBİ kullan - değiştirme!
-3. Her kartta mutlaka nicel veri olmalı (sayı, tarih, yüzde) + eğlenceli yorum
-4. SADECE JSON formatında yanıt ver
-5. Asla "yaklaşık", "muhtemelen" kullanma
-6. Kişiye özel analiz yapıyorsan, isimlerini doğru kullan
-7. ASLA "analiz edildi", "tespit edildi" gibi robotik ifadeler kullanma
+1. TAM OLARAK 10 adet farklı kart oluşturmalısın.
+2. Her kartın kendine özgü başlığı ve içeriği olmalı.
+3. Kartlar, sohbetteki gerçek verilere dayanmalı - ASLA varsayılan ya da statik değerler kullanma.
+4. İçerik yoksa bile GEÇERLİ TAHMÎNLER yap.
+5. Yanıtını doğrudan JSON formatında ver, başka açıklama ekleme.
+6. Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
 
-🚫 YASAKLI KELİMELER:
-- "medya", "silindi", "deleted", "parçalı analiz", "büyük dosya"
-- "analiz edildi", "tespit edildi", "belirlenemedi"
+ZORUNLU KART BAŞLIKLARI (AYNEN KULLAN):
+1. "Konuşma Süresi" - Süre hesapla ve yorumla
+2. "Sohbeti En Çok Kim Başlatıyor" - Kim daha aktif? Analiz et
+3. "En Gergin An" - Sohbetin genel akışından gerginlik yaratan bağlamı analiz et
+4. "En Romantik An" - Sohbetin genel akışından romantik/samimi bağlamı analiz et
+5. "Kelime Şampiyonları" - En çok kullanılan kelimeleri yorumla
+6. "Emoji Analizi" - Emoji kullanımını analiz et
+7. "Mesaj Karakteri" - Mesaj uzunluklarını analiz et
+8. "Konuşma Ritmi" - Konuşma desenlerini analiz et
+9. "Duygu Tonu" - Duygu analizini yorumla
+10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümünü yorumla
 
-YANIT FORMATI:
+YANIT FORMATI (doğrudan JSON dizi, başlıkları AYNEN kullan):
 [
-  {"title": "Konuşma Süresi", "comment": "Eğlenceli süre analizi + gerçek veriler"},
-  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif - eğlenceli karşılaştırma"},
-  ... (10 kart toplam - başlıkları AYNEN kullan)
+  {"title": "Konuşma Süresi", "comment": "Süre hesaplayıp yorumla"},
+  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analiz et"},
+  {"title": "En Gergin An", "comment": "Gerginlik bağlamını analiz et"},
+  {"title": "En Romantik An", "comment": "Romantik bağlamı analiz et"},
+  {"title": "Kelime Şampiyonları", "comment": "En çok kullanılan kelimeleri yorumla"},
+  {"title": "Emoji Analizi", "comment": "Emoji kullanımını analiz et"},
+  {"title": "Mesaj Karakteri", "comment": "Mesaj uzunluklarını analiz et"},
+  {"title": "Konuşma Ritmi", "comment": "Konuşma desenlerini analiz et"},
+  {"title": "Duygu Tonu", "comment": "Duygu analizini yorumla"},
+  {"title": "Dikkat Çeken Sohbet", "comment": "En ilginç sohbet bölümünü yorumla"}
 ]
 
-🎪 SON UYARI: BU BİR EĞLENCELİ WRAPPED ANALİZİ! Spotify Wrapped gibi, kullanıcının gülümsemesini sağlayacak, şaşıracağı, "vay be!" diyeceği yorumlar yap. Sıradan, teknik, sıkıcı yorumlar yapmak yasak!
+ÖNEMLİ KURALLAR:
+- Gerçek veriye dayalı içerik oluştur, varsayılan değerler KULLANMA.
+- Yanıtın SADECE JSON formatında olmalı, başka hiçbir açıklama içermemeli.
+- Doğrudan sayılar, tarihler ve yüzdeler kullan.
+- Tarihleri GG.AA.YYYY formatında göster.
+- Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
+- Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
+- ASLA "medya dahil edilmedi", "ses kaydı", "fotoğraf" gibi teknik referanslar kullanma.
+- ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma.
+- Sadece gerçek sohbet içeriğini ve dinamiklerini yorumla.
+- Asla "yaklaşık", "muhtemelen", "belirlenemedi" gibi belirsiz ifadeler kullanma.
+
+🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
+Bu kelimeleri ve kavramları ASLA kullanma:
+- "medya" (herhangi bir şekilde)
+- "silindi" / "silinen" / "sildigi" / "silinmiş"
+- "medya dosyası" / "medya içeriği" / "media"
+- "deleted" / "message deleted"
+- "paylaşılan medya" / "shared media"
+- "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
+- "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
+Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
 ''';
       
       final response = await http.post(
@@ -5529,50 +5489,60 @@ SADECE JSON formatında yanıt ver:
       String apiUrl = _getApiUrl();
       
       final prompt = '''
-Sen bir eğlenceli veri analisti olarak görev yapacaksın! Bu büyük sohbetten parçalı olarak çıkarılan verileri kullanarak Spotify Wrapped benzeri EĞLENCELİ ve SAMİMİ wrapped kartları oluşturacaksın.
+Sen bir veri analisti olarak görev yapacaksın. Aşağıda verilen mesajlaşma geçmişini inceleyerek Spotify Wrapped benzeri bir yıllık özet hazırlayacaksın.
 
-PARÇALI ANALİZ VERİLERİ:
+Kesinlikle şablona uyman, STATIK DEĞERLER kullanmaman ve aşağıdaki formatta yanıt vermen gerekiyor. Her kart için gerçek veriye dayalı özgün bir başlık ve içerik oluştur.
+
+Mesajlaşma geçmişi:
 """
 $birlesikAnaliz
 """
 
-🎯 ÇOK ÖNEMLİ: Sen bir eğlence uzmanısın! Sıkıcı, teknik, robotik yanıtlar vermek yasak!
+ÖNEMLİ KURALLAR:
+1. TAM OLARAK 10 adet farklı kart oluşturmalısın.
+2. Her kartın kendine özgü başlığı ve içeriği olmalı.
+3. Kartlar, sohbetteki gerçek verilere dayanmalı - ASLA varsayılan ya da statik değerler kullanma.
+4. İçerik yoksa bile GEÇERLİ TAHMÎNLER yap.
+5. Yanıtını doğrudan JSON formatında ver, başka açıklama ekleme.
+6. Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
 
-GÖREV: Bu parçalı analiz verilerini kullanarak aşağıdaki ZORUNLU başlıklarla 10 adet wrapped kartı oluştur.
+ZORUNLU KART BAŞLIKLARI (AYNEN KULLAN):
+1. "Konuşma Süresi" - Süre hesapla ve yorumla
+2. "Sohbeti En Çok Kim Başlatıyor" - Kim daha aktif? Analiz et
+3. "En Gergin An" - Sohbetin genel akışından gerginlik yaratan bağlamı analiz et
+4. "En Romantik An" - Sohbetin genel akışından romantik/samimi bağlamı analiz et
+5. "Kelime Şampiyonları" - En çok kullanılan kelimeleri yorumla
+6. "Emoji Analizi" - Emoji kullanımını analiz et
+7. "Mesaj Karakteri" - Mesaj uzunluklarını analiz et
+8. "Konuşma Ritmi" - Konuşma desenlerini analiz et
+9. "Duygu Tonu" - Duygu analizini yorumla
+10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümünü yorumla
 
-ZORUNLU BAŞLIKLAR VE AÇIKLAMALARI (AYNEN KULLAN):
-1. "Konuşma Süresi" - İLK MESAJ TARİHİNDEN SON MESAJ TARİHİNE KADAR GEÇEN SÜRE (ay/gün olarak). "X aydan beri konuşuyorsunuz" tarzında
-2. "Sohbeti En Çok Kim Başlatıyor" - Hangi kişi daha çok mesaj atıyor/başlatıyor karşılaştırması
-3. "En Gergin An" - Sohbetin gerginlik yaratan bağlamı
-4. "En Romantik An" - Sohbetin romantik/samimi bağlamı  
-5. "Kelime Şampiyonları" - En çok kullanılan kelimeler
-6. "Emoji Analizi" - Emoji kullanım analizi
-7. "Mesaj Karakteri" - Mesaj uzunluklarının analizi
-8. "Konuşma Ritmi" - Konuşma desenlerinin analizi
-9. "Duygu Tonu" - Duygu analizi
-10. "Dikkat Çeken Sohbet" - En ilginç sohbet bölümü
+YANIT FORMATI (doğrudan JSON dizi, başlıkları AYNEN kullan):
+[
+  {"title": "Konuşma Süresi", "comment": "Süre hesaplayıp yorumla"},
+  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analiz et"},
+  {"title": "En Gergin An", "comment": "Gerginlik bağlamını analiz et"},
+  {"title": "En Romantik An", "comment": "Romantik bağlamı analiz et"},
+  {"title": "Kelime Şampiyonları", "comment": "En çok kullanılan kelimeleri yorumla"},
+  {"title": "Emoji Analizi", "comment": "Emoji kullanımını analiz et"},
+  {"title": "Mesaj Karakteri", "comment": "Mesaj uzunluklarını analiz et"},
+  {"title": "Konuşma Ritmi", "comment": "Konuşma desenlerini analiz et"},
+  {"title": "Duygu Tonu", "comment": "Duygu analizini yorumla"},
+  {"title": "Dikkat Çeken Sohbet", "comment": "En ilginç sohbet bölümünü yorumla"}
+]
 
-🎨 EĞLENCELİ YORUM KURALLARI:
-1. Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
-2. YARATICI ve EĞLENCELİ yorumlar yap! Sıkıcı olmayın!
-3. Samimi, dostça, eğlenceli bir dil kullan
-4. Her kart için farklı emojiler ve ifadeler kullan
-5. Mizahi unsurlar ekle ama uygun ölçüde tut
-6. Gerçek veriye dayalı bulgular kullan ama EĞLENCE odaklı yorumla
-7. "😂", "🤣", "😅", "💬", "🔥", "💕", "👀", "⚡" gibi emojiler kullan
-8. Sohbetteki gerçek dinamikleri EĞLENCELI şekilde yansıt
-
-📝 YORUM TARZLARI (örnekler):
-- "Bu kadar çok mesaj atmışsınız ki WhatsApp bile şaşırmış! 😂"
-- "Sanki mesajlaşma maratonu yapıyormuşsunuz gibi! 🏃‍♂️"
-- "Gece yarısı mesajlaşması konusunda şampiyonsunuz! 🌙"
-- "Emoji kullanımında da iddialısınız! 🎨"
-- "Bu sohbet gerçek bir roman gibi! 📚"
-
-🕐 KONUŞMA SÜRESİ ÖZEL ÖRNEKLERİ:
-- "3 aydan beri konuşuyorsunuz! ⏰ Bu gerçek bir arkadaşlık maratonu!"
-- "6 aydır birbirinizle yazışıyorsunuz! 📅 Zamanın nasıl geçtiğini anlamıyorsunuz!"
-- "1 yıldan fazladır sohbet ediyorsunuz! 🎂 Bu bir rekor sayılır!"
+ÖNEMLİ KURALLAR:
+- Gerçek veriye dayalı içerik oluştur, varsayılan değerler KULLANMA.
+- Yanıtın SADECE JSON formatında olmalı, başka hiçbir açıklama içermemeli.
+- Doğrudan sayılar, tarihler ve yüzdeler kullan.
+- Tarihleri GG.AA.YYYY formatında göster.
+- Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
+- Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
+- ASLA "medya dahil edilmedi", "ses kaydı", "fotoğraf" gibi teknik referanslar kullanma.
+- ASLA "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler kullanma.
+- Sadece gerçek sohbet içeriğini ve dinamiklerini yorumla.
+- Asla "yaklaşık", "muhtemelen", "belirlenemedi" gibi belirsiz ifadeler kullanma.
 
 🚫 KESINLIKLE KAÇINILMASI GEREKEN KELİMELER:
 Bu kelimeleri ve kavramları ASLA kullanma:
@@ -5580,28 +5550,10 @@ Bu kelimeleri ve kavramları ASLA kullanma:
 - "silindi" / "silinen" / "sildigi" / "silinmiş"
 - "medya dosyası" / "medya içeriği" / "media"
 - "deleted" / "message deleted"
-- "paylaşılan medya" / "shared media"  
+- "paylaşılan medya" / "shared media"
 - "fotoğraf paylaştı" / "foto gönderdi" yerine "bir şeyler paylaştı" de
 - "ses kaydı" / "video" / "görsel" (eğer silinen içeriklerden bahsediyorsan)
-- "parçalı analiz", "büyük dosya", "sistem" gibi teknik ifadeler
-- "analiz edildi", "tespit edildi" gibi robotik ifadeler
-
-✨ YARATICILIK KURALLARI:
-- HER YORUM TAMAMEN ORİJİNAL ve YARATICI olsun!
-- Statik şablonlar KULLANMA, her seferinde farklı yorumlar yap!
-- Rakamları mutlaka dahil et ama yorumları çeşitlendir
-- Gerçek veriden çıkan sonuçları EĞLENCELI şekilde yorumla
-- Samimi, dostça, gülümseten bir ton kullan
-- Sohbetin RUHUNU yakala ve eğlenceli şekilde yansıt
-
-YANIT FORMATI (doğrudan JSON array, başlıkları AYNEN kullan):
-[
-  {"title": "Konuşma Süresi", "comment": "Eğlenceli süre analizi - rakamlar + mizah"},
-  {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif - eğlenceli karşılaştırma"},
-  ... (10 kart toplam)
-]
-
-🎪 SON UYARI: BU BİR EĞLENCELİ WRAPPED ANALİZİ! Spotify Wrapped gibi, kullanıcının gülümsemesini sağlayacak, şaşıracağı, "vay be!" diyeceği yorumlar yap. Sıradan, teknik, sıkıcı yorumlar yapmak yasak!
+Bu kelimeleri görüyorsan GERÇEK MESAJ METNİNDEN alıntı yapman gerektiği anlamına gelir!
 ''';
 
       final response = await http.post(
@@ -5671,15 +5623,15 @@ YANIT FORMATI (doğrudan JSON array, başlıkları AYNEN kullan):
       _logger.e('AI wrapped analizi hatası: $e');
     }
     
-    // Fallback: AI başarısız olursa EĞLENCELİ standart kartlar oluştur
+    // Fallback: AI başarısız olursa EĞLENCELİ standart kartlar oluştur (KÜÇÜK DOSYA KALİTESİNDE)
     List<Map<String, String>> fallbackKartlar = [
       {
         'title': 'Konuşma Süresi',
-        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Aylardır birbirinizle yazışıyorsunuz! ⏰ Bu gerçek bir arkadaşlık maratonu!'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Bu dijital destan aylardır sürüyor! 🥰 Neredeyse yarım yıldır birbirinizle mesaj atıyorsunuz. Bu süre zarfında yüzlerce mesaj gönderilmiş. Sanki aralıksız bir film repliği gibi, hiç susmamışsınız! 🎬'
       },
       {
         'title': 'Sohbeti En Çok Kim Başlatıyor',
-        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Mesaj atma konusunda gerçek bir şampiyon var aranızda! 🏆'
+        'comment': kategoriler['Mesaj sayısı ve aktivite']?.first ?? 'Aranızda sohbet başlatma konusunda biraz daha atak olan biri var! 💪 Karşılaştırmalı olarak ilk mesajı gönderme yüzdesi daha yüksek. Sanki "Hadi, konuşacak bir şeyler bulalım!" der gibi. Diğeri de karşılık veriyor ama bu kişinin enerjisi bir tık daha yüksek! 🚀'
       },
       {
         'title': 'En Gergin An',

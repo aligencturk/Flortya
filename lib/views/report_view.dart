@@ -755,7 +755,8 @@ class _ReportViewState extends State<ReportView> {
                       text: 'Testi Yeniden Başlat',
                       onPressed: () async {
                         final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-                        final isPremium = authViewModel.isPremium;
+                        final user = authViewModel.user;
+                        final isPremium = user?.actualIsPremium ?? false;
                         
                         // Premium değilse reklam göster
                         if (!isPremium) {

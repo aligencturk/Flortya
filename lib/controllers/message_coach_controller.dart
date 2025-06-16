@@ -227,7 +227,7 @@ class MessageCoachController extends ChangeNotifier {
         return false;
       }
       
-      // Premium değilse erişim kontrolü
+      // Premium değilse erişim kontrolü - gerçek premium durumunu kontrol et
       if (!_isPremium) {
         // İlk kullanım kontrolü
         bool isFirstTime = await _premiumService.isFirstTimeMessageCoach();

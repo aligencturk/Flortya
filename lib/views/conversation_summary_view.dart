@@ -1607,7 +1607,8 @@ class _SohbetAnaliziViewState extends State<SohbetAnaliziView> {
   // Wrapped tarzı analiz sonuçlarını gösterme - Premium kontrolü ile
   Future<void> _showSummaryViewWithPremiumCheck() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final bool isPremium = authViewModel.isPremium;
+    final user = authViewModel.user;
+    final bool isPremium = user?.actualIsPremium ?? false;
     final premiumService = PremiumService();
     
     // Eğer sonuçlar boşsa, önbellekte veri var mı kontrol et

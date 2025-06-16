@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/premium_utils.dart';
 
 class AnalizSonucu {
   final int iliskiPuani;
@@ -273,6 +274,27 @@ class UserModel {
     return copyWith(
       sonAnalizSonucu: yeniAnalizSonucu,
       analizGecmisi: yeniAnalizGecmisi,
+    );
+  }
+
+  /// Kullanıcının gerçek premium durumunu kontrol eder (expiry tarihine göre)
+  bool get actualIsPremium {
+    return PremiumUtils.isPremiumUser(
+      premiumExpiryDate != null ? Timestamp.fromDate(premiumExpiryDate!) : null
+    );
+  }
+  
+  /// Premium durumunu string olarak döner
+  String get premiumStatusText {
+    return PremiumUtils.getPremiumStatusText(
+      premiumExpiryDate != null ? Timestamp.fromDate(premiumExpiryDate!) : null
+    );
+  }
+  
+  /// Premium kalan gün sayısını döner
+  int get premiumRemainingDays {
+    return PremiumUtils.getPremiumRemainingDays(
+      premiumExpiryDate != null ? Timestamp.fromDate(premiumExpiryDate!) : null
     );
   }
 

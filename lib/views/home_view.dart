@@ -2079,7 +2079,9 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                                 // Premium durumu ve butonu
                                 Consumer<AuthViewModel>(
                                   builder: (context, authViewModel, _) {
-                                    final isPremium = authViewModel.isPremium;
+                                    final user = authViewModel.user;
+                                    final isPremium = user?.actualIsPremium ?? false;
+                                    final statusText = user?.premiumStatusText ?? 'Normal Üyelik';
                                     
                                     return Column(
                                       children: [
@@ -2104,11 +2106,11 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    isPremium ? 'Premium Üye' : 'Standart Üye',
+                                                    statusText,
                                                     style: TextStyle(
                                                       color: isPremium ? const Color(0xFFFFD700) : Colors.grey,
                                                       fontWeight: FontWeight.bold,
-                                                      fontSize: 14,
+                                                      fontSize: 12,
                                                     ),
                                                   ),
                                                 ],
@@ -2597,7 +2599,8 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
 
   void _showRelationshipEvaluation(BuildContext context) async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
+    final user = authViewModel.user;
+    final isPremium = user?.actualIsPremium ?? false;
     
     // Erişim kontrolü
     final hasAccess = await _relationshipAccessService.canUseRelationshipTest(isPremium);

@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/utils.dart';
 import '../services/ai_service.dart';
 import '../models/message.dart';
@@ -832,7 +833,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
   // Görsel analizi - reklam kontrolü ile
   Future<void> _gorselAnalizi() async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
+    final user = authViewModel.user;
+    final isPremium = user?.actualIsPremium ?? false;
+    final premiumExpiry = user?.premiumExpiryDate != null 
+      ? Timestamp.fromDate(user!.premiumExpiryDate!)
+      : null;
     final premiumService = PremiumService();
     
     // Premium değilse, kullanım sayısını kontrol et ve artır
@@ -950,8 +955,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
         return;
       }
       
-      // Premium durumu kontrolü
-      final bool isPremium = authViewModel.isPremium;
+      // Premium durumu kontrolü - gerçek premium durumunu kontrol et
+      final user = authViewModel.user!;
+      final bool isPremium = user.actualIsPremium;
       final premiumService = PremiumService();
       
       // Premium değilse limit kontrolü

@@ -578,7 +578,8 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
   // Premium durumunu kontrol et
   void _checkPremiumStatus() {
     if (_user != null) {
-      _isPremium = _user!.isPremium;
+      // Gerçek premium durumunu kontrol et (expiry tarihine göre)
+      _isPremium = _user!.actualIsPremium;
     } else {
       _isPremium = false;
     }
