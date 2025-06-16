@@ -87,6 +87,7 @@ class ProfileViewModel extends ChangeNotifier {
             'updatedAt': FieldValue.serverTimestamp(),
             'messagesAnalyzed': 0,
             'isPremium': false,
+            'premiumExpiry': null, // ✅ Premium expiry alanını null olarak ekle
           };
           
           // Firestore'a kaydedelim

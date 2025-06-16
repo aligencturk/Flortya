@@ -106,9 +106,19 @@ class AuthService {
         if (snapshot.exists) {
           // Kullanıcı zaten var, son giriş zamanını güncelle
           debugPrint('Kullanıcı verisi mevcut, son giriş zamanı güncelleniyor');
-          await userRef.update({
+          
+          final updateData = {
             'lastLoginAt': Timestamp.now(),
-          });
+          };
+          
+          // premiumExpiry alanı yoksa ekle
+          final userData = snapshot.data() as Map<String, dynamic>?;
+          if (userData != null && !userData.containsKey('premiumExpiry')) {
+            updateData['premiumExpiry'] = null as dynamic;
+            debugPrint('⚡ premiumExpiry alanı eksikti, null olarak eklendi');
+          }
+          
+          await userRef.update(updateData);
         } else {
           // Yeni kullanıcı oluştur
           debugPrint('Kullanıcı verisi bulunamadı, yeni kullanıcı oluşturuluyor');
@@ -121,7 +131,7 @@ class AuthService {
             'lastLoginAt': Timestamp.now(),
             'authProvider': 'password', // Varsayılan olarak e-posta/şifre
             'isPremium': false,
-            'premiumExpiry': null,
+            'premiumExpiry': null, // ✅ Premium expiry alanını null olarak ekle
           };
           
           await userRef.set(userData);
@@ -404,9 +414,13 @@ class AuthService {
     String? gender,
     DateTime? birthDate,
   }) async {
-    if (user == null) return;
+    if (user == null) {
+      _logger.e('_saveUserToFirestore: Kullanıcı null, kayıt işlemi atlanıyor');
+      return;
+    }
     
     try {
+      _logger.i('📝 Kullanıcı Firestore\'a kaydediliyor: ${user.uid}');
       final usersRef = _firestore.collection('users');
       final userDoc = usersRef.doc(user.uid);
       
@@ -414,21 +428,35 @@ class AuthService {
       final docSnapshot = await userDoc.get();
       
       if (docSnapshot.exists) {
-        // Kullanıcı zaten var, sadece login bilgilerini güncelle
-        await userDoc.update({
+        _logger.i('✏️ Mevcut kullanıcı güncelleniyor: ${user.uid}');
+        
+        // Mevcut kullanıcı için sadece temel bilgileri güncelle
+        final updateData = {
           'lastLoginAt': FieldValue.serverTimestamp(),
           'photoURL': user.photoURL,
           'displayName': user.displayName,
-        });
+        };
+        
+        // Eğer premiumExpiry alanı yoksa ekle
+        final userData = docSnapshot.data() as Map<String, dynamic>?;
+        if (userData != null && !userData.containsKey('premiumExpiry')) {
+          updateData['premiumExpiry'] = null;
+          _logger.i('⚡ premiumExpiry alanı eksikti, null olarak eklendi');
+        }
+        
+        await userDoc.update(updateData);
+        _logger.i('✅ Mevcut kullanıcı başarıyla güncellendi');
       } else {
-        // Yeni kullanıcı oluştur
+        _logger.i('🆕 Yeni kullanıcı oluşturuluyor: ${user.uid}');
+        
+        // Yeni kullanıcı oluştur - tüm gerekli alanları ekle
         final userData = {
           'email': user.email,
           'displayName': user.displayName,
           'photoURL': user.photoURL,
           'authProvider': authProvider,
           'isPremium': false,
-          'premiumExpiry': null,
+          'premiumExpiry': null, // ✅ Premium expiry alanını null olarak ekle
           'createdAt': FieldValue.serverTimestamp(),
           'lastLoginAt': FieldValue.serverTimestamp(),
           'profileCompleted': false,
@@ -443,12 +471,19 @@ class AuthService {
         // E-posta ile kayıtta profil tamamlandı olarak işaretle
         if (authProvider == 'password' && firstName != null && lastName != null && gender != null) {
           userData['profileCompleted'] = true;
+          _logger.i('📋 E-posta kaydı profil bilgileri ile tamamlandı');
         }
         
         await userDoc.set(userData);
+        _logger.i('🎉 Yeni kullanıcı başarıyla Firestore\'a kaydedildi');
+        _logger.d('📊 Kaydedilen veri: $userData');
       }
-    } catch (e) {
-      _logger.e('Kullanıcı Firestore kayıt hatası: $e');
+    } catch (e, stackTrace) {
+      _logger.e('❌ Kullanıcı Firestore kayıt hatası: $e');
+      _logger.e('📚 Stack trace: $stackTrace');
+      
+      // Premium kontrol sistemi için kritik hata olduğunu belirt
+      throw Exception('Firestore kullanıcı kaydı başarısız: $e');
     }
   }
 } 

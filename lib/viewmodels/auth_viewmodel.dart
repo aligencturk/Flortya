@@ -754,10 +754,5 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
     }
   }
 
-  // Test için Premium modunu değiştirme
-  void togglePremiumMode(bool isPremiumActive) {
-    _isPremium = isPremiumActive;
-    notifyListeners();
-    _logger.i('Premium modu manuel olarak değiştirildi: $_isPremium');
-  }
+
 } 

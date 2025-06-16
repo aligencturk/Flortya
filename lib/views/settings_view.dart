@@ -66,20 +66,6 @@ class _SettingsViewState extends State<SettingsView> {
                 ],
               ),
             ),
-            _buildSectionHeader('Genel Ayarlar'),
-            
-            _buildSwitchItem(
-              title: 'Premium Modu',
-              subtitle: 'Test amaçlı premium özelliklerini aktifleştir',
-              value: provider.Provider.of<AuthViewModel>(context).isPremium,
-              onChanged: (value) {
-                final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-                // test amaçlı premium değerini değiştir
-                authViewModel.togglePremiumMode(value);
-                setState(() {});
-              },
-            ),
-            
             _buildSectionHeader('Hesap Ayarları'),
             
             _buildMenuButton(
