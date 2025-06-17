@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../controllers/home_controller.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
@@ -190,9 +191,21 @@ class _SettingsViewState extends State<SettingsView> {
             _buildMenuButton(
               title: 'Gizlilik Politikası',
               icon: Icons.privacy_tip_outlined,
-              onTap: () {
-                // Gizlilik politikası için yeni işlev eklenecek
-                Utils.showToast(context, 'Gizlilik politikası yakında eklenecek');
+              onTap: () async {
+                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                try {
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (context.mounted) {
+                      Utils.showToast(context, 'Gizlilik politikası sayfası açılamadı');
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Utils.showToast(context, 'Gizlilik politikası sayfası açılırken hata oluştu');
+                  }
+                }
               },
             ),
             
@@ -1153,14 +1166,12 @@ class _SettingsViewState extends State<SettingsView> {
   void _showEditProfileDialog(BuildContext context) {
     // Kontrolcüleri oluştur
     TextEditingController adSoyadController = TextEditingController();
-    TextEditingController telefonController = TextEditingController();
     
 
     
     // Dialog kapandığında kontrolcüleri temizle
     void dispose() {
       adSoyadController.dispose();
-      telefonController.dispose();
     }
     
     // Mevcut kullanıcı bilgilerini al
@@ -1178,11 +1189,7 @@ class _SettingsViewState extends State<SettingsView> {
               .get();
           
           if (userDoc.exists) {
-            Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-            
-            telefonController.text = userData['phoneNumber'] ?? '';
-            
-
+            // Kullanıcı verileri alındı
           }
         } catch (e) {
           print('Kullanıcı verileri alınırken hata: $e');
@@ -1226,22 +1233,6 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: telefonController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Telefon Numarası (İsteğe Bağlı)',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white30),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                      ),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
 
                 ],
               ),
@@ -1278,7 +1269,6 @@ class _SettingsViewState extends State<SettingsView> {
                           .doc(user.uid)
                           .update({
                         'displayName': adSoyadController.text,
-                        'phoneNumber': telefonController.text,
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
                     }

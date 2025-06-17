@@ -1360,12 +1360,10 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _birthDateController = TextEditingController();
   
   final bool _isObscure = true;
   final bool _isConfirmObscure = true;
-  String _selectedGender = 'Belirtmek istemiyorum';
-  DateTime? _selectedDate;
+
   final _formKey = GlobalKey<FormState>();
   
   // Şifre alanları için FocusNode'lar
@@ -1384,7 +1382,6 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _birthDateController.dispose();
     
     // FocusNode'ları temizleme
     _passwordFocusNode.dispose();
@@ -1393,36 +1390,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
     super.dispose();
   }
   
-  // Doğum tarihi seçiciyi göster
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime(2000),
-      firstDate: DateTime(1940),
-      lastDate: DateTime.now(),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF9D3FFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF352269),
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: const Color(0xFF352269),
-          ),
-          child: child!,
-        );
-      },
-    );
-    
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _birthDateController.text = '${picked.day}/${picked.month}/${picked.year}';
-      });
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -1613,95 +1581,6 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                         }
                         return null;
                       },
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Cinsiyet seçimi
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white38),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4, bottom: 8),
-                            child: Text(
-                              'Cinsiyet',
-                              style: TextStyle(color: Colors.white70, fontSize: 16),
-                            ),
-                          ),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              dropdownColor: const Color(0xFF352269),
-                              isExpanded: true,
-                              value: _selectedGender,
-                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                              items: ['Erkek', 'Kadın', 'Belirtmek istemiyorum']
-                                  .map((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(
-                                    value,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedGender = newValue;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Doğum tarihi
-                    GestureDetector(
-                      onTap: () => _selectDate(context),
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          controller: _birthDateController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Doğum Tarihi',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.white38),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.redAccent),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.redAccent),
-                            ),
-                            prefixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
-                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Lütfen doğum tarihinizi seçin';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
                     ),
                     
                     const SizedBox(height: 20),
@@ -1897,13 +1776,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
       final lastName = _lastNameController.text.trim();
       final displayName = '$firstName $lastName';
       
-      // Doğum tarihi kontrolü
-      if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen doğum tarihinizi seçin')),
-        );
-        return;
-      }
+
       
       authViewModel.signUpWithEmail(
         email: email,
