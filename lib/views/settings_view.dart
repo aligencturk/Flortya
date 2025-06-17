@@ -1275,10 +1275,7 @@ class _SettingsViewState extends State<SettingsView> {
     TextEditingController adSoyadController = TextEditingController();
     TextEditingController telefonController = TextEditingController();
     
-    // Doğum tarihi için değişken
-    DateTime? selectedBirthDate;
-    // Cinsiyet için değişken
-    String selectedGender = 'Belirtilmemiş';
+
     
     // Dialog kapandığında kontrolcüleri temizle
     void dispose() {
@@ -1305,17 +1302,7 @@ class _SettingsViewState extends State<SettingsView> {
             
             telefonController.text = userData['phoneNumber'] ?? '';
             
-            // Cinsiyet bilgisini al
-            if (userData['gender'] != null) {
-              selectedGender = userData['gender'];
-            }
-            
-            // Doğum tarihi bilgisini al
-            if (userData['birthDate'] != null) {
-              if (userData['birthDate'] is Timestamp) {
-                selectedBirthDate = (userData['birthDate'] as Timestamp).toDate();
-              }
-            }
+
           }
         } catch (e) {
           print('Kullanıcı verileri alınırken hata: $e');
@@ -1375,100 +1362,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     keyboardType: TextInputType.phone,
                   ),
-                  const SizedBox(height: 24),
-                  
-                  // Cinsiyet seçimi
-                  const Text(
-                    'Cinsiyet',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white30),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButton<String>(
-                      value: selectedGender,
-                      isExpanded: true,
-                      dropdownColor: const Color(0xFF3A2A70),
-                      style: const TextStyle(color: Colors.white),
-                      underline: Container(),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                      items: <String>['Belirtilmemiş', 'Kadın', 'Erkek', 'Diğer']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            selectedGender = newValue;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Doğum tarihi seçimi
-                  const Text(
-                    'Doğum Tarihi',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedBirthDate ?? DateTime(2000),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                        builder: (context, child) {
-                          return Theme(
-                            data: ThemeData.dark().copyWith(
-                              colorScheme: const ColorScheme.dark(
-                                primary: Color(0xFF9D3FFF),
-                                onPrimary: Colors.white,
-                                surface: Color(0xFF3A2A70),
-                                onSurface: Colors.white,
-                              ),
-                              dialogBackgroundColor: const Color(0xFF352269),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null && picked != selectedBirthDate) {
-                        setState(() {
-                          selectedBirthDate = picked;
-                        });
-                      }
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white30),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            selectedBirthDate != null
-                                ? '${selectedBirthDate!.day.toString().padLeft(2, '0')}.${selectedBirthDate!.month.toString().padLeft(2, '0')}.${selectedBirthDate!.year}'
-                                : 'Seçilmedi',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
-                        ],
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -1505,8 +1399,6 @@ class _SettingsViewState extends State<SettingsView> {
                           .update({
                         'displayName': adSoyadController.text,
                         'phoneNumber': telefonController.text,
-                        'gender': selectedGender,
-                        'birthDate': selectedBirthDate != null ? Timestamp.fromDate(selectedBirthDate!) : null,
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
                     }

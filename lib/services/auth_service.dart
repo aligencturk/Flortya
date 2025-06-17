@@ -286,8 +286,6 @@ class AuthService {
     required String displayName,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
   }) async {
     try {
       _logger.i('🚀 AuthService: E-posta ile kayıt işlemi başlatılıyor: $email');
@@ -314,8 +312,6 @@ class AuthService {
         authProvider: 'password',
         firstName: firstName,
         lastName: lastName,
-        gender: gender,
-        birthDate: birthDate,
       );
       
       _logger.i('🎉 AuthService: E-posta kayıt işlemi tamamen başarılı');
@@ -330,8 +326,6 @@ class AuthService {
         stackTrace: stackTrace,
         firstName: firstName,
         lastName: lastName,
-        gender: gender,
-        birthDate: birthDate,
       );
       
       // Hata mesajını da ayrıca basit logla
@@ -411,8 +405,6 @@ class AuthService {
     required String? authProvider,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
   }) async {
     if (user == null) {
       _logger.e('_saveUserToFirestore: Kullanıcı null, kayıt işlemi atlanıyor');
@@ -465,11 +457,9 @@ class AuthService {
         // Eğer profil bilgileri verilmişse ekle
         if (firstName != null) userData['firstName'] = firstName;
         if (lastName != null) userData['lastName'] = lastName;
-        if (gender != null) userData['gender'] = gender;
-        if (birthDate != null) userData['birthDate'] = Timestamp.fromDate(birthDate);
         
         // E-posta ile kayıtta profil tamamlandı olarak işaretle
-        if (authProvider == 'password' && firstName != null && lastName != null && gender != null) {
+        if (authProvider == 'password' && firstName != null && lastName != null) {
           userData['profileCompleted'] = true;
           _logger.i('📋 E-posta kaydı profil bilgileri ile tamamlandı');
         }

@@ -2191,13 +2191,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                                           final displayName = user?.displayName ?? 'İsimsiz Kullanıcı';
                                           final email = user?.email ?? '-';
                                           
-                                          // AuthViewModel'den daha fazla bilgi al
-                                          final gender = authViewModel.user?.gender ?? 'Belirtilmemiş';
-                                          final birthDate = authViewModel.user?.birthDate;
-                                          final formattedBirthDate = birthDate != null
-                                              ? '${birthDate.day.toString().padLeft(2, '0')}.${birthDate.month.toString().padLeft(2, '0')}.${birthDate.year}'
-                                              : 'Belirtilmemiş';
-                                          
                                           return Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -2209,16 +2202,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                                               _buildUserInfoRow(
                                                 label: 'E-posta:',
                                                 value: email,
-                                              ),
-                                              const SizedBox(height: 8),
-                                              _buildUserInfoRow(
-                                                label: 'Cinsiyet:',
-                                                value: gender,
-                                              ),
-                                              const SizedBox(height: 8),
-                                              _buildUserInfoRow(
-                                                label: 'Doğum Tarihi:',
-                                                value: formattedBirthDate,
                                               ),
                                             ],
                                           );

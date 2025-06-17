@@ -369,8 +369,6 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
     required String displayName,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
   }) async {
     _setLoading(true);
     _clearError();
@@ -382,8 +380,6 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         displayName: displayName,
         firstName: firstName,
         lastName: lastName,
-        gender: gender,
-        birthDate: birthDate,
       );
       
       if (userCredential != null) {
@@ -520,17 +516,8 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
         
         final hasFirstName = data.containsKey('firstName') && data['firstName'] != null;
         final hasLastName = data.containsKey('lastName') && data['lastName'] != null;
-        final hasGender = data.containsKey('gender') && data['gender'] != null;
         
-        // Google/Apple giriş için doğum tarihi kontrolü
-        final hasAppleOrGoogleLogin = _user!.authProvider == 'google.com' || _user!.authProvider == 'apple.com';
-        final hasBirthDate = data.containsKey('birthDate') && data['birthDate'] != null;
-        
-        if (hasAppleOrGoogleLogin) {
-          return !(hasFirstName && hasLastName && hasGender && hasBirthDate);
-        } else {
-          return !(hasFirstName && hasLastName && hasGender);
-        }
+        return !(hasFirstName && hasLastName);
       }
       
       return true;
@@ -543,9 +530,7 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
   // Kullanıcı profil bilgilerini güncelle
   Future<bool> updateUserProfile({
     required String firstName, 
-    required String lastName, 
-    required String gender,
-    DateTime? birthDate,
+    required String lastName,
   }) async {
     if (_user == null) return false;
     
@@ -557,8 +542,6 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       await _firestore.collection('users').doc(_user!.id).update({
         'firstName': firstName,
         'lastName': lastName,
-        'gender': gender,
-        'birthDate': birthDate,
         'displayName': '$firstName $lastName', // displayName'i güncelle
         'profileCompleted': true, // Profil tamamlandı olarak işaretle
       });
