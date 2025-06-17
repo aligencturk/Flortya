@@ -22,6 +22,88 @@ Bu dokümanda Firebase Console'da oluşturmanız gereken tüm Remote Config para
 - `update_message_android` (string) - Android özel güncelleme mesajı
 - `update_message_ios` (string) - iOS özel güncelleme mesajı
 
+## 🙋‍♂️ Sık Sorulan Sorular (FAQ) Parametreleri
+
+### 1. faq_title
+**Tip:** String  
+**Açıklama:** FAQ sayfasının başlığı  
+**Varsayılan Değer:** 
+```
+Sık Sorulan Sorular
+```
+
+### 2. faq_list
+**Tip:** JSON (String olarak)  
+**Açıklama:** Sık sorulan sorular listesi  
+**Varsayılan Değer:**
+```json
+[
+  {
+    "question": "Uygulama nasıl kullanılır?",
+    "answer": "Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır."
+  },
+  {
+    "question": "Verilerim güvende mi?",
+    "answer": "Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir."
+  },
+  {
+    "question": "Premium özellikler nelerdir?",
+    "answer": "Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır."
+  },
+  {
+    "question": "Nasıl premium üye olabilirim?",
+    "answer": "Profil sayfasından premium sayfasına giderek uygun planı seçebilir ve satın alma işlemini tamamlayabilirsiniz."
+  },
+  {
+    "question": "Aboneliğimi nasıl iptal edebilirim?",
+    "answer": "Premium aboneliğinizi Google Play Store veya Apple App Store üzerinden yönetebilir ve iptal edebilirsiniz."
+  }
+]
+```
+
+### FAQ JSON Şeması
+FAQ listesi için JSON formatı:
+```json
+[
+  {
+    "question": "Soru metni",
+    "answer": "Cevap metni"
+  }
+]
+```
+
+### FAQ Kullanım Senaryoları
+
+**📱 Uygulama Güncellemeleri:**
+```json
+[
+  {
+    "question": "Yeni özellikler nelerdir?",
+    "answer": "Son güncellemede AI analiz sistemi geliştirildi ve daha doğru sonuçlar vermektedir."
+  }
+]
+```
+
+**🎯 Pazarlama Kampanyaları:**
+```json
+[
+  {
+    "question": "Şu anda hangi kampanyalar var?",
+    "answer": "Yeni kullanıcılar için %50 indirim kampanyamız devam ediyor. Detaylar için premium sayfasını ziyaret edin."
+  }
+]
+```
+
+**🆘 Teknik Destek:**
+```json
+[
+  {
+    "question": "Uygulama açılmıyor, ne yapmalıyım?",
+    "answer": "Uygulamayı yeniden başlatın, sorun devam ederse destek@flortya.com adresine yazın."
+  }
+]
+```
+
 ## 📱 Kampanya Parametreleri
 
 ### Genel Kampanyalar

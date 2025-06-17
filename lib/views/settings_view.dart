@@ -8,8 +8,10 @@ import '../viewmodels/report_viewmodel.dart';
 import '../controllers/message_coach_controller.dart';
 import '../services/data_reset_service.dart';
 import '../services/event_bus_service.dart';
+import '../services/remote_config_service.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
+import 'dart:convert';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -19,6 +21,77 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
+  final RemoteConfigService _remoteConfigService = RemoteConfigService();
+  
+  // FAQ için state değişkenleri
+  List<Map<String, String>> _faqList = [];
+  bool _isFaqLoading = false;
+  String _faqTitle = 'Sık Sorulan Sorular';
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadFaqContent();
+  }
+  
+  // FAQ içeriğini Remote Config'den yükle
+  Future<void> _loadFaqContent() async {
+    setState(() {
+      _isFaqLoading = true;
+    });
+    
+    try {
+      await _remoteConfigService.baslat();
+      
+      // FAQ başlığını al
+      _faqTitle = await _remoteConfigService.parametreAl('faq_title');
+      
+      // FAQ listesini al
+      final faqJsonString = await _remoteConfigService.parametreAl('faq_list');
+      final List<dynamic> faqData = jsonDecode(faqJsonString);
+      
+      _faqList = faqData.map<Map<String, String>>((item) {
+        return {
+          'question': item['question']?.toString() ?? '',
+          'answer': item['answer']?.toString() ?? '',
+        };
+      }).toList();
+      
+      // Eğer Remote Config'den veri gelmezse varsayılan değerleri kullan
+      if (_faqList.isEmpty) {
+        _setDefaultFaqContent();
+      }
+      
+    } catch (e) {
+      debugPrint('FAQ içeriği yüklenirken hata: $e');
+      _setDefaultFaqContent();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFaqLoading = false;
+        });
+      }
+    }
+  }
+  
+  // Varsayılan FAQ içeriğini ayarla
+  void _setDefaultFaqContent() {
+    _faqList = [
+      {
+        'question': 'Uygulama nasıl kullanılır?',
+        'answer': 'Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır.',
+      },
+      {
+        'question': 'Verilerim güvende mi?',
+        'answer': 'Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir.',
+      },
+      {
+        'question': 'Premium özellikler nelerdir?',
+        'answer': 'Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır.',
+      },
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1146,6 +1219,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           child: Container(
             width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.7,
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1155,12 +1229,14 @@ class _SettingsViewState extends State<SettingsView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Sık Sorulan Sorular',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                    Expanded(
+                      child: Text(
+                        _faqTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                     InkWell(
@@ -1185,60 +1261,36 @@ class _SettingsViewState extends State<SettingsView> {
                 
                 const SizedBox(height: 20),
                 
-                // SSS İçeriği
-                const Text(
-                  'Uygulama nasıl kullanılır?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                const Text(
-                  'Verilerim güvende mi?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                const Text(
-                  'Premium özellikler nelerdir?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                // FAQ İçeriği
+                Expanded(
+                  child: _isFaqLoading
+                      ? const Center(
+                          child: YuklemeAnimasyonu(
+                            boyut: 40.0,
+                            renk: Colors.white,
+                          ),
+                        )
+                      : _faqList.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Henüz soru bulunmuyor',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _faqList.length,
+                              itemBuilder: (context, index) {
+                                final faq = _faqList[index];
+                                return _buildFaqItem(
+                                  question: faq['question'] ?? '',
+                                  answer: faq['answer'] ?? '',
+                                  isLast: index == _faqList.length - 1,
+                                );
+                              },
+                            ),
                 ),
                 
                 const SizedBox(height: 20),
@@ -1258,7 +1310,7 @@ class _SettingsViewState extends State<SettingsView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Anladım'),
+                    child: const Text('Kapat'),
                   ),
                 ),
               ],
@@ -1266,6 +1318,44 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         );
       },
+    );
+  }
+  
+  // FAQ öğesi widget'ı
+  Widget _buildFaqItem({
+    required String question,
+    required String answer,
+    bool isLast = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          question,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          answer,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        if (!isLast) ...[
+          const SizedBox(height: 16),
+          Divider(
+            color: Colors.white.withOpacity(0.2),
+            height: 1,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ],
     );
   }
 
