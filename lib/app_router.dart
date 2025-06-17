@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/gestures.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
@@ -554,14 +556,48 @@ class LoginView extends StatelessWidget {
                     
                     const SizedBox(height: 32),
                     
-                    // Gizlilik politikası ve kullanım şartları
-                    Text(
-                      'Giriş yaparak, Kullanım Koşullarını ve Gizlilik Politikasını kabul etmiş olursunuz.',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    // KVKK Aydınlatma Metni ve Gizlilik Politikası
+                    RichText(
                       textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Giriş yaparak, '),
+                          TextSpan(
+                            text: 'KVKK Aydınlatma Metni',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/kvkk-aydinlatma-metni');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'ni ve '),
+                          TextSpan(
+                            text: 'Gizlilik Politikası',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'nı kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -805,14 +841,48 @@ class RegisterView extends StatelessWidget {
                     
                     const SizedBox(height: 16),
                     
-                    // Gizlilik politikası ve kullanım şartları
-                    const Text(
-                      'Kayıt olarak, Kullanım Koşullarını ve Gizlilik Politikasını kabul etmiş olursunuz.',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    // KVKK Aydınlatma Metni ve Gizlilik Politikası
+                    RichText(
                       textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Kayıt olarak, '),
+                          TextSpan(
+                            text: 'KVKK Aydınlatma Metni',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/kvkk-aydinlatma-metni');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'ni ve '),
+                          TextSpan(
+                            text: 'Gizlilik Politikası',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'nı kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1735,14 +1805,48 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                     
                     const SizedBox(height: 16),
                     
-                    // Gizlilik politikası ve kullanım şartları
-                    const Text(
-                      'Kayıt olarak, Kullanım Koşullarını ve Gizlilik Politikasını kabul etmiş olursunuz.',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    // KVKK Aydınlatma Metni ve Gizlilik Politikası
+                    RichText(
                       textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Kayıt olarak, '),
+                          TextSpan(
+                            text: 'KVKK Aydınlatma Metni',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/kvkk-aydinlatma-metni');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'ni ve '),
+                          TextSpan(
+                            text: 'Gizlilik Politikası',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'nı kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
