@@ -46,12 +46,20 @@ class MessageAnalysisView extends StatefulWidget {
   State<MessageAnalysisView> createState() => _MessageAnalysisViewState();
 }
 
-class _MessageAnalysisViewState extends State<MessageAnalysisView> {
+class _MessageAnalysisViewState extends State<MessageAnalysisView> 
+    with TickerProviderStateMixin {
   bool _isLoading = false;
   bool _forceEmptyState = false; // Veri sıfırlaması sonrası boş durum gösterimi için flag
   bool _showDetailedAnalysisResult = false; // Analiz detaylarını gösterme durumu
   bool _isImageAnalysis = false; // Görsel analizi mi yapılıyor?
+  bool _hideUploadSection = false; // Upload section'ı gizleme kontrolü
   final TextEditingController _textEditingController = TextEditingController(); // Metin analizi için kontrolcü
+  
+  // Animasyon kontrolcüleri
+  late AnimationController _uploadAnimationController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
   
   @override
   void initState() {
@@ -59,6 +67,42 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
     
     // Analiz sonucunu sıfırla - sayfa tekrar açıldığında görünmemesi için
     _showDetailedAnalysisResult = false;
+    
+    // Animasyon kontrolcüsünü başlat
+    _uploadAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    // Slide animasyonu (yukarı/aşağı kayma)
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0.0, -1.2), // Daha az yukarı kayma
+    ).animate(CurvedAnimation(
+      parent: _uploadAnimationController,
+      curve: Curves.easeInOutCubic,
+    ));
+    
+    // Scale animasyonu (küçülme/büyüme)
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0, // Tamamen kaybolsun
+    ).animate(CurvedAnimation(
+      parent: _uploadAnimationController,
+      curve: Curves.easeInOutBack,
+    ));
+    
+    // Opacity animasyonu (şeffaflık)
+    _opacityAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0, // Tamamen şeffaf olsun
+    ).animate(CurvedAnimation(
+      parent: _uploadAnimationController,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+    ));
+    
+    // Upload section'ın başlangıçta görünür olmasını garantile
+    _hideUploadSection = false;
     
     // Bir kez çağırma garantisi
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -77,8 +121,52 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
 
   @override
   void dispose() {
+    _uploadAnimationController.dispose();
     _textEditingController.dispose();
     super.dispose();
+  }
+
+  // Upload section görünürlüğünü kontrol et
+  void _updateUploadSectionVisibility() {
+    if (!mounted) return;
+    
+    // Analiz sonucu varsa upload section'ı gizle
+    final shouldHideUploadSection = _showDetailedAnalysisResult;
+    
+    debugPrint('🔍 Upload Section Kontrolü:');
+    debugPrint('  - _showDetailedAnalysisResult: $_showDetailedAnalysisResult');
+    debugPrint('  - shouldHideUploadSection: $shouldHideUploadSection');
+    debugPrint('  - _hideUploadSection: $_hideUploadSection');
+    
+    if (shouldHideUploadSection != _hideUploadSection) {
+      setState(() {
+        _hideUploadSection = shouldHideUploadSection;
+      });
+      
+      debugPrint('  - setState yapıldı, yeni _hideUploadSection: $_hideUploadSection');
+      
+      // Animasyonu oynat
+      if (shouldHideUploadSection) {
+        _uploadAnimationController.forward(); // Gizle
+        debugPrint('  - Animasyon: Gizleme (forward)');
+      } else {
+        _uploadAnimationController.reverse(); // Göster
+        debugPrint('  - Animasyon: Gösterme (reverse)');
+      }
+    } else {
+      debugPrint('  - Değişiklik yok, setState atlandı');
+    }
+  }
+
+  // Yeni analiz başlatma fonksiyonu
+  void _startNewAnalysis() {
+    setState(() {
+      _showDetailedAnalysisResult = false;
+      _forceEmptyState = false;
+    });
+    
+    // Upload section'ı tekrar göster
+    _updateUploadSectionVisibility();
   }
 
   // SharedPreferences kullanarak mesaj yükleme durumunu kontrol et
@@ -523,10 +611,36 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                       
                       const SizedBox(height: 20),
                       
-                      // Upload section - Yükleme bölümü
-                      _buildUploadSection(),
+                      // Upload section - Yükleme bölümü (etkileyici animasyonlarla)
+                      AnimatedBuilder(
+                        animation: _uploadAnimationController,
+                        builder: (context, child) {
+                          // Analiz sonucu gösteriliyorsa upload section'ı tamamen gizle
+                          if (_hideUploadSection) {
+                            return const SizedBox.shrink();
+                          }
+                          
+                          return SlideTransition(
+                            position: _slideAnimation,
+                            child: ScaleTransition(
+                              scale: _scaleAnimation,
+                              child: FadeTransition(
+                                opacity: _opacityAnimation,
+                                child: Transform.rotate(
+                                  angle: _uploadAnimationController.value * 0.1, // Hafif döndürme
+                                  child: _buildUploadSection(),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       
-                      const SizedBox(height: 20),
+                                             AnimatedContainer(
+                         duration: const Duration(milliseconds: 400),
+                         height: _hideUploadSection ? 0 : 20,
+                         curve: Curves.easeInOutCubic,
+                       ),
                       
                       // Analiz sonuçları bölümü
                       Expanded(
@@ -537,7 +651,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
                             ))
                           : _forceEmptyState || messageViewModel.messages.isEmpty
                             ? _buildEmptyState()
-                            : _buildCurrentAnalysisResult(messageViewModel),
+                            : SingleChildScrollView(
+                                child: _buildCurrentAnalysisResult(messageViewModel),
+                              ),
                       ),
                     ],
                   ),
@@ -1872,6 +1988,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             _showDetailedAnalysisResult = normalAnalysisResult;
           });
           
+          // Upload section görünürlüğünü güncelle
+          _updateUploadSectionVisibility();
+          
                      final String successMessage = selectedParticipant == 'Tüm Katılımcılar' 
                ? 'Tüm katılımcıların mesajları başarıyla analiz edildi!'
                : '"$selectedParticipant" kişisinin mesajları başarıyla analiz edildi!';
@@ -2031,12 +2150,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
       }
     }
     
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             const Text(
               'Analiz Sonucu',
               style: TextStyle(
@@ -2308,15 +2426,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  // Danışmak İstiyorum butonu
+                  // Yeni Analiz butonu
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        context.push('/consultation');
+                        _startNewAnalysis();
                       },
-                      icon: const Icon(Icons.chat_outlined, size: 16),
-                      label: const Text('Danışmak İstiyorum'),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Yeni Analiz'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF9D3FFF),
                         foregroundColor: Colors.white,
@@ -2385,8 +2503,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
             ),
           ],
         ),
-      ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
-    );
+      ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
   }
   
 
@@ -2499,6 +2616,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView> {
           _isLoading = false;
           _showDetailedAnalysisResult = result; // Analiz başarılıysa detayları göster
         });
+        
+        // Upload section görünürlüğünü güncelle
+        _updateUploadSectionVisibility();
       }
       
       if (result) {
