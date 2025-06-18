@@ -746,127 +746,106 @@ class _ReportViewState extends State<ReportView> {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: SizedBox(
-                    child: CustomButton(
-                      text: 'Testi Yeniden Başlat',
-                      onPressed: () async {
-                        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-                        final user = authViewModel.user;
-                        final isPremium = user?.actualIsPremium ?? false;
-                        
-                        // Premium değilse reklam göster
-                        if (!isPremium) {
-                          // Önce testi tekrar başlatma diyaloğunu göster
-                          final shouldRestart = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              backgroundColor: const Color(0xFF352269),
-                              title: const Text(
-                                'Testi Yeniden Başlat', 
-                                style: TextStyle(color: Colors.white)
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Testi yeniden başlatmak için kısa bir reklam izlemeniz gerekiyor. Devam etmek istiyor musunuz?',
-                                    style: TextStyle(color: Colors.white),
+            child: SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: 'Testi Yeniden Başlat',
+                onPressed: () async {
+                  final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+                  final user = authViewModel.user;
+                  final isPremium = user?.actualIsPremium ?? false;
+                  
+                  // Premium değilse reklam göster
+                  if (!isPremium) {
+                    // Önce testi tekrar başlatma diyaloğunu göster
+                    final shouldRestart = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: const Color(0xFF352269),
+                        title: const Text(
+                          'Testi Yeniden Başlat', 
+                          style: TextStyle(color: Colors.white)
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Testi yeniden başlatmak için kısa bir reklam izlemeniz gerekiyor. Devam etmek istiyor musunuz?',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                const Icon(Icons.info_outline, color: Colors.amber, size: 16),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Premium üyelik ile tüm testleri reklamsız kullanabilirsiniz.',
+                                    style: const TextStyle(color: Colors.amber, fontSize: 12),
                                   ),
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.info_outline, color: Colors.amber, size: 16),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
-                                          'Premium üyelik ile tüm testleri reklamsız kullanabilirsiniz.',
-                                          style: const TextStyle(color: Colors.amber, fontSize: 12),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
-                                  child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop(false);
-                                    context.push('/premium');
-                                  },
-                                  child: const Text(
-                                    'Premium\'a Geç', 
-                                    style: TextStyle(color: Colors.amber),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(context).colorScheme.primary,
-                                  ),
-                                  child: const Text('Reklam İzle', style: TextStyle(color: Colors.white)),
                                 ),
                               ],
                             ),
-                          );
-                          
-                          if (shouldRestart == true && context.mounted) {
-                            // Reklam göster
-                            await _showAdSimulation(AdViewType.REPORT_REGENERATE);
-                            
-                            // Reklam sonrası testi yeniden başlat
-                            if (context.mounted) {
-                          final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-                          reportViewModel.resetReport();
-                          
-                              setState(() {
-                                _showReportResult = false;
-                              });
-                            }
-                          }
-                        } else {
-                          // Premium kullanıcı için doğrudan başlat
-                          try {
-                            final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
-                            reportViewModel.resetReport();
-                            
-                            setState(() {
-                              _showReportResult = false;
-                          });
-                        } catch (e) {
-                          Utils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
-                          }
-                        }
-                      },
-                      type: ButtonType.outline,
-                      icon: Icons.refresh,
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(width: 12),
-                
-                Expanded(
-                  flex: 1,
-                  child: SizedBox(
-                    child: CustomButton(
-                      text: 'Puanla',
-                      onPressed: () {
-                        _showRatingDialog(context);
-                      },
-                      icon: Icons.star,
-                    ),
-                  ),
-                ),
-              ],
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Vazgeç', style: TextStyle(color: Colors.white70)),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(false);
+                              context.push('/premium');
+                            },
+                            child: const Text(
+                              'Premium\'a Geç', 
+                              style: TextStyle(color: Colors.amber),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            child: const Text('Reklam İzle', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (shouldRestart == true && context.mounted) {
+                      // Reklam göster
+                      await _showAdSimulation(AdViewType.REPORT_REGENERATE);
+                      
+                      // Reklam sonrası testi yeniden başlat
+                      if (context.mounted) {
+                    final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+                    reportViewModel.resetReport();
+                    
+                        setState(() {
+                          _showReportResult = false;
+                        });
+                      }
+                    }
+                  } else {
+                    // Premium kullanıcı için doğrudan başlat
+                    try {
+                      final reportViewModel = Provider.of<ReportViewModel>(context, listen: false);
+                      reportViewModel.resetReport();
+                      
+                      setState(() {
+                        _showReportResult = false;
+                    });
+                  } catch (e) {
+                    Utils.showErrorFeedback(context, 'Test başlatılırken bir hata oluştu: $e');
+                    }
+                  }
+                },
+                type: ButtonType.outline,
+                icon: Icons.refresh,
+              ),
             ),
           ),
         ),
@@ -1154,44 +1133,7 @@ class _ReportViewState extends State<ReportView> {
     });
   }
 
-  void _showRatingDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Testi Puanla'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Bu test size ne kadar yardımcı oldu?'),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(
-                5,
-                (index) => IconButton(
-                  icon: Icon(
-                    Icons.star,
-                    size: 36,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Utils.showToast(context, 'Değerlendirmeniz için teşekkürler!');
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Vazgeç'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
 
   // İlk erişim kontrolü
