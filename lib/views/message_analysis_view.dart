@@ -1551,9 +1551,6 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
     metin = metin.replaceAll(RegExp(r'\b[^.!?]*?(mahalle|sokak|cadde|bulvar|apt|daire|no)[^.!?]*[.!?]?', caseSensitive: false), 
         '[Adres bilgisi sansürlendi]');
     
-    // Doğum tarihi (DD/MM/YYYY, DD.MM.YYYY formatları)
-    metin = metin.replaceAll(RegExp(r'\b\d{1,2}[./]\d{1,2}[./](19|20)\d{2}\b'), '**/**/****');
-    
     // Plaka numaraları (Türkiye formatı)
     metin = metin.replaceAll(RegExp(r'\b\d{2}[\s]?[A-Z]{1,3}[\s]?\d{2,4}\b'), '** *** ****');
     
