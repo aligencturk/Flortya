@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 import '../services/logger_service.dart';
+import 'encryption_service.dart';
 
 class WrappedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -23,18 +24,20 @@ class WrappedService {
         return false;
       }
 
-      // JSON formatına dönüştürme
+      // Hassas verileri şifrele
       final String encodedData = jsonEncode(summaryData);
+      final encryptedSummaryData = EncryptionService().encryptString(encodedData);
+      final encryptedFileContent = EncryptionService().encryptString(fileContent);
 
-      // Firestore'a kaydetme
+      // Firestore'a kaydetme (şifreli)
       await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('wrapped_analyses')
           .doc('current_analysis')
           .set({
-        'summaryData': encodedData,
-        'fileContent': fileContent,
+        'summaryData': encryptedSummaryData,
+        'fileContent': encryptedFileContent,
         'isTxtFile': isTxtFile,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -73,9 +76,15 @@ class WrappedService {
 
       final data = doc.data()!;
       
+      // Şifreli verileri çöz
+      final String encryptedSummaryData = data['summaryData'] as String;
+      final String encryptedFileContent = data['fileContent'] as String;
+      
+      final String decodedSummaryData = EncryptionService().decryptString(encryptedSummaryData);
+      final String decodedFileContent = EncryptionService().decryptString(encryptedFileContent);
+      
       // JSON verisini ayrıştırma
-      final String encodedData = data['summaryData'] as String;
-      final List<dynamic> decodedData = jsonDecode(encodedData);
+      final List<dynamic> decodedData = jsonDecode(decodedSummaryData);
       
       final List<Map<String, String>> summaryData = List<Map<String, String>>.from(
         decodedData.map((item) => Map<String, String>.from(item))
@@ -83,7 +92,7 @@ class WrappedService {
 
       return {
         'summaryData': summaryData,
-        'fileContent': data['fileContent'] as String,
+        'fileContent': decodedFileContent,
         'isTxtFile': data['isTxtFile'] as bool,
       };
     } catch (e) {

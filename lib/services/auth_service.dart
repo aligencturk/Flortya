@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 import 'logger_service.dart';
+import 'encryption_service.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthService {
@@ -95,6 +96,10 @@ class AuthService {
         debugPrint('HATA: Kullanıcı UID boş, güncelleme yapılamıyor');
         return;
       }
+      
+      // Şifreleme servisini kullanıcı ID'si ile başlat
+      EncryptionService().initializeWithUserId(user.uid);
+      _logger.i('Şifreleme servisi kullanıcı girişinde başlatıldı');
       
       DocumentReference userRef = _firestore.collection('users').doc(user.uid);
       

@@ -1398,7 +1398,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
     
     return Scaffold(
       backgroundColor: const Color(0xFF121929),
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1414,23 +1414,13 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Padding(
-            padding: EdgeInsets.only(
-              left: 24.0, 
-              right: 24.0, 
-              top: 24.0,
-              // Klavye açıkken alttan daha fazla padding ekle
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
-            ),
-            child: GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                     // Logo ve uygulama başlığı
                     Center(
                       child: Column(
@@ -1585,37 +1575,88 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                     
                     const SizedBox(height: 20),
                     
-                    // Şifre alanı - Özel widget'a dönüştürüyoruz (Kayıt ekranı)
-                    CustomPasswordField(
+                    // Şifre alanı
+                    TextFormField(
                       controller: _passwordController,
                       focusNode: _passwordFocusNode,
-                      labelText: 'Şifre',
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
                       textInputAction: TextInputAction.next,
-                      errorText: _validatePassword(_passwordController.text),
-                      onChanged: (_) {
-                        setState(() {});
-                      },
-                      onEditingComplete: () {
-                        // Şifre tekrar alanına geç
-                        FocusScope.of(context).requestFocus(_confirmPasswordFocusNode);
+                      onFieldSubmitted: (_) => FocusScope.of(context).requestFocus(_confirmPasswordFocusNode),
+                      decoration: InputDecoration(
+                        labelText: 'Şifre',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.white38),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Şifrenizi girin';
+                        }
+                        if (value.length < 6) {
+                          return 'Şifre en az 6 karakter olmalıdır';
+                        }
+                        return null;
                       },
                     ),
                     
                     const SizedBox(height: 20),
                     
-                    // Şifre Tekrar alanı - Tamamen özel widget ile değiştiriyoruz
-                    CustomPasswordField(
+                    // Şifre Tekrar alanı
+                    TextFormField(
                       controller: _confirmPasswordController,
                       focusNode: _confirmPasswordFocusNode,
-                      labelText: 'Şifre Tekrar',
-                      textInputAction: TextInputAction.done, 
-                      errorText: _validateConfirmPassword(_confirmPasswordController.text),
-                      onChanged: (_) {
-                        setState(() {});
-                      },
-                      onEditingComplete: () {
-                        // Klavyeyi kapat
-                        FocusScope.of(context).unfocus();
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => FocusScope.of(context).unfocus(),
+                      decoration: InputDecoration(
+                        labelText: 'Şifre Tekrar',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.white38),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Şifrenizi tekrar girin';
+                        }
+                        if (value.length < 6) {
+                          return 'Şifre en az 6 karakter olmalıdır';
+                        }
+                        if (value != _passwordController.text) {
+                          return 'Şifreler eşleşmiyor';
+                        }
+                        return null;
                       },
                     ),
                     
@@ -1733,42 +1774,14 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
   
-  // Şifre doğrulama fonksiyonu
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Şifrenizi girin';
-    }
-    if (value.length < 6) {
-      return 'Şifre en az 6 karakter olmalıdır';
-    }
-    return null;
-  }
-  
-  // Şifre tekrar doğrulama fonksiyonu
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Şifrenizi tekrar girin';
-    }
-    if (value.length < 6) {
-      return 'Şifre en az 6 karakter olmalıdır';
-    }
-    if (value != _passwordController.text) {
-      return 'Şifreler eşleşmiyor';
-    }
-    return null;
-  }
+
   
   // Form gönderim işlemi için yardımcı metod
   void _submitForm(AuthViewModel authViewModel, BuildContext context) {
-    // Şifre kontrollerini manuel olarak yap
-    final passwordError = _validatePassword(_passwordController.text);
-    final confirmPasswordError = _validateConfirmPassword(_confirmPasswordController.text);
-    
-    if (_formKey.currentState!.validate() && passwordError == null && confirmPasswordError == null) {
+    if (_formKey.currentState!.validate()) {
       // E-posta ve şifre ile kayıt işlemi
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
