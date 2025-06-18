@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Wifi bağlantısını kontrol etme izni -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <!-- Google Play Billing için izin -->
+    <uses-permission android:name="com.android.vending.BILLING" />
     <!-- Kamera izni (gerekirse) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Kamera donanımının gerekli olmadığını belirt -->
@@ -123,5 +125,4 @@
                      android:maxSdkVersion="29" />
     <!-- Doküman erişimi için -->
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

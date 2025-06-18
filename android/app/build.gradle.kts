@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,11 +8,8 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-import java.util.Properties
-import java.io.FileInputStream
-
 val keystoreProperties = Properties().apply {
-    val keystorePropertiesFile = rootProject.file("app/key.properties")
+    val keystorePropertiesFile = file("key.properties")
     if (keystorePropertiesFile.exists()) {
         load(FileInputStream(keystorePropertiesFile))
     }
@@ -44,25 +44,36 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
+    create("release") {
+        val storeFilePath = keystoreProperties["storeFile"]?.toString()
+        if (storeFilePath != null) {
+            storeFile = file(storeFilePath)
+        } else {
+            throw GradleException("storeFile is missing in key.properties")
         }
+        storePassword = keystoreProperties["storePassword"]?.toString()
+        keyAlias = keystoreProperties["keyAlias"]?.toString()
+        keyPassword = keystoreProperties["keyPassword"]?.toString()
+    }
+}
+
+
+   buildTypes {
+    getByName("debug") {
+        
     }
 
-    buildTypes {
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false     
-            shrinkResources = false 
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
+    getByName("release") {
+        signingConfig = signingConfigs.getByName("release")
+        isMinifyEnabled = false
+        isShrinkResources = false
+        proguardFiles(
+            getDefaultProguardFile("proguard-android-optimize.txt"),
+            "proguard-rules.pro"
+        )
     }
+}
+
 
     packaging {
         resources {
@@ -92,4 +103,3 @@ dependencies {
 flutter {
     source = "../.."
 }
-

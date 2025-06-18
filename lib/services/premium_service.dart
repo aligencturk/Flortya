@@ -1,4 +1,9 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/material.dart';
 
 class PremiumService {
   static const String DAILY_VISUAL_OCR_COUNT_KEY = 'dailyVisualOcrCount';
@@ -25,6 +30,168 @@ class PremiumService {
   // Olumlu ve olumsuz yanıt senaryoları için ayrı kilit anahtarları
   static const String POSITIVE_RESPONSE_UNLOCKED_KEY = 'positiveResponseUnlocked';
   static const String NEGATIVE_RESPONSE_UNLOCKED_KEY = 'negativeResponseUnlocked';
+
+  // In-App Purchase için ürün kimlikleri
+  static const Set<String> urunKimlikleri = {
+    'flortya_premium_weekly',
+    'flortya_premium_monthly',
+    'flortya_premium_yearly',
+  };
+
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  List<ProductDetails> urunler = [];
+  bool satinAlmaVarMi = false;
+
+  // In-App Purchase sistemini başlat
+  Future<bool> inAppPurchaseBaslat() async {
+    try {
+      satinAlmaVarMi = await _inAppPurchase.isAvailable();
+      if (!satinAlmaVarMi) {
+        return false;
+      }
+
+      // Ürün bilgilerini yükle
+      await urunleriYukle();
+      return true;
+    } catch (e) {
+      debugPrint('In-App Purchase başlatma hatası: $e');
+      return false;
+    }
+  }
+
+  // Ürün bilgilerini Google Play Store'dan yükle
+  Future<void> urunleriYukle() async {
+    try {
+      final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails(urunKimlikleri);
+      
+      if (response.error != null) {
+        debugPrint('Ürün sorgusu hatası: ${response.error}');
+        return;
+      }
+
+      urunler = response.productDetails;
+      
+      // Ürünleri plan sırasına göre sırala (haftalık, aylık, yıllık)
+      urunler.sort((a, b) {
+        Map<String, int> siralamaMap = {
+          'flortya_premium_weekly': 0,
+          'flortya_premium_monthly': 1,
+          'flortya_premium_yearly': 2,
+        };
+        return (siralamaMap[a.id] ?? 999).compareTo(siralamaMap[b.id] ?? 999);
+      });
+      
+    } catch (e) {
+      debugPrint('Ürün yükleme hatası: $e');
+    }
+  }
+
+  // Satın alma işlemini başlat
+  Future<void> satinAlmaBaslat(ProductDetails urun) async {
+    try {
+      final PurchaseParam purchaseParam = PurchaseParam(productDetails: urun);
+      await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+    } catch (e) {
+      debugPrint('Satın alma başlatma hatası: $e');
+      toastMesajGoster('Satın alma başlatılamadı: $e', false);
+    }
+  }
+
+  // Satın alma sonuçlarını dinle
+  Stream<List<PurchaseDetails>> get satinAlinan => _inAppPurchase.purchaseStream;
+
+  // Satın alma işlemini tamamla ve Firestore'a kaydet
+  Future<void> satinAlmaTamamla(PurchaseDetails purchase) async {
+    try {
+      if (purchase.status == PurchaseStatus.purchased) {
+        // Firestore'a premium bilgilerini kaydet
+        await kullaniciyaPremiumVer(purchase.productID);
+        
+        // Purchase'ı tamamlandı olarak işaretle
+        if (purchase.pendingCompletePurchase) {
+          await _inAppPurchase.completePurchase(purchase);
+        }
+        
+        toastMesajGoster('Premium aktif!', true);
+      } else if (purchase.status == PurchaseStatus.error) {
+        toastMesajGoster('Satın alma başarısız: ${purchase.error?.message}', false);
+      } else if (purchase.status == PurchaseStatus.canceled) {
+        toastMesajGoster('Satın alma iptal edildi', false);
+      }
+    } catch (e) {
+      debugPrint('Satın alma tamamlama hatası: $e');
+      toastMesajGoster('Satın alma tamamlanamadı: $e', false);
+    }
+  }
+
+  // Kullanıcıya premium ver ve Firestore'a kaydet
+  Future<void> kullaniciyaPremiumVer(String urunKimlik) async {
+    try {
+      final User? kullanici = _auth.currentUser;
+      if (kullanici == null) {
+        throw Exception('Kullanıcı oturum açmamış');
+      }
+
+      await _firestore.collection('users').doc(kullanici.uid).update({
+        'isPremium': true,
+        'premiumPlan': urunKimlik,
+        'premiumDate': Timestamp.now(),
+      });
+      
+      debugPrint('Premium bilgileri Firestore\'a kaydedildi: $urunKimlik');
+    } catch (e) {
+      debugPrint('Firestore premium kaydetme hatası: $e');
+      throw e;
+    }
+  }
+
+  // Plan adını Türkçe'ye çevir
+  String planAdiCevir(String urunKimlik) {
+    switch (urunKimlik) {
+      case 'flortya_premium_weekly':
+        return 'Haftalık';
+      case 'flortya_premium_monthly':
+        return 'Aylık';
+      case 'flortya_premium_yearly':
+        return 'Yıllık';
+      default:
+        return 'Bilinmeyen';
+    }
+  }
+
+  // Plan açıklamasını getir
+  String planAciklamasiAl(String urunKimlik) {
+    switch (urunKimlik) {
+      case 'flortya_premium_weekly':
+        return 'Haftalık premium erişim';
+      case 'flortya_premium_monthly':
+        return 'Aylık premium erişim\n%33 tasarruf';
+      case 'flortya_premium_yearly':
+        return 'Yıllık premium erişim\n%58 tasarruf';
+      default:
+        return '';
+    }
+  }
+
+  // En popüler plan mı kontrol et
+  bool enPopulerPlanMi(String urunKimlik) {
+    return urunKimlik == 'flortya_premium_monthly';
+  }
+
+  // Toast mesajı göster
+  void toastMesajGoster(String mesaj, bool basarili) {
+    Fluttertoast.showToast(
+      msg: mesaj,
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: basarili ? Colors.green : Colors.red,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+  }
 
   // Günlük görsel OCR kullanım sayısını kontrol et
   Future<int> getDailyVisualOcrCount() async {

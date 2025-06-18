@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../services/premium_service.dart';
 import '../services/remote_config_service.dart';
@@ -21,6 +23,7 @@ class _PremiumViewState extends State<PremiumView> {
   int _selectedPlanIndex = 1; // Varsayılan olarak aylık plan
   final PremiumService _premiumService = PremiumService();
   final RemoteConfigService _remoteConfigService = RemoteConfigService();
+  late StreamSubscription<List<PurchaseDetails>> _satinAlmaSubscription;
   
   // Remote Config'ten gelecek dinamik içerik
   String _premiumTitle = 'Flörtya Premium';
@@ -64,7 +67,14 @@ class _PremiumViewState extends State<PremiumView> {
   @override
   void initState() {
     super.initState();
+    _initializeInAppPurchase();
     _loadPremiumContent();
+  }
+
+  @override
+  void dispose() {
+    _satinAlmaSubscription.cancel();
+    super.dispose();
   }
 
   /// Remote Config'ten premium içeriğini çeker
@@ -134,6 +144,47 @@ class _PremiumViewState extends State<PremiumView> {
           _isContentLoading = false;
         });
       }
+    }
+  }
+
+  // In-App Purchase sistemini başlat
+  Future<void> _initializeInAppPurchase() async {
+    try {
+      final bool available = await _premiumService.inAppPurchaseBaslat();
+      if (!available) {
+        _premiumService.toastMesajGoster('Google Play Store mevcut değil', false);
+        return;
+      }
+
+      // Satın alma durumlarını dinle
+      _satinAlmaSubscription = _premiumService.satinAlinan.listen(
+        (List<PurchaseDetails> purchaseDetailsList) async {
+          for (final PurchaseDetails purchase in purchaseDetailsList) {
+            await _premiumService.satinAlmaTamamla(purchase);
+            
+            // Eğer satın alma başarılıysa sayfayı yenile
+            if (purchase.status == PurchaseStatus.purchased && mounted) {
+              // AuthViewModel'i güncelle
+              final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+              await authViewModel.refreshUserData();
+              
+              setState(() {
+                _isLoading = false;
+              });
+            }
+          }
+        },
+        onError: (error) {
+          debugPrint('Satın alma dinleme hatası: $error');
+          _premiumService.toastMesajGoster('Satın alma hatası: $error', false);
+          setState(() {
+            _isLoading = false;
+          });
+        },
+      );
+    } catch (e) {
+      debugPrint('In-App Purchase başlatma hatası: $e');
+      _premiumService.toastMesajGoster('Satın alma sistemi başlatılamadı', false);
     }
   }
 
@@ -298,14 +349,39 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildSubscriptionPlans() {
+    // Google Play Store'dan gelen ürünleri göster
+    if (_premiumService.urunler.isEmpty) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2436),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF9D3FFF)),
+              SizedBox(height: 16),
+              Text(
+                'Abonelik planları yükleniyor...',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: _planlar.length,
+        itemCount: _premiumService.urunler.length,
         itemBuilder: (context, index) {
-          final plan = _planlar[index];
+          final product = _premiumService.urunler[index];
           final bool isSelected = index == _selectedPlanIndex;
+          final bool isPopular = _premiumService.enPopulerPlanMi(product.id);
           
           return GestureDetector(
             onTap: () {
@@ -333,9 +409,8 @@ class _PremiumViewState extends State<PremiumView> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Ana içerik - ama "En Popüler" etiketi olmadan
                       Text(
-                        plan['title'],
+                        _premiumService.planAdiCevir(product.id),
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.white70,
                           fontSize: 18,
@@ -344,7 +419,7 @@ class _PremiumViewState extends State<PremiumView> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        plan['price'],
+                        product.price,
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.white70,
                           fontSize: 24,
@@ -353,24 +428,24 @@ class _PremiumViewState extends State<PremiumView> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        plan['discountInfo'],
+                        _premiumService.planAciklamasiAl(product.id),
                         style: TextStyle(
                           color: isSelected ? const Color(0xFF9D3FFF) : Colors.white30,
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                      // "En Popüler" etiketi için boş alan
                       const SizedBox(height: 16),
                     ],
                   ),
                 ),
                 
-                // "En Popüler" etiketi - ayrı bir konumda
-                if (plan['mostPopular'])
+                // "En Popüler" etiketi
+                if (isPopular)
                   Positioned(
                     bottom: 5,
                     left: 0,
-                    right: 16, // Sağdaki marjini dikkate al
+                    right: 16,
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -436,7 +511,7 @@ class _PremiumViewState extends State<PremiumView> {
 
   Widget _buildPurchaseButton() {
     return ElevatedButton(
-      onPressed: _isLoading
+      onPressed: _isLoading || _premiumService.urunler.isEmpty
           ? null
           : () => _satinAl(),
       style: ElevatedButton.styleFrom(
@@ -456,34 +531,45 @@ class _PremiumViewState extends State<PremiumView> {
                 strokeWidth: 3,
               ),
             )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Flexible(
-                  child: Text(
-                    'Şimdi Premium Ol',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+          : _premiumService.urunler.isEmpty
+              ? const Text(
+                  'Planlar yükleniyor...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    _planlar[_selectedPlanIndex]['price'],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Flexible(
+                      child: Text(
+                        'Şimdi Premium Ol',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _premiumService.urunler.isNotEmpty 
+                            ? _premiumService.urunler[_selectedPlanIndex].price
+                            : '',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 
@@ -546,53 +632,24 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Future<void> _satinAl() async {
+    if (_premiumService.urunler.isEmpty) {
+      _premiumService.toastMesajGoster('Ürün bilgileri yüklenemedi', false);
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Bu kısımda gerçek satın alma işlemi yapılacak
-      // Şimdilik sadece mock bir işlem
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // AuthViewModel'de premium durumunu güncelle
-      final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-      final success = await authViewModel.upgradeToPremium();
-      
-      if (success) {
-        if (mounted) {
-          Utils.showSuccessDialog(
-            context,
-            'Premium Üyelik Aktifleştirildi',
-            'Tüm premium özelliklere erişiminiz açıldı. Teşekkür ederiz!',
-            onOkPressed: () {
-              context.pop(); // Premium sayfasını kapat
-            }
-          );
-        }
-      } else {
-        if (mounted) {
-          Utils.showErrorDialog(
-            context,
-            'Hata',
-            'Premium üyelik aktifleştirilemedi. Lütfen daha sonra tekrar deneyin.'
-          );
-        }
-      }
+      final product = _premiumService.urunler[_selectedPlanIndex];
+      await _premiumService.satinAlmaBaslat(product);
     } catch (e) {
-      if (mounted) {
-        Utils.showErrorDialog(
-          context,
-          'Hata',
-          'Satın alma işlemi sırasında bir hata oluştu: $e'
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      debugPrint('Satın alma hatası: $e');
+      _premiumService.toastMesajGoster('Satın alma başlatılamadı: $e', false);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -602,31 +659,15 @@ class _PremiumViewState extends State<PremiumView> {
     });
 
     try {
-      // Bu kısımda gerçek satın alım geri yükleme işlemi yapılacak
-      // Şimdilik sadece mock bir işlem
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        Utils.showInfoDialog(
-          context, 
-          title: 'Bilgi',
-          message: 'Önceki satın alım bulunamadı. Daha önce premium üyelik satın aldıysanız lütfen doğru hesap ile giriş yaptığınızdan emin olun.'
-        );
-      }
+      // TODO: Restore purchases implementation
+      _premiumService.toastMesajGoster('Geri yükleme özelliği yakında aktif olacak', false);
     } catch (e) {
-      if (mounted) {
-        Utils.showErrorDialog(
-          context,
-          'Hata',
-          'Satın alım geri yükleme işlemi sırasında bir hata oluştu: $e'
-        );
-      }
+      debugPrint('Satın alım geri yükleme hatası: $e');
+      _premiumService.toastMesajGoster('Geri yükleme başarısız: $e', false);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 } 
