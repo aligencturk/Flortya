@@ -747,7 +747,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                       InkWell(
                         key: _analyzeButtonKey, // Rehber için anahtar ekle
                         onTap: () {
-                          // Analiz sayfasına yönlendir
+                          // Analiz sayfasına yönlendir (yeni analiz için showResults false)
                           messageViewModel.clearCurrentMessage();
                           context.push(AppRouter.messageAnalysis);
                         },
@@ -1143,6 +1143,40 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
                       ),
                     
                     const SizedBox(height: 24),
+                    
+                    // Analiz Sonucunu Tekrar Görüntüle Butonu
+                    Consumer<MessageViewModel>(
+                      builder: (context, messageViewModel, child) {
+                        // Son analiz edilen mesajı kontrol et
+                        final hasAnalyzedMessage = messageViewModel.messages
+                            .where((message) => message.isAnalyzed && message.analysisResult != null)
+                            .isNotEmpty;
+                        
+                        if (hasAnalyzedMessage) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: ElevatedButton.icon(
+                                                             onPressed: () {
+                                 // Message analysis sayfasına git ve analiz sonuçlarını göster
+                                 _navigateToAnalysisResults(context, messageViewModel);
+                               },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1DB954), // Farklı bir yeşil renk
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(Icons.analytics_outlined),
+                              label: const Text('Analiz Sonucunu Tekrar Görüntüle'),
+                            ),
+                          );
+                        } else {
+                          return const SizedBox.shrink(); // Analiz yoksa butonu gizle
+                        }
+                      },
+                    ),
                     
                     // İlişki Değerlendirme Butonu ekle
                     Container(
@@ -3478,6 +3512,29 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       _wrappedAnalyses = [];
     });
     debugPrint('Wrapped hikayeleri UI üzerinde sıfırlandı');
+  }
+
+  // Analiz sonuçlarını tekrar görüntüleme
+  void _navigateToAnalysisResults(BuildContext context, MessageViewModel messageViewModel) {
+    try {
+      // En son analiz edilen mesajı bul
+      final lastAnalyzedMessage = messageViewModel.messages
+          .where((message) => message.isAnalyzed && message.analysisResult != null)
+          .toList()
+        ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+
+      if (lastAnalyzedMessage.isNotEmpty) {
+        // Message analysis sayfasına git - analiz sonuçlarını göster parametresi ile
+        context.push(AppRouter.messageAnalysis, extra: {'showResults': true});
+        
+        debugPrint('📱 Analiz sonuçlarına yönlendiriliyor - ${lastAnalyzedMessage.length} analiz mevcut');
+      } else {
+        _showErrorMessage(context, 'Görüntülenecek analiz sonucu bulunamadı');
+      }
+    } catch (e) {
+      debugPrint('❌ Analiz sonuçlarına yönlendirme hatası: $e');
+      _showErrorMessage(context, 'Analiz sonuçları yüklenirken hata oluştu');
+    }
   }
 } 
 

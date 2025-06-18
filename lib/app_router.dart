@@ -1983,7 +1983,11 @@ class AppRouter {
         GoRoute(
           path: messageAnalysis,
           name: 'messageAnalysis',
-          builder: (context, state) => const MessageAnalysisView(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            final showResults = extra?['showResults'] as bool? ?? false;
+            return MessageAnalysisView(showResults: showResults);
+          },
         ),
         // İlişki Raporu sayfası - Detay sayfası
         GoRoute(

@@ -40,7 +40,12 @@ extension MessageExtension on Message {
 }
 
 class MessageAnalysisView extends StatefulWidget {
-  const MessageAnalysisView({super.key});
+  final bool showResults;
+  
+  const MessageAnalysisView({
+    super.key,
+    this.showResults = false,
+  });
 
   @override
   State<MessageAnalysisView> createState() => _MessageAnalysisViewState();
@@ -65,8 +70,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
   void initState() {
     super.initState();
     
-    // Analiz sonucunu sıfırla - sayfa tekrar açıldığında görünmemesi için
-    _showDetailedAnalysisResult = false;
+    // Home'dan showResults parametresi ile gelindiyse analiz sonuçlarını göster
+    _showDetailedAnalysisResult = widget.showResults;
     
     // Animasyon kontrolcüsünü başlat
     _uploadAnimationController = AnimationController(
@@ -101,8 +106,19 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     ));
     
-    // Upload section'ın başlangıçta görünür olmasını garantile
-    _hideUploadSection = false;
+    // Upload section'ın başlangıçta görünür olmasını garantile  
+    // Eğer analiz sonuçları gösterilecekse upload section'ı gizle
+    _hideUploadSection = widget.showResults;
+    
+    // Eğer showResults true ise upload section animasyonunu başlat
+    if (widget.showResults) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _uploadAnimationController.forward();
+          debugPrint('📱 Home\'dan gelindi - upload section gizleniyor, analiz sonuçları gösteriliyor');
+        }
+      });
+    }
     
     // Bir kez çağırma garantisi
     WidgetsBinding.instance.addPostFrameCallback((_) {
