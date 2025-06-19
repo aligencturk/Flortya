@@ -349,7 +349,7 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildSubscriptionPlans() {
-    // Google Play Store'dan gelen ürünleri göster
+    // Google Play Store'dan gelen ürünleri göster (fiyatlar Play Store'dan alınır)
     if (_premiumService.urunler.isEmpty) {
       return Container(
         height: 200,
@@ -364,7 +364,7 @@ class _PremiumViewState extends State<PremiumView> {
               CircularProgressIndicator(color: Color(0xFF9D3FFF)),
               SizedBox(height: 16),
               Text(
-                'Abonelik planları yükleniyor...',
+                'Google Play Store fiyatları yükleniyor...',
                 style: TextStyle(color: Colors.white70),
               ),
             ],

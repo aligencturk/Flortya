@@ -313,74 +313,69 @@ Flörtya Premium
 
 ### 4. premium_plans
 **Tip:** JSON (String olarak)  
-**Açıklama:** Premium abonelik planlarının listesi. JSON objesi dizisi formatında.  
+**Açıklama:** Premium abonelik planlarının metadata listesi. Fiyatlar Google Play Console'dan alınır.  
 **Varsayılan Değer:**
 ```json
 [
   {
     "title": "Haftalık",
-    "price": "₺49,99",
     "discountInfo": "",
     "period": "hafta",
-    "mostPopular": false
+    "mostPopular": false,
+    "productId": "flortya_premium_weekly"
   },
   {
     "title": "Aylık", 
-    "price": "₺149,99",
-    "discountInfo": "25% indirim",
+    "discountInfo": "En Popüler",
     "period": "ay",
-    "mostPopular": true
+    "mostPopular": true,
+    "productId": "flortya_premium_monthly"
   },
   {
     "title": "Yıllık",
-    "price": "₺999,99", 
-    "discountInfo": "50% indirim",
+    "discountInfo": "En İyi Değer",
     "period": "yıl",
-    "mostPopular": false
+    "mostPopular": false,
+    "productId": "flortya_premium_yearly"
   }
 ]
 ```
 
-**Örnek Güncellenmiş Değerler (Kampanyalı Fiyatlar):**
+**Örnek Güncellenmiş Değerler (Kampanyalı Promosyonlar):**
 ```json
 [
   {
     "title": "Haftalık",
-    "price": "₺39,99",
-    "discountInfo": "20% indirim",
+    "discountInfo": "🎯 Kısa Süreli Deneme",
     "period": "hafta", 
-    "mostPopular": false
+    "mostPopular": false,
+    "productId": "flortya_premium_weekly"
   },
   {
     "title": "Aylık",
-    "price": "₺99,99",
-    "discountInfo": "33% indirim",
+    "discountInfo": "⭐ En Popüler Seçim",
     "period": "ay",
-    "mostPopular": true
-  },
-  {
-    "title": "3 Aylık",
-    "price": "₺249,99",
-    "discountInfo": "45% indirim",
-    "period": "3 ay",
-    "mostPopular": false
+    "mostPopular": true,
+    "productId": "flortya_premium_monthly"
   },
   {
     "title": "Yıllık",
-    "price": "₺799,99",
-    "discountInfo": "60% indirim",
+    "discountInfo": "💰 En İyi Değer - %60 Tasarruf",
     "period": "yıl",
-    "mostPopular": false
+    "mostPopular": false,
+    "productId": "flortya_premium_yearly"
   }
 ]
 ```
 
 **Plan Özellikleri:**
 - `title`: Plan adı (örn: "Haftalık", "Aylık")
-- `price`: Fiyat metni (örn: "₺149,99")
-- `discountInfo`: İndirim bilgisi metni (örn: "25% indirim", boş da olabilir)
+- `discountInfo`: Promosyon metni (örn: "En Popüler", "En İyi Değer", boş da olabilir)
 - `period`: Periyod bilgisi (örn: "hafta", "ay", "yıl") 
 - `mostPopular`: En popüler plan mı? (boolean, sadece bir plan true olmalı)
+- `productId`: Google Play Console'daki ürün kimliği
+
+**⚠️ ÖNEMLİ:** Fiyat bilgileri Google Play Console'dan otomatik alınır. Remote Config'de fiyat yazmayın!
 
 ## Dinamik Fiyatlandırma Avantajları
 
