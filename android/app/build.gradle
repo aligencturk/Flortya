@@ -127,24 +127,5 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
 }
 
-// Flutter APK'yı doğru yere kopyalama task'ı
-afterEvaluate {
-    tasks.register("copyFlutterOutputs", Copy) {
-        doFirst {
-            file("${rootProject.projectDir}/android/build/app/outputs/apk/debug").mkdirs()
-        }
-        
-        from "${project.buildDir}/outputs/apk/"
-        into "${rootProject.projectDir}/android/build/app/outputs/apk/"
-        include "**/*.apk"
-        include "**/*.json"
-    }
-    
-    tasks.named("assembleDebug") {
-        finalizedBy "copyFlutterOutputs"
-    }
-    
-    tasks.named("assembleRelease") {
-        finalizedBy "copyFlutterOutputs" 
-    }
-} 
+// Gradle'ın build dizinini Flutter'ın beklediği yere yönlendir
+project.layout.buildDirectory = file("${rootProject.projectDir}/android/build/app") 
