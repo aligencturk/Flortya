@@ -29,16 +29,18 @@ if (flutterVersionName == null) {
 }
 
 def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
+def keystorePropertiesFile = file('key.properties')
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+
+
 
 android {
     namespace 'com.rivorya.flortya'
     compileSdk 36
     ndkVersion "27.0.12077973"
-
+    
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
@@ -108,7 +110,11 @@ android {
         checkReleaseBuilds false
         abortOnError false
     }
+
+
 }
+
+
 
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
@@ -119,4 +125,26 @@ dependencies {
     implementation 'com.google.mlkit:text-recognition:16.0.0'
     implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.0'
     implementation 'androidx.multidex:multidex:2.0.1'
+}
+
+// Flutter APK'yı doğru yere kopyalama task'ı
+afterEvaluate {
+    tasks.register("copyFlutterOutputs", Copy) {
+        doFirst {
+            file("${rootProject.projectDir}/android/build/app/outputs/apk/debug").mkdirs()
+        }
+        
+        from "${project.buildDir}/outputs/apk/"
+        into "${rootProject.projectDir}/android/build/app/outputs/apk/"
+        include "**/*.apk"
+        include "**/*.json"
+    }
+    
+    tasks.named("assembleDebug") {
+        finalizedBy "copyFlutterOutputs"
+    }
+    
+    tasks.named("assembleRelease") {
+        finalizedBy "copyFlutterOutputs" 
+    }
 } 
