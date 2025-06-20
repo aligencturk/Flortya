@@ -127,5 +127,39 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
 }
 
-// Flutter build dizinini root seviyesine ayarla
-buildDir = file("${rootProject.projectDir}/build/app") 
+// APK dosyasını Flutter'ın beklediği konuma kopyala
+afterEvaluate {
+    tasks.named("assembleDebug").configure {
+        doLast {
+            def sourceApk = file("${buildDir}/outputs/flutter-apk/app-debug.apk")
+            def targetDir = file("${rootProject.projectDir}/build/app/outputs/flutter-apk")
+            def targetApk = file("${targetDir}/app-debug.apk")
+            
+            if (sourceApk.exists()) {
+                targetDir.mkdirs()
+                copy {
+                    from sourceApk
+                    into targetDir
+                }
+                println "APK kopyalandı: ${targetApk.absolutePath}"
+            }
+        }
+    }
+    
+    tasks.named("assembleRelease").configure {
+        doLast {
+            def sourceApk = file("${buildDir}/outputs/flutter-apk/app-release.apk")
+            def targetDir = file("${rootProject.projectDir}/build/app/outputs/flutter-apk")
+            def targetApk = file("${targetDir}/app-release.apk")
+            
+            if (sourceApk.exists()) {
+                targetDir.mkdirs()
+                copy {
+                    from sourceApk
+                    into targetDir
+                }
+                println "APK kopyalandı: ${targetApk.absolutePath}"
+            }
+        }
+    }
+} 
