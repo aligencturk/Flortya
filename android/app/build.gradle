@@ -127,5 +127,23 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
 }
 
-// Gradle'ın build dizinini Flutter'ın beklediği yere yönlendir
-project.layout.buildDirectory = file("${rootProject.projectDir}/android/build/app") 
+// Flutter'ın APK'yı doğru bulabilmesi için symlink benzeri çözüm
+afterEvaluate {
+    android.applicationVariants.all { variant ->
+        variant.assembleProvider.get().doLast {
+            def flutterExpectedDir = file("${rootProject.projectDir}/build/app/outputs")
+            def actualOutputDir = file("${rootProject.projectDir}/android/build/app/outputs")
+            
+            if (!flutterExpectedDir.exists()) {
+                flutterExpectedDir.mkdirs()
+            }
+            
+            // APK ve AAB dosyalarını Flutter'ın beklediği yere kopyala
+            copy {
+                from actualOutputDir
+                into flutterExpectedDir
+                include "**/*"
+            }
+        }
+    }
+} 
