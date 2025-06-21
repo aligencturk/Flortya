@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "768992590332-0ss5u61mljeksniu34pa1dr1d51ag0aj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rivorya.flortya",
+            "certificate_hash": "0ffb4d23d1fba4e744da2841151ab51946fa5788"
+          }
+        },
+        {
+          "client_id": "768992590332-0tonhjs0oitmtudnv62nql6pef7ba6rf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rivorya.flortya",
+            "certificate_hash": "90f8571759b9d83083084525217662027eecf91a"
+          }
+        },
+        {
           "client_id": "768992590332-620nsvbsob7gd61kp92nch4bpiq9ljjr.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

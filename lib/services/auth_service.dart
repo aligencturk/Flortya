@@ -27,6 +27,10 @@ class AuthService {
         // serverClientId'yi kaldırdık - genellikle gerekli değil
       );
     }
+    
+    _logger.i('🔧 AuthService başlatıldı');
+    _logger.d('📱 Platform: ${Platform.operatingSystem}');
+    _logger.d('🔍 Google Sign-In scopes: ${_googleSignIn.scopes}');
   }
 
   // Mevcut kullanıcıyı almak
@@ -38,15 +42,24 @@ class AuthService {
   // Google ile giriş
   Future<UserCredential?> signInWithGoogle() async {
     try {
+      _logger.i('🔄 Google Sign-In başlatılıyor...');
+      
       // Aynı instance'ı kullan - _googleSignIn
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {
+        _logger.i('❌ Kullanıcı Google Sign-In işlemini iptal etti');
         return null; // Kullanıcı işlemi iptal etti
       }
       
+      _logger.i('✅ Google hesabı seçildi: ${googleUser.email}');
+      
       // Google hesabından kimlik bilgileri al
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      _logger.i('🔑 Google auth tokens alındı');
+      _logger.d('AccessToken: ${googleAuth.accessToken != null ? "Var" : "Yok"}');
+      _logger.d('IdToken: ${googleAuth.idToken != null ? "Var" : "Yok"}');
       
       // Firebase ile yetkilendirme
       final credential = GoogleAuthProvider.credential(
@@ -54,15 +67,29 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
       
+      _logger.i('🔥 Firebase credential oluşturuldu, giriş yapılıyor...');
+      
       // Firebase ile giriş yap
       final userCredential = await _auth.signInWithCredential(credential);
+      
+      _logger.i('🎉 Firebase giriş başarılı: ${userCredential.user?.email}');
       
       // Yeni bir kullanıcıysa Firestore'a kaydet
       await _saveUserToFirestore(userCredential.user, authProvider: 'google.com');
       
       return userCredential;
     } catch (e) {
-      _logger.e('Google giriş hatası: $e');
+      _logger.e('❌ Google giriş hatası: $e');
+      
+      // Spesifik hata mesajları
+      if (e.toString().contains('network_error')) {
+        _logger.e('🌐 Ağ bağlantısı sorunu');
+      } else if (e.toString().contains('sign_in_failed')) {
+        _logger.e('🔐 Google Sign-In başarısız');
+      } else if (e.toString().contains('invalid-credential')) {
+        _logger.e('🚫 Geçersiz kimlik bilgileri - SHA-1 yapılandırması kontrol edilmeli');
+      }
+      
       return null;
     }
   }
