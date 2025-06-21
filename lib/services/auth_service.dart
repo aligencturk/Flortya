@@ -22,11 +22,10 @@ class AuthService {
         // iOS için clientID belirtmeyin, otomatik olarak bulacaktır
       );
     } else {
-          _googleSignIn = GoogleSignIn(
-      scopes: ['email', 'profile'],
-      serverClientId: '768992590332-hr7uq6q0sbo1ugqcv0vccs8vmdpo1dls.apps.googleusercontent.com', // ← Doğru ID
-    );
-
+      _googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+        // serverClientId'yi kaldırdık - genellikle gerekli değil
+      );
     }
   }
 

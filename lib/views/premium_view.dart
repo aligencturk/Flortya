@@ -115,25 +115,8 @@ class _PremiumViewState extends State<PremiumView> {
         debugPrint('Premium features yüklenemedi, varsayılan değerler kullanılıyor: $e');
       }
 
-      // Premium planlarını çek
-      try {
-        final plansJson = await _remoteConfigService.parametreAl('premium_plans');
-        if (plansJson.isNotEmpty) {
-          final List<dynamic> plansData = jsonDecode(plansJson);
-          _planlar = plansData.cast<Map<String, dynamic>>();
-          
-          // En popüler planı bulup selected index olarak ayarla
-          for (int i = 0; i < _planlar.length; i++) {
-            if (_planlar[i]['mostPopular'] == true) {
-              _selectedPlanIndex = i;
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        // Varsayılan planlar kullanılacak
-        debugPrint('Premium plans yüklenemedi, varsayılan planlar kullanılıyor: $e');
-      }
+      // Premium planları artık Play Console'dan alınıyor, 
+      // Remote Config'den çekmeye gerek yok
 
     } catch (e) {
       debugPrint('Premium içerik yükleme hatası: $e');
