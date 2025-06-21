@@ -67,8 +67,25 @@ class _PremiumViewState extends State<PremiumView> {
   @override
   void initState() {
     super.initState();
-    _initializeInAppPurchase();
-    _loadPremiumContent();
+    _initializeApp();
+  }
+
+  // Uygulama başlatma işlemlerini sıralı olarak yap
+  Future<void> _initializeApp() async {
+    try {
+      // Önce premium içeriği yükle (Remote Config)
+      await _loadPremiumContent();
+      
+      // Sonra In-App Purchase'ı başlat
+      await _initializeInAppPurchase();
+    } catch (e) {
+      debugPrint('Uygulama başlatma hatası: $e');
+      if (mounted) {
+        setState(() {
+          _isContentLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -136,7 +153,19 @@ class _PremiumViewState extends State<PremiumView> {
       final bool available = await _premiumService.inAppPurchaseBaslat();
       if (!available) {
         _premiumService.toastMesajGoster('Google Play Store mevcut değil', false);
+        if (mounted) {
+          setState(() {
+            _isContentLoading = false;
+          });
+        }
         return;
+      }
+
+      // Ürünler yüklendikten sonra UI'ı güncelle
+      if (mounted) {
+        setState(() {
+          _isContentLoading = false;
+        });
       }
 
       // Satın alma durumlarını dinle
@@ -154,6 +183,16 @@ class _PremiumViewState extends State<PremiumView> {
               setState(() {
                 _isLoading = false;
               });
+              
+              // Premium aktif olduğunda başarı mesajı göster ve anasayfaya yönlendir
+              await Future.delayed(const Duration(seconds: 1));
+              if (mounted) {
+                _premiumService.toastMesajGoster('Premium başarıyla aktif edildi! Artık tüm özelliklere erişebilirsiniz.', true);
+                await Future.delayed(const Duration(seconds: 2));
+                if (mounted) {
+                  context.go('/home');
+                }
+              }
             }
           }
         },
@@ -168,6 +207,11 @@ class _PremiumViewState extends State<PremiumView> {
     } catch (e) {
       debugPrint('In-App Purchase başlatma hatası: $e');
       _premiumService.toastMesajGoster('Satın alma sistemi başlatılamadı', false);
+      if (mounted) {
+        setState(() {
+          _isContentLoading = false;
+        });
+      }
     }
   }
 
@@ -334,6 +378,11 @@ class _PremiumViewState extends State<PremiumView> {
   Widget _buildSubscriptionPlans() {
     // Google Play Store'dan gelen ürünleri göster (fiyatlar Play Store'dan alınır)
     if (_premiumService.urunler.isEmpty) {
+      // Eğer loading değilse ve ürünler hala boşsa, varsayılan planları göster
+      if (!_isContentLoading) {
+        return _buildFallbackPlans();
+      }
+      
       return Container(
         height: 200,
         decoration: BoxDecoration(
@@ -493,8 +542,11 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildPurchaseButton() {
+    // Play Store ürünleri yoksa fallback buton göster
+    bool canPurchase = _premiumService.urunler.isNotEmpty || (!_isContentLoading && _premiumService.urunler.isEmpty);
+    
     return ElevatedButton(
-      onPressed: _isLoading || _premiumService.urunler.isEmpty
+      onPressed: _isLoading || !canPurchase
           ? null
           : () => _satinAl(),
       style: ElevatedButton.styleFrom(
@@ -572,6 +624,118 @@ class _PremiumViewState extends State<PremiumView> {
     );
   }
 
+  // Fallback planları göster (Play Store'dan yüklenemezse)
+  Widget _buildFallbackPlans() {
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _planlar.length,
+        itemBuilder: (context, index) {
+          final plan = _planlar[index];
+          final bool isSelected = index == _selectedPlanIndex;
+          final bool isPopular = plan['mostPopular'] as bool;
+          
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedPlanIndex = index;
+              });
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF352269) : const Color(0xFF1A2436),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF9D3FFF) : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        plan['title'] as String,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        plan['price'] as String,
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFF9D3FFF) : Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'per ${plan["period"]}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (plan['discountInfo'] != null && (plan['discountInfo'] as String).isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            plan['discountInfo'] as String,
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (isPopular)
+                  Positioned(
+                    top: -8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF9D3FFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'En Popüler',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildTermsAndPrivacyLinks() {
     return Center(
       child: Wrap(
@@ -616,7 +780,11 @@ class _PremiumViewState extends State<PremiumView> {
 
   Future<void> _satinAl() async {
     if (_premiumService.urunler.isEmpty) {
-      _premiumService.toastMesajGoster('Ürün bilgileri yüklenemedi', false);
+      // Fallback durum: Play Store ürünleri yüklenemedi
+      _premiumService.toastMesajGoster(
+        'Google Play Store\'dan fiyatlar yüklenemedi. Lütfen uygulamayı yeniden başlatın.',
+        false,
+      );
       return;
     }
 

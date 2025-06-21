@@ -291,7 +291,11 @@ class AuthViewModel extends ChangeNotifier with WidgetsBindingObserver implement
       final userData = await _authServiceImpl.getUserData();
       _user = userData;
       
+      // Premium durumunu kontrol et
+      _checkPremiumStatus();
+      
       debugPrint('Kullanıcı bilgileri yenilendi: ${_user?.displayName}, ${_user?.email}');
+      debugPrint('Premium durumu: $_isPremium');
       
       notifyListeners();
     } catch (e) {

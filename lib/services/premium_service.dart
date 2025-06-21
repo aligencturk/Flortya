@@ -65,14 +65,28 @@ class PremiumService {
   // Ürün bilgilerini Google Play Store'dan yükle
   Future<void> urunleriYukle() async {
     try {
+      debugPrint('🛒 Google Play Store\'dan ürün bilgileri yükleniyor...');
+      debugPrint('📋 Aranacak ürün kimlikleri: $urunKimlikleri');
+      
       final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails(urunKimlikleri);
       
       if (response.error != null) {
-        debugPrint('Ürün sorgusu hatası: ${response.error}');
+        debugPrint('❌ Ürün sorgusu hatası: ${response.error}');
+        debugPrint('🔍 Error code: ${response.error!.code}');
+        debugPrint('📄 Error details: ${response.error!.details}');
         return;
       }
 
+      if (response.notFoundIDs.isNotEmpty) {
+        debugPrint('⚠️ Bulunamayan ürün kimlikleri: ${response.notFoundIDs}');
+      }
+
       urunler = response.productDetails;
+      debugPrint('✅ ${urunler.length} ürün başarıyla yüklendi');
+      
+      for (final product in urunler) {
+        debugPrint('💰 Ürün: ${product.id} - ${product.price} - ${product.title}');
+      }
       
       // Ürünleri plan sırasına göre sırala (haftalık, aylık, yıllık)
       urunler.sort((a, b) {
@@ -84,8 +98,11 @@ class PremiumService {
         return (siralamaMap[a.id] ?? 999).compareTo(siralamaMap[b.id] ?? 999);
       });
       
+      debugPrint('🔄 Ürünler sıralandı');
+      
     } catch (e) {
-      debugPrint('Ürün yükleme hatası: $e');
+      debugPrint('❌ Ürün yükleme hatası: $e');
+      debugPrint('📱 In-App Purchase mevcut: $satinAlmaVarMi');
     }
   }
 
@@ -135,13 +152,37 @@ class PremiumService {
         throw Exception('Kullanıcı oturum açmamış');
       }
 
+      // Premium süresini ürün tipine göre hesapla
+      final DateTime now = DateTime.now();
+      DateTime premiumExpiry;
+      
+      switch (urunKimlik) {
+        case 'flortya_premium_weekly':
+          // Haftalık: 7 gün
+          premiumExpiry = now.add(const Duration(days: 7));
+          break;
+        case 'flortya_premium_monthly':
+          // Aylık: 30 gün (daha güvenli)
+          premiumExpiry = now.add(const Duration(days: 30));
+          break;
+        case 'flortya_premium_yearly':
+          // Yıllık: 365 gün (artık yıl durumlarından kaçınmak için)
+          premiumExpiry = now.add(const Duration(days: 365));
+          break;
+        default:
+          // Varsayılan olarak 30 gün
+          premiumExpiry = now.add(const Duration(days: 30));
+      }
+
       await _firestore.collection('users').doc(kullanici.uid).update({
         'isPremium': true,
         'premiumPlan': urunKimlik,
         'premiumDate': Timestamp.now(),
+        'premiumExpiry': Timestamp.fromDate(premiumExpiry), // Son kullanma tarihi eklendi
       });
       
       debugPrint('Premium bilgileri Firestore\'a kaydedildi: $urunKimlik');
+      debugPrint('Premium son kullanma tarihi: $premiumExpiry');
     } catch (e) {
       debugPrint('Firestore premium kaydetme hatası: $e');
       throw e;
