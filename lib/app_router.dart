@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -511,8 +512,9 @@ class LoginView extends StatelessWidget {
                     
                     const SizedBox(height: 16),
                     
-                    // Apple ile giriş butonu
-                    ElevatedButton(
+                    // Apple ile giriş butonu - Sadece iOS'ta göster
+                    if (Platform.isIOS)
+                      ElevatedButton(
                       onPressed: authViewModel.isLoading
                         ? null
                         : () async {
@@ -767,8 +769,9 @@ class RegisterView extends StatelessWidget {
                     
                     const SizedBox(height: 16),
                     
-                    // Apple ile kayıt butonu
-                    ElevatedButton(
+                    // Apple ile kayıt butonu - Sadece iOS'ta göster
+                    if (Platform.isIOS)
+                      ElevatedButton(
                       onPressed: authViewModel.isLoading
                         ? null
                         : () async {
@@ -1198,8 +1201,9 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                     
                     const SizedBox(height: 16),
                     
-                    // Apple ile giriş butonu
-                    ElevatedButton(
+                    // Apple ile giriş butonu - Sadece iOS'ta göster
+                    if (Platform.isIOS)
+                      ElevatedButton(
                       onPressed: authViewModel.isLoading
                         ? null
                         : () async {

@@ -144,12 +144,29 @@ class AppleSignInButton extends StatelessWidget {
   }
 
   Future<void> _handleAppleSignIn(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    try {
+      print('🍎 DEBUG: Apple Sign In başlatılıyor...');
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
 
-    final success = await authViewModel.signInWithApple();
+      final success = await authViewModel.signInWithApple();
+      print('🍎 DEBUG: Apple Sign In sonucu: $success');
+      print('🍎 DEBUG: AuthViewModel error: ${authViewModel.errorMessage}');
 
-    if (success && onSuccess != null) {
-      onSuccess!();
+      if (success && onSuccess != null) {
+        print('🍎 DEBUG: Başarılı, onSuccess çağrılıyor');
+        onSuccess!();
+      } else if (!success) {
+        // AuthViewModel'den hata mesajını al
+        final errorMessage = authViewModel.errorMessage ?? 'Apple ile giriş yapılamadı. Lütfen tekrar deneyin.';
+        print('🍎 DEBUG: Hata mesajı gösterilecek: $errorMessage');
+        Utils.showErrorFeedback(context, errorMessage);
+      }
+    } catch (e) {
+      print('🍎 DEBUG: Catch bloğunda hata: $e');
+      Utils.showErrorFeedback(
+        context, 
+        'Apple ile giriş yapılırken bir hata oluştu: $e',
+      );
     }
   }
 } 

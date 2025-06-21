@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../models/user_model.dart';
 import 'logger_service.dart';
 import 'encryption_service.dart';
@@ -70,12 +71,62 @@ class AuthService {
   // Apple ile giriş
   Future<UserCredential?> signInWithApple() async {
     try {
-      // Apple ile giriş fonksiyonu şimdilik uygulanmadı
-      // Gerekirse daha sonra sign_in_with_apple paketi kurulup gerçekleştirilebilir
-      _logger.w('Apple ile giriş henüz uygulanmadı');
-      return null;
+      _logger.i('🍎 Apple ile giriş işlemi başlatılıyor...');
+      
+      // Platform kontrolü - Android'de Apple Sign In desteklenmez
+      if (Platform.isAndroid) {
+        _logger.w('⚠️ Apple Sign In Android platformunda desteklenmez');
+        throw Exception('Apple ile Giriş sadece iOS cihazlarda desteklenmektedir.');
+      }
+      
+      // Apple Sign In mevcut mu kontrol et (sadece iOS için)
+      if (Platform.isIOS && !await SignInWithApple.isAvailable()) {
+        _logger.w('⚠️ Apple Sign In bu iOS cihazda mevcut değil');
+        return null;
+      }
+      
+      // Apple ID credential'larını al
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      
+      _logger.i('✅ Apple credential alındı: ${appleCredential.userIdentifier}');
+      
+      // Firebase için OAuthCredential oluştur
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+      
+      // Firebase ile giriş yap
+      final userCredential = await _auth.signInWithCredential(oauthCredential);
+      
+      _logger.i('🔥 Firebase ile Apple giriş başarılı: ${userCredential.user?.uid}');
+      
+      // Eğer kullanıcı bilgileri varsa (ilk giriş) display name güncelle
+      if (appleCredential.givenName != null && appleCredential.familyName != null) {
+        final displayName = '${appleCredential.givenName} ${appleCredential.familyName}';
+        await userCredential.user?.updateDisplayName(displayName);
+        await userCredential.user?.reload();
+        _logger.i('👤 Apple kullanıcı display name güncellendi: $displayName');
+      }
+      
+      // Kullanıcıyı Firestore'a kaydet
+      await _saveUserToFirestore(userCredential.user, authProvider: 'apple.com');
+      
+      _logger.i('🎉 Apple ile giriş tamamlandı: ${userCredential.user?.email}');
+      return userCredential;
+      
     } catch (e) {
-      _logger.e('Apple giriş hatası: $e');
+      if (e.toString().contains('canceled')) {
+        _logger.i('🚫 Apple ile giriş kullanıcı tarafından iptal edildi');
+        return null;
+      }
+      
+      _logger.e('❌ Apple giriş hatası: $e');
       return null;
     }
   }
