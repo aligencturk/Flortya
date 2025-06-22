@@ -23,7 +23,7 @@
     
     <application
         android:label="Flörtya"
-        android:name="${applicationName}"
+        android:name=".MainApplication"
         android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"> <!-- HTTP bağlantıları için -->

@@ -1,4 +1,4 @@
-package com.example.my_app
+package com.rivorya.Flortya
 
 import io.flutter.app.FlutterApplication
 import androidx.multidex.MultiDex
