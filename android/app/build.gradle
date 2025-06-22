@@ -38,7 +38,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace 'com.rivorya.flortya'
-    compileSdk 36
+    compileSdk 35
     ndkVersion "27.0.12077973"
     
     compileOptions {
@@ -58,7 +58,7 @@ android {
     defaultConfig {
         applicationId "com.rivorya.flortya"
         minSdk 23
-        targetSdk 36
+        targetSdk 35
         versionCode flutter.versionCode
         versionName flutter.versionName
         multiDexEnabled true
@@ -126,5 +126,8 @@ dependencies {
     implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.0'
     implementation 'androidx.multidex:multidex:2.0.1'
 }
+
+
+
 
 
