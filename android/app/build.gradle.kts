@@ -55,6 +55,9 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
@@ -65,4 +68,12 @@ flutter {
 
 dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
+    
+    // Google ML Kit - sadece Latin script için
+    configurations.all {
+        exclude(group = "com.google.mlkit", module = "text-recognition-chinese")
+        exclude(group = "com.google.mlkit", module = "text-recognition-devanagari") 
+        exclude(group = "com.google.mlkit", module = "text-recognition-japanese")
+        exclude(group = "com.google.mlkit", module = "text-recognition-korean")
+    }
 }

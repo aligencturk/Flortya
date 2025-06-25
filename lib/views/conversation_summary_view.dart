@@ -104,8 +104,25 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
       'assets/images/9.png',
       'assets/images/10.png',
     ];
+    
+    // Her kart için yazı renkleri (true = beyaz, false = siyah)
+    final List<bool> useWhiteText = [
+      true,  // 1. resim - beyaz yazı
+      false, // 2. resim - siyah yazı
+      false, // 3. resim - siyah yazı
+      true,  // 4. resim - beyaz yazı
+      true,  // 5. resim - beyaz yazı
+      true,  // 6. resim - beyaz yazı (mevcut gibi)
+      true,  // 7. resim - beyaz yazı (varsayılan)
+      false, // 8. resim - siyah yazı
+      true,  // 9. resim - beyaz yazı (doğru)
+      true,  // 10. resim - beyaz yazı (doğru)
+    ];
 
     final imageIndex = index % backgroundImages.length;
+    final isWhiteText = useWhiteText[imageIndex];
+    final textColor = isWhiteText ? Colors.white : Colors.black;
+    final iconColor = isWhiteText ? Colors.white : Colors.black;
     final (decoratedTitle, iconData) = _decorateTitle(title);
 
     return Container(
@@ -130,7 +147,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                     children: [
                       // Kapat butonu
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        icon: Icon(Icons.close, color: iconColor, size: 28),
                         onPressed: () => Navigator.of(context).pop(),
                         tooltip: 'Kapat',
                       ),
@@ -156,7 +173,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                   const Spacer(),
                   
                   // Orta Kısım: İkon, Başlık ve Yorum
-                  Icon(iconData, color: Colors.white, size: 64)
+                  Icon(iconData, color: iconColor, size: 64)
                       .animate()
                       .fade(duration: 500.ms)
                       .scale(delay: 200.ms),
@@ -167,10 +184,10 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                     style: GoogleFonts.archivo(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: const [
-                        Shadow(color: Colors.black38, offset: Offset(2, 2), blurRadius: 4),
-                      ],
+                      color: textColor,
+                      shadows: isWhiteText 
+                        ? const [Shadow(color: Colors.black38, offset: Offset(2, 2), blurRadius: 4)]
+                        : const [Shadow(color: Colors.white54, offset: Offset(1, 1), blurRadius: 2)],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -180,11 +197,11 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                     style: GoogleFonts.archivo(
                       fontSize: 20,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.95),
+                      color: textColor.withOpacity(0.95),
                       height: 1.5,
-                      shadows: const [
-                        Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
-                      ],
+                      shadows: isWhiteText 
+                        ? const [Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2)]
+                        : const [Shadow(color: Colors.white38, offset: Offset(1, 1), blurRadius: 2)],
                     ),
                   ),
                   const Spacer(),
@@ -196,20 +213,20 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                       Text(
                         'Devam etmek için kaydırın',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: textColor.withOpacity(0.8),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(
+                      Icon(
                         Icons.arrow_forward_ios,
-                        color: Colors.white,
+                        color: textColor,
                         size: 16,
                       ),
                     ],
                   ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                   .shimmer(delay: 1000.ms, duration: 1800.ms, color: Colors.white.withOpacity(0.5)),
+                   .shimmer(delay: 1000.ms, duration: 1800.ms, color: textColor.withOpacity(0.5)),
                 ],
               ),
             ),

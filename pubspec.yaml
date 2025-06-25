@@ -2,7 +2,7 @@ name: my_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.6+17
+version: 1.0.7+18
 
 environment:
   sdk: ^3.7.2
@@ -57,7 +57,7 @@ dependencies:
   encrypt: ^5.0.1
   crypto: ^3.0.3
   
-  # OCR ve Görüntü İşleme
+  # OCR ve Görüntü İşleme - Sadece Türkçe/Latin script
   path_provider: ^2.1.5
   path: ^1.8.3
   google_mlkit_text_recognition: ^0.14.0

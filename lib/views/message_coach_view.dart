@@ -1311,13 +1311,17 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                         fontSize: 18,
                       ),
                     ),
-                    const Text(
-                      'Ali Talip Gençtürk',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                    provider.Consumer<AuthViewModel>(
+                      builder: (context, authViewModel, child) {
+                        return Text(
+                          authViewModel.user?.displayName ?? 'Kullanıcı',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        );
+                      },
                     ),
                     const Spacer(),
                     IconButton(
