@@ -24,13 +24,18 @@ class YuklemeAnimasyonu extends StatelessWidget {
     this.tip = AnimasyonTipi.KALP,
     this.mesaj,
     this.analizTipi = AnalizTipi.GENEL,
-  }) : renk = renk ?? Colors.pinkAccent;
+  }) : renk = renk ?? Colors.white; // Varsayılan rengi beyaz yap
 
   @override
   Widget build(BuildContext context) {
     // Eğer renk belirtilmemişse temadan al
-    final renkDegeri = renk == Colors.pinkAccent ? 
-        Theme.of(context).colorScheme.primary : renk;
+    final renkDegeri = renk == Colors.white ? 
+        Colors.white : renk;
+    
+    // Arka plan rengi ile kontrastı artırmak için daha parlak renk kullan
+    final parlakRenk = renkDegeri == const Color(0xFF9D3FFF) 
+        ? Colors.white // Mor arka plan için beyaz
+        : renkDegeri;
         
     Widget animasyonWidget;
     
@@ -38,7 +43,7 @@ class YuklemeAnimasyonu extends StatelessWidget {
     switch (tip) {
       case AnimasyonTipi.KALP:
         animasyonWidget = SpinKitPumpingHeart(
-          color: renkDegeri,
+          color: parlakRenk,
           size: boyut,
         );
         break;
@@ -48,19 +53,19 @@ class YuklemeAnimasyonu extends StatelessWidget {
           height: boyut,
           child: CircularProgressIndicator(
             strokeWidth: 3.0,
-            valueColor: AlwaysStoppedAnimation<Color>(renkDegeri),
+            valueColor: AlwaysStoppedAnimation<Color>(parlakRenk),
           ),
         );
         break;
       case AnimasyonTipi.DALGALI:
         animasyonWidget = SpinKitWave(
-          color: renkDegeri,
+          color: parlakRenk,
           size: boyut,
         );
         break;
       case AnimasyonTipi.NOKTA:
         animasyonWidget = SpinKitThreeBounce(
-          color: renkDegeri,
+          color: parlakRenk,
           size: boyut,
         );
         break;
@@ -77,27 +82,45 @@ class YuklemeAnimasyonu extends StatelessWidget {
     // Eğer mesaj varsa animasyon ve mesajı birlikte göster
     if (bilgiMetni != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            animasyonWidget,
-            const SizedBox(height: 12),
-            Text(
-              bilgiMetni,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 14,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          margin: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              animasyonWidget,
+              const SizedBox(height: 12),
+              Text(
+                bilgiMetni,
+                style: TextStyle(
+                  color: Colors.white, // Bilgi metnini her zaman beyaz yap
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
     
     // Sadece animasyon göster
-    return Center(child: animasyonWidget);
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: animasyonWidget,
+      ),
+    );
   }
   
   // Analiz tipine göre uygun bilgilendirme mesajını döndürür
