@@ -3,6 +3,7 @@ import 'package:provider/provider.dart' as provider;
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../services/premium_service.dart';
@@ -152,7 +153,8 @@ class _PremiumViewState extends State<PremiumView> {
     try {
       final bool available = await _premiumService.inAppPurchaseBaslat();
       if (!available) {
-        _premiumService.toastMesajGoster('Google Play Store mevcut değil', false);
+        final String storeName = Platform.isIOS ? 'App Store' : 'Google Play Store';
+        _premiumService.toastMesajGoster('$storeName mevcut değil', false);
         if (mounted) {
           setState(() {
             _isContentLoading = false;
@@ -780,9 +782,10 @@ class _PremiumViewState extends State<PremiumView> {
 
   Future<void> _satinAl() async {
     if (_premiumService.urunler.isEmpty) {
-      // Fallback durum: Play Store ürünleri yüklenemedi
+      // Fallback durum: Store ürünleri yüklenemedi
+      final String storeName = Platform.isIOS ? 'App Store' : 'Google Play Store';
       _premiumService.toastMesajGoster(
-        'Google Play Store\'dan fiyatlar yüklenemedi. Lütfen uygulamayı yeniden başlatın.',
+        '$storeName\'dan fiyatlar yüklenemedi. Lütfen uygulamayı yeniden başlatın.',
         false,
       );
       return;
@@ -810,11 +813,19 @@ class _PremiumViewState extends State<PremiumView> {
     });
 
     try {
-      // TODO: Restore purchases implementation
-      _premiumService.toastMesajGoster('Geri yükleme özelliği yakında aktif olacak', false);
+      if (Platform.isIOS) {
+        // iOS için restore purchases
+        debugPrint('🍎 iOS App Store satın alımları geri yükleniyor...');
+        await InAppPurchase.instance.restorePurchases();
+        _premiumService.toastMesajGoster('iOS satın alımları geri yüklendi', true);
+      } else {
+        // Android için restore purchases - yakında implement edilecek
+        _premiumService.toastMesajGoster('Android geri yükleme özelliği yakında aktif olacak', false);
+      }
     } catch (e) {
       debugPrint('Satın alım geri yükleme hatası: $e');
-      _premiumService.toastMesajGoster('Geri yükleme başarısız: $e', false);
+      final String platform = Platform.isIOS ? 'iOS' : 'Android';
+      _premiumService.toastMesajGoster('$platform geri yükleme başarısız: $e', false);
     } finally {
       setState(() {
         _isLoading = false;

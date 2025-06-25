@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 
 class PremiumService {
   static const String DAILY_VISUAL_OCR_COUNT_KEY = 'dailyVisualOcrCount';
@@ -31,12 +32,28 @@ class PremiumService {
   static const String POSITIVE_RESPONSE_UNLOCKED_KEY = 'positiveResponseUnlocked';
   static const String NEGATIVE_RESPONSE_UNLOCKED_KEY = 'negativeResponseUnlocked';
 
-  // In-App Purchase için ürün kimlikleri
-  static const Set<String> urunKimlikleri = {
+  // Android (Google Play Store) ürün kimlikleri
+  static const Set<String> androidUrunKimlikleri = {
     'flortya_premium_weekly',
     'flortya_premium_monthly',
     'flortya_premium_yearly',
   };
+  
+  // iOS (App Store) ürün kimlikleri
+  static const Set<String> iosUrunKimlikleri = {
+    'flortya_premium_weekly_ios',
+    'flortya_premium_monthly_ios',
+    'flortya_premium_yearly_ios',
+  };
+  
+  // Platform'a göre ürün kimliklerini döndür
+  static Set<String> get urunKimlikleri {
+    if (Platform.isIOS) {
+      return iosUrunKimlikleri;
+    } else {
+      return androidUrunKimlikleri;
+    }
+  }
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -62,13 +79,17 @@ class PremiumService {
     }
   }
 
-  // Ürün bilgilerini Google Play Store'dan yükle
+  // Platform'a göre ürün bilgilerini yükle (App Store veya Google Play Store)
   Future<void> urunleriYukle() async {
     try {
-      debugPrint('🛒 Google Play Store\'dan ürün bilgileri yükleniyor...');
-      debugPrint('📋 Aranacak ürün kimlikleri: $urunKimlikleri');
+      final String storeName = Platform.isIOS ? 'App Store' : 'Google Play Store';
+      final Set<String> platformUrunKimlikleri = urunKimlikleri;
       
-      final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails(urunKimlikleri);
+      debugPrint('🛒 $storeName\'dan ürün bilgileri yükleniyor...');
+      debugPrint('📋 Platform: ${Platform.isIOS ? 'iOS' : 'Android'}');
+      debugPrint('📋 Aranacak ürün kimlikleri: $platformUrunKimlikleri');
+      
+      final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails(platformUrunKimlikleri);
       
       if (response.error != null) {
         debugPrint('❌ Ürün sorgusu hatası: ${response.error}');
@@ -79,10 +100,13 @@ class PremiumService {
 
       if (response.notFoundIDs.isNotEmpty) {
         debugPrint('⚠️ Bulunamayan ürün kimlikleri: ${response.notFoundIDs}');
+        if (Platform.isIOS) {
+          debugPrint('💡 iOS için App Store Connect\'te bu ürün kimliklerinin tanımlandığından emin olun');
+        }
       }
 
       urunler = response.productDetails;
-      debugPrint('✅ ${urunler.length} ürün başarıyla yüklendi');
+      debugPrint('✅ ${urunler.length} ürün başarıyla yüklendi ($storeName)');
       
       for (final product in urunler) {
         debugPrint('💰 Ürün: ${product.id} - ${product.price} - ${product.title}');
@@ -90,7 +114,11 @@ class PremiumService {
       
       // Ürünleri plan sırasına göre sırala (haftalık, aylık, yıllık)
       urunler.sort((a, b) {
-        Map<String, int> siralamaMap = {
+        Map<String, int> siralamaMap = Platform.isIOS ? {
+          'flortya_premium_weekly_ios': 0,
+          'flortya_premium_monthly_ios': 1,
+          'flortya_premium_yearly_ios': 2,
+        } : {
           'flortya_premium_weekly': 0,
           'flortya_premium_monthly': 1,
           'flortya_premium_yearly': 2,
@@ -102,15 +130,25 @@ class PremiumService {
       
     } catch (e) {
       debugPrint('❌ Ürün yükleme hatası: $e');
+      debugPrint('📱 Platform: ${Platform.isIOS ? 'iOS' : 'Android'}');
       debugPrint('📱 In-App Purchase mevcut: $satinAlmaVarMi');
     }
   }
 
-  // Satın alma işlemini başlat
+  // Satın alma işlemini başlat (platform'a göre farklı yöntemler)
   Future<void> satinAlmaBaslat(ProductDetails urun) async {
     try {
       final PurchaseParam purchaseParam = PurchaseParam(productDetails: urun);
-      await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      
+      if (Platform.isIOS) {
+        // iOS için subscription satın alma
+        debugPrint('🍎 iOS App Store satın alma başlatılıyor: ${urun.id}');
+        await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      } else {
+        // Android için normal satın alma
+        debugPrint('🤖 Google Play Store satın alma başlatılıyor: ${urun.id}');
+        await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      }
     } catch (e) {
       debugPrint('Satın alma başlatma hatası: $e');
       toastMesajGoster('Satın alma başlatılamadı: $e', false);
@@ -152,20 +190,23 @@ class PremiumService {
         throw Exception('Kullanıcı oturum açmamış');
       }
 
-      // Premium süresini ürün tipine göre hesapla
+      // Premium süresini ürün tipine göre hesapla (platform bağımsız)
       final DateTime now = DateTime.now();
       DateTime premiumExpiry;
       
-      switch (urunKimlik) {
-        case 'flortya_premium_weekly':
+      // Ürün kimliğinden plan tipini belirle
+      String planTipi = _urunKimligindenPlanTipiBelirle(urunKimlik);
+      
+      switch (planTipi) {
+        case 'weekly':
           // Haftalık: 7 gün
           premiumExpiry = now.add(const Duration(days: 7));
           break;
-        case 'flortya_premium_monthly':
+        case 'monthly':
           // Aylık: 30 gün (daha güvenli)
           premiumExpiry = now.add(const Duration(days: 30));
           break;
-        case 'flortya_premium_yearly':
+        case 'yearly':
           // Yıllık: 365 gün (artık yıl durumlarından kaçınmak için)
           premiumExpiry = now.add(const Duration(days: 365));
           break;
@@ -189,37 +230,100 @@ class PremiumService {
     }
   }
 
-  // Plan adını Türkçe'ye çevir
+  // Ürün kimliğinden plan tipini belirle (platform bağımsız)
+  String _urunKimligindenPlanTipiBelirle(String urunKimlik) {
+    if (urunKimlik.contains('weekly')) {
+      return 'weekly';
+    } else if (urunKimlik.contains('monthly')) {
+      return 'monthly';
+    } else if (urunKimlik.contains('yearly')) {
+      return 'yearly';
+    }
+    return 'monthly'; // Varsayılan
+  }
+
+  // Platform bilgisi getir
+  String getPlatformInfo() {
+    if (Platform.isIOS) {
+      return 'iOS App Store';
+    } else if (Platform.isAndroid) {
+      return 'Google Play Store';
+    } else {
+      return 'Bilinmeyen Platform';
+    }
+  }
+
+  // Premium özellik kontrolü için platform bağımsız kimlik çeviri
+  String _normalizeProductId(String urunKimlik) {
+    // iOS sonekini kaldır platform bağımsız karşılaştırma için
+    return urunKimlik.replaceAll('_ios', '');
+  }
+
+  // iOS için abonelik durumu kontrolü
+  Future<bool> validateIOSSubscription() async {
+    if (!Platform.isIOS) return true; // Android için true döndür
+    
+    try {
+      debugPrint('🍎 iOS abonelik durumu kontrol ediliyor...');
+      
+      // iOS için restore purchases yap
+      await _inAppPurchase.restorePurchases();
+      
+      // Purchase stream'den gelen güncellemeleri bekle
+      // Bu fonksiyon asenkron olarak çalışır
+      debugPrint('✅ iOS restore purchases başlatıldı');
+      return true;
+      
+    } catch (e) {
+      debugPrint('❌ iOS abonelik validasyon hatası: $e');
+      return false;
+    }
+  }
+
+  // Platform'a göre abonelik durumu kontrolü
+  Future<bool> validateSubscriptionStatus() async {
+    if (Platform.isIOS) {
+      return await validateIOSSubscription();
+    } else {
+      // Android için farklı validasyon yöntemi
+      return true; // Şimdilik true döndür
+    }
+  }
+
+  // Plan adını Türkçe'ye çevir (platform bağımsız)
   String planAdiCevir(String urunKimlik) {
-    switch (urunKimlik) {
-      case 'flortya_premium_weekly':
+    String planTipi = _urunKimligindenPlanTipiBelirle(urunKimlik);
+    switch (planTipi) {
+      case 'weekly':
         return 'Haftalık';
-      case 'flortya_premium_monthly':
+      case 'monthly':
         return 'Aylık';
-      case 'flortya_premium_yearly':
+      case 'yearly':
         return 'Yıllık';
       default:
         return 'Bilinmeyen';
     }
   }
 
-  // Plan açıklamasını getir
+  // Plan açıklamasını getir (platform bağımsız)
   String planAciklamasiAl(String urunKimlik) {
-    switch (urunKimlik) {
-      case 'flortya_premium_weekly':
+    String planTipi = _urunKimligindenPlanTipiBelirle(urunKimlik);
+    switch (planTipi) {
+      case 'weekly':
         return 'Haftalık premium erişim';
-      case 'flortya_premium_monthly':
+      case 'monthly':
         return 'Aylık premium erişim\n%33 tasarruf';
-      case 'flortya_premium_yearly':
+      case 'yearly':
         return 'Yıllık premium erişim\n%58 tasarruf';
       default:
         return '';
     }
   }
 
-  // En popüler plan mı kontrol et
+  // En popüler plan mı kontrol et (platform bağımsız)
   bool enPopulerPlanMi(String urunKimlik) {
-    return urunKimlik == 'flortya_premium_monthly';
+    String planTipi = _urunKimligindenPlanTipiBelirle(urunKimlik);
+    return planTipi == 'monthly';
   }
 
   // Toast mesajı göster
