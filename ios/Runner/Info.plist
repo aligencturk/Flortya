@@ -65,10 +65,14 @@
 		</dict>
 		<key>NSCameraUsageDescription</key>
 		<string>Uygulama, mesaj analizinde fotoğraf çekmek ve göndermek için kamera erişimi gerektirir. İzin vermezseniz, kamera ile fotoğraf çekip analiz edemezsiniz.</string>
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Uygulama, mesaj analizinde fotoğraf seçmek ve göndermek için fotoğraf kütüphanesi erişimi gerektirir. İzin vermezseniz, galeriden fotoğraf seçip analiz edemezsiniz.</string>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>Ses kayıtları yapabilmek için izin gerekiyor</string>
+			<key>NSPhotoLibraryUsageDescription</key>
+	<string>Uygulama, mesaj analizinde fotoğraf seçmek ve göndermek için fotoğraf kütüphanesi erişimi gerektirir. İzin vermezseniz, galeriden fotoğraf seçip analiz edemezsiniz.</string>
+	<key>PHPhotoLibraryUsageDescription</key>
+	<string>Uygulama, mesaj analizinde fotoğraf seçmek ve göndermek için fotoğraf kütüphanesi erişimi gerektirir. İzin vermezseniz, galeriden fotoğraf seçip analiz edemezsiniz.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Uygulama, mesaj analizi sonuçlarını fotoğraf olarak kaydetmek için fotoğraf kütüphanesine ekleme erişimi gerektirir.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ses kayıtları yapabilmek için izin gerekiyor</string>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>

@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/utils.dart';
@@ -2582,25 +2584,55 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
   }
 
 
-  // Görsel seçme işlemi
+  // Görsel seçme işlemi - Platform optimized
   Future<void> _gorselSec() async {
     bool isProcessing = false;
     
     try {
-      final XTypeGroup typeGroup = XTypeGroup(
-        label: 'Görseller',
-        extensions: <String>['jpg', 'jpeg', 'png'],
-      );
-      
       setState(() {
         _isLoading = true;
         _isImageAnalysis = true;
       });
       
-      // Dosya seçiciyi aç
-      final XFile? pickedFile = await openFile(
-        acceptedTypeGroups: <XTypeGroup>[typeGroup],
-      );
+      // İzin kontrolü (iOS/Android)
+      if (Platform.isIOS || Platform.isAndroid) {
+        final bool hasPermission = await _checkAndRequestPermissions();
+        if (!hasPermission) {
+          setState(() {
+            _isLoading = false;
+            _isImageAnalysis = false;
+          });
+          return;
+        }
+      }
+      
+      XFile? pickedFile;
+      
+      if (Platform.isIOS || Platform.isAndroid) {
+        // iOS ve Android için image_picker kullan (daha iyi galeri entegrasyonu)
+        final ImagePicker picker = ImagePicker();
+        
+        // iOS'ta galeri veya kamera seçim dialog'u göster
+        if (Platform.isIOS) {
+          pickedFile = await _showImageSourceActionSheet(picker);
+        } else {
+          // Android'de doğrudan galeriyi aç
+          pickedFile = await picker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 85, // Dosya boyutunu optimize et
+          );
+        }
+      } else {
+        // Desktop platformlar için file_selector kullan
+        final XTypeGroup typeGroup = XTypeGroup(
+          label: 'Görseller',
+          extensions: <String>['jpg', 'jpeg', 'png'],
+        );
+        
+        pickedFile = await openFile(
+          acceptedTypeGroups: <XTypeGroup>[typeGroup],
+        );
+      }
       
       if (pickedFile == null) {
         setState(() {
@@ -2686,6 +2718,192 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
         );
       }
     }
+  }
+
+  // iOS/Android için kamera ve galeri izinlerini kontrol et
+  Future<bool> _checkAndRequestPermissions() async {
+    if (Platform.isIOS || Platform.isAndroid) {
+      // Kamera izni
+      PermissionStatus cameraStatus = await Permission.camera.status;
+      if (cameraStatus.isDenied) {
+        cameraStatus = await Permission.camera.request();
+      }
+      
+      // Fotoğraf kütüphanesi izni
+      PermissionStatus photosStatus = await Permission.photos.status;
+      if (photosStatus.isDenied) {
+        photosStatus = await Permission.photos.request();
+      }
+      
+      // En az biri kabul edilmişse devam et
+      bool hasPermission = cameraStatus.isGranted || photosStatus.isGranted;
+      
+      if (!hasPermission && mounted) {
+        // İzin reddedildiyse kullanıcıyı bilgilendir
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF352269),
+              title: const Text(
+                'İzin Gerekli',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: const Text(
+                'Görsel analizi yapabilmek için kamera veya fotoğraf kütüphanesi erişim iznine ihtiyacımız var. Lütfen ayarlardan izinleri aktif edin.',
+                style: TextStyle(color: Colors.white),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('İptal'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    openAppSettings(); // Ayarlar sayfasını aç
+                  },
+                  child: const Text('Ayarlara Git'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+      
+      return hasPermission;
+    }
+    
+    return true; // Desktop platformlarda izin kontrolü yok
+  }
+
+  // iOS için galeri/kamera seçim action sheet'i
+  Future<XFile?> _showImageSourceActionSheet(ImagePicker picker) async {
+    final XFile? result = await showModalBottomSheet<XFile?>(
+      context: context,
+      backgroundColor: const Color(0xFF352269),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Başlık
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Text(
+                      'Görsel Seçimi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Galeri seçeneği
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.photo_library_outlined,
+                          color: Color(0xFF9D3FFF),
+                          size: 24,
+                        ),
+                      ),
+                      title: const Text(
+                        'Galeriden Seç',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Fotoğraf galerisinden görsel seçin',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                        ),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final XFile? image = await picker.pickImage(
+                          source: ImageSource.gallery,
+                          imageQuality: 85,
+                        );
+                        Navigator.pop(context, image);
+                      },
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Kamera seçeneği
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9D3FFF).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_outlined,
+                          color: Color(0xFF9D3FFF),
+                          size: 24,
+                        ),
+                      ),
+                      title: const Text(
+                        'Kamera ile Çek',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Kamera ile yeni fotoğraf çekin',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                        ),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final XFile? image = await picker.pickImage(
+                          source: ImageSource.camera,
+                          imageQuality: 85,
+                        );
+                        Navigator.pop(context, image);
+                      },
+                    ),
+                    
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    return result;
   }
 
   // Sonuçları önbelleğe kaydetme
