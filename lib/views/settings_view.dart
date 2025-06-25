@@ -394,22 +394,38 @@ class _SettingsViewState extends State<SettingsView> {
 
   
   void _resetAllData() async {
+    print('🔥 _resetAllData metodu başlatıldı');
+    
     // Kullanıcı ID'sini al
-    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
+    final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+    final userId = authViewModel.currentUser?.uid;
+    final userEmail = authViewModel.currentUser?.email;
+    final userDisplayName = authViewModel.currentUser?.displayName;
+    
+    print('🔍 KULLANICI BİLGİLERİ:');
+    print('  - UserId: $userId');
+    print('  - Email: $userEmail');
+    print('  - DisplayName: $userDisplayName');
+    
     if (userId == null) {
+      print('❌ UserId null - işlem durduruluyor');
       if (!mounted) return;
       Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
       return;
     }
     
+    print('✅ UserId geçerli, loading dialog gösteriliyor');
     Utils.showLoadingDialog(context, 'Tüm veriler siliniyor...', analizTipi: AnalizTipi.GENEL);
     
+    print('🎯 Try bloğuna giriliyor');
     try {
       // Data reset servisini oluştur
       final DataResetService resetService = DataResetService();
       
+      print('📞 DataResetService.resetAllData çağrılıyor...');
       // Tüm verileri sil
       final bool success = await resetService.resetAllData(userId);
+      print('📞 DataResetService.resetAllData tamamlandı. Sonuç: $success');
       
       // UI verilerini güncelle
       final homeController = provider.Provider.of<HomeController>(context, listen: false);
@@ -486,20 +502,26 @@ class _SettingsViewState extends State<SettingsView> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Tüm veriler başarıyla silindi.',
+                    'Tüm veriler başarıyla silindi. Firestore\'u kontrol edin.',
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
               ],
             ),
-            duration: Duration(seconds: 6),
+            duration: Duration(seconds: 8),
             backgroundColor: Color(0xFF3A2A70),
           ),
         );
+        
+        // Konsol'a da log yazdır
+        debugPrint('🎉 BAŞARILI: Tüm veriler silindi');
       } else {
-        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
+        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu. Detaylar için console\'u kontrol edin.');
+        debugPrint('❌ BAŞARISIZ: Veri silme işlemi tamamlanamadı');
       }
     } catch (e) {
+      print('❌ SettingsView _resetAllData HATA: $e');
+      
       // Dialog'u kapat
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();

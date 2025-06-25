@@ -258,31 +258,57 @@ class DataResetService {
     }
   }
   
-  /// Tüm verileri siler
-  /// Hem ilişki değerlendirme verilerini hem de mesaj analizlerini hedefler
+  /// Tüm verileri siler - Kullanıcı temel bilgileri hariç Firestore'daki tüm verileri siler
   Future<bool> resetAllData(String userId) async {
-    debugPrint('Tüm veriler siliniyor...');
+    print('🚀 DataResetService.resetAllData BAŞLATIYOR...');
+    print('👤 Kullanıcı ID: $userId');
+    debugPrint('🚀 TÜM VERİLER SİLME İŞLEMİ BAŞLATIYOR...');
+    debugPrint('👤 Kullanıcı ID: $userId');
+    
+    // DUPLICATE USER ID KONTROL
+    const String knownOldUserId = '0u6tzbdAqPcMeMZaxEImf1agNdm2';
+    const String knownNewUserId = 'RdBb1J7AfkX8xpRwW9bZ5k4iq2Z2';
+    
+    print('🔍 DUPLICATE USER KONTROL:');
+    print('  - Current User: $userId');
+    print('  - Known Old User: $knownOldUserId');
+    print('  - Known New User: $knownNewUserId');
+    
+    bool shouldDeleteOldUser = false;
+    String additionalUserId = '';
+    
+    if (userId == knownNewUserId) {
+      print('⚠️ UYARI: Şu anda YENİ user ID kullanılıyor');
+      print('💡 ESKİ user ID\'deki verileri de siliniyor...');
+      shouldDeleteOldUser = true;
+      additionalUserId = knownOldUserId;
+    } else if (userId == knownOldUserId) {
+      print('ℹ️ BİLGİ: Şu anda ESKİ user ID kullanılıyor');
+    }
+    
+    if (userId.isEmpty) {
+      print('❌ HATA: Boş kullanıcı ID!');
+      debugPrint('❌ HATA: Boş kullanıcı ID!');
+      return false;
+    }
     
     try {
-      // İlişki değerlendirmelerini sil
-      bool relationshipResult = await resetRelationshipData(userId);
-      debugPrint('İlişki değerlendirme silme sonucu: $relationshipResult');
+      // Kullanıcının varlığını kontrol et
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        debugPrint('⚠️ UYARI: Kullanıcı belgesi bulunamadı: $userId');
+      } else {
+        debugPrint('✅ Kullanıcı belgesi bulundu');
+      }
       
-      // Mesaj analizlerini sil
-      bool messageResult = await resetMessageAnalysisData(userId);
-      debugPrint('Mesaj analizi silme sonucu: $messageResult');
+      // DİNAMİK YÖNTEMİ: Kullanıcının tüm alt koleksiyonlarını sil
+      debugPrint('📂 Alt koleksiyonlar siliniyor...');
+      bool allSubCollectionsResult = await _deleteAllUserSubCollections(userId);
+      debugPrint('📊 Tüm alt koleksiyonlar silme sonucu: $allSubCollectionsResult');
       
-      // Mesaj koçu verilerini sil
-      bool coachResult = await resetMessageCoachData(userId);
-      debugPrint('Mesaj koçu silme sonucu: $coachResult');
-      
-      // Wrapped (konuşma özeti) verilerini sil - ÖNCELİKLİ OLARAK ÇAĞRILABİLİR
-      bool wrappedResult = await resetWrappedData(userId);
-      debugPrint('Wrapped analizi silme sonucu: $wrappedResult');
-      
-      // ÖNEMLİ: Eksik koleksiyonları da sil
-      bool additionalDataResult = await _deleteAdditionalUserData(userId);
-      debugPrint('Ek veri silme sonucu: $additionalDataResult');
+      // Ana koleksiyonlardaki kullanıcı verilerini sil
+      bool mainCollectionsResult = await _deleteUserDataFromMainCollections(userId);
+      debugPrint('Ana koleksiyonlar silme sonucu: $mainCollectionsResult');
       
       // İşlemlerin yerine oturması için kısa bir bekleme
       await Future.delayed(const Duration(seconds: 2));
@@ -408,41 +434,33 @@ class DataResetService {
         'preferences.lastResetDate': FieldValue.serverTimestamp()
       });
       
-      // Son bir kontrol daha yap - Message Coach verileri
-      try {
-        debugPrint('Mesaj koçu verilerini son kez kontrol ediliyor...');
+      // Wrapped verilerini de temizle
+      bool wrappedResult = await resetWrappedData(userId);
+      debugPrint('Wrapped analizi silme sonucu: $wrappedResult');
+      
+      // Eğer eski kullanıcı verileri de silinecekse
+      bool oldUserResult = true;
+      if (shouldDeleteOldUser && additionalUserId.isNotEmpty) {
+        print('🔄 ESKİ KULLANICI VERİLERİ SİLİNİYOR ($additionalUserId)...');
+        final bool oldSubCollectionsResult = await _deleteAllUserSubCollections(additionalUserId);
+        final bool oldMainCollectionsResult = await _deleteUserDataFromMainCollections(additionalUserId);
+        final bool oldWrappedResult = await resetWrappedData(additionalUserId);
         
-        final finalCheckCoach = await _firestore
-            .collection('message_coach_history')
-            .where('userId', isEqualTo: userId)
-            .get();
-            
-        if (finalCheckCoach.docs.isNotEmpty) {
-          debugPrint('Son kontrol: Hala ${finalCheckCoach.docs.length} adet mesaj koçu kaydı mevcut! Son bir silme denemesi yapılıyor...');
-          
-          // Son silme denemesi
-          WriteBatch lastBatch = _firestore.batch();
-          for (var doc in finalCheckCoach.docs) {
-            lastBatch.delete(doc.reference);
-          }
-          
-          await lastBatch.commit();
-          debugPrint('Son silme denemesi tamamlandı.');
-          
-          // coachResult değerini güncelle - bu durumda silme başarısız olmuş demektir
-          coachResult = false;
+        oldUserResult = oldSubCollectionsResult && oldMainCollectionsResult && oldWrappedResult;
+        
+        if (oldUserResult) {
+          print('✅ ESKİ KULLANICI VERİLERİ BAŞARIYLA SİLİNDİ');
         } else {
-          debugPrint('Son kontrol: Mesaj koçu verileri tamamen silinmiş.');
+          print('❌ ESKİ KULLANICI VERİLERİ SİLİNİRKEN HATA OLUŞTU');
         }
-      } catch (e) {
-        debugPrint('Son kontrol sırasında hata: $e');
       }
       
-      debugPrint('Tüm veriler silme işlemi sonuçları: İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult, Wrapped: $wrappedResult, Ek: $additionalDataResult');
+      debugPrint('Tüm veriler silme işlemi sonuçları: Alt koleksiyonlar: $allSubCollectionsResult, Ana koleksiyonlar: $mainCollectionsResult, Wrapped: $wrappedResult, Eski User: $oldUserResult');
       
       // Tam başarı için tüm işlemlerin başarılı olması gerekir
-      return relationshipResult && messageResult && coachResult && wrappedResult && additionalDataResult;
+      return allSubCollectionsResult && mainCollectionsResult && wrappedResult && oldUserResult;
     } catch (e) {
+      print('❌ DataResetService GENEL HATA: $e');
       debugPrint('Tüm veriler silinirken hata: $e');
       return false;
     }
@@ -540,6 +558,306 @@ class DataResetService {
       return true;
     } catch (e) {
       debugPrint('Ek kullanıcı verileri silinirken hata: $e');
+      return false;
+    }
+  }
+
+  /// Kullanıcının tüm alt koleksiyonlarını dinamik olarak siler
+  Future<bool> _deleteAllUserSubCollections(String userId) async {
+    debugPrint('Kullanıcının tüm alt koleksiyonları siliniyor...');
+    
+    try {
+      final userRef = _firestore.collection('users').doc(userId);
+      
+      // Bilinen tüm olası alt koleksiyonlar
+      final List<String> possibleSubCollections = [
+        'messages',
+        'text_analyses', 
+        'image_analyses',
+        'consultations',
+        'analyses',
+        'wrapped_analyses',
+        'past_analyses',
+        'past_reports', 
+        'past_message_coach',
+        'user_data',
+        'settings',
+        'preferences',
+        'cache',
+        'message_coach_analyses',
+        'relationship_reports',
+        'notifications',
+        'sessions',
+        'uploads',
+        'downloads',
+        'temp_data',
+        'logs',
+        'statistics',
+        'feedback'
+      ];
+      
+      int totalDeleted = 0;
+      
+      for (String collectionName in possibleSubCollections) {
+        try {
+          debugPrint('⏳ $collectionName koleksiyonu kontrol ediliyor...');
+          final collectionSnapshot = await userRef.collection(collectionName).get();
+          
+          // Messages için özel debug
+          if (collectionName == 'messages') {
+            print('🔍 MESSAGES ÖZEL KONTROL:');
+            print('  - Current UserId: $userId');
+            print('  - Snapshot docs length: ${collectionSnapshot.docs.length}');
+            print('  - Snapshot metadata: ${collectionSnapshot.metadata}');
+            if (collectionSnapshot.docs.isNotEmpty) {
+              print('  - İlk döküman ID: ${collectionSnapshot.docs.first.id}');
+              print('  - İlk döküman data: ${collectionSnapshot.docs.first.data()}');
+            }
+            
+            // DİĞER USER ID'Yİ DE KONTROL ET
+            const String otherUserId = '0u6tzbdAqPcMeMZaxEImf1agNdm2';
+            if (userId != otherUserId) {
+              print('🔍 DİĞER USER ID KONTROL ($otherUserId):');
+              try {
+                final otherUserSnapshot = await _firestore.collection('users').doc(otherUserId).collection('messages').get();
+                print('  - Diğer user messages count: ${otherUserSnapshot.docs.length}');
+              } catch (e) {
+                print('  - Diğer user kontrol hatası: $e');
+              }
+            }
+          }
+          
+          if (collectionSnapshot.docs.isNotEmpty) {
+            debugPrint('📋 $collectionName koleksiyonunda ${collectionSnapshot.docs.length} adet döküman bulundu');
+            
+            // İlk olarak tek bir döküman silme testı yap (güvenlik kuralları kontrolü)
+            if (collectionName == 'messages' && collectionSnapshot.docs.isNotEmpty) {
+              try {
+                debugPrint('🧪 Güvenlik kuralları testi: İlk döküman silinmeye çalışılıyor...');
+                final testDoc = collectionSnapshot.docs.first;
+                await testDoc.reference.delete();
+                debugPrint('✅ Güvenlik kuralları testi başarılı: Tek döküman silindi');
+                
+                // Test dökümanı silindiği için listeyi güncelle
+                final updatedSnapshot = await userRef.collection(collectionName).get();
+                if (updatedSnapshot.docs.isEmpty) {
+                  debugPrint('🎉 Test silme sonrası koleksiyon boş kaldı');
+                  return true; // Eğer tek döküman varsa işlem tamamlandı
+                }
+              } catch (e) {
+                debugPrint('❌ GÜVENLİK KURALLARI HATASI: Tek döküman bile silinemiyor!');
+                debugPrint('📍 Hata: $e');
+                debugPrint('🔧 Firestore güvenlik kurallarını kontrol edin!');
+                throw Exception('Firestore güvenlik kuralları silme işlemini engelliyor: $e');
+              }
+            }
+            
+            // Messages için özel işlem
+            if (collectionName == 'messages') {
+              debugPrint('🎯 Messages koleksiyonu özel silme işlemi başlatılıyor...');
+              
+              // Messages altında chunks alt koleksiyonları da olabilir
+              for (final messageDoc in collectionSnapshot.docs) {
+                try {
+                  // Chunks alt koleksiyonunu kontrol et
+                  final chunksSnapshot = await messageDoc.reference.collection('chunks').get();
+                  if (chunksSnapshot.docs.isNotEmpty) {
+                    debugPrint('📦 Message ${messageDoc.id} için ${chunksSnapshot.docs.length} chunk bulundu');
+                    
+                    // Chunks'ları parçalı sil
+                    const int chunkBatchLimit = 500;
+                    final chunkDocs = chunksSnapshot.docs;
+                    
+                    for (int j = 0; j < chunkDocs.length; j += chunkBatchLimit) {
+                      final chunkEndIndex = (j + chunkBatchLimit < chunkDocs.length) ? j + chunkBatchLimit : chunkDocs.length;
+                      final batchChunks = chunkDocs.sublist(j, chunkEndIndex);
+                      
+                      WriteBatch chunksBatch = _firestore.batch();
+                      for (final chunkDoc in batchChunks) {
+                        chunksBatch.delete(chunkDoc.reference);
+                      }
+                      await chunksBatch.commit();
+                    }
+                    debugPrint('✅ Message ${messageDoc.id} chunks silindi');
+                  }
+                } catch (e) {
+                  debugPrint('⚠️ Message ${messageDoc.id} chunks silinirken hata: $e');
+                }
+              }
+            }
+            
+            // Ana dökümanları sil - Batch limiti için parçalı silme
+            const int batchLimit = 500; // Firestore batch limiti
+            final docs = collectionSnapshot.docs;
+            
+            debugPrint('📊 Toplam ${docs.length} döküman silme işlemi başlatılıyor...');
+            
+            // 500'lük parçalara böl
+            for (int i = 0; i < docs.length; i += batchLimit) {
+              final endIndex = (i + batchLimit < docs.length) ? i + batchLimit : docs.length;
+              final batchDocs = docs.sublist(i, endIndex);
+              
+              debugPrint('🔄 Batch ${(i ~/ batchLimit) + 1}: ${batchDocs.length} döküman siliniyor (${i + 1}-$endIndex)');
+              
+              WriteBatch batch = _firestore.batch();
+              
+              for (final doc in batchDocs) {
+                batch.delete(doc.reference);
+              }
+              
+              try {
+                await batch.commit();
+                debugPrint('✅ Batch ${(i ~/ batchLimit) + 1} başarıyla silindi');
+                
+                // Firestore rate limiting için kısa bekleme
+                if (endIndex < docs.length) {
+                  await Future.delayed(Duration(milliseconds: 100));
+                }
+              } catch (e) {
+                debugPrint('❌ Batch ${(i ~/ batchLimit) + 1} silinirken hata: $e');
+                throw e;
+              }
+            }
+            
+            totalDeleted += docs.length;
+            debugPrint('✅ $collectionName koleksiyonu tamamen silindi (${docs.length} döküman)');
+            
+            // Silme sonrası doğrulama
+            final verificationSnapshot = await userRef.collection(collectionName).get();
+            if (verificationSnapshot.docs.isNotEmpty) {
+              debugPrint('❌ HATA: $collectionName silme sonrası hala ${verificationSnapshot.docs.length} döküman var!');
+            } else {
+              debugPrint('✅ DOĞRULAMA: $collectionName tamamen silindi');
+            }
+          } else {
+            debugPrint('🔍 $collectionName koleksiyonu zaten boş');
+          }
+        } catch (e) {
+          debugPrint('❌ $collectionName koleksiyonu silinirken hata: $e');
+          debugPrint('📍 Hata detayı: ${e.toString()}');
+          // Tek koleksiyon hatası tüm işlemi durdurmasın
+        }
+      }
+      
+      debugPrint('📈 Toplam $totalDeleted döküman silindi');
+      
+      // FINAL KONTROL: Messages koleksiyonunu özel olarak kontrol et
+      try {
+        debugPrint('🔍 FINAL KONTROL: Messages koleksiyonu tekrar kontrol ediliyor...');
+        final finalMessagesCheck = await userRef.collection('messages').get();
+        if (finalMessagesCheck.docs.isNotEmpty) {
+          debugPrint('⚠️ PROBLEM: Messages koleksiyonunda hala ${finalMessagesCheck.docs.length} döküman var!');
+          debugPrint('📋 Kalan dökümanlarm ID\'leri:');
+          for (final doc in finalMessagesCheck.docs) {
+            debugPrint('  - ${doc.id}');
+          }
+          return false;
+        } else {
+          debugPrint('✅ BAŞARILI: Messages koleksiyonu tamamen temiz');
+        }
+      } catch (e) {
+        debugPrint('❌ Final kontrol sırasında hata: $e');
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Alt koleksiyonlar silinirken genel hata: $e');
+      return false;
+    }
+  }
+
+  /// Ana koleksiyonlardaki kullanıcı verilerini siler
+  Future<bool> _deleteUserDataFromMainCollections(String userId) async {
+    debugPrint('Ana koleksiyonlardaki kullanıcı verileri siliniyor...');
+    
+    try {
+      WriteBatch batch = _firestore.batch();
+      
+      // 1. relationship_reports koleksiyonundaki kullanıcı raporları
+      try {
+        final relationshipReportsSnapshot = await _firestore
+            .collection('relationship_reports')
+            .where('userId', isEqualTo: userId)
+            .get();
+            
+        for (final doc in relationshipReportsSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${relationshipReportsSnapshot.docs.length} adet relationship_reports silindi');
+      } catch (e) {
+        debugPrint('relationship_reports silinirken hata: $e');
+      }
+      
+      // 2. message_coach_history koleksiyonundaki kullanıcı verileri
+      try {
+        final messageCoachHistorySnapshot = await _firestore
+            .collection('message_coach_history')
+            .where('userId', isEqualTo: userId)
+            .get();
+            
+        for (final doc in messageCoachHistorySnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${messageCoachHistorySnapshot.docs.length} adet message_coach_history silindi');
+      } catch (e) {
+        debugPrint('message_coach_history silinirken hata: $e');
+      }
+      
+      // 3. analyses koleksiyonundaki kullanıcı analizleri (ana koleksiyon olarak)
+      try {
+        final analysesSnapshot = await _firestore
+            .collection('analyses')
+            .where('userId', isEqualTo: userId)
+            .get();
+            
+        for (final doc in analysesSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${analysesSnapshot.docs.length} adet ana analyses silindi');
+      } catch (e) {
+        debugPrint('ana analyses silinirken hata: $e');
+      }
+      
+      // 4. user_activities koleksiyonundaki kullanıcı aktiviteleri
+      try {
+        final activitiesSnapshot = await _firestore
+            .collection('user_activities')
+            .where('userId', isEqualTo: userId)
+            .get();
+            
+        for (final doc in activitiesSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${activitiesSnapshot.docs.length} adet user_activities silindi');
+      } catch (e) {
+        debugPrint('user_activities silinirken hata: $e');
+      }
+      
+      // 5. Kullanıcı ana belgesindeki veri alanlarını sıfırla (kullanıcı bilgileri hariç)
+      try {
+        batch.update(_firestore.collection('users').doc(userId), {
+          'sonAnalizSonucu': null,
+          'analizGecmisi': [],
+          'lastRelationshipReport': null,
+          'relationshipHistory': [],
+          'lastMessageCoachData': null,
+          'messageCoachHistory': [],
+          'lastWrappedData': null,
+          'wrappedHistory': [],
+          'consultationHistory': [],
+          'preferences.lastResetDate': FieldValue.serverTimestamp(),
+          // Kullanıcı temel bilgileri (displayName, email, photoURL, createdAt) KORUNUYOR
+        });
+        debugPrint('Kullanıcı ana belgesi veri alanları sıfırlandı');
+      } catch (e) {
+        debugPrint('Kullanıcı ana belgesi güncellenirken hata: $e');
+      }
+      
+      await batch.commit();
+      debugPrint('Ana koleksiyonlardaki kullanıcı verileri başarıyla silindi');
+      return true;
+    } catch (e) {
+      debugPrint('Ana koleksiyonlardaki veriler silinirken hata: $e');
       return false;
     }
   }
