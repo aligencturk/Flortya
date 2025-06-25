@@ -166,15 +166,11 @@ class LoggerService {
     StackTrace? stackTrace,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
   }) {
     final additionalData = <String, dynamic>{
       'displayName': displayName,
       'firstName': firstName ?? 'Belirtilmemiş',
       'lastName': lastName ?? 'Belirtilmemiş',
-      'gender': gender ?? 'Belirtilmemiş',
-      'birthDate': birthDate?.toString() ?? 'Belirtilmemiş',
     };
 
     logFirebaseAuthError(

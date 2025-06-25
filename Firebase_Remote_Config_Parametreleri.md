@@ -22,6 +22,88 @@ Bu dokümanda Firebase Console'da oluşturmanız gereken tüm Remote Config para
 - `update_message_android` (string) - Android özel güncelleme mesajı
 - `update_message_ios` (string) - iOS özel güncelleme mesajı
 
+## 🙋‍♂️ Sık Sorulan Sorular (FAQ) Parametreleri
+
+### 1. faq_title
+**Tip:** String  
+**Açıklama:** FAQ sayfasının başlığı  
+**Varsayılan Değer:** 
+```
+Sık Sorulan Sorular
+```
+
+### 2. faq_list
+**Tip:** JSON (String olarak)  
+**Açıklama:** Sık sorulan sorular listesi  
+**Varsayılan Değer:**
+```json
+[
+  {
+    "question": "Uygulama nasıl kullanılır?",
+    "answer": "Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır."
+  },
+  {
+    "question": "Verilerim güvende mi?",
+    "answer": "Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir."
+  },
+  {
+    "question": "Premium özellikler nelerdir?",
+    "answer": "Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır."
+  },
+  {
+    "question": "Nasıl premium üye olabilirim?",
+    "answer": "Profil sayfasından premium sayfasına giderek uygun planı seçebilir ve satın alma işlemini tamamlayabilirsiniz."
+  },
+  {
+    "question": "Aboneliğimi nasıl iptal edebilirim?",
+    "answer": "Premium aboneliğinizi Google Play Store veya Apple App Store üzerinden yönetebilir ve iptal edebilirsiniz."
+  }
+]
+```
+
+### FAQ JSON Şeması
+FAQ listesi için JSON formatı:
+```json
+[
+  {
+    "question": "Soru metni",
+    "answer": "Cevap metni"
+  }
+]
+```
+
+### FAQ Kullanım Senaryoları
+
+**📱 Uygulama Güncellemeleri:**
+```json
+[
+  {
+    "question": "Yeni özellikler nelerdir?",
+    "answer": "Son güncellemede AI analiz sistemi geliştirildi ve daha doğru sonuçlar vermektedir."
+  }
+]
+```
+
+**🎯 Pazarlama Kampanyaları:**
+```json
+[
+  {
+    "question": "Şu anda hangi kampanyalar var?",
+    "answer": "Yeni kullanıcılar için %50 indirim kampanyamız devam ediyor. Detaylar için premium sayfasını ziyaret edin."
+  }
+]
+```
+
+**🆘 Teknik Destek:**
+```json
+[
+  {
+    "question": "Uygulama açılmıyor, ne yapmalıyım?",
+    "answer": "Uygulamayı yeniden başlatın, sorun devam ederse destek@flortya.com adresine yazın."
+  }
+]
+```
+
 ## 📱 Kampanya Parametreleri
 
 ### Genel Kampanyalar
@@ -177,3 +259,128 @@ Bu koşulları kullanarak platform-specific değerler verebilirsiniz.
 - Parametre adlarını büyük/küçük harf duyarlı olarak kontrol edin
 - JSON formatındaki parametrelerde syntax hatası olup olmadığını kontrol edin
 - Firebase App Check'in düzgün çalıştığından emin olun 
+
+## Premium Sayfası Parametreleri
+
+### 1. premium_title
+**Tip:** String  
+**Açıklama:** Premium sayfasının ana başlığı  
+**Varsayılan Değer:** 
+```
+Flörtya Premium
+```
+
+### 2. premium_description  
+**Tip:** String  
+**Açıklama:** Premium sayfasının açıklama metni  
+**Varsayılan Değer:**
+```
+İlişkilerinizi geliştirmek için tüm premium özelliklere erişin.
+```
+
+### 3. premium_features
+**Tip:** JSON (String olarak)  
+**Açıklama:** Premium özelliklerin listesi. JSON dizisi formatında.  
+**Varsayılan Değer:**
+```json
+[
+  "Reklamsız kullanım",
+  "Sınırsız analiz", 
+  "Wrapped özeti",
+  "Görsel analiz",
+  ".txt analizi",
+  "İlişki danışmanlığı",
+  "Alternatif öneriler",
+  "Yanıt senaryoları"
+]
+```
+
+**Örnek Güncellenmiş Değerler:**
+```json
+[
+  "🚫 Reklamsız kullanım",
+  "📊 Sınırsız mesaj analizi",
+  "🎁 Özel Wrapped özeti",
+  "🖼️ Görsel sohbet analizi", 
+  "📝 .txt dosya analizi",
+  "💕 Kişiselleştirilmiş ilişki danışmanlığı",
+  "💡 Sınırsız alternatif mesaj önerileri",
+  "🎭 Olumlu/olumsuz yanıt senaryoları",
+  "⭐ Premium destek",
+  "🔓 Gelişmiş özellikler"
+]
+```
+
+### 4. premium_plans
+**Tip:** JSON (String olarak)  
+**Açıklama:** Premium abonelik planlarının metadata listesi. Fiyatlar Google Play Console'dan alınır.  
+**Varsayılan Değer:**
+```json
+[
+  {
+    "title": "Haftalık",
+    "discountInfo": "",
+    "period": "hafta",
+    "mostPopular": false,
+    "productId": "flortya_premium_weekly"
+  },
+  {
+    "title": "Aylık", 
+    "discountInfo": "En Popüler",
+    "period": "ay",
+    "mostPopular": true,
+    "productId": "flortya_premium_monthly"
+  },
+  {
+    "title": "Yıllık",
+    "discountInfo": "En İyi Değer",
+    "period": "yıl",
+    "mostPopular": false,
+    "productId": "flortya_premium_yearly"
+  }
+]
+```
+
+**Örnek Güncellenmiş Değerler (Kampanyalı Promosyonlar):**
+```json
+[
+  {
+    "title": "Haftalık",
+    "discountInfo": "🎯 Kısa Süreli Deneme",
+    "period": "hafta", 
+    "mostPopular": false,
+    "productId": "flortya_premium_weekly"
+  },
+  {
+    "title": "Aylık",
+    "discountInfo": "⭐ En Popüler Seçim",
+    "period": "ay",
+    "mostPopular": true,
+    "productId": "flortya_premium_monthly"
+  },
+  {
+    "title": "Yıllık",
+    "discountInfo": "💰 En İyi Değer - %60 Tasarruf",
+    "period": "yıl",
+    "mostPopular": false,
+    "productId": "flortya_premium_yearly"
+  }
+]
+```
+
+**Plan Özellikleri:**
+- `title`: Plan adı (örn: "Haftalık", "Aylık")
+- `discountInfo`: Promosyon metni (örn: "En Popüler", "En İyi Değer", boş da olabilir)
+- `period`: Periyod bilgisi (örn: "hafta", "ay", "yıl") 
+- `mostPopular`: En popüler plan mı? (boolean, sadece bir plan true olmalı)
+- `productId`: Google Play Console'daki ürün kimliği
+
+**⚠️ ÖNEMLİ:** Fiyat bilgileri Google Play Console'dan otomatik alınır. Remote Config'de fiyat yazmayın!
+
+## Dinamik Fiyatlandırma Avantajları
+
+1. **Anlık Kampanyalar**: Firebase Console'dan anında kampanya fiyatları uygulayabilirsiniz
+2. **A/B Test**: Farklı kullanıcı gruplarına farklı fiyatlar gösterebilirsiniz
+3. **Bölgesel Fiyatlandırma**: Ülkeye/bölgeye göre farklı fiyatlar ayarlayabilirsiniz
+4. **Sezonsal Kampanyalar**: Özel günlerde indirimli fiyatlar uygulayabilirsiniz
+5. **Yeni Plan Ekleme**: Uygulama güncellemesi olmadan yeni planlar ekleyebilirsiniz

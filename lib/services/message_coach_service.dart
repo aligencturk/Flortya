@@ -9,6 +9,7 @@ import 'logger_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'ocr_service.dart';
+import 'encryption_service.dart';
 
 class MessageCoachService {
   final LoggerService _logger = LoggerService();
@@ -568,7 +569,7 @@ class MessageCoachService {
     }
   }
 
-  // Mesaj koçu analiz sonuçlarını kaydetme
+  // Mesaj koçu analiz sonuçlarını kaydetme (şifreli)
   Future<String> saveMessageCoachAnalysis({
     required String userId,
     required String sohbetIcerigi,
@@ -577,19 +578,24 @@ class MessageCoachService {
     String? imageUrl,
   }) async {
     try {
-      _logger.i('Mesaj koçu analizi kaydediliyor...');
+      _logger.i('Mesaj koçu analizi şifreli olarak kaydediliyor...');
+      
+      // Hassas verileri şifrele
+      final encryptedSohbetIcerigi = EncryptionService().encryptString(sohbetIcerigi);
+      final encryptedAnalysisData = EncryptionService().encryptJson(analysis.toFirestore());
+      final encryptedAciklama = aciklama != null ? EncryptionService().encryptString(aciklama) : '';
       
       final docRef = await _firestore.collection(_messageCoachCollection).add({
         'userId': userId,
         'createdAt': Timestamp.now(),
-        'sohbetIcerigi': sohbetIcerigi,
-        'aciklama': aciklama ?? '',
-        'imageUrl': imageUrl,
+        'sohbetIcerigi': encryptedSohbetIcerigi,
+        'aciklama': encryptedAciklama,
+        'imageUrl': imageUrl, // Görsel URL'si şifrelenmez (zaten Firebase Storage'da)
         'isVisualAnalysis': imageUrl != null,
-        'analysisData': analysis.toFirestore(),
+        'analysisData': encryptedAnalysisData,
       });
       
-      _logger.i('Mesaj koçu analizi kaydedildi. ID: ${docRef.id}');
+      _logger.i('Mesaj koçu analizi şifreli olarak kaydedildi. ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
       _logger.e('Mesaj koçu analizi kaydederken hata oluştu', e);
@@ -597,7 +603,7 @@ class MessageCoachService {
     }
   }
   
-  // Görsel analizi kaydetme
+  // Görsel analizi kaydetme (şifreli)
   Future<String> saveVisualMessageCoachAnalysis({
     required String userId,
     required String aciklama,
@@ -605,25 +611,29 @@ class MessageCoachService {
     String? imageUrl,
   }) async {
     try {
-      _logger.i('Görsel mesaj koçu analizi kaydediliyor...');
+      _logger.i('Görsel mesaj koçu analizi şifreli olarak kaydediliyor...');
+      
+      // Hassas verileri şifrele
+      final encryptedAciklama = EncryptionService().encryptString(aciklama);
+      final encryptedAnalysisData = EncryptionService().encryptJson({
+        'isAnalysisRedirect': analysis.isAnalysisRedirect,
+        'redirectMessage': analysis.redirectMessage,
+        'konumDegerlendirmesi': analysis.konumDegerlendirmesi,
+        'alternativeMessages': analysis.alternativeMessages,
+        'partnerResponses': analysis.partnerResponses,
+      });
       
       final docRef = await _firestore.collection(_messageCoachCollection).add({
         'userId': userId,
         'createdAt': Timestamp.now(),
         'sohbetIcerigi': '', // Görsel analiz olduğundan boş
-        'aciklama': aciklama,
+        'aciklama': encryptedAciklama,
         'isVisualAnalysis': true,
-        'imageUrl': imageUrl,
-        'analysisData': {
-          'isAnalysisRedirect': analysis.isAnalysisRedirect,
-          'redirectMessage': analysis.redirectMessage,
-          'konumDegerlendirmesi': analysis.konumDegerlendirmesi,
-          'alternativeMessages': analysis.alternativeMessages,
-          'partnerResponses': analysis.partnerResponses,
-        },
+        'imageUrl': imageUrl, // Görsel URL'si şifrelenmez
+        'analysisData': encryptedAnalysisData,
       });
       
-      _logger.i('Görsel mesaj koçu analizi kaydedildi. ID: ${docRef.id}');
+      _logger.i('Görsel mesaj koçu analizi şifreli olarak kaydedildi. ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
       _logger.e('Görsel mesaj koçu analizi kaydederken hata oluştu', e);

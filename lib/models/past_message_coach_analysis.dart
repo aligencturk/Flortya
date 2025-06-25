@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message_coach_analysis.dart';
 import '../models/message_coach_visual_analysis.dart';
+import '../services/encryption_service.dart';
 
 class PastMessageCoachAnalysis {
   final String id;
@@ -25,18 +26,52 @@ class PastMessageCoachAnalysis {
     this.imageUrl,
   });
   
-  // Firestore dökümanından model oluşturma
+  // Firestore dökümanından model oluşturma (şifreli verileri çözme)
   factory PastMessageCoachAnalysis.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Şifreli verileri çöz
+    String sohbetIcerigi = '';
+    String? aciklama;
+    Map<String, dynamic> analysisData = {};
+    
+    try {
+      // Sohbet içeriğini çöz
+      final encryptedSohbetIcerigi = data['sohbetIcerigi'] ?? '';
+      if (encryptedSohbetIcerigi.isNotEmpty) {
+        sohbetIcerigi = EncryptionService().decryptString(encryptedSohbetIcerigi);
+      }
+      
+      // Açıklamayı çöz
+      final encryptedAciklama = data['aciklama'];
+      if (encryptedAciklama != null && encryptedAciklama.isNotEmpty) {
+        aciklama = EncryptionService().decryptString(encryptedAciklama);
+      }
+      
+      // Analiz verilerini çöz
+      final encryptedAnalysisData = data['analysisData'];
+      if (encryptedAnalysisData is String && encryptedAnalysisData.isNotEmpty) {
+        analysisData = EncryptionService().decryptJson(encryptedAnalysisData);
+      } else if (encryptedAnalysisData is Map<String, dynamic>) {
+        // Geriye dönük uyumluluk için şifrelenmemiş veri desteği
+        analysisData = encryptedAnalysisData;
+      }
+    } catch (e) {
+      print('Mesaj koçu verisi çözülürken hata: $e');
+      // Hata durumunda orijinal veriyi kullan
+      sohbetIcerigi = data['sohbetIcerigi'] ?? '';
+      aciklama = data['aciklama'];
+      analysisData = data['analysisData'] ?? {};
+    }
     
     return PastMessageCoachAnalysis(
       id: doc.id,
       userId: data['userId'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      sohbetIcerigi: data['sohbetIcerigi'] ?? '',
-      aciklama: data['aciklama'],
+      sohbetIcerigi: sohbetIcerigi,
+      aciklama: aciklama,
       isVisualAnalysis: data['isVisualAnalysis'] ?? false,
-      analysisData: data['analysisData'] ?? {},
+      analysisData: analysisData,
       imageUrl: data['imageUrl'],
     );
   }

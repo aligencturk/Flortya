@@ -2,7 +2,7 @@ name: my_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.7+18
 
 environment:
   sdk: ^3.7.2
@@ -22,10 +22,14 @@ dependencies:
   firebase_app_check: ^0.3.2+5
   firebase_storage: ^12.4.5
   firebase_messaging: ^15.2.5
-  firebase_remote_config: 5.4.3
+  firebase_remote_config: ^5.4.3
   google_sign_in: ^6.2.1
+<<<<<<< HEAD
   sign_in_with_apple: ^6.1.4
   crypto: ^3.0.5
+=======
+  sign_in_with_apple: ^6.1.2
+>>>>>>> b81b02e4f0880797fdf3c4022f2a42e4ca8baccc
   
   # State Management
   provider: ^6.1.2
@@ -38,14 +42,14 @@ dependencies:
   flutter_svg: ^2.0.10+1
   google_fonts: ^6.1.0
   flutter_animate: ^4.5.0
-  flutter_markdown: ^0.6.22
+  flutter_markdown: ^0.7.3
   lottie: ^3.2.1
   shimmer: ^3.0.0
   font_awesome_flutter: ^10.7.0
   
   # Utils
   intl: 0.20.2
-  shared_preferences: ^2.5.3
+  shared_preferences: ^2.3.2
   flutter_dotenv: ^5.1.0
   http: ^1.2.1
   logger: ^2.0.2+1
@@ -54,7 +58,11 @@ dependencies:
   get_it: ^7.6.7
   google_generative_ai: ^0.4.2
   
-  # OCR ve Görüntü İşleme
+  # Encryption
+  encrypt: ^5.0.1
+  crypto: ^3.0.3
+  
+  # OCR ve Görüntü İşleme - Sadece Türkçe/Latin script
   path_provider: ^2.1.5
   path: ^1.8.3
   google_mlkit_text_recognition: ^0.14.0
@@ -73,13 +81,15 @@ dependencies:
   platform: ^3.1.6
   device_info_plus: ^11.4.0
   package_info_plus: ^8.3.0
+  in_app_purchase: ^3.2.3
+  fluttertoast: ^8.2.4
+  flutter_native_splash: ^2.4.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   build_runner: ^2.4.14
-  flutter_native_splash: ^2.4.6
   flutter_launcher_icons: ^0.14.3
   freezed: ^2.4.7
   freezed_annotation: ^2.4.1

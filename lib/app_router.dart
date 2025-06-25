@@ -1,8 +1,11 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/gestures.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/onboarding_view.dart';
@@ -40,50 +43,17 @@ class ProfileSetupView extends StatefulWidget {
 class _ProfileSetupViewState extends State<ProfileSetupView> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _birthDateController = TextEditingController();
   
-  String _selectedGender = 'Belirtmek istemiyorum';
-  DateTime? _selectedDate;
   final _formKey = GlobalKey<FormState>();
   
   @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _birthDateController.dispose();
     super.dispose();
   }
   
-  // Doğum tarihi seçiciyi göster
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime(2000),
-      firstDate: DateTime(1940),
-      lastDate: DateTime.now(),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF9D3FFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF352269),
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: const Color(0xFF352269),
-          ),
-          child: child!,
-        );
-      },
-    );
-    
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _birthDateController.text = '${picked.day}/${picked.month}/${picked.year}';
-      });
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -229,94 +199,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                     },
                   ),
                   
-                  const SizedBox(height: 20),
-                  
-                  // Cinsiyet seçimi
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white38),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4, bottom: 8),
-                          child: Text(
-                            'Cinsiyet',
-                            style: TextStyle(color: Colors.white70, fontSize: 16),
-                          ),
-                        ),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            dropdownColor: const Color(0xFF352269),
-                            isExpanded: true,
-                            value: _selectedGender,
-                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                            items: ['Erkek', 'Kadın', 'Belirtmek istemiyorum']
-                                .map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(
-                                  value,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  _selectedGender = newValue;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Doğum tarihi
-                  GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: AbsorbPointer(
-                      child: TextFormField(
-                        controller: _birthDateController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Doğum Tarihi',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Colors.white38),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Colors.redAccent),
-                          ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Colors.redAccent),
-                          ),
-                          prefixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
-                          suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Lütfen doğum tarihinizi seçin';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ),
+
                   
                   const SizedBox(height: 40),
                   
@@ -328,22 +211,11 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                             if (_formKey.currentState!.validate()) {
                               final firstName = _firstNameController.text.trim();
                               final lastName = _lastNameController.text.trim();
-                              final gender = _selectedGender;
-                              
-                              // Google/Apple girişi için doğum tarihi kontrolü
-                              if (widget.isGoogleOrAppleLogin && _selectedDate == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Lütfen doğum tarihinizi seçin')),
-                                );
-                                return;
-                              }
                               
                               // Profil bilgilerini güncelle
                               authViewModel.updateUserProfile(
                                 firstName: firstName,
                                 lastName: lastName,
-                                gender: gender,
-                                birthDate: _selectedDate,
                               ).then((success) {
                                 if (success) {
                                   // Başarılı güncelleme sonrası ana sayfaya yönlendir
@@ -640,8 +512,9 @@ class LoginView extends StatelessWidget {
                     
                     const SizedBox(height: 16),
                     
-                    // Apple ile giriş butonu
-                    ElevatedButton(
+                    // Apple ile giriş butonu - Sadece iOS'ta göster
+                    if (Platform.isIOS)
+                      ElevatedButton(
                       onPressed: authViewModel.isLoading
                         ? null
                         : () async {
@@ -685,14 +558,48 @@ class LoginView extends StatelessWidget {
                     
                     const SizedBox(height: 32),
                     
-                    // Gizlilik politikası ve kullanım şartları
-                    Text(
-                      'Giriş yaparak, Kullanım Koşullarını ve Gizlilik Politikasını kabul etmiş olursunuz.',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    // KVKK Aydınlatma Metni ve Gizlilik Politikası
+                    RichText(
                       textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Giriş yaparak, '),
+                          TextSpan(
+                            text: 'KVKK Aydınlatma Metni',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/kvkk-aydinlatma-metni');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'ni ve '),
+                          TextSpan(
+                            text: 'Gizlilik Politikası',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'nı kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -862,8 +769,9 @@ class RegisterView extends StatelessWidget {
                     
                     const SizedBox(height: 16),
                     
-                    // Apple ile kayıt butonu
-                    ElevatedButton(
+                    // Apple ile kayıt butonu - Sadece iOS'ta göster
+                    if (Platform.isIOS)
+                      ElevatedButton(
                       onPressed: authViewModel.isLoading
                         ? null
                         : () async {
@@ -936,14 +844,48 @@ class RegisterView extends StatelessWidget {
                     
                     const SizedBox(height: 16),
                     
-                    // Gizlilik politikası ve kullanım şartları
-                    const Text(
-                      'Kayıt olarak, Kullanım Koşullarını ve Gizlilik Politikasını kabul etmiş olursunuz.',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    // KVKK Aydınlatma Metni ve Gizlilik Politikası
+                    RichText(
                       textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Kayıt olarak, '),
+                          TextSpan(
+                            text: 'KVKK Aydınlatma Metni',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/kvkk-aydinlatma-metni');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'ni ve '),
+                          TextSpan(
+                            text: 'Gizlilik Politikası',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'nı kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1259,8 +1201,9 @@ class _EmailLoginViewState extends State<EmailLoginView> {
                     
                     const SizedBox(height: 16),
                     
-                    // Apple ile giriş butonu
-                    ElevatedButton(
+                    // Apple ile giriş butonu - Sadece iOS'ta göster
+                    if (Platform.isIOS)
+                      ElevatedButton(
                       onPressed: authViewModel.isLoading
                         ? null
                         : () async {
@@ -1421,12 +1364,10 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _birthDateController = TextEditingController();
   
   final bool _isObscure = true;
   final bool _isConfirmObscure = true;
-  String _selectedGender = 'Belirtmek istemiyorum';
-  DateTime? _selectedDate;
+
   final _formKey = GlobalKey<FormState>();
   
   // Şifre alanları için FocusNode'lar
@@ -1445,7 +1386,6 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _birthDateController.dispose();
     
     // FocusNode'ları temizleme
     _passwordFocusNode.dispose();
@@ -1454,36 +1394,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
     super.dispose();
   }
   
-  // Doğum tarihi seçiciyi göster
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime(2000),
-      firstDate: DateTime(1940),
-      lastDate: DateTime.now(),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF9D3FFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF352269),
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: const Color(0xFF352269),
-          ),
-          child: child!,
-        );
-      },
-    );
-    
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _birthDateController.text = '${picked.day}/${picked.month}/${picked.year}';
-      });
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -1491,7 +1402,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
     
     return Scaffold(
       backgroundColor: const Color(0xFF121929),
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1507,23 +1418,13 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Padding(
-            padding: EdgeInsets.only(
-              left: 24.0, 
-              right: 24.0, 
-              top: 24.0,
-              // Klavye açıkken alttan daha fazla padding ekle
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
-            ),
-            child: GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                     // Logo ve uygulama başlığı
                     Center(
                       child: Column(
@@ -1678,126 +1579,88 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                     
                     const SizedBox(height: 20),
                     
-                    // Cinsiyet seçimi
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white38),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4, bottom: 8),
-                            child: Text(
-                              'Cinsiyet',
-                              style: TextStyle(color: Colors.white70, fontSize: 16),
-                            ),
-                          ),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              dropdownColor: const Color(0xFF352269),
-                              isExpanded: true,
-                              value: _selectedGender,
-                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                              items: ['Erkek', 'Kadın', 'Belirtmek istemiyorum']
-                                  .map((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(
-                                    value,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedGender = newValue;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Doğum tarihi
-                    GestureDetector(
-                      onTap: () => _selectDate(context),
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          controller: _birthDateController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Doğum Tarihi',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.white38),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.redAccent),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.redAccent),
-                            ),
-                            prefixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
-                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Lütfen doğum tarihinizi seçin';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Şifre alanı - Özel widget'a dönüştürüyoruz (Kayıt ekranı)
-                    CustomPasswordField(
+                    // Şifre alanı
+                    TextFormField(
                       controller: _passwordController,
                       focusNode: _passwordFocusNode,
-                      labelText: 'Şifre',
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
                       textInputAction: TextInputAction.next,
-                      errorText: _validatePassword(_passwordController.text),
-                      onChanged: (_) {
-                        setState(() {});
-                      },
-                      onEditingComplete: () {
-                        // Şifre tekrar alanına geç
-                        FocusScope.of(context).requestFocus(_confirmPasswordFocusNode);
+                      onFieldSubmitted: (_) => FocusScope.of(context).requestFocus(_confirmPasswordFocusNode),
+                      decoration: InputDecoration(
+                        labelText: 'Şifre',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.white38),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Şifrenizi girin';
+                        }
+                        if (value.length < 6) {
+                          return 'Şifre en az 6 karakter olmalıdır';
+                        }
+                        return null;
                       },
                     ),
                     
                     const SizedBox(height: 20),
                     
-                    // Şifre Tekrar alanı - Tamamen özel widget ile değiştiriyoruz
-                    CustomPasswordField(
+                    // Şifre Tekrar alanı
+                    TextFormField(
                       controller: _confirmPasswordController,
                       focusNode: _confirmPasswordFocusNode,
-                      labelText: 'Şifre Tekrar',
-                      textInputAction: TextInputAction.done, 
-                      errorText: _validateConfirmPassword(_confirmPasswordController.text),
-                      onChanged: (_) {
-                        setState(() {});
-                      },
-                      onEditingComplete: () {
-                        // Klavyeyi kapat
-                        FocusScope.of(context).unfocus();
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => FocusScope.of(context).unfocus(),
+                      decoration: InputDecoration(
+                        labelText: 'Şifre Tekrar',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.white38),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF9D3FFF)),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Şifrenizi tekrar girin';
+                        }
+                        if (value.length < 6) {
+                          return 'Şifre en az 6 karakter olmalıdır';
+                        }
+                        if (value != _passwordController.text) {
+                          return 'Şifreler eşleşmiyor';
+                        }
+                        return null;
                       },
                     ),
                     
@@ -1866,14 +1729,48 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
                     
                     const SizedBox(height: 16),
                     
-                    // Gizlilik politikası ve kullanım şartları
-                    const Text(
-                      'Kayıt olarak, Kullanım Koşullarını ve Gizlilik Politikasını kabul etmiş olursunuz.',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    // KVKK Aydınlatma Metni ve Gizlilik Politikası
+                    RichText(
                       textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Kayıt olarak, '),
+                          TextSpan(
+                            text: 'KVKK Aydınlatma Metni',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/kvkk-aydinlatma-metni');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'ni ve '),
+                          TextSpan(
+                            text: 'Gizlilik Politikası',
+                            style: const TextStyle(
+                              color: Color(0xFF9D3FFF),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                          ),
+                          const TextSpan(text: 'nı kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1881,42 +1778,14 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
   
-  // Şifre doğrulama fonksiyonu
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Şifrenizi girin';
-    }
-    if (value.length < 6) {
-      return 'Şifre en az 6 karakter olmalıdır';
-    }
-    return null;
-  }
-  
-  // Şifre tekrar doğrulama fonksiyonu
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Şifrenizi tekrar girin';
-    }
-    if (value.length < 6) {
-      return 'Şifre en az 6 karakter olmalıdır';
-    }
-    if (value != _passwordController.text) {
-      return 'Şifreler eşleşmiyor';
-    }
-    return null;
-  }
+
   
   // Form gönderim işlemi için yardımcı metod
   void _submitForm(AuthViewModel authViewModel, BuildContext context) {
-    // Şifre kontrollerini manuel olarak yap
-    final passwordError = _validatePassword(_passwordController.text);
-    final confirmPasswordError = _validateConfirmPassword(_confirmPasswordController.text);
-    
-    if (_formKey.currentState!.validate() && passwordError == null && confirmPasswordError == null) {
+    if (_formKey.currentState!.validate()) {
       // E-posta ve şifre ile kayıt işlemi
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
@@ -1924,13 +1793,7 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
       final lastName = _lastNameController.text.trim();
       final displayName = '$firstName $lastName';
       
-      // Doğum tarihi kontrolü
-      if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen doğum tarihinizi seçin')),
-        );
-        return;
-      }
+
       
       authViewModel.signUpWithEmail(
         email: email,
@@ -1938,8 +1801,6 @@ class _EmailRegisterViewState extends State<EmailRegisterView> {
         displayName: displayName,
         firstName: firstName,
         lastName: lastName,
-        gender: _selectedGender,
-        birthDate: _selectedDate,
       ).then((success) {
         if (success) {
           // Başarılı kayıt sonrası e-posta giriş sayfasına yönlendir
@@ -2126,7 +1987,11 @@ class AppRouter {
         GoRoute(
           path: messageAnalysis,
           name: 'messageAnalysis',
-          builder: (context, state) => const MessageAnalysisView(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            final showResults = extra?['showResults'] as bool? ?? false;
+            return MessageAnalysisView(showResults: showResults);
+          },
         ),
         // İlişki Raporu sayfası - Detay sayfası
         GoRoute(

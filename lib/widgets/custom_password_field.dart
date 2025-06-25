@@ -42,11 +42,6 @@ class _CustomPasswordFieldState extends State<CustomPasswordField> {
       textInputAction: widget.textInputAction,
       autofocus: widget.autofocus,
       style: const TextStyle(color: Colors.white),
-      onTap: () {
-        if (!widget.focusNode.hasFocus) {
-          widget.focusNode.requestFocus();
-        }
-      },
       onEditingComplete: widget.onEditingComplete,
       onFieldSubmitted: (_) {
         if (widget.onEditingComplete != null) {

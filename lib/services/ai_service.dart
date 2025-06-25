@@ -2971,7 +2971,12 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
     sohbetMetni = _temizleSilinenVeMedyaMesajlari(sohbetMetni);
     _logger.i('Silinen mesajlar ve medya içerikleri temizlendi');
     
-    // Hassas bilgileri sansürle
+    // ÖNEMLİ: Tarihleri sansürlemeden ÖNCE çıkaralım
+    String ilkMesajTarihi = _extractFirstMessageDate(sohbetMetni);
+    String sonMesajTarihi = _extractLastMessageDate(sohbetMetni);
+    _logger.i('Tarihler çıkarıldı - İlk: $ilkMesajTarihi, Son: $sonMesajTarihi');
+    
+    // Şimdi hassas bilgileri sansürle (tarihleri de dahil)
     sohbetMetni = _sansurleHassasBilgiler(sohbetMetni);
     _logger.i('Hassas bilgiler sansürlendi');
     
@@ -3006,10 +3011,6 @@ Yanıtını sadece soru listesi olarak ver, başka açıklama ekleme.
       if (_geminiApiKey.isEmpty) {
         throw Exception('API anahtarı bulunamadı');
       }
-      
-      // İlk ve son mesaj tarihlerini bul
-      String ilkMesajTarihi = _extractFirstMessageDate(sohbetMetni);
-      String sonMesajTarihi = _extractLastMessageDate(sohbetMetni);
       
       // Toplam mesaj sayısını hesapla
       int toplamMesajSayisi = _calculateTotalMessages(sohbetMetni);
@@ -3081,6 +3082,11 @@ Sen bir veri analisti olarak görev yapacaksın. Aşağıda verilen mesajlaşma 
 
 Kesinlikle şablona uyman, STATIK DEĞERLER kullanmaman ve aşağıdaki formatta yanıt vermen gerekiyor. Her kart için gerçek veriye dayalı özgün bir başlık ve içerik oluştur.
 
+📅 SOHBET TARİH BİLGİLERİ:
+- İlk mesaj tarihi: $ilkMesajTarihi
+- Son mesaj tarihi: $sonMesajTarihi
+- Toplam mesaj sayısı: $toplamMesajSayisi
+
 Mesajlaşma geçmişi:
 """
 $analizMetni
@@ -3108,7 +3114,7 @@ ZORUNLU KART BAŞLIKLARI (AYNEN KULLAN):
 
 YANIT FORMATI (doğrudan JSON dizi, başlıkları AYNEN kullan):
 [
-  {"title": "Konuşma Süresi", "comment": "Süre hesaplayıp yorumla"},
+  {"title": "Konuşma Süresi", "comment": "İlk mesaj ($ilkMesajTarihi) ile son mesaj ($sonMesajTarihi) arasındaki süreyi hesapla ve yorumla"},
   {"title": "Sohbeti En Çok Kim Başlatıyor", "comment": "Kim daha aktif analiz et"},
   {"title": "En Gergin An", "comment": "Gerginlik bağlamını analiz et"},
   {"title": "En Romantik An", "comment": "Romantik bağlamı analiz et"},
@@ -3124,7 +3130,8 @@ YANIT FORMATI (doğrudan JSON dizi, başlıkları AYNEN kullan):
 - Gerçek veriye dayalı içerik oluştur, varsayılan değerler KULLANMA.
 - Yanıtın SADECE JSON formatında olmalı, başka hiçbir açıklama içermemeli.
 - Doğrudan sayılar, tarihler ve yüzdeler kullan.
-- Tarihleri GG.AA.YYYY formatında göster.
+- Tarihleri GG.AA.YYYY formatında göster - ASLA **/**/**** formatı kullanma!
+- Yukarıda verilen tarih bilgilerini kullan: İlk mesaj $ilkMesajTarihi, Son mesaj $sonMesajTarihi
 - Her kartta mutlaka nicel bir veri (sayı, yüzde, tarih vb.) olmalı.
 - Başlıkları AYNEN yukarıdaki gibi kullan, değiştirme!
 - ASLA "medya dahil edilmedi", "ses kaydı", "fotoğraf" gibi teknik referanslar kullanma.

@@ -52,6 +52,10 @@
 			<string>google</string>
 			<string>com-google-gidconsent</string>
 		</array>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>NSAppleSignInUsageDescription</key>
+		<string>Apple ID ile hızlı ve güvenli giriş yapabilmek için kullanılır.</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>NSAppTransportSecurity</key>

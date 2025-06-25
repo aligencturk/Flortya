@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
+import 'encryption_service.dart';
 
 class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -28,18 +29,21 @@ class UserService {
     }
   }
 
-  /// Son analiz sonucunu güncelle
+  /// Son analiz sonucunu güncelle (şifreli)
   Future<bool> updateSonAnalizSonucu(AnalizSonucu analizSonucu) async {
     // Oturum kontrolü
     if (_auth.currentUser == null) return false;
     
     try {
+      // Analiz sonucunu şifrele
+      final encryptedAnalysisResult = EncryptionService().encryptJson(analizSonucu.toMap());
+      
       // Firestore'a kaydet
       await _firestore
           .collection('users')
           .doc(_auth.currentUser!.uid)
           .update({
-        'sonAnalizSonucu': analizSonucu.toMap(),
+        'sonAnalizSonucu': encryptedAnalysisResult,
       });
       
       return true;
@@ -49,19 +53,22 @@ class UserService {
     }
   }
 
-  /// Analiz geçmişine yeni analiz ekle
+  /// Analiz geçmişine yeni analiz ekle (şifreli)
   Future<bool> addToAnalizGecmisi(AnalizSonucu analizSonucu) async {
     // Oturum kontrolü
     if (_auth.currentUser == null) return false;
     
     try {
+      // Analiz sonucunu şifrele
+      final encryptedAnalysisResult = EncryptionService().encryptJson(analizSonucu.toMap());
+      
       // Firestore'a kaydet
       await _firestore
           .collection('users')
           .doc(_auth.currentUser!.uid)
           .update({
-        'analizGecmisi': FieldValue.arrayUnion([analizSonucu.toMap()]),
-        'sonAnalizSonucu': analizSonucu.toMap(),
+        'analizGecmisi': FieldValue.arrayUnion([encryptedAnalysisResult]),
+        'sonAnalizSonucu': encryptedAnalysisResult,
       });
       
       return true;

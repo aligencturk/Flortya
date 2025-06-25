@@ -126,8 +126,6 @@ class UserModel {
   final String? authProvider;
   final String? firstName;
   final String? lastName;
-  final String? gender;
-  final DateTime? birthDate;
   final bool profileCompleted;
   final DateTime createdAt;
   final DateTime lastLoginAt;
@@ -145,8 +143,6 @@ class UserModel {
     this.authProvider,
     this.firstName,
     this.lastName,
-    this.gender,
-    this.birthDate,
     this.profileCompleted = false,
     required this.createdAt,
     required this.lastLoginAt,
@@ -221,8 +217,6 @@ class UserModel {
         authProvider: data['authProvider'] as String?,
         firstName: data['firstName'] as String?,
         lastName: data['lastName'] as String?,
-        gender: data['gender'] as String?,
-        birthDate: getDateTime(data['birthDate']),
         profileCompleted: data['profileCompleted'] as bool? ?? false,
         createdAt: getDateTime(data['createdAt']) ?? DateTime.now(),
         lastLoginAt: getDateTime(data['lastLoginAt']) ?? DateTime.now(),
@@ -253,8 +247,6 @@ class UserModel {
       'authProvider': authProvider,
       'firstName': firstName,
       'lastName': lastName,
-      'gender': gender,
-      'birthDate': birthDate != null ? Timestamp.fromDate(birthDate!) : null,
       'profileCompleted': profileCompleted,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': Timestamp.fromDate(lastLoginAt),
@@ -309,8 +301,6 @@ class UserModel {
     String? authProvider,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
     bool? profileCompleted,
     DateTime? createdAt,
     DateTime? lastLoginAt,
@@ -328,8 +318,6 @@ class UserModel {
       authProvider: authProvider ?? this.authProvider,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
-      gender: gender ?? this.gender,
-      birthDate: birthDate ?? this.birthDate,
       profileCompleted: profileCompleted ?? this.profileCompleted,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,

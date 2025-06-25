@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:math'; // Rastgele değerler için eklendi
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_animate/flutter_animate.dart'; // Animasyonlar için eklendi
+import 'package:google_fonts/google_fonts.dart';
 import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../utils/loading_indicator.dart';
@@ -90,40 +91,49 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
     required String comment,
     required int index,
   }) {
-    // Her kart için farklı ve canlı gradient arka planlar
-    final List<List<Color>> gradients = [
-      [const Color(0xFF6A11CB), const Color(0xFF2575FC)],
-      [const Color(0xFFFF416C), const Color(0xFFFF4B2B)],
-      [const Color(0xFF00C9FF), const Color(0xFF92FE9D)],
-      [const Color(0xFF1E9600), const Color(0xFFFFF200)],
-      [const Color(0xFFA18CD1), const Color(0xFFFBC2EB)],
-      [const Color(0xFF1A2980), const Color(0xFF26D0CE)],
-      [const Color(0xFFFDBB2D), const Color(0xFF22C1C3)],
-      [const Color(0xFFf857a6), const Color(0xffff5858)],
+    // Her kart için farklı resim arka planları (1.png - 10.png)
+    final List<String> backgroundImages = [
+      'assets/images/1.png',
+      'assets/images/2.png',
+      'assets/images/3.png',
+      'assets/images/4.png',
+      'assets/images/5.png',
+      'assets/images/6.png',
+      'assets/images/7.png',
+      'assets/images/8.png',
+      'assets/images/9.png',
+      'assets/images/10.png',
+    ];
+    
+    // Her kart için yazı renkleri (true = beyaz, false = siyah)
+    final List<bool> useWhiteText = [
+      true,  // 1. resim - beyaz yazı
+      false, // 2. resim - siyah yazı
+      false, // 3. resim - siyah yazı
+      true,  // 4. resim - beyaz yazı
+      true,  // 5. resim - beyaz yazı
+      true,  // 6. resim - beyaz yazı (mevcut gibi)
+      true,  // 7. resim - beyaz yazı (varsayılan)
+      false, // 8. resim - siyah yazı
+      true,  // 9. resim - beyaz yazı (doğru)
+      true,  // 10. resim - beyaz yazı (doğru)
     ];
 
-    final colorIndex = index % gradients.length;
+    final imageIndex = index % backgroundImages.length;
+    final isWhiteText = useWhiteText[imageIndex];
+    final textColor = isWhiteText ? Colors.white : Colors.black;
+    final iconColor = isWhiteText ? Colors.white : Colors.black;
     final (decoratedTitle, iconData) = _decorateTitle(title);
 
-    return AnimatedBackground(
-      behaviour: RandomParticleBehaviour(
-        options: ParticleOptions(
-          baseColor: gradients[colorIndex][0],
-          spawnMaxRadius: 30,
-          spawnMinRadius: 10,
-          particleCount: 40,
-          spawnMaxSpeed: 100,
-          spawnMinSpeed: 30,
-          minOpacity: 0.1,
-          maxOpacity: 0.4,
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage(backgroundImages[imageIndex]),
+          fit: BoxFit.cover,
         ),
       ),
-      vsync: this,
       child: Stack(
         children: [
-          // Arka plan kalp animasyonları
-          const _DynamicAnimatedBackground(),
-
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
@@ -137,7 +147,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                     children: [
                       // Kapat butonu
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        icon: Icon(Icons.close, color: iconColor, size: 28),
                         onPressed: () => Navigator.of(context).pop(),
                         tooltip: 'Kapat',
                       ),
@@ -163,7 +173,7 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                   const Spacer(),
                   
                   // Orta Kısım: İkon, Başlık ve Yorum
-                  Icon(iconData, color: Colors.white, size: 64)
+                  Icon(iconData, color: iconColor, size: 64)
                       .animate()
                       .fade(duration: 500.ms)
                       .scale(delay: 200.ms),
@@ -171,27 +181,27 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                   Text(
                     decoratedTitle,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: GoogleFonts.archivo(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(color: Colors.black38, offset: Offset(2, 2), blurRadius: 4),
-                      ],
+                      color: textColor,
+                      shadows: isWhiteText 
+                        ? const [Shadow(color: Colors.black38, offset: Offset(2, 2), blurRadius: 4)]
+                        : const [Shadow(color: Colors.white54, offset: Offset(1, 1), blurRadius: 2)],
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     comment,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: GoogleFonts.archivo(
                       fontSize: 20,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.95),
+                      color: textColor.withOpacity(0.95),
                       height: 1.5,
-                      shadows: const [
-                        Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
-                      ],
+                      shadows: isWhiteText 
+                        ? const [Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2)]
+                        : const [Shadow(color: Colors.white38, offset: Offset(1, 1), blurRadius: 2)],
                     ),
                   ),
                   const Spacer(),
@@ -203,20 +213,20 @@ class _KonusmaSummaryViewState extends State<KonusmaSummaryView> with TickerProv
                       Text(
                         'Devam etmek için kaydırın',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: textColor.withOpacity(0.8),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(
+                      Icon(
                         Icons.arrow_forward_ios,
-                        color: Colors.white,
+                        color: textColor,
                         size: 16,
                       ),
                     ],
                   ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                   .shimmer(delay: 1000.ms, duration: 1800.ms, color: Colors.white.withOpacity(0.5)),
+                   .shimmer(delay: 1000.ms, duration: 1800.ms, color: textColor.withOpacity(0.5)),
                 ],
               ),
             ),

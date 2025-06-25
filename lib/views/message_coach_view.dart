@@ -62,8 +62,9 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
       
       if (authViewModel.currentUser != null) {
-        controller.setCurrentUserId(authViewModel.currentUser!.uid, isPremium: authViewModel.isPremium);
-        ref.read(mesajKocuGorselKontrolProvider.notifier).kullaniciIdAyarla(authViewModel.currentUser!.uid);
+        final actualIsPremium = authViewModel.user?.actualIsPremium ?? false;
+        controller.setCurrentUserId(authViewModel.currentUser!.uid, isPremium: actualIsPremium);
+        ref.read(mesajKocuGorselKontrolProvider.notifier).kullaniciIdAyarla(authViewModel.currentUser!.uid, isPremium: actualIsPremium);
         
         // Görsel analiz durumunu da sıfırla
         ref.read(mesajKocuGorselKontrolProvider.notifier).durumSifirla();
@@ -492,7 +493,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
       
       // Premium kontrolü
       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-      final isPremium = authViewModel.isPremium;
+      final isPremium = authViewModel.user?.actualIsPremium ?? false;
         
       // Görsel durumunu güncelle (premium bilgisi ile)
       ref.read(mesajKocuGorselKontrolProvider.notifier).premiumDurumunuGuncelle(isPremium);
@@ -551,7 +552,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
   Future<void> _gorselModAlternativeMessagesGoster(MessageCoachVisualAnalysis analiz) async {
     // Premium durumunu al
     final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
+    final isPremium = authViewModel.user?.actualIsPremium ?? false;
     
     // Alternatif mesajları gösterilebilir mi kontrol et
     bool canShow = await ref.read(mesajKocuGorselKontrolProvider.notifier).alternativeMessagesKilidiAcikmi();
@@ -732,7 +733,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                   builder: (context, snapshot) {
                     final bool canShow = snapshot.data ?? false;
                     final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-                    final isPremium = authViewModel.isPremium;
+                    final isPremium = authViewModel.user?.actualIsPremium ?? false;
                     
                     // Premium kullanıcılar için tüm önerileri göster
                     if (isPremium) {
@@ -839,7 +840,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                     builder: (context, snapshot) {
                       final bool canShow = snapshot.data ?? false;
                       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-                      final isPremium = authViewModel.isPremium;
+                      final isPremium = authViewModel.user?.actualIsPremium ?? false;
                       final isLocked = !canShow && !isPremium;
                       
                       return Padding(
@@ -884,7 +885,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                     builder: (context, snapshot) {
                       final bool canShow = snapshot.data ?? false;
                       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-                      final isPremium = authViewModel.isPremium;
+                      final isPremium = authViewModel.user?.actualIsPremium ?? false;
                       final isLocked = !canShow && !isPremium;
                       
                       return Container(
@@ -1043,7 +1044,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                     builder: (context, snapshot) {
                       final bool canShow = snapshot.data ?? false;
                       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-                      final isPremium = authViewModel.isPremium;
+                      final isPremium = authViewModel.user?.actualIsPremium ?? false;
                       final isLocked = !canShow && !isPremium;
                       
                       return Padding(
@@ -1088,7 +1089,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                     builder: (context, snapshot) {
                       final bool canShow = snapshot.data ?? false;
                       final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-                      final isPremium = authViewModel.isPremium;
+                      final isPremium = authViewModel.user?.actualIsPremium ?? false;
                       final isLocked = !canShow && !isPremium;
                       
                       return Container(
@@ -1133,7 +1134,7 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
   Future<void> _gorselModunuDegistir() async {
     final controller = provider.Provider.of<MessageCoachController>(context, listen: false);
     final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-    final isPremium = authViewModel.isPremium;
+    final isPremium = authViewModel.user?.actualIsPremium ?? false;
     
     // Metin modundan görsel moduna geçiş
     if (!controller.gorselModu) {
@@ -1310,13 +1311,17 @@ class _MessageCoachViewState extends ConsumerState<MessageCoachView> {
                         fontSize: 18,
                       ),
                     ),
-                    const Text(
-                      'Ali Talip Gençtürk',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                    provider.Consumer<AuthViewModel>(
+                      builder: (context, authViewModel, child) {
+                        return Text(
+                          authViewModel.user?.displayName ?? 'Kullanıcı',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        );
+                      },
                     ),
                     const Spacer(),
                     IconButton(

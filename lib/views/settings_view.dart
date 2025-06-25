@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../controllers/home_controller.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/report_viewmodel.dart';
 import '../controllers/message_coach_controller.dart';
 import '../services/data_reset_service.dart';
 import '../services/event_bus_service.dart';
+import '../services/remote_config_service.dart';
 import '../utils/utils.dart';
 import '../utils/loading_indicator.dart';
+import 'dart:convert';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -19,6 +22,77 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
+  final RemoteConfigService _remoteConfigService = RemoteConfigService();
+  
+  // FAQ için state değişkenleri
+  List<Map<String, String>> _faqList = [];
+  bool _isFaqLoading = false;
+  String _faqTitle = 'Sık Sorulan Sorular';
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadFaqContent();
+  }
+  
+  // FAQ içeriğini Remote Config'den yükle
+  Future<void> _loadFaqContent() async {
+    setState(() {
+      _isFaqLoading = true;
+    });
+    
+    try {
+      await _remoteConfigService.baslat();
+      
+      // FAQ başlığını al
+      _faqTitle = await _remoteConfigService.parametreAl('faq_title');
+      
+      // FAQ listesini al
+      final faqJsonString = await _remoteConfigService.parametreAl('faq_list');
+      final List<dynamic> faqData = jsonDecode(faqJsonString);
+      
+      _faqList = faqData.map<Map<String, String>>((item) {
+        return {
+          'question': item['question']?.toString() ?? '',
+          'answer': item['answer']?.toString() ?? '',
+        };
+      }).toList();
+      
+      // Eğer Remote Config'den veri gelmezse varsayılan değerleri kullan
+      if (_faqList.isEmpty) {
+        _setDefaultFaqContent();
+      }
+      
+    } catch (e) {
+      debugPrint('FAQ içeriği yüklenirken hata: $e');
+      _setDefaultFaqContent();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFaqLoading = false;
+        });
+      }
+    }
+  }
+  
+  // Varsayılan FAQ içeriğini ayarla
+  void _setDefaultFaqContent() {
+    _faqList = [
+      {
+        'question': 'Uygulama nasıl kullanılır?',
+        'answer': 'Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır.',
+      },
+      {
+        'question': 'Verilerim güvende mi?',
+        'answer': 'Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir.',
+      },
+      {
+        'question': 'Premium özellikler nelerdir?',
+        'answer': 'Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır.',
+      },
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,10 +161,10 @@ class _SettingsViewState extends State<SettingsView> {
             _buildSectionHeader('Veri Yönetimi'),
             
             _buildMenuButton(
-              title: 'Verileri Sıfırla',
-              icon: Icons.delete_outline,
+              title: 'Tüm Verileri Sıfırla',
+              icon: Icons.delete_forever,
               onTap: () {
-                _showDataResetDialog();
+                _showCompleteDataResetDialog();
               },
               isDestructive: true,
             ),
@@ -117,9 +191,21 @@ class _SettingsViewState extends State<SettingsView> {
             _buildMenuButton(
               title: 'Gizlilik Politikası',
               icon: Icons.privacy_tip_outlined,
-              onTap: () {
-                // Gizlilik politikası için yeni işlev eklenecek
-                Utils.showToast(context, 'Gizlilik politikası yakında eklenecek');
+              onTap: () async {
+                final uri = Uri.parse('https://www.rivorya.com/gizlilik-politikasi');
+                try {
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (context.mounted) {
+                      Utils.showToast(context, 'Gizlilik politikası sayfası açılamadı');
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Utils.showToast(context, 'Gizlilik politikası sayfası açılırken hata oluştu');
+                  }
+                }
               },
             ),
             
@@ -228,86 +314,51 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
   
-  void _showDataResetDialog() {
+  // Tüm verileri sıfırlama onay dialog'u
+  void _showCompleteDataResetDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF3A2A70),
         title: const Text(
-          'Verileri Sıfırla',
+          'Tüm Veriler Silinsin Mi?',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        content: const Text(
-          'Hangi verileri sıfırlamak istiyorsunuz? Bu işlem geri alınamaz.',
-          style: TextStyle(color: Colors.white),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        actions: [
-          Column(
-            children: [
-              _buildResetOption(
-                title: 'Analiz Verilerini Sıfırla',
-                description: 'Görsel analiz, .txt analizleri ve danışma geçmişini siler',
-                onTap: () {
-                  Navigator.pop(context);
-                  _resetAnalysisData();
-                },
-              ),
-              _buildResetOption(
-                title: 'Mesaj Koçu Verilerini Sıfırla',
-                description: 'Koç geçmişini cihazdan ve Firestore\'dan siler',
-                onTap: () {
-                  Navigator.pop(context);
-                  _resetMessageCoachData();
-                },
-              ),
-              _buildResetOption(
-                title: 'İlişki Raporlarını Sıfırla',
-                description: 'İlişki raporu içeriklerini cihazdan ve veritabanından siler',
-                onTap: () {
-                  Navigator.pop(context);
-                  _resetReportData();
-                },
-              ),
-              _buildResetOption(
-                title: 'Tüm Verileri Tamamen Sıfırla',
-                description: 'Yukarıdaki 3 başlıktaki tüm verileri siler',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showResetAllConfirmDialog();
-                },
-                isDestructive: true,
-              ),
-            ],
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bu işlem geri alınamaz ve aşağıdaki veriler kalıcı olarak silinecektir:',
+              style: TextStyle(color: Colors.white, fontSize: 16),
             ),
-            child: const Text('Vazgeç'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  void _showResetAllConfirmDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF3A2A70),
-        title: const Text(
-          'Tüm veriler silinsin mi?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Bu işlem geri alınamaz. Sadece analiz, mesaj koçu ve ilişki rapor verileri silinir. Hesap bilgileriniz korunur.',
-          style: TextStyle(color: Colors.white),
+            SizedBox(height: 12),
+            Text(
+              '• Tüm mesaj analizleri',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            Text(
+              '• İlişki raporları',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            Text(
+              '• Mesaj koçu geçmişi',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            Text(
+              '• Danışma geçmişi',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            Text(
+              '• Konuşma özetleri (Wrapped)',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Hesap bilgileriniz korunacaktır.',
+              style: TextStyle(color: Colors.green, fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -318,7 +369,7 @@ class _SettingsViewState extends State<SettingsView> {
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
+              foregroundColor: Colors.white70,
             ),
             child: const Text('Vazgeç'),
           ),
@@ -328,194 +379,19 @@ class _SettingsViewState extends State<SettingsView> {
               _resetAllData();
             },
             style: TextButton.styleFrom(
-              foregroundColor: Colors.redAccent,
-              backgroundColor: Colors.white10,
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.redAccent,
             ),
-            child: const Text('Evet, sil'),
+            child: const Text('Evet, Tüm Verileri Sil'),
           ),
         ],
       ),
     );
   }
   
-  Widget _buildResetOption({
-    required String title,
-    required VoidCallback onTap,
-    String? description,
-    bool isDestructive = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: isDestructive ? Colors.redAccent : Colors.white,
-                fontWeight: isDestructive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-            if (description != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(
-                  description,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+
   
-  void _resetMessageCoachData() async {
-    // Kullanıcı ID'sini al
-    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
-    if (userId == null) {
-      if (!mounted) return;
-      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
-      return;
-    }
-    
-    Utils.showLoadingDialog(context, 'Mesaj koçu verileri siliniyor...', analizTipi: AnalizTipi.MESAJ_KOCU);
-    
-    try {
-      // Data reset servisini oluştur
-      final DataResetService resetService = DataResetService();
-      
-      // Mesaj koçu verilerini sil
-      final bool success = await resetService.resetMessageCoachData(userId);
-      
-      // UI verilerini güncelle
-      try {
-        final messageCoachController = provider.Provider.of<MessageCoachController>(context, listen: false);
-        messageCoachController.analizSonuclariniSifirla();
-        messageCoachController.analizGecmisiniSifirla();
-      } catch (e) {
-        debugPrint('Mesaj koçu verileri sıfırlanırken hata: $e');
-      }
-      
-      // Dialog'u kapat
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      // Başarı durumunu bildir
-      if (success) {
-        Utils.showToast(context, 'Mesaj koçu verileri başarıyla silindi');
-      } else {
-        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
-      }
-    } catch (e) {
-      // Dialog'u kapat
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
-    }
-  }
-  
-  void _resetReportData() async {
-    // Kullanıcı ID'sini al
-    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
-    if (userId == null) {
-      if (!mounted) return;
-      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
-      return;
-    }
-    
-    Utils.showLoadingDialog(context, 'İlişki raporları siliniyor...', analizTipi: AnalizTipi.ILISKI_ANKETI);
-    
-    try {
-      // Data reset servisini oluştur
-      final DataResetService resetService = DataResetService();
-      
-      // İlişki değerlendirme verilerini sil
-      final bool success = await resetService.resetRelationshipData(userId);
-      
-      // UI verilerini güncelle - HomeController
-      final homeController = provider.Provider.of<HomeController>(context, listen: false);
-      await homeController.resetRelationshipData();
-      
-      // ÖNEMLİ: ReportViewModel'daki rapor verilerini de temizle
-      try {
-        final reportViewModel = provider.Provider.of<ReportViewModel>(context, listen: false);
-        await reportViewModel.clearAllReports(userId);
-      } catch (e) {
-        debugPrint('ReportViewModel temizleme hatası: $e');
-      }
-      
-      // Dialog'u kapat
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      // Başarı durumunu bildir
-      if (success) {
-        Utils.showToast(context, 'İlişki raporları başarıyla silindi');
-      } else {
-        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
-      }
-    } catch (e) {
-      // Dialog'u kapat
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
-    }
-  }
-  
-  void _resetAnalysisData() async {
-    // Kullanıcı ID'sini al
-    final userId = provider.Provider.of<AuthViewModel>(context, listen: false).currentUser?.uid;
-    if (userId == null) {
-      if (!mounted) return;
-      Utils.showErrorFeedback(context, 'Kullanıcı bilgisi bulunamadı');
-      return;
-    }
-    
-    Utils.showLoadingDialog(context, 'Analiz verileri siliniyor...', analizTipi: AnalizTipi.TXT_DOSYASI);
-    
-    try {
-      // Data reset servisini oluştur
-      final DataResetService resetService = DataResetService();
-      
-      // Mesaj analiz verilerini sil
-      final bool success = await resetService.resetMessageAnalysisData(userId);
-      
-      // UI verilerini güncelle
-      final homeController = provider.Provider.of<HomeController>(context, listen: false);
-      await homeController.resetAnalizVerileri();
-      
-      // Dialog'u kapat
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      // Başarı durumunu bildir
-      if (success) {
-        Utils.showToast(context, 'Analiz verileri başarıyla silindi');
-      } else {
-        Utils.showErrorFeedback(context, 'Veri silme işleminde beklenmeyen bir hata oluştu');
-      }
-    } catch (e) {
-      // Dialog'u kapat
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      Utils.showErrorFeedback(context, 'Veri silme işleminde hata: $e');
-    }
-  }
+
   
   void _resetAllData() async {
     // Kullanıcı ID'sini al
@@ -1146,6 +1022,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           child: Container(
             width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.7,
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1155,12 +1032,14 @@ class _SettingsViewState extends State<SettingsView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Sık Sorulan Sorular',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                    Expanded(
+                      child: Text(
+                        _faqTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                     InkWell(
@@ -1185,60 +1064,36 @@ class _SettingsViewState extends State<SettingsView> {
                 
                 const SizedBox(height: 20),
                 
-                // SSS İçeriği
-                const Text(
-                  'Uygulama nasıl kullanılır?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Ana ekrandan mesajlarınızı analiz etmeye başlayabilirsiniz. Mesajlarınızı girin ve AI sistemimiz size kişiselleştirilmiş bir analiz sunacaktır.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                const Text(
-                  'Verilerim güvende mi?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Evet, tüm verileriniz şifrelenerek saklanır ve hiçbir üçüncü parti ile paylaşılmaz. Gizliliğiniz bizim önceliğimizdir.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                const Text(
-                  'Premium özellikler nelerdir?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Premium üyelik ile sınırsız analiz, ilişki raporları ve mesaj koçu hizmetlerine erişebilirsiniz. Ayrıca premium kullanıcılara özel tavsiyeler ve içgörüler sağlanır.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                // FAQ İçeriği
+                Expanded(
+                  child: _isFaqLoading
+                      ? const Center(
+                          child: YuklemeAnimasyonu(
+                            boyut: 40.0,
+                            renk: Colors.white,
+                          ),
+                        )
+                      : _faqList.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Henüz soru bulunmuyor',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _faqList.length,
+                              itemBuilder: (context, index) {
+                                final faq = _faqList[index];
+                                return _buildFaqItem(
+                                  question: faq['question'] ?? '',
+                                  answer: faq['answer'] ?? '',
+                                  isLast: index == _faqList.length - 1,
+                                );
+                              },
+                            ),
                 ),
                 
                 const SizedBox(height: 20),
@@ -1258,7 +1113,7 @@ class _SettingsViewState extends State<SettingsView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Anladım'),
+                    child: const Text('Kapat'),
                   ),
                 ),
               ],
@@ -1268,22 +1123,55 @@ class _SettingsViewState extends State<SettingsView> {
       },
     );
   }
+  
+  // FAQ öğesi widget'ı
+  Widget _buildFaqItem({
+    required String question,
+    required String answer,
+    bool isLast = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          question,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          answer,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        if (!isLast) ...[
+          const SizedBox(height: 16),
+          Divider(
+            color: Colors.white.withOpacity(0.2),
+            height: 1,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ],
+    );
+  }
 
   // Profil düzenleme diyaloğu
   void _showEditProfileDialog(BuildContext context) {
     // Kontrolcüleri oluştur
     TextEditingController adSoyadController = TextEditingController();
-    TextEditingController telefonController = TextEditingController();
     
-    // Doğum tarihi için değişken
-    DateTime? selectedBirthDate;
-    // Cinsiyet için değişken
-    String selectedGender = 'Belirtilmemiş';
+
     
     // Dialog kapandığında kontrolcüleri temizle
     void dispose() {
       adSoyadController.dispose();
-      telefonController.dispose();
     }
     
     // Mevcut kullanıcı bilgilerini al
@@ -1301,21 +1189,7 @@ class _SettingsViewState extends State<SettingsView> {
               .get();
           
           if (userDoc.exists) {
-            Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-            
-            telefonController.text = userData['phoneNumber'] ?? '';
-            
-            // Cinsiyet bilgisini al
-            if (userData['gender'] != null) {
-              selectedGender = userData['gender'];
-            }
-            
-            // Doğum tarihi bilgisini al
-            if (userData['birthDate'] != null) {
-              if (userData['birthDate'] is Timestamp) {
-                selectedBirthDate = (userData['birthDate'] as Timestamp).toDate();
-              }
-            }
+            // Kullanıcı verileri alındı
           }
         } catch (e) {
           print('Kullanıcı verileri alınırken hata: $e');
@@ -1359,116 +1233,7 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: telefonController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Telefon Numarası (İsteğe Bağlı)',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white30),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                      ),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Cinsiyet seçimi
-                  const Text(
-                    'Cinsiyet',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white30),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButton<String>(
-                      value: selectedGender,
-                      isExpanded: true,
-                      dropdownColor: const Color(0xFF3A2A70),
-                      style: const TextStyle(color: Colors.white),
-                      underline: Container(),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                      items: <String>['Belirtilmemiş', 'Kadın', 'Erkek', 'Diğer']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            selectedGender = newValue;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Doğum tarihi seçimi
-                  const Text(
-                    'Doğum Tarihi',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedBirthDate ?? DateTime(2000),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                        builder: (context, child) {
-                          return Theme(
-                            data: ThemeData.dark().copyWith(
-                              colorScheme: const ColorScheme.dark(
-                                primary: Color(0xFF9D3FFF),
-                                onPrimary: Colors.white,
-                                surface: Color(0xFF3A2A70),
-                                onSurface: Colors.white,
-                              ),
-                              dialogBackgroundColor: const Color(0xFF352269),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null && picked != selectedBirthDate) {
-                        setState(() {
-                          selectedBirthDate = picked;
-                        });
-                      }
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white30),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            selectedBirthDate != null
-                                ? '${selectedBirthDate!.day.toString().padLeft(2, '0')}.${selectedBirthDate!.month.toString().padLeft(2, '0')}.${selectedBirthDate!.year}'
-                                : 'Seçilmedi',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
-                        ],
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -1504,9 +1269,6 @@ class _SettingsViewState extends State<SettingsView> {
                           .doc(user.uid)
                           .update({
                         'displayName': adSoyadController.text,
-                        'phoneNumber': telefonController.text,
-                        'gender': selectedGender,
-                        'birthDate': selectedBirthDate != null ? Timestamp.fromDate(selectedBirthDate!) : null,
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
                     }

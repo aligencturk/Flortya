@@ -11,6 +11,7 @@ import '../services/ai_service.dart';
 import '../services/logger_service.dart';
 import '../services/notification_service.dart';
 import '../services/auth_service.dart';
+import '../services/encryption_service.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import '../controllers/home_controller.dart';
 import '../controllers/message_coach_controller.dart'; // MessageCoachController eklendi
@@ -705,11 +706,12 @@ class MessageViewModel extends ChangeNotifier {
       
       _logger.i('Analiz sonucu alındı, Firestore güncelleniyor');
       
-      // Sonucu Firestore'a kaydet
+      // Sonucu Firestore'a kaydet (şifreli)
+      final encryptedAnalysisResult = EncryptionService().encryptJson(analysisResult.toMap());
       await messageRef.update({
         'isAnalyzing': false,
         'isAnalyzed': true,
-        'analysisResult': analysisResult.toMap(),
+        'analysisResult': encryptedAnalysisResult,
         'updatedAt': FieldValue.serverTimestamp(),
         'analysisSource': isMessageId ? 'normal' : 'text', // Text dosyası analizi ise source değeri text olacak
       });
@@ -1178,15 +1180,16 @@ class MessageViewModel extends ChangeNotifier {
             _logger.i('AI mesaj analizi tamamlandı, sonuç alındı');
             
             try {
-              // Analiz sonucunu Firestore'a kaydet
+              // Analiz sonucunu Firestore'a kaydet (şifreli)
+              final encryptedAnalysisResult = EncryptionService().encryptJson(analysisResult.toMap());
               await docRef.update({
-                'analysisResult': analysisResult.toMap(),
+                'analysisResult': encryptedAnalysisResult,
                 'isAnalyzing': false,
                 'isAnalyzed': true,
                 'updatedAt': FieldValue.serverTimestamp(),
               });
               
-              _logger.i('Analiz sonucu Firestore\'a kaydedildi');
+              _logger.i('Analiz sonucu şifreli olarak Firestore\'a kaydedildi');
             } catch (dbError) {
               _logger.e('Firestore güncelleme hatası: ${dbError.toString()}', dbError);
               // Veritabanı hatası olsa bile devam et
@@ -1424,12 +1427,13 @@ class MessageViewModel extends ChangeNotifier {
         return null;
       }
       
-      // Analiz sonucunu Firestore'a kaydet
+      // Analiz sonucunu Firestore'a kaydet (şifreli)
       final messageRef = _firestore.collection('users').doc(userId).collection('messages').doc(message.id);
+      final encryptedAnalysisResult = EncryptionService().encryptJson(analysisResult.toMap());
       await messageRef.update({
         'isAnalyzing': false,
         'isAnalyzed': true,
-        'analysisResult': analysisResult.toMap(),
+        'analysisResult': encryptedAnalysisResult,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
@@ -1948,12 +1952,14 @@ class MessageViewModel extends ChangeNotifier {
       // ÖNEMLİ: Danışma sonuçlarını analyses koleksiyonuna da kaydet
       if (analysisType == AnalysisType.consultation) {
         try {
-          // Analiz sonucunu analyses koleksiyonuna ekle
+          // Analiz sonucunu analyses koleksiyonuna ekle (şifreli)
+          final encryptedAnalysisData = EncryptionService().encryptJson(analysisResult.toMap());
           await userRef.collection('analyses').doc(analysisResult.id).set({
-            ...analysisResult.toMap(),
+            'encryptedData': encryptedAnalysisData,
             'type': analysisType.toString(),
+            'createdAt': FieldValue.serverTimestamp(),
           });
-          _logger.i('Danışma analiz sonucu başarıyla analyses koleksiyonuna kaydedildi.');
+          _logger.i('Danışma analiz sonucu şifreli olarak analyses koleksiyonuna kaydedildi.');
         } catch (e) {
           _logger.e('Danışma sonucu analyses koleksiyonuna kaydedilirken hata: $e');
         }
@@ -1967,10 +1973,12 @@ class MessageViewModel extends ChangeNotifier {
       final AnalizSonucu analizSonucu = AnalizSonucu.fromMap(analizSonucuMap);
       
       
-      // Firestore'a kaydet
+      // Firestore'a kaydet (şifreli)
+      final encryptedSonAnalizSonucu = EncryptionService().encryptJson(analizSonucu.toMap());
+      final encryptedAnalizVerisi = EncryptionService().encryptJson(analizSonucu.toMap());
       await userRef.update({
-        'sonAnalizSonucu': analizSonucu.toMap(),
-        'analizGecmisi': FieldValue.arrayUnion([analizSonucu.toMap()]),
+        'sonAnalizSonucu': encryptedSonAnalizSonucu,
+        'analizGecmisi': FieldValue.arrayUnion([encryptedAnalizVerisi]),
       });
       
       _logger.i('Kullanıcı profili başarıyla güncellendi. İlişki puanı: ${analizSonucu.iliskiPuani}');

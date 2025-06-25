@@ -2,12 +2,9 @@ import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'dart:convert';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
 import '../models/user_model.dart';
 import 'logger_service.dart';
+import 'encryption_service.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthService {
@@ -24,12 +21,15 @@ class AuthService {
         // iOS için clientID belirtmeyin, otomatik olarak bulacaktır
       );
     } else {
-          _googleSignIn = GoogleSignIn(
-      scopes: ['email', 'profile'],
-      serverClientId: '768992590332-hr7uq6q0sbo1ugqcv0vccs8vmdpo1dls.apps.googleusercontent.com', // ← Doğru ID
-    );
-
+      _googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+        // serverClientId'yi kaldırdık - genellikle gerekli değil
+      );
     }
+    
+    _logger.i('🔧 AuthService başlatıldı');
+    _logger.d('📱 Platform: ${Platform.operatingSystem}');
+    _logger.d('🔍 Google Sign-In scopes: ${_googleSignIn.scopes}');
   }
 
   // Mevcut kullanıcıyı almak
@@ -41,15 +41,24 @@ class AuthService {
   // Google ile giriş
   Future<UserCredential?> signInWithGoogle() async {
     try {
+      _logger.i('🔄 Google Sign-In başlatılıyor...');
+      
       // Aynı instance'ı kullan - _googleSignIn
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {
+        _logger.i('❌ Kullanıcı Google Sign-In işlemini iptal etti');
         return null; // Kullanıcı işlemi iptal etti
       }
       
+      _logger.i('✅ Google hesabı seçildi: ${googleUser.email}');
+      
       // Google hesabından kimlik bilgileri al
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      _logger.i('🔑 Google auth tokens alındı');
+      _logger.d('AccessToken: ${googleAuth.accessToken != null ? "Var" : "Yok"}');
+      _logger.d('IdToken: ${googleAuth.idToken != null ? "Var" : "Yok"}');
       
       // Firebase ile yetkilendirme
       final credential = GoogleAuthProvider.credential(
@@ -57,15 +66,29 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
       
+      _logger.i('🔥 Firebase credential oluşturuldu, giriş yapılıyor...');
+      
       // Firebase ile giriş yap
       final userCredential = await _auth.signInWithCredential(credential);
+      
+      _logger.i('🎉 Firebase giriş başarılı: ${userCredential.user?.email}');
       
       // Yeni bir kullanıcıysa Firestore'a kaydet
       await _saveUserToFirestore(userCredential.user, authProvider: 'google.com');
       
       return userCredential;
     } catch (e) {
-      _logger.e('Google giriş hatası: $e');
+      _logger.e('❌ Google giriş hatası: $e');
+      
+      // Spesifik hata mesajları
+      if (e.toString().contains('network_error')) {
+        _logger.e('🌐 Ağ bağlantısı sorunu');
+      } else if (e.toString().contains('sign_in_failed')) {
+        _logger.e('🔐 Google Sign-In başarısız');
+      } else if (e.toString().contains('invalid-credential')) {
+        _logger.e('🚫 Geçersiz kimlik bilgileri - SHA-1 yapılandırması kontrol edilmeli');
+      }
+      
       return null;
     }
   }
@@ -73,52 +96,17 @@ class AuthService {
   // Apple ile giriş
   Future<UserCredential?> signInWithApple() async {
     try {
-      // Apple Sign-In'in desteklendiğini kontrol et
-      if (!await SignInWithApple.isAvailable()) {
-        _logger.w('Apple Sign-In bu cihazda desteklenmiyor');
+      // Apple ile giriş fonksiyonu şimdilik uygulanmadı
+      // Gerekirse daha sonra sign_in_with_apple paketi kurulup gerçekleştirilebilir
+      _logger.w('Apple ile giriş henüz uygulanmadı');
+      return null;
+    } catch (e) {
+      if (e.toString().contains('canceled')) {
+        _logger.i('🚫 Apple ile giriş kullanıcı tarafından iptal edildi');
         return null;
       }
       
-      // Nonce oluştur
-      final rawNonce = _generateNonce();
-      final nonce = _sha256ofString(rawNonce);
-      
-      // Apple Sign-In isteğini yap
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: nonce,
-      );
-      
-      // Firebase credential oluştur
-      final oauthCredential = OAuthProvider("apple.com").credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-        accessToken: appleCredential.authorizationCode,
-      );
-      
-      // Firebase ile giriş yap
-      final userCredential = await _auth.signInWithCredential(oauthCredential);
-      
-      // Eğer kullanıcının display name'i yoksa Apple'dan gelen bilgileri kullan
-      if (userCredential.user != null && 
-          (userCredential.user!.displayName?.isEmpty ?? true) &&
-          appleCredential.givenName != null) {
-        final displayName = '${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}'.trim();
-        if (displayName.isNotEmpty) {
-          await userCredential.user!.updateDisplayName(displayName);
-        }
-      }
-      
-      // Kullanıcıyı Firestore'a kaydet
-      await _saveUserToFirestore(userCredential.user, authProvider: 'apple.com');
-      
-      _logger.i('Apple ile giriş başarılı: ${userCredential.user?.uid}');
-      return userCredential;
-    } catch (e) {
-      _logger.e('Apple giriş hatası: $e');
+      _logger.e('❌ Apple giriş hatası: $e');
       return null;
     }
   }
@@ -161,6 +149,10 @@ class AuthService {
         debugPrint('HATA: Kullanıcı UID boş, güncelleme yapılamıyor');
         return;
       }
+      
+      // Şifreleme servisini kullanıcı ID'si ile başlat
+      EncryptionService().initializeWithUserId(user.uid);
+      _logger.i('Şifreleme servisi kullanıcı girişinde başlatıldı');
       
       DocumentReference userRef = _firestore.collection('users').doc(user.uid);
       
@@ -352,8 +344,6 @@ class AuthService {
     required String displayName,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
   }) async {
     try {
       _logger.i('🚀 AuthService: E-posta ile kayıt işlemi başlatılıyor: $email');
@@ -380,8 +370,6 @@ class AuthService {
         authProvider: 'password',
         firstName: firstName,
         lastName: lastName,
-        gender: gender,
-        birthDate: birthDate,
       );
       
       _logger.i('🎉 AuthService: E-posta kayıt işlemi tamamen başarılı');
@@ -396,8 +384,6 @@ class AuthService {
         stackTrace: stackTrace,
         firstName: firstName,
         lastName: lastName,
-        gender: gender,
-        birthDate: birthDate,
       );
       
       // Hata mesajını da ayrıca basit logla
@@ -477,8 +463,6 @@ class AuthService {
     required String? authProvider,
     String? firstName,
     String? lastName,
-    String? gender,
-    DateTime? birthDate,
   }) async {
     if (user == null) {
       _logger.e('_saveUserToFirestore: Kullanıcı null, kayıt işlemi atlanıyor');
@@ -531,11 +515,9 @@ class AuthService {
         // Eğer profil bilgileri verilmişse ekle
         if (firstName != null) userData['firstName'] = firstName;
         if (lastName != null) userData['lastName'] = lastName;
-        if (gender != null) userData['gender'] = gender;
-        if (birthDate != null) userData['birthDate'] = Timestamp.fromDate(birthDate);
         
         // E-posta ile kayıtta profil tamamlandı olarak işaretle
-        if (authProvider == 'password' && firstName != null && lastName != null && gender != null) {
+        if (authProvider == 'password' && firstName != null && lastName != null) {
           userData['profileCompleted'] = true;
           _logger.i('📋 E-posta kaydı profil bilgileri ile tamamlandı');
         }

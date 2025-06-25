@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'analysis_result_model.dart';
+import '../services/encryption_service.dart';
 
 enum AnalysisSource {
   text,
@@ -166,13 +167,31 @@ class Message {
       imageUrl: map['imageUrl'],
       imagePath: map['imagePath'],
       analysisResult: map['analysisResult'] != null
-          ? AnalysisResult.fromMap(map['analysisResult'])
+          ? _decryptAndParseAnalysisResult(map['analysisResult'])
           : null,
       userId: map['userId'] ?? '',
       errorMessage: map['errorMessage'],
       isAnalyzing: map['isAnalyzing'] ?? false,
       analysisSource: source,
     );
+  }
+
+  // Şifreli analiz sonucunu çözme ve parse etme
+  static AnalysisResult? _decryptAndParseAnalysisResult(dynamic analysisData) {
+    try {
+      if (analysisData is String) {
+        // Şifreli string ise çöz
+        final decryptedData = EncryptionService().decryptJson(analysisData);
+        return AnalysisResult.fromMap(decryptedData);
+      } else if (analysisData is Map<String, dynamic>) {
+        // Şifrelenmemiş Map ise doğrudan parse et (geriye dönük uyumluluk)
+        return AnalysisResult.fromMap(analysisData);
+      }
+      return null;
+    } catch (e) {
+      print('Analiz sonucu çözülürken hata: $e');
+      return null;
+    }
   }
 
   @override
