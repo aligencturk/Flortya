@@ -24,12 +24,7 @@ dependencies:
   firebase_messaging: ^15.2.5
   firebase_remote_config: ^5.4.3
   google_sign_in: ^6.2.1
-<<<<<<< HEAD
   sign_in_with_apple: ^6.1.4
-  crypto: ^3.0.5
-=======
-  sign_in_with_apple: ^6.1.2
->>>>>>> b81b02e4f0880797fdf3c4022f2a42e4ca8baccc
   
   # State Management
   provider: ^6.1.2
@@ -60,7 +55,7 @@ dependencies:
   
   # Encryption
   encrypt: ^5.0.1
-  crypto: ^3.0.3
+  crypto: ^3.0.5
   
   # OCR ve Görüntü İşleme - Sadece Türkçe/Latin script
   path_provider: ^2.1.5

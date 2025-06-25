@@ -2,6 +2,10 @@ import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import '../models/user_model.dart';
 import 'logger_service.dart';
 import 'encryption_service.dart';
@@ -96,10 +100,66 @@ class AuthService {
   // Apple ile giriş
   Future<UserCredential?> signInWithApple() async {
     try {
-      // Apple ile giriş fonksiyonu şimdilik uygulanmadı
-      // Gerekirse daha sonra sign_in_with_apple paketi kurulup gerçekleştirilebilir
-      _logger.w('Apple ile giriş henüz uygulanmadı');
-      return null;
+      _logger.i('🍎 Apple Sign-In başlatılıyor...');
+      
+      // Apple Sign-In'in desteklendiğini kontrol et
+      if (!await SignInWithApple.isAvailable()) {
+        _logger.w('❌ Apple Sign-In bu cihazda desteklenmiyor');
+        return null;
+      }
+      
+      _logger.i('✅ Apple Sign-In destekleniyor, kimlik bilgileri alınıyor...');
+      
+      // Nonce oluştur
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+      
+      _logger.d('🔐 Nonce oluşturuldu');
+      
+      // Apple Sign-In isteğini yap
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+      
+      _logger.i('🎯 Apple kimlik bilgileri alındı');
+      _logger.d('Email: ${appleCredential.email ?? "Belirtilmedi"}');
+      _logger.d('GivenName: ${appleCredential.givenName ?? "Belirtilmedi"}');
+      _logger.d('FamilyName: ${appleCredential.familyName ?? "Belirtilmedi"}');
+      
+      // Firebase credential oluştur
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode,
+      );
+      
+      _logger.i('🔥 Firebase credential oluşturuldu, giriş yapılıyor...');
+      
+      // Firebase ile giriş yap
+      final userCredential = await _auth.signInWithCredential(oauthCredential);
+      
+      _logger.i('🎉 Firebase Apple giriş başarılı: ${userCredential.user?.email}');
+      
+      // Eğer kullanıcının display name'i yoksa Apple'dan gelen bilgileri kullan
+      if (userCredential.user != null && 
+          (userCredential.user!.displayName?.isEmpty ?? true) &&
+          appleCredential.givenName != null) {
+        final displayName = '${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}'.trim();
+        if (displayName.isNotEmpty) {
+          await userCredential.user!.updateDisplayName(displayName);
+          _logger.i('👤 Display name güncellendi: $displayName');
+        }
+      }
+      
+      // Kullanıcıyı Firestore'a kaydet
+      await _saveUserToFirestore(userCredential.user, authProvider: 'apple.com');
+      
+      _logger.i('🎊 Apple ile giriş tamamen başarılı: ${userCredential.user?.uid}');
+      return userCredential;
     } catch (e) {
       if (e.toString().contains('canceled')) {
         _logger.i('🚫 Apple ile giriş kullanıcı tarafından iptal edildi');
@@ -107,8 +167,30 @@ class AuthService {
       }
       
       _logger.e('❌ Apple giriş hatası: $e');
+      
+      // Spesifik hata mesajları
+      if (e.toString().contains('invalid-credential')) {
+        _logger.e('🚫 Geçersiz Apple kimlik bilgileri');
+      } else if (e.toString().contains('network_error')) {
+        _logger.e('🌐 Ağ bağlantısı sorunu - Apple Sign-In');
+      }
+      
       return null;
     }
+  }
+  
+  // Güvenli nonce oluşturucu
+  String _generateNonce([int length = 32]) {
+    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+  }
+  
+  // SHA256 hash fonksiyonu
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
   
  
