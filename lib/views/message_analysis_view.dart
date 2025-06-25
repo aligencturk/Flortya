@@ -1860,12 +1860,21 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
         return false;
       }
 
-      // Dosya içeriğini oku
-      final File file = File(pickedFile.path);
-      String fileContent = await file.readAsString();
+      // Dosya içeriğini oku - iOS uyumlu yöntem
+      String fileContent;
+      int fileSizeBytes;
       
-      // Dosya bilgilerini hesapla
-      final fileSizeBytes = await file.length();
+      try {
+        // XFile'dan direkt okuma yaparak iOS uyumluluk sorunu çözülür
+        fileContent = await pickedFile.readAsString();
+        fileSizeBytes = await pickedFile.length();
+      } catch (e) {
+        // Fallback: File sınıfı ile okuma dene
+        debugPrint('XFile okuma hatası, File sınıfı ile deneniyor: $e');
+        final File file = File(pickedFile.path);
+        fileContent = await file.readAsString();
+        fileSizeBytes = await file.length();
+      }
       final double fileSizeMB = fileSizeBytes / (1024 * 1024);
       final String fileSizeText = fileSizeMB >= 1 
           ? '${fileSizeMB.toStringAsFixed(2)} MB'
@@ -1970,7 +1979,16 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
          
          // Wrapped analizi için içeriği hazırla - TÜM MESAJLARI KULLAN
          // Sadece bakış açısı seçilen kişiye göre olacak, mesajlar filtrelenmeyecek
-         String wrappedContent = await file.readAsString();
+         String wrappedContent;
+         try {
+           // XFile'dan okuma - iOS uyumlu
+           wrappedContent = await pickedFile.readAsString();
+         } catch (e) {
+           // Fallback: File sınıfı ile okuma
+           debugPrint('Wrapped için XFile okuma hatası, File sınıfı ile deneniyor: $e');
+           final File fallbackFile = File(pickedFile.path);
+           wrappedContent = await fallbackFile.readAsString();
+         }
          
          // Wrapped analizi için silinen mesajları ve medya içeriklerini temizle
          wrappedContent = _temizleSilinenVeMedyaMesajlari(wrappedContent);
