@@ -280,6 +280,10 @@ class DataResetService {
       bool wrappedResult = await resetWrappedData(userId);
       debugPrint('Wrapped analizi silme sonucu: $wrappedResult');
       
+      // ÖNEMLİ: Eksik koleksiyonları da sil
+      bool additionalDataResult = await _deleteAdditionalUserData(userId);
+      debugPrint('Ek veri silme sonucu: $additionalDataResult');
+      
       // İşlemlerin yerine oturması için kısa bir bekleme
       await Future.delayed(const Duration(seconds: 2));
       
@@ -364,6 +368,35 @@ class DataResetService {
         debugPrint('Analyses verileri silinirken hata: $e');
       }
       
+      // SharedPreferences'taki tüm cache'leri temizle
+      try {
+        debugPrint('SharedPreferences cache\'leri temizleniyor...');
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        
+        // Tüm analiz cache'lerini temizle
+        await prefs.remove('lastAnalysisResult');
+        await prefs.remove('pastAnalysesCache');
+        await prefs.remove('pastReportsCache');
+        await prefs.remove('messageCoachCache');
+        await prefs.remove('consultationCache');
+        await prefs.remove('relationshipReportCache');
+        await prefs.remove('userDataCache');
+        await prefs.remove('settingsCache');
+        await prefs.remove('preferencesCache');
+        
+        // Wrapped cache'leri (zaten wrapped metodunda temizleniyor ama ek güvenlik)
+        await prefs.remove('wrappedAnalysesList');
+        await prefs.remove('wrappedCacheData');
+        await prefs.remove('wrappedCacheContent');
+        await prefs.remove('WRAPPED_CACHE_KEY');
+        await prefs.remove('WRAPPED_CACHE_CONTENT_KEY');
+        await prefs.remove('WRAPPED_IS_TXT_KEY');
+        
+        debugPrint('SharedPreferences cache\'leri temizlendi');
+      } catch (e) {
+        debugPrint('SharedPreferences temizlenirken hata: $e');
+      }
+      
       // Ek olarak kullanıcı ana verilerini de sıfırla
       await _firestore.collection('users').doc(userId).update({
         'sonAnalizSonucu': null,
@@ -405,12 +438,108 @@ class DataResetService {
         debugPrint('Son kontrol sırasında hata: $e');
       }
       
-      debugPrint('Tüm veriler silme işlemi sonuçları: İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult');
+      debugPrint('Tüm veriler silme işlemi sonuçları: İlişki: $relationshipResult, Mesaj: $messageResult, Koç: $coachResult, Wrapped: $wrappedResult, Ek: $additionalDataResult');
       
       // Tam başarı için tüm işlemlerin başarılı olması gerekir
-      return relationshipResult && messageResult && coachResult && wrappedResult;
+      return relationshipResult && messageResult && coachResult && wrappedResult && additionalDataResult;
     } catch (e) {
       debugPrint('Tüm veriler silinirken hata: $e');
+      return false;
+    }
+  }
+
+  /// Ek kullanıcı verilerini siler (past_analyses, past_reports vb.)
+  Future<bool> _deleteAdditionalUserData(String userId) async {
+    debugPrint('Ek kullanıcı verileri siliniyor...');
+    
+    try {
+      final userRef = _firestore.collection('users').doc(userId);
+      WriteBatch batch = _firestore.batch();
+      
+      // 1. Past analyses koleksiyonunu sil
+      try {
+        final pastAnalysesSnapshot = await userRef.collection('past_analyses').get();
+        for (final doc in pastAnalysesSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${pastAnalysesSnapshot.docs.length} adet past_analyses silindi');
+      } catch (e) {
+        debugPrint('past_analyses silinirken hata: $e');
+      }
+      
+      // 2. Past reports koleksiyonunu sil
+      try {
+        final pastReportsSnapshot = await userRef.collection('past_reports').get();
+        for (final doc in pastReportsSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${pastReportsSnapshot.docs.length} adet past_reports silindi');
+      } catch (e) {
+        debugPrint('past_reports silinirken hata: $e');
+      }
+      
+      // 3. Past message coach koleksiyonunu sil
+      try {
+        final pastMessageCoachSnapshot = await userRef.collection('past_message_coach').get();
+        for (final doc in pastMessageCoachSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${pastMessageCoachSnapshot.docs.length} adet past_message_coach silindi');
+      } catch (e) {
+        debugPrint('past_message_coach silinirken hata: $e');
+      }
+      
+      // 4. User data koleksiyonunu sil
+      try {
+        final userDataSnapshot = await userRef.collection('user_data').get();
+        for (final doc in userDataSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${userDataSnapshot.docs.length} adet user_data silindi');
+      } catch (e) {
+        debugPrint('user_data silinirken hata: $e');
+      }
+      
+      // 5. Settings koleksiyonunu sil
+      try {
+        final settingsSnapshot = await userRef.collection('settings').get();
+        for (final doc in settingsSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${settingsSnapshot.docs.length} adet settings silindi');
+      } catch (e) {
+        debugPrint('settings silinirken hata: $e');
+      }
+      
+      // 6. Preferences koleksiyonunu sil
+      try {
+        final preferencesSnapshot = await userRef.collection('preferences').get();
+        for (final doc in preferencesSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${preferencesSnapshot.docs.length} adet preferences silindi');
+      } catch (e) {
+        debugPrint('preferences silinirken hata: $e');
+      }
+      
+      // 7. Cache koleksiyonunu sil
+      try {
+        final cacheSnapshot = await userRef.collection('cache').get();
+        for (final doc in cacheSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        debugPrint('${cacheSnapshot.docs.length} adet cache silindi');
+      } catch (e) {
+        debugPrint('cache silinirken hata: $e');
+      }
+      
+      // Batch işlemini uygula
+      await batch.commit();
+      
+      debugPrint('Ek kullanıcı verileri başarıyla silindi');
+      return true;
+    } catch (e) {
+      debugPrint('Ek kullanıcı verileri silinirken hata: $e');
       return false;
     }
   }
