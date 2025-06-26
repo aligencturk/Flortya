@@ -338,6 +338,132 @@ class PremiumService {
     );
   }
 
+  // Dinamik plan listesi döndür (App Store/Play Store'dan çekilen fiyatlarla)
+  List<Map<String, dynamic>> getDynamicPlanlar() {
+    List<Map<String, dynamic>> planlar = [];
+    
+    // Eğer ürünler yüklenmemişse boş liste döndür
+    if (urunler.isEmpty) {
+      debugPrint('⚠️ Ürünler henüz yüklenmedi, boş liste döndürülüyor');
+      return [];
+    }
+    
+    debugPrint('💰 ${urunler.length} adet dinamik ürün fiyatı alınıyor...');
+    
+    for (final ProductDetails product in urunler) {
+      String planTipi = _urunKimligindenPlanTipiBelirle(product.id);
+      String title = planAdiCevir(product.id);
+      String period = _getPeriodName(planTipi);
+      String discountInfo = _getDiscountInfo(planTipi);
+      bool mostPopular = enPopulerPlanMi(product.id);
+      
+      planlar.add({
+        'title': title,
+        'price': product.price,
+        'discountInfo': discountInfo,
+        'period': period,
+        'mostPopular': mostPopular,
+        'productDetails': product, // ProductDetails nesnesini de ekle
+      });
+      
+      debugPrint('📋 Plan eklendi: $title - ${product.price} ($period)');
+    }
+    
+    debugPrint('✅ ${planlar.length} dinamik plan hazırlandı');
+    return planlar;
+  }
+  
+  // Statik planları döndür (yedek olarak)
+  List<Map<String, dynamic>> getStaticPlanlar() {
+    return [
+      {
+        'title': 'Haftalık',
+        'price': '₺49,99',
+        'discountInfo': '',
+        'period': 'hafta',
+        'mostPopular': false,
+        'productDetails': null,
+      },
+      {
+        'title': 'Aylık',
+        'price': '₺149,99',
+        'discountInfo': '25% indirim',
+        'period': 'ay',
+        'mostPopular': true,
+        'productDetails': null,
+      },
+      {
+        'title': 'Yıllık',
+        'price': '₺999,99',
+        'discountInfo': '50% indirim',
+        'period': 'yıl',
+        'mostPopular': false,
+        'productDetails': null,
+      },
+    ];
+  }
+  
+  // Plan tipinden periyot adını döndür
+  String _getPeriodName(String planTipi) {
+    switch (planTipi) {
+      case 'weekly':
+        return 'hafta';
+      case 'monthly':
+        return 'ay';
+      case 'yearly':
+        return 'yıl';
+      default:
+        return 'ay';
+    }
+  }
+  
+  // Plan tipinden indirim bilgisini döndür
+  String _getDiscountInfo(String planTipi) {
+    switch (planTipi) {
+      case 'weekly':
+        return '';
+      case 'monthly':
+        return '25% indirim';
+      case 'yearly':
+        return '50% indirim';
+      default:
+        return '';
+    }
+  }
+  
+  // Belirli bir ürün için ProductDetails döndür
+  ProductDetails? getProductDetails(String planTitle) {
+    try {
+      // Plan başlığından ürün tipini belirle
+      String planType = '';
+      switch (planTitle) {
+        case 'Haftalık':
+          planType = 'weekly';
+          break;
+        case 'Aylık':
+          planType = 'monthly';
+          break;
+        case 'Yıllık':
+          planType = 'yearly';
+          break;
+      }
+      
+      // Ürün kimliğini oluştur
+      String urunKimlik = Platform.isIOS 
+        ? 'flortya_premium_${planType}_ios'
+        : 'flortya_premium_$planType';
+      
+      // Ürün listesinden bul
+      return urunler.firstWhere(
+        (product) => product.id == urunKimlik,
+        orElse: () => throw Exception('Ürün bulunamadı: $urunKimlik'),
+      );
+    } catch (e) {
+      debugPrint('ProductDetails bulunamadı: $e');
+      return null;
+    }
+  }
+
   // Günlük görsel OCR kullanım sayısını kontrol et
   Future<int> getDailyVisualOcrCount() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();

@@ -40,30 +40,8 @@ class _PremiumViewState extends State<PremiumView> {
     'Yanıt senaryoları',
   ];
 
-  // Abonelik planları - Remote Config'ten gelecek
-  List<Map<String, dynamic>> _planlar = [
-    {
-      'title': 'Haftalık',
-      'price': '₺49,99',
-      'discountInfo': '',
-      'period': 'hafta',
-      'mostPopular': false,
-    },
-    {
-      'title': 'Aylık',
-      'price': '₺149,99',
-      'discountInfo': '25% indirim',
-      'period': 'ay',
-      'mostPopular': true,
-    },
-    {
-      'title': 'Yıllık',
-      'price': '₺999,99',
-      'discountInfo': '50% indirim',
-      'period': 'yıl',
-      'mostPopular': false,
-    },
-  ];
+  // Abonelik planları - App Store/Play Store'dan dinamik olarak gelecek
+  List<Map<String, dynamic>> _planlar = [];
 
   @override
   void initState() {
@@ -163,7 +141,9 @@ class _PremiumViewState extends State<PremiumView> {
         return;
       }
 
-      // Ürünler yüklendikten sonra UI'ı güncelle
+      // Ürünler yüklendikten sonra dinamik planları yükle ve UI'ı güncelle
+      _loadDynamicPlans();
+      
       if (mounted) {
         setState(() {
           _isContentLoading = false;
@@ -214,6 +194,39 @@ class _PremiumViewState extends State<PremiumView> {
           _isContentLoading = false;
         });
       }
+    }
+  }
+
+  // Dinamik planları yükle (App Store/Play Store'dan)
+  void _loadDynamicPlans() {
+    try {
+      // Premium service'ten dinamik planları al
+      final dynamicPlans = _premiumService.getDynamicPlanlar();
+      
+      debugPrint('🔄 ${dynamicPlans.length} dinamik plan yüklendi');
+      
+      if (mounted) {
+        setState(() {
+          _planlar = dynamicPlans;
+        });
+      }
+      
+      // Fiyat bilgilerini log'la
+      for (final plan in dynamicPlans) {
+        debugPrint('💰 Plan: ${plan['title']} - Fiyat: ${plan['price']}');
+      }
+      
+    } catch (e) {
+      debugPrint('❌ Dinamik plan yükleme hatası: $e');
+      
+      // Hata durumunda boş liste bırak (fiyatlar yüklenemedi mesajı gösterilecek)
+      if (mounted) {
+        setState(() {
+          _planlar = [];
+        });
+      }
+      
+      debugPrint('⚠️ Fiyatlar yüklenemedi');
     }
   }
 
@@ -628,6 +641,94 @@ class _PremiumViewState extends State<PremiumView> {
 
   // Fallback planları göster (Play Store'dan yüklenemezse)
   Widget _buildFallbackPlans() {
+    // Eğer planlar henüz yüklenmediyse veya yüklenemedi ise hata mesajı göster
+    if (_planlar.isEmpty) {
+      // Content loading durumunda loading göster, değilse hata mesajı göster
+      if (_isContentLoading) {
+        return SizedBox(
+          height: 200,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  Platform.isIOS ? 'App Store\'dan fiyatlar yükleniyor...' : 'Play Store\'dan fiyatlar yükleniyor...',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        // Fiyatlar yüklenemedi mesajı göster
+        return SizedBox(
+          height: 200,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 48,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Fiyatlar Yüklenemedi',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  Platform.isIOS 
+                    ? 'App Store bağlantısı kurulamadı.\nLütfen internet bağlantınızı kontrol edin.'
+                    : 'Play Store bağlantısı kurulamadı.\nLütfen internet bağlantınızı kontrol edin.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // Planları tekrar yüklemeyi dene
+                    setState(() {
+                      _isContentLoading = true;
+                    });
+                    _initializeInAppPurchase();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF9D3FFF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Tekrar Dene',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+    
     return SizedBox(
       height: 200,
       child: ListView.builder(
@@ -781,11 +882,10 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Future<void> _satinAl() async {
-    if (_premiumService.urunler.isEmpty) {
-      // Fallback durum: Store ürünleri yüklenemedi
+    if (_planlar.isEmpty || _selectedPlanIndex >= _planlar.length) {
       final String storeName = Platform.isIOS ? 'App Store' : 'Google Play Store';
       _premiumService.toastMesajGoster(
-        '$storeName\'dan fiyatlar yüklenemedi. Lütfen uygulamayı yeniden başlatın.',
+        'Fiyatlar yüklenemedi. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
         false,
       );
       return;
@@ -796,10 +896,27 @@ class _PremiumViewState extends State<PremiumView> {
     });
 
     try {
-      final product = _premiumService.urunler[_selectedPlanIndex];
-      await _premiumService.satinAlmaBaslat(product);
+      final selectedPlan = _planlar[_selectedPlanIndex];
+      final ProductDetails? productDetails = selectedPlan['productDetails'] as ProductDetails?;
+      
+      if (productDetails != null) {
+        // Dinamik plan - App Store/Play Store'dan alınan ürün
+        debugPrint('💰 Dinamik plan satın alınıyor: ${productDetails.title} - ${productDetails.price}');
+        await _premiumService.satinAlmaBaslat(productDetails);
+      } else {
+        // Statik plan - fallback durumu
+        final String planTitle = selectedPlan['title'] as String;
+        final ProductDetails? fallbackProduct = _premiumService.getProductDetails(planTitle);
+        
+        if (fallbackProduct != null) {
+          debugPrint('⚠️ Statik plandan ProductDetails bulundu: ${fallbackProduct.title}');
+          await _premiumService.satinAlmaBaslat(fallbackProduct);
+        } else {
+          throw Exception('Seçilen plan için ürün bilgisi bulunamadı: $planTitle');
+        }
+      }
     } catch (e) {
-      debugPrint('Satın alma hatası: $e');
+      debugPrint('❌ Satın alma hatası: $e');
       _premiumService.toastMesajGoster('Satın alma başlatılamadı: $e', false);
       setState(() {
         _isLoading = false;
