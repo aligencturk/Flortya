@@ -73,6 +73,8 @@
 	<string>Uygulama, mesaj analizi sonuçlarını fotoğraf olarak kaydetmek için fotoğraf kütüphanesine ekleme erişimi gerektirir.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ses kayıtları yapabilmek için izin gerekiyor</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Önemli güncellemeler, analiz sonuçları ve kişisel önerilerinizi size bildirebilmek için izin gerekiyor.</string>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>

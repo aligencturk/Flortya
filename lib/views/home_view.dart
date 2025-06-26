@@ -25,6 +25,7 @@ import '../services/event_bus_service.dart';
 import '../controllers/remote_config_controller.dart';
 import '../services/version_update_service.dart';
 import '../services/campaign_service.dart';
+import '../services/permission_service.dart';
 import 'dart:async';
 
 // String için extension - capitalizeFirst metodu
@@ -236,6 +237,9 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       // Ana UI gösterildiğinde hafif işlemleri yap
       _loadInitialUIData();
       
+      // iOS izin kontrolünü başlat (UI yüklendikten hemen sonra)
+      _requestPermissions();
+      
       // Ağır işlemleri arka planda ve kademeli olarak gerçekleştir
       _loadHeavyDataInBackground();
       
@@ -326,6 +330,27 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       debugPrint('Kampanya kontrolü tamamlandı');
     } catch (e) {
       debugPrint('HomeView kampanya kontrolü hatası: $e');
+    }
+  }
+
+  // iOS izin kontrolünü başlat
+  Future<void> _requestPermissions() async {
+    try {
+      // Kısa bir bekleme süresi ekle, böylece UI tamamen yüklenir
+      await Future.delayed(const Duration(milliseconds: 1500));
+      
+      if (!mounted) return;
+      
+      final permissionService = PermissionService();
+      final result = await permissionService.checkAndRequestPermissions(context);
+      
+      if (result) {
+        debugPrint('Tüm izinler başarıyla verildi');
+      } else {
+        debugPrint('Bazı izinler verilmedi, uygulama sınırlı işlevlerle çalışacak');
+      }
+    } catch (e) {
+      debugPrint('HomeView izin kontrolü hatası: $e');
     }
   }
   

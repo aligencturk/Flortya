@@ -33,6 +33,7 @@ import 'services/version_update_service.dart';
 import 'services/campaign_service.dart';
 import 'controllers/remote_config_controller.dart';
 import 'controllers/message_coach_controller.dart';
+import 'services/permission_service.dart';
 
 // Global bayraklar servislerin durumunu takip etmek için
 bool _isFirebaseInitialized = false;
