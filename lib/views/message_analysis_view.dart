@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import '../utils/utils.dart';
 import '../services/ai_service.dart';
 import '../models/message.dart';
@@ -61,6 +62,10 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
   bool _isImageAnalysis = false; // Görsel analizi mi yapılıyor?
   bool _hideUploadSection = false; // Upload section'ı gizleme kontrolü
   final TextEditingController _textEditingController = TextEditingController(); // Metin analizi için kontrolcü
+  
+  // Paylaşım dinleyicileri
+  late StreamSubscription _intentDataStreamSubscription;
+  late StreamSubscription _intentFileDataStreamSubscription;
   
   // Animasyon kontrolcüleri
   late AnimationController _uploadAnimationController;
@@ -122,6 +127,9 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
       });
     }
     
+    // Paylaşım dinleyicilerini başlat
+    _initSharingListeners();
+    
     // Bir kez çağırma garantisi
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -141,6 +149,8 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
   void dispose() {
     _uploadAnimationController.dispose();
     _textEditingController.dispose();
+    _intentDataStreamSubscription.cancel();
+    _intentFileDataStreamSubscription.cancel();
     super.dispose();
   }
 
@@ -223,6 +233,299 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
       debugPrint('Ana sayfa güncellenirken hata: $e');
     }
   }
+
+  // Paylaşım dinleyicilerini başlat
+  void _initSharingListeners() {
+    // Uygulama açıkken paylaşım gelirse (Warm state)
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> sharedFiles) {
+        debugPrint('Paylaşım alındı (warm state): ${sharedFiles.length} öğe');
+        if (sharedFiles.isNotEmpty) {
+          _handleSharedFiles(sharedFiles);
+        }
+      },
+      onError: (err) {
+        debugPrint('Paylaşım dinleyici hatası: $err');
+      }
+    );
+
+    // İkinci dinleyici için boş subscription oluştur
+    _intentFileDataStreamSubscription = Stream<void>.empty().listen((_) {});
+
+    // Uygulama kapalıyken paylaşım gelirse (Cold state)
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> sharedFiles) {
+      if (sharedFiles.isNotEmpty) {
+        debugPrint('Paylaşım alındı (cold state): ${sharedFiles.length} öğe');
+        _handleSharedFiles(sharedFiles);
+        
+        // İşlem tamamlandığını belirt
+        ReceiveSharingIntent.instance.reset();
+      }
+    });
+  }
+
+  // Paylaşılan dosyaları işle
+  Future<void> _handleSharedFiles(List<SharedMediaFile> sharedFiles) async {
+    if (!mounted || sharedFiles.isEmpty) return;
+    
+    for (SharedMediaFile file in sharedFiles) {
+      // Text dosyası mı kontrol et
+      if (file.path.endsWith('.txt') || file.type == SharedMediaType.file) {
+        await _handleSharedFile(file.path);
+        break; // İlk text dosyasını işle
+      }
+      // Eğer text mesajı ise
+      else if (file.type == SharedMediaType.text && file.path.isNotEmpty) {
+        await _handleSharedText(file.path); // path'da text içeriği bulunur
+        break;
+      }
+    }
+  }
+
+  // Paylaşılan text'i işle
+  Future<void> _handleSharedText(String sharedText) async {
+    if (!mounted) return;
+    
+    try {
+      // Kullanıcı giriş kontrolü
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      if (authViewModel.user == null) {
+        Utils.showErrorFeedback(context, 'Analiz için lütfen giriş yapın');
+        return;
+      }
+
+      // Premium kontrolü
+      final bool isPremium = authViewModel.user!.actualIsPremium;
+      final premiumService = PremiumService();
+      
+      if (!isPremium) {
+        final int count = await premiumService.getTxtAnalysisUsedCount();
+        if (count >= 3) {
+          showPremiumInfoDialog(context, PremiumFeature.TXT_ANALYSIS);
+          return;
+        }
+      }
+
+      // WhatsApp export formatını kontrol et
+      if (!_isWhatsAppExport(sharedText)) {
+        Utils.showErrorFeedback(
+          context, 
+          'Bu WhatsApp sohbet dışa aktarımı gibi görünmüyor. Lütfen WhatsApp\'tan "Sohbeti Dışa Aktar" özelliğini kullanın.'
+        );
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+        _isImageAnalysis = false;
+      });
+
+      // Katılımcıları çıkar
+      final participants = _extractParticipantsFromText(sharedText);
+      
+      // Kişi seçim dialog'unu göster
+      final String? selectedParticipant = await _showParticipantSelectionDialog(
+        participants, 
+        'WhatsApp Sohbeti', 
+        '${(sharedText.length / 1024).toStringAsFixed(1)} KB',
+        sharedText.split('\n').where((line) => line.trim().isNotEmpty).length
+      );
+      
+      if (selectedParticipant == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Analizi başlat
+      await _processSharedContent(sharedText, selectedParticipant, participants);
+
+      // Premium olmayan kullanıcı için sayaç artır
+      if (!isPremium) {
+        await premiumService.incrementTxtAnalysisUsedCount();
+        final int newCount = await premiumService.getTxtAnalysisUsedCount();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$newCount. WhatsApp analizinizi yaptınız. Toplamda 3 hakkınız var.'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        debugPrint('Paylaşılan text işleme hatası: $e');
+        Utils.showErrorFeedback(context, 'Paylaşım işlenirken hata oluştu: $e');
+      }
+    }
+  }
+
+  // Paylaşılan dosyayı işle
+  Future<void> _handleSharedFile(String filePath) async {
+    if (!mounted) return;
+    
+    try {
+      // Dosyayı oku
+      final File file = File(filePath);
+      final String fileContent = await file.readAsString();
+      
+      // Text olarak işle
+      await _handleSharedText(fileContent);
+    } catch (e) {
+      debugPrint('Paylaşılan dosya işleme hatası: $e');
+      if (mounted) {
+        Utils.showErrorFeedback(context, 'Dosya okunamadı: $e');
+      }
+    }
+  }
+
+  // WhatsApp export formatını kontrol et
+  bool _isWhatsAppExport(String content) {
+    if (content.isEmpty) return false;
+    
+    // WhatsApp export kalıplarını kontrol et
+    final List<RegExp> whatsappPatterns = [
+      // [25/12/2023, 14:30:45] format
+      RegExp(r'\[\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4},\s*\d{1,2}:\d{2}(?::\d{2})?\]'),
+      // 25/12/2023, 14:30 - format
+      RegExp(r'\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?\s*[-–]'),
+    ];
+    
+    for (RegExp pattern in whatsappPatterns) {
+      if (pattern.hasMatch(content)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  // Paylaşılan içeriği işle (dosya seçimi kısmının aynısı)
+  Future<void> _processSharedContent(String content, String selectedParticipant, List<String> participants) async {
+    try {
+      // Seçilen katılımcıya göre mesajları filtrele
+      final filterResult = _filterMessagesByParticipantWithOther(content, selectedParticipant, participants);
+      String filteredContent = filterResult['filteredContent']!;
+      String otherParticipant = filterResult['otherParticipant']!;
+      
+      // Silinen mesajları ve medya içeriklerini temizle
+      filteredContent = _temizleSilinenVeMedyaMesajlari(filteredContent);
+      
+      // Hassas bilgileri sansürle
+      filteredContent = _sansurleHassasBilgiler(filteredContent);
+      
+      // ViewModeli al
+      final viewModel = Provider.of<MessageViewModel>(context, listen: false);
+      
+      // Önceki analiz işlemlerini sıfırla
+      viewModel.resetCurrentAnalysis();
+      
+      // Mesaj içeriğini AI için hazırla
+      String aiPromptContent;
+      if (selectedParticipant == 'Tüm Katılımcılar') {
+        aiPromptContent = "---- WhatsApp Sohbet Analizi ----\n"
+            "Bu bir WhatsApp sohbet dışa aktarımıdır. Tüm katılımcıların mesajları dahil edilmiştir.\n"
+            "Lütfen bu sohbeti genel olarak analiz edin.\n\n"
+            "$filteredContent\n"
+            "---- Sohbet Sonu ----";
+      } else {
+        String conversationContext = otherParticipant.isNotEmpty 
+            ? "$selectedParticipant'in $otherParticipant ile olan sohbeti"
+            : "$selectedParticipant'in sohbeti";
+            
+        aiPromptContent = "---- WhatsApp Sohbet Analizi ----\n"
+            "Bu bir WhatsApp sohbet dışa aktarımıdır. Sadece '$selectedParticipant' kişisinin mesajları dahil edilmiştir.\n"
+            "Bu $conversationContext analiz ediliyor.\n"
+            "Lütfen bu analizi '$selectedParticipant' kişisinin bakış açısından yapın.\n"
+            "Analiz sonuçlarında '$selectedParticipant' kişisinin mesajlaşma tarzı, duygu durumu ve iletişim yaklaşımına odaklanın.\n";
+            
+        if (otherParticipant.isNotEmpty) {
+          aiPromptContent += "Karşısındaki kişi: $otherParticipant\n";
+        }
+        
+        aiPromptContent += "\n$filteredContent\n---- Sohbet Sonu ----";
+      }
+      
+      filteredContent = aiPromptContent;
+      
+      // Normal mesaj analizi
+      final bool normalAnalysisResult = await viewModel.analyzeMessage(filteredContent);
+      
+      if (!normalAnalysisResult) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          Utils.showErrorFeedback(context, 'Analiz yapılırken hata oluştu');
+        }
+        return;
+      }
+      
+      // Wrapped analizi için tüm içeriği kullan
+      String wrappedContent = content;
+      
+      // Wrapped analizi için temizlik
+      wrappedContent = _temizleSilinenVeMedyaMesajlari(wrappedContent);
+      wrappedContent = _sansurleHassasBilgiler(wrappedContent);
+      
+      // Wrapped analizi yap
+      final AiService aiService = AiService();
+      final List<Map<String, String>> wrappedData = await aiService.wrappedAnaliziYap(
+        wrappedContent,
+        secilenKisi: selectedParticipant,
+        karsiKisi: otherParticipant,
+      );
+     
+      if (wrappedData.isNotEmpty) {
+        await _cacheSummaryData(wrappedContent, wrappedData);
+        debugPrint('Wrapped analizi tamamlandı ve önbelleğe kaydedildi: ${wrappedData.length} kart');
+      }
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _showDetailedAnalysisResult = normalAnalysisResult;
+        });
+        
+        // Upload section görünürlüğünü güncelle
+        _updateUploadSectionVisibility();
+        
+        final String successMessage = selectedParticipant == 'Tüm Katılımcılar' 
+            ? 'WhatsApp sohbeti başarıyla analiz edildi!'
+            : '"$selectedParticipant" kişisinin WhatsApp mesajları başarıyla analiz edildi!';
+        Utils.showSuccessFeedback(context, successMessage);
+        
+        // Ana sayfayı güncelle
+        Future.delayed(const Duration(milliseconds: 500)).then((_) {
+          if (mounted) {
+            try {
+              final homeController = Provider.of<HomeController>(context, listen: false);
+              homeController.anaSayfayiGuncelle();
+            } catch (e) {
+              debugPrint('Ana sayfa güncellenirken hata: $e');
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        debugPrint('Paylaşılan içerik işleme hatası: $e');
+        Utils.showErrorFeedback(context, 'Analiz sırasında hata oluştu: $e');
+      }
+    }
+  }
+
+
 
   // Mesajları yükle
   Future<void> _loadMessages() async {
@@ -598,34 +901,34 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                       
                       const SizedBox(height: 16),
                       
-                      // Bilgi notu
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: Row(
-                          children: [
-                            const Text(
-                              "ℹ️",
-                              style: TextStyle(fontSize: 16),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                "Bir ekran görüntüsü yükleyerek veya .txt dosyası seçerek mesajlarınızı analiz edebilirsiniz.",
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
+                                    // Bilgi notu
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      "ℹ️",
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Görsel analizi için ekran görüntüsü yükleyin. WhatsApp analizi için sohbeti dışa aktarıp Flörtya'ya paylaşın.",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
                       
                       const SizedBox(height: 20),
                       
@@ -828,11 +1131,11 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                   const SizedBox(width: 16),
                   Expanded(
                     child: _buildUploadCard(
-                      title: 'Metin Yükle',
-                      subtitle: '.txt dosyası yükle',
-                      icon: Icons.description_outlined,
+                      title: 'WhatsApp Analizi',
+                      subtitle: 'Sohbet dışa aktarımı',
+                      icon: Icons.chat_outlined,
                       onTap: featureAccess[PremiumFeature.TXT_ANALYSIS]!
-                         ? _dosyadanAnaliz
+                         ? () => _showWhatsAppInstructionsDialog()
                          : () => showPremiumInfoDialog(context, PremiumFeature.TXT_ANALYSIS),
                       isLocked: !featureAccess[PremiumFeature.TXT_ANALYSIS]!,
                     ),
@@ -3058,6 +3361,203 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
       debugPrint('Önbellek kontrolü sırasında hata: $e');
       return false;
     }
+  }
+
+  // WhatsApp paylaşım talimatları dialog'unu göster
+  void _showWhatsAppInstructionsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF352269),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.chat,
+                color: const Color(0xFF25D366), // WhatsApp yeşili
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'WhatsApp Sohbet Analizi',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'WhatsApp sohbetinizi analiz etmek için aşağıdaki adımları takip edin:',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Adım 1
+                _buildInstructionStep(
+                  stepNumber: '1',
+                  title: 'WhatsApp\'ı Açın',
+                  description: 'Analiz etmek istediğiniz sohbeti açın',
+                ),
+                
+                // Adım 2
+                _buildInstructionStep(
+                  stepNumber: '2',
+                  title: 'Sohbeti Dışa Aktar',
+                  description: 'Sohbet sayfasında sağ üstteki 3 nokta (...) menüsüne tıklayın',
+                ),
+                
+                // Adım 3
+                _buildInstructionStep(
+                  stepNumber: '3',
+                  title: 'Daha Fazla Seçenekler',
+                  description: '"Daha fazla" → "Sohbeti dışa aktar" seçeneğini seçin',
+                ),
+                
+                // Adım 4
+                _buildInstructionStep(
+                  stepNumber: '4',
+                  title: 'Medya Dahil Etme',
+                  description: '"Medyayı dahil etme" seçeneğini seçin (daha temiz analiz için)',
+                ),
+                
+                // Adım 5
+                _buildInstructionStep(
+                  stepNumber: '5',
+                  title: 'Flörtya\'yı Seçin',
+                  description: 'Paylaşım ekranından "Flörtya" uygulamasını seçin',
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Uyarı kutusu
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Şimdilik dosya seçme sistemi aktif. WhatsApp paylaşımı yakında eklenecek.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Anladım',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // Şimdilik dosya seçiciyi aç
+                _dosyadanAnaliz();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366),
+                foregroundColor: Colors.white,
+              ),
+              child: Text('Dosya Seç'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Talimat adımı widget'ı
+  Widget _buildInstructionStep({
+    required String stepNumber,
+    required String title,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xFF25D366),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                stepNumber,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Premium özelliği için bilgilendirme dialog'unu göster

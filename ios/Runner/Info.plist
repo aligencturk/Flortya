@@ -130,5 +130,21 @@
 				</dict>
 			</dict>
 		</array>
+		<key>CFBundleDocumentTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleTypeName</key>
+				<string>Text files</string>
+				<key>LSItemContentTypes</key>
+				<array>
+					<string>public.plain-text</string>
+					<string>public.text</string>
+				</array>
+				<key>LSHandlerRank</key>
+				<string>Alternative</string>
+			</dict>
+		</array>
 	</dict>
 </plist>
