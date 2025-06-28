@@ -379,6 +379,70 @@ class AuthService {
     }
   }
 
+  // Kullanıcının giriş tipini kontrol et
+  bool isEmailPasswordUser() {
+    if (currentUser == null) return false;
+    
+    // Firebase Auth providerData'sını kontrol et
+    for (var provider in currentUser!.providerData) {
+      if (provider.providerId == 'password') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Kullanıcının şifre değiştirip değiştiremeyeceğini kontrol et
+  bool canChangePassword() {
+    return isEmailPasswordUser();
+  }
+
+  // Şifre değiştirme
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (currentUser == null || !canChangePassword()) {
+      _logger.e('Şifre değiştirme hatası: Kullanıcı oturum açmamış veya e-posta/şifre kullanıcısı değil');
+      return false;
+    }
+
+    try {
+      _logger.i('Şifre değiştirme işlemi başlatılıyor');
+      
+      // Mevcut şifreyi doğrula - kullanıcıyı tekrar authenticate et
+      final credential = EmailAuthProvider.credential(
+        email: currentUser!.email!,
+        password: currentPassword,
+      );
+      
+      await currentUser!.reauthenticateWithCredential(credential);
+      _logger.i('Mevcut şifre doğrulandı');
+      
+      // Yeni şifreyi ayarla
+      await currentUser!.updatePassword(newPassword);
+      _logger.i('Şifre başarıyla değiştirildi');
+      
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _logger.e('Firebase şifre değiştirme hatası: ${e.code} - ${e.message}');
+      
+      switch (e.code) {
+        case 'wrong-password':
+          throw Exception('Mevcut şifre yanlış.');
+        case 'weak-password':
+          throw Exception('Yeni şifre çok zayıf. En az 6 karakter olmalıdır.');
+        case 'requires-recent-login':
+          throw Exception('Güvenlik nedeniyle tekrar giriş yapmanız gerekiyor.');
+        default:
+          throw Exception('Şifre değiştirme hatası: ${e.message}');
+      }
+    } catch (e) {
+      _logger.e('Beklenmeyen şifre değiştirme hatası: $e');
+      throw Exception('Şifre değiştirirken bir hata oluştu.');
+    }
+  }
+
   // Kullanıcı adını güncelle
   Future<bool> updateDisplayName(String displayName) async {
     if (currentUser == null) return false;

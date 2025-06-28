@@ -40,8 +40,7 @@ class _PremiumViewState extends State<PremiumView> {
     'Yanıt senaryoları',
   ];
 
-  // Abonelik planları - App Store/Play Store'dan dinamik olarak gelecek
-  List<Map<String, dynamic>> _planlar = [];
+
 
   @override
   void initState() {
@@ -197,37 +196,10 @@ class _PremiumViewState extends State<PremiumView> {
     }
   }
 
-  // Dinamik planları yükle (App Store/Play Store'dan)
+  // Dinamik planları yükle (App Store/Play Store'dan) - Artık kullanılmıyor
   void _loadDynamicPlans() {
-    try {
-      // Premium service'ten dinamik planları al
-      final dynamicPlans = _premiumService.getDynamicPlanlar();
-      
-      debugPrint('🔄 ${dynamicPlans.length} dinamik plan yüklendi');
-      
-      if (mounted) {
-        setState(() {
-          _planlar = dynamicPlans;
-        });
-      }
-      
-      // Fiyat bilgilerini log'la
-      for (final plan in dynamicPlans) {
-        debugPrint('💰 Plan: ${plan['title']} - Fiyat: ${plan['price']}');
-      }
-      
-    } catch (e) {
-      debugPrint('❌ Dinamik plan yükleme hatası: $e');
-      
-      // Hata durumunda boş liste bırak (fiyatlar yüklenemedi mesajı gösterilecek)
-      if (mounted) {
-        setState(() {
-          _planlar = [];
-        });
-      }
-      
-      debugPrint('⚠️ Fiyatlar yüklenemedi');
-    }
+    // Bu fonksiyon artık gerekmiyor - sadece Play Store ürünlerini kullanıyoruz
+    debugPrint('🔄 Dinamik planlar artık Play Store\'dan otomatik yükleniyor');
   }
 
   @override
@@ -391,132 +363,297 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildSubscriptionPlans() {
-    // Google Play Store'dan gelen ürünleri göster (fiyatlar Play Store'dan alınır)
+    // Sadece Google Play Store'dan dinamik veri kullan
     if (_premiumService.urunler.isEmpty) {
-      // Eğer loading değilse ve ürünler hala boşsa, varsayılan planları göster
-      if (!_isContentLoading) {
-        return _buildFallbackPlans();
-      }
-      
-      return Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A2436),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Color(0xFF9D3FFF)),
-              SizedBox(height: 16),
-              Text(
-                'Google Play Store fiyatları yükleniyor...',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ],
+      if (_isContentLoading) {
+        // Loading durumu
+        return Container(
+          height: 300,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2436),
+            borderRadius: BorderRadius.circular(16),
           ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 200,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _premiumService.urunler.length,
-        itemBuilder: (context, index) {
-          final product = _premiumService.urunler[index];
-          final bool isSelected = index == _selectedPlanIndex;
-          final bool isPopular = _premiumService.enPopulerPlanMi(product.id);
-          
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedPlanIndex = index;
-              });
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF352269) : const Color(0xFF1A2436),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF9D3FFF) : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _premiumService.planAdiCevir(product.id),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        product.price,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _premiumService.planAciklamasiAl(product.id),
-                        style: TextStyle(
-                          color: isSelected ? const Color(0xFF9D3FFF) : Colors.white30,
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
+                CircularProgressIndicator(color: Color(0xFF9D3FFF)),
+                SizedBox(height: 16),
+                Text(
+                  'Google Play Store\'dan planlar yükleniyor...',
+                  style: TextStyle(color: Colors.white70),
                 ),
-                
-                // "En Popüler" etiketi
-                if (isPopular)
-                  Positioned(
-                    bottom: 5,
-                    left: 0,
-                    right: 16,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF9D3FFF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'En Popüler',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
-          );
-        },
+          ),
+        );
+      } else {
+        // Hata durumu - Play Store'dan veri gelmiyor
+        return Container(
+          height: 300,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2436),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Planlar Yüklenemedi',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Google Play Store bağlantısı kurulamadı.\nLütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isContentLoading = true;
+                    });
+                    _initializeInAppPurchase();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9D3FFF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tekrar Dene',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    // Tek plan göster + kaydırma butonları
+    return Column(
+      children: [
+        // Seçili planı göster
+        GestureDetector(
+          onPanEnd: (details) {
+            // Sağa kaydırma (önceki plan) - minimum 50px hareket gerekli
+            if (details.velocity.pixelsPerSecond.dx > 200 && _selectedPlanIndex > 0) {
+              setState(() {
+                _selectedPlanIndex--;
+              });
+            }
+            // Sola kaydırma (sonraki plan) - minimum 50px hareket gerekli
+            else if (details.velocity.pixelsPerSecond.dx < -200 && _selectedPlanIndex < _premiumService.urunler.length - 1) {
+              setState(() {
+                _selectedPlanIndex++;
+              });
+            }
+          },
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _buildSinglePlan(
+              key: ValueKey(_selectedPlanIndex),
+              product: _premiumService.urunler[_selectedPlanIndex],
+              isPopular: _premiumService.enPopulerPlanMi(_premiumService.urunler[_selectedPlanIndex].id),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Plan navigasyon butonları
+        _buildPlanNavigationButtons(_premiumService.urunler.length),
+      ],
+    );
+  }
+
+  Widget _buildSinglePlan({
+    required Key key,
+    required dynamic product,
+    required bool isPopular,
+  }) {
+    return Container(
+      key: key,
+      width: double.infinity,
+      height: 220,
+      decoration: BoxDecoration(
+        color: const Color(0xFF352269),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF9D3FFF),
+          width: 2,
+        ),
       ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: isPopular ? 36 : 20,
+        bottom: 20,
+      ),
+      child: Stack(
+        children: [
+          // Ana içerik - tam ortalanmış
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _premiumService.planAdiCevir(product.id),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  product.price,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _premiumService.planAciklamasiAl(product.id),
+                  style: const TextStyle(
+                    color: Color(0xFF9D3FFF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          
+          // "En Popüler" etiketi - sol üst köşe
+          if (isPopular)
+            Positioned(
+              top: 1,
+              left: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9D3FFF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'En Popüler',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanNavigationButtons(int totalPlans) {
+    if (totalPlans <= 1) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Önceki plan butonu
+        IconButton(
+          onPressed: _selectedPlanIndex > 0
+              ? () {
+                  setState(() {
+                    _selectedPlanIndex--;
+                  });
+                }
+              : null,
+          style: IconButton.styleFrom(
+            backgroundColor: _selectedPlanIndex > 0 
+                ? const Color(0xFF1A2436) 
+                : Colors.grey.withOpacity(0.3),
+            padding: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: Icon(
+            Icons.chevron_left,
+            color: _selectedPlanIndex > 0 ? Colors.white : Colors.grey,
+            size: 24,
+          ),
+        ),
+
+        // Plan göstergesi (dots)
+        Row(
+          children: List.generate(
+            totalPlans,
+            (index) => Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: index == _selectedPlanIndex 
+                    ? const Color(0xFF9D3FFF) 
+                    : Colors.white30,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ),
+
+        // Sonraki plan butonu
+        IconButton(
+          onPressed: _selectedPlanIndex < totalPlans - 1
+              ? () {
+                  setState(() {
+                    _selectedPlanIndex++;
+                  });
+                }
+              : null,
+          style: IconButton.styleFrom(
+            backgroundColor: _selectedPlanIndex < totalPlans - 1 
+                ? const Color(0xFF1A2436) 
+                : Colors.grey.withOpacity(0.3),
+            padding: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: Icon(
+            Icons.chevron_right,
+            color: _selectedPlanIndex < totalPlans - 1 ? Colors.white : Colors.grey,
+            size: 24,
+          ),
+        ),
+      ],
     );
   }
 
@@ -557,8 +694,8 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Widget _buildPurchaseButton() {
-    // Play Store ürünleri yoksa fallback buton göster
-    bool canPurchase = _premiumService.urunler.isNotEmpty || (!_isContentLoading && _premiumService.urunler.isEmpty);
+    // Sadece Play Store ürünleri kullan
+    bool canPurchase = _premiumService.urunler.isNotEmpty;
     
     return ElevatedButton(
       onPressed: _isLoading || !canPurchase
@@ -581,9 +718,9 @@ class _PremiumViewState extends State<PremiumView> {
                 strokeWidth: 3,
               ),
             )
-          : _premiumService.urunler.isEmpty
+          : !canPurchase
               ? const Text(
-                  'Planlar yükleniyor...',
+                  'Google Play Store\'dan planlar yükleniyor...',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -639,206 +776,6 @@ class _PremiumViewState extends State<PremiumView> {
     );
   }
 
-  // Fallback planları göster (Play Store'dan yüklenemezse)
-  Widget _buildFallbackPlans() {
-    // Eğer planlar henüz yüklenmediyse veya yüklenemedi ise hata mesajı göster
-    if (_planlar.isEmpty) {
-      // Content loading durumunda loading göster, değilse hata mesajı göster
-      if (_isContentLoading) {
-        return SizedBox(
-          height: 200,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9D3FFF)),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  Platform.isIOS ? 'App Store\'dan fiyatlar yükleniyor...' : 'Play Store\'dan fiyatlar yükleniyor...',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        // Fiyatlar yüklenemedi mesajı göster
-        return SizedBox(
-          height: 200,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 48,
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Fiyatlar Yüklenemedi',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  Platform.isIOS 
-                    ? 'App Store bağlantısı kurulamadı.\nLütfen internet bağlantınızı kontrol edin.'
-                    : 'Play Store bağlantısı kurulamadı.\nLütfen internet bağlantınızı kontrol edin.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    // Planları tekrar yüklemeyi dene
-                    setState(() {
-                      _isContentLoading = true;
-                    });
-                    _initializeInAppPurchase();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF9D3FFF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Tekrar Dene',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-    }
-    
-    return SizedBox(
-      height: 200,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _planlar.length,
-        itemBuilder: (context, index) {
-          final plan = _planlar[index];
-          final bool isSelected = index == _selectedPlanIndex;
-          final bool isPopular = plan['mostPopular'] as bool;
-          
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedPlanIndex = index;
-              });
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF352269) : const Color(0xFF1A2436),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF9D3FFF) : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        plan['title'] as String,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        plan['price'] as String,
-                        style: TextStyle(
-                          color: isSelected ? const Color(0xFF9D3FFF) : Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'per ${plan["period"]}',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (plan['discountInfo'] != null && (plan['discountInfo'] as String).isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF9D3FFF).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            plan['discountInfo'] as String,
-                            style: const TextStyle(
-                              color: Color(0xFF9D3FFF),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (isPopular)
-                  Positioned(
-                    top: -8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF9D3FFF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'En Popüler',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildTermsAndPrivacyLinks() {
     return Center(
       child: Wrap(
@@ -882,39 +819,24 @@ class _PremiumViewState extends State<PremiumView> {
   }
 
   Future<void> _satinAl() async {
-    if (_planlar.isEmpty || _selectedPlanIndex >= _planlar.length) {
-      final String storeName = Platform.isIOS ? 'App Store' : 'Google Play Store';
-      _premiumService.toastMesajGoster(
-        'Fiyatlar yüklenemedi. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
-        false,
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final selectedPlan = _planlar[_selectedPlanIndex];
-      final ProductDetails? productDetails = selectedPlan['productDetails'] as ProductDetails?;
-      
-      if (productDetails != null) {
-        // Dinamik plan - App Store/Play Store'dan alınan ürün
-        debugPrint('💰 Dinamik plan satın alınıyor: ${productDetails.title} - ${productDetails.price}');
-        await _premiumService.satinAlmaBaslat(productDetails);
-      } else {
-        // Statik plan - fallback durumu
-        final String planTitle = selectedPlan['title'] as String;
-        final ProductDetails? fallbackProduct = _premiumService.getProductDetails(planTitle);
-        
-        if (fallbackProduct != null) {
-          debugPrint('⚠️ Statik plandan ProductDetails bulundu: ${fallbackProduct.title}');
-          await _premiumService.satinAlmaBaslat(fallbackProduct);
-        } else {
-          throw Exception('Seçilen plan için ürün bilgisi bulunamadı: $planTitle');
-        }
+      // Sadece Google Play Store ürünlerini kullan
+      if (_premiumService.urunler.isEmpty) {
+        throw Exception('Google Play Store ürünleri yüklenmedi. Lütfen sayfayı yenileyin.');
       }
+      
+      if (_selectedPlanIndex >= _premiumService.urunler.length) {
+        throw Exception('Geçersiz plan seçimi');
+      }
+      
+      final selectedProduct = _premiumService.urunler[_selectedPlanIndex];
+      debugPrint('💰 Google Play Store planı satın alınıyor: ${selectedProduct.title} - ${selectedProduct.price}');
+      await _premiumService.satinAlmaBaslat(selectedProduct);
+      
     } catch (e) {
       debugPrint('❌ Satın alma hatası: $e');
       _premiumService.toastMesajGoster('Satın alma başlatılamadı: $e', false);
