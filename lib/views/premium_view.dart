@@ -155,24 +155,54 @@ class _PremiumViewState extends State<PremiumView> {
           for (final PurchaseDetails purchase in purchaseDetailsList) {
             await _premiumService.satinAlmaTamamla(purchase);
             
-            // Eğer satın alma başarılıysa sayfayı yenile
-            if (purchase.status == PurchaseStatus.purchased && mounted) {
-              // AuthViewModel'i güncelle
-              final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
-              await authViewModel.refreshUserData();
-              
-              setState(() {
-                _isLoading = false;
-              });
-              
-              // Premium aktif olduğunda başarı mesajı göster ve anasayfaya yönlendir
-              await Future.delayed(const Duration(seconds: 1));
-              if (mounted) {
-                _premiumService.toastMesajGoster('Premium başarıyla aktif edildi! Artık tüm özelliklere erişebilirsiniz.', true);
-                await Future.delayed(const Duration(seconds: 2));
+            if (mounted) {
+              // Satın alma başarılı
+              if (purchase.status == PurchaseStatus.purchased) {
+                // AuthViewModel'i güncelle
+                final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);
+                await authViewModel.refreshUserData();
+                
+                setState(() {
+                  _isLoading = false;
+                });
+                
+                // Premium aktif olduğunda başarı mesajı göster ve anasayfaya yönlendir
+                await Future.delayed(const Duration(seconds: 1));
                 if (mounted) {
-                  context.go('/home');
+                  _premiumService.toastMesajGoster('Premium başarıyla aktif edildi! Artık tüm özelliklere erişebilirsiniz.', true);
+                  await Future.delayed(const Duration(seconds: 2));
+                  if (mounted) {
+                    context.go('/home');
+                  }
                 }
+              }
+              // Satın alma iptal edildi
+              else if (purchase.status == PurchaseStatus.canceled) {
+                debugPrint('🚫 Satın alma iptal edildi');
+                setState(() {
+                  _isLoading = false;
+                });
+                _premiumService.toastMesajGoster('Satın alma iptal edildi', false);
+              }
+              // Satın alma başarısız
+              else if (purchase.status == PurchaseStatus.error) {
+                debugPrint('❌ Satın alma başarısız: ${purchase.error}');
+                setState(() {
+                  _isLoading = false;
+                });
+                _premiumService.toastMesajGoster('Satın alma başarısız: ${purchase.error?.message ?? "Bilinmeyen hata"}', false);
+              }
+              // Satın alma pending durumunda (işlem devam ediyor)
+              else if (purchase.status == PurchaseStatus.pending) {
+                debugPrint('⏳ Satın alma işlemi devam ediyor...');
+                // Pending durumunda loading'i açık bırak
+              }
+              // Diğer durumlar (restored vb.)
+              else {
+                debugPrint('ℹ️ Satın alma durumu: ${purchase.status}');
+                setState(() {
+                  _isLoading = false;
+                });
               }
             }
           }
