@@ -1890,8 +1890,11 @@ class AppRouter {
   // Premium sayfası rotası
   static const String premium = '/premium';
 
+  // Static router instance - Global navigation için
+  static GoRouter? _router;
+  
   static GoRouter createRouter(AuthViewModel authViewModel) {
-    return GoRouter(
+    _router = GoRouter(
       initialLocation: onboarding,
       debugLogDiagnostics: true,
       refreshListenable: authViewModel,
@@ -2172,5 +2175,10 @@ class AppRouter {
         ),
       ),
     );
+    
+    return _router!;
   }
+  
+  // Global router instance'ına erişim
+  static GoRouter? get router => _router;
 } 

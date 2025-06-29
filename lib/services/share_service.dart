@@ -39,12 +39,41 @@ class ShareService {
     }
   }
   
+  // Intent dinleyicileri
+  static Function(Map<String, dynamic>)? _newIntentCallback;
+  static Function(Map<String, dynamic>)? _hotIntentCallback;
+  
   // Yeni intent geldiğinde dinlemek için
   static void setNewIntentListener(Function(Map<String, dynamic>) callback) {
+    _newIntentCallback = callback;
+    _setupMethodCallHandler();
+  }
+  
+  // Hot intent (uygulama açıkken gelen intent) dinleyicisi
+  static void setHotIntentListener(Function(Map<String, dynamic>) callback) {
+    _hotIntentCallback = callback;
+    _setupMethodCallHandler();
+  }
+  
+  // Tek method call handler ile tüm intent'leri yönet
+  static void _setupMethodCallHandler() {
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'onNewIntent') {
-        final data = Map<String, dynamic>.from(call.arguments ?? {});
-        callback(data);
+      final data = Map<String, dynamic>.from(call.arguments ?? {});
+      
+      print('🔔 ShareService: Method call received - ${call.method}');
+      print('🔔 ShareService: Data: $data');
+      
+      switch (call.method) {
+        case 'onNewIntent':
+          print('📱 ShareService: Calling new intent callback');
+          _newIntentCallback?.call(data);
+          break;
+        case 'onHotIntent':
+          print('🔥 ShareService: Calling HOT intent callback');
+          _hotIntentCallback?.call(data);
+          break;
+        default:
+          print('❓ ShareService: Unknown method call: ${call.method}');
       }
     });
   }

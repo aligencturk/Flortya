@@ -3,6 +3,7 @@ package com.rivorya.flortya
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.zip.ZipInputStream
@@ -11,13 +12,26 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.rivorya.flortya/share"
+    private val TAG = "FloryaMainActivity"
     private var pendingIntent: Intent? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        Log.d(TAG, "=== ACTIVITY LIFECYCLE ===")
+        Log.d(TAG, "onCreate called - App starting")
+        Log.d(TAG, "Intent action: ${intent?.action}")
+        Log.d(TAG, "Intent type: ${intent?.type}")
+        Log.d(TAG, "Intent data: ${intent?.data}")
+        Log.d(TAG, "Intent extras keys: ${intent?.extras?.keySet()}")
+        Log.d(TAG, "Task ID: $taskId")
+        Log.d(TAG, "Is finishing: $isFinishing")
+        Log.d(TAG, "savedInstanceState: ${savedInstanceState != null}")
+        Log.d(TAG, "=========================")
+        
         // Gelen intent'i sakla
         if (intent?.action == Intent.ACTION_SEND || intent?.action == Intent.ACTION_SEND_MULTIPLE) {
+            Log.d(TAG, "COLD START with share intent detected - saving as pending")
             pendingIntent = intent
         }
         
@@ -48,18 +62,63 @@ class MainActivity : FlutterActivity() {
         }
     }
     
+    override fun onStart() {
+        super.onStart()
+        Log.d(TAG, "onStart called")
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume called")
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "onPause called")
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        Log.d(TAG, "onStop called")
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy called - App ending")
+    }
+    
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        Log.d(TAG, "onNewIntent called - Action: ${intent.action}")
+        
+        val oldIntent = this.intent
         setIntent(intent)
         
-        // Eğer paylaşım intent'i ise pending olarak sakla
+        // Eğer paylaşım intent'i ise hot handling yap
         if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) {
-            pendingIntent = intent
-        }
-        
-        // Intent değiştiğinde Flutter'a bildir
-        flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-            MethodChannel(messenger, CHANNEL).invokeMethod("onNewIntent", getSharedData())
+            Log.d(TAG, "HOT INTENT detected - App was already running")
+            
+            // Uygulama arka planda açıkken yeni intent geldi
+            val tempIntent = this.intent
+            this.intent = intent
+            val hotSharedData = getSharedData()
+            this.intent = tempIntent // Restore original intent
+            
+            Log.d(TAG, "Hot shared data: $hotSharedData")
+            
+            // Flutter'a hot intent geldiğini bildir
+            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                Log.d(TAG, "Sending onHotIntent to Flutter")
+                MethodChannel(messenger, CHANNEL).invokeMethod("onHotIntent", hotSharedData)
+            } ?: run {
+                Log.e(TAG, "Flutter engine not available for hot intent")
+            }
+        } else {
+            Log.d(TAG, "Normal intent change - not a share intent")
+            // Normal intent değişikliği
+            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                MethodChannel(messenger, CHANNEL).invokeMethod("onNewIntent", getSharedData())
+            }
         }
     }
     
