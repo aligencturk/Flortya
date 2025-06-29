@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../utils/utils.dart';
 import '../services/ai_service.dart';
 import '../models/message.dart';
@@ -807,7 +808,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                         },
                       ),
                     ),
-                    // Butonları Wrap içine alarak taşmayı önlüyoruz
+                    // Info butonu
                     IconButton(
                       icon: const Icon(Icons.info_outline, color: Colors.white),
                       onPressed: () {
@@ -836,76 +837,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Başlık ve Danışma Butonu
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Analiz Et',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          FutureBuilder(
-                            future: _checkFeatureAccess(),
-                            builder: (context, AsyncSnapshot<Map<PremiumFeature, bool>> snapshot) {
-                              final featureAccess = snapshot.data ?? {
-                                PremiumFeature.CONSULTATION: false,
-                              };
-                              final bool canUseConsultation = featureAccess[PremiumFeature.CONSULTATION] ?? false;
-                              
-                              return Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      // Premium kontrolü - eğer premium değilse bilgilendirme göster
-                                      if (canUseConsultation) {
-                                        // Danışma sayfasına yönlendir
-                                        context.push('/consultation');
-                                      } else {
-                                        // Premium bilgilendirme diyaloğu göster
-                                        showPremiumInfoDialog(context, PremiumFeature.CONSULTATION);
-                                      }
-                                    },
-                                    icon: Icon(Icons.chat_outlined, size: 18),
-                                    label: Text('Danış'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF9D3FFF),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                  
-                                  // Premium değilse kilit simgesi göster
-                                  if (!canUseConsultation)
-                                    Positioned(
-                                      top: -5,
-                                      right: -5,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.lock,
-                                          color: Color(0xFF9D3FFF),
-                                          size: 12,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                                        // Başlık
+                  Text(
+                    'Analiz Et',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
                       
                       const SizedBox(height: 16),
                       
@@ -927,7 +867,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        "Görsel analizi için ekran görüntüsü yükleyin. WhatsApp analizi için sohbeti dışa aktarıp (.zip/.txt) Flörtya'ya paylaşın.",
+                        "Görsel analizi için ekran görüntüsü yükleyin. WhatsApp analizi için sohbeti WhatsApp'tan direkt Flörtya'ya paylaşın.",
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7),
                           fontSize: 12,
@@ -968,6 +908,51 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                                              AnimatedContainer(
                          duration: const Duration(milliseconds: 400),
                          height: _hideUploadSection ? 0 : 20,
+                         curve: Curves.easeInOutCubic,
+                       ),
+                       
+                       // WhatsApp analizi rehber butonu - Upload section gizli değilse göster
+                       if (!_hideUploadSection)
+                         Padding(
+                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                           child: SizedBox(
+                             width: double.infinity,
+                             child: ElevatedButton.icon(
+                               onPressed: _showWhatsAppInstructionsDialog,
+                               icon: Icon(
+                                 Icons.help_outline,
+                                 size: 20,
+                                 color: const Color(0xFF25D366),
+                               ),
+                               label: Text(
+                                 'WhatsApp Analizi Nasıl Yapılır?',
+                                 style: TextStyle(
+                                   color: const Color(0xFF25D366),
+                                   fontWeight: FontWeight.w600,
+                                   fontSize: 15,
+                                 ),
+                               ),
+                               style: ElevatedButton.styleFrom(
+                                 backgroundColor: Colors.transparent,
+                                 foregroundColor: const Color(0xFF25D366),
+                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                 shape: RoundedRectangleBorder(
+                                   borderRadius: BorderRadius.circular(12),
+                                   side: BorderSide(
+                                     color: const Color(0xFF25D366).withOpacity(0.5),
+                                     width: 1.5,
+                                   ),
+                                 ),
+                                 elevation: 0,
+                               ),
+                             ),
+                           ),
+                         ),
+                       
+                       // Upload section gizli değilse ekstra boşluk ekle
+                       AnimatedContainer(
+                         duration: const Duration(milliseconds: 400),
+                         height: _hideUploadSection ? 0 : 16,
                          curve: Curves.easeInOutCubic,
                        ),
                       
@@ -1126,6 +1111,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
               return Row(
                 children: [
                   Expanded(
+                    flex: 1,
                     child: _buildUploadCard(
                       title: 'Görsel Yükle',
                       subtitle: 'Ekran görüntüsü yükle',
@@ -1138,14 +1124,15 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                   ),
                   const SizedBox(width: 16),
                   Expanded(
+                    flex: 1,
                     child: _buildUploadCard(
-                      title: 'WhatsApp Analizi',
-                      subtitle: 'Sohbet dışa aktarımı',
-                      icon: Icons.chat_outlined,
-                      onTap: featureAccess[PremiumFeature.TXT_ANALYSIS]!
-                         ? () => _showWhatsAppInstructionsDialog()
-                         : () => showPremiumInfoDialog(context, PremiumFeature.TXT_ANALYSIS),
-                      isLocked: !featureAccess[PremiumFeature.TXT_ANALYSIS]!,
+                      title: 'Danış',
+                      subtitle: 'İlişki danışmanlığı',
+                      icon: Icons.psychology_outlined,
+                      onTap: featureAccess[PremiumFeature.CONSULTATION]!
+                         ? () => context.push('/consultation')
+                         : () => showPremiumInfoDialog(context, PremiumFeature.CONSULTATION),
+                      isLocked: !featureAccess[PremiumFeature.CONSULTATION]!,
                     ),
                   ),
                 ],
@@ -3391,7 +3378,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'WhatsApp Sohbet Analizi',
+                  'WhatsApp Analizi Rehberi',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -3406,6 +3393,38 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Güncellenen açıklama
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF25D366).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        color: const Color(0xFF25D366),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Artık WhatsApp sohbetlerinizi direkt olarak Flörtya\'ya paylaşabilir ve anında analiz ettirebilirsiniz!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
                 Text(
                   'WhatsApp sohbetinizi analiz etmek için aşağıdaki adımları takip edin:',
                   style: TextStyle(
@@ -3426,29 +3445,82 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                 // Adım 2
                 _buildInstructionStep(
                   stepNumber: '2',
-                  title: 'Sohbeti Dışa Aktar',
-                  description: 'Sohbet sayfasında sağ üstteki 3 nokta (...) menüsüne tıklayın',
+                  title: 'Sohbet Menüsü',
+                  description: 'Sohbet sayfasında sağ üstteki 3 nokta (...) menüsüne dokunun',
                 ),
                 
                 // Adım 3
                 _buildInstructionStep(
                   stepNumber: '3',
-                  title: 'Daha Fazla Seçenekler',
+                  title: 'Sohbeti Dışa Aktar',
                   description: '"Daha fazla" → "Sohbeti dışa aktar" seçeneğini seçin',
                 ),
                 
                 // Adım 4
                 _buildInstructionStep(
                   stepNumber: '4',
-                  title: 'Medya Dahil Etme',
-                  description: '"Medyayı dahil etme" seçeneğini seçin (daha temiz analiz için)',
+                  title: 'Medya Tercihi',
+                  description: '"Medyayı dahil etme" veya "Medyasız" seçeneğini belirleyin',
                 ),
                 
                 // Adım 5
                 _buildInstructionStep(
                   stepNumber: '5',
-                  title: 'Flörtya\'yı Seçin',
-                  description: 'Paylaşım ekranından "Flörtya" uygulamasını seçin',
+                  title: 'Flörtya\'ya Paylaş',
+                  description: 'Açılan paylaşım menüsünden "Flörtya" uygulamasını seçin',
+                ),
+                
+                // Adım 6
+                _buildInstructionStep(
+                  stepNumber: '6',
+                  title: 'Otomatik Analiz',
+                  description: 'Flörtya otomatik olarak açılır ve sohbetinizi analiz eder',
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Önemli notlar
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Önemli Notlar',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '• WhatsApp sohbetiniz (.zip veya .txt formatında) dışa aktarılır\n'
+                        '• Verileriniz güvenlidir ve sadece analiz için kullanılır\n'
+                        '• Analiz sonrası sohbet verisi silinir\n'
+                        '• Premium olmayan üyeler günde 3 WhatsApp analizi yapabilir',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 
                 const SizedBox(height: 16),
@@ -3471,7 +3543,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'WhatsApp paylaşımı artık destekleniyor! Sohbet dışa aktarımlarını (.zip veya .txt) direkt Flörtya ile paylaşabilirsiniz.',
+                          'Artık WhatsApp sohbetlerinizi Flörtya ile direkt paylaşarak anında analiz edebilirsiniz! Dosya seçme işlemi gerekli değildir.',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -3489,20 +3561,25 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Anladım',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                ),
               ),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                // Şimdilik dosya seçiciyi aç
-                _dosyadanAnaliz();
+                await _openWhatsApp();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF25D366),
                 foregroundColor: Colors.white,
               ),
-              child: Text('Dosya Seç'),
+              child: Text(
+                'WhatsApp\'ı Aç',
+                style: TextStyle(fontSize: 16),
+              ),
             ),
           ],
         );
@@ -3905,6 +3982,178 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
 
 
   
+  // WhatsApp uygulamasını açma metodu
+  Future<void> _openWhatsApp() async {
+    try {
+      String whatsappUrl;
+      
+      if (Platform.isAndroid) {
+        // Android için daha güvenilir WhatsApp açma yöntemi
+        whatsappUrl = 'whatsapp://send';
+      } else if (Platform.isIOS) {
+        // iOS için WhatsApp URL scheme'i
+        whatsappUrl = 'whatsapp://';
+      } else {
+        // Diğer platformlar için genel scheme
+        whatsappUrl = 'whatsapp://';
+      }
+      
+      final Uri whatsappUri = Uri.parse(whatsappUrl);
+      
+      try {
+        // Direkt açmayı dene
+        bool launched = await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        
+        if (launched && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('WhatsApp açıldı! Rehberdeki adımları takip edin.'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: const Color(0xFF25D366),
+            ),
+          );
+          return;
+        }
+      } catch (directLaunchError) {
+        debugPrint('Direkt WhatsApp açma hatası: $directLaunchError');
+      }
+      
+      // Direkt açma başarısız olduysa, canLaunchUrl kontrolü yap
+      bool canLaunchWhatsApp = await canLaunchUrl(whatsappUri);
+      
+      if (canLaunchWhatsApp) {
+        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('WhatsApp açıldı! Rehberdeki adımları takip edin.'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: const Color(0xFF25D366),
+            ),
+          );
+        }
+      } else {
+        // Android'de alternatif yöntem dene
+        if (Platform.isAndroid) {
+          await _tryAndroidAlternativeWhatsApp();
+        } else {
+          // WhatsApp yüklü değilse, mağazaya yönlendir
+          await _redirectToAppStore();
+        }
+      }
+    } catch (e) {
+      debugPrint('WhatsApp açma hatası: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WhatsApp açılamadı. Lütfen manuel olarak açın.'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  // Android için alternatif WhatsApp açma yöntemi
+  Future<void> _tryAndroidAlternativeWhatsApp() async {
+    try {
+      // Android intent ile WhatsApp'ı açmayı dene
+      const String intentUrl = 'intent://send#Intent;package=com.whatsapp;end';
+      final Uri intentUri = Uri.parse(intentUrl);
+      
+      bool canLaunchIntent = await canLaunchUrl(intentUri);
+      
+      if (canLaunchIntent) {
+        await launchUrl(intentUri, mode: LaunchMode.externalApplication);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('WhatsApp açıldı! Rehberdeki adımları takip edin.'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: const Color(0xFF25D366),
+            ),
+          );
+        }
+      } else {
+        // Son çare: Market URL'i ile WhatsApp'ı açmayı dene
+        const String marketUrl = 'market://details?id=com.whatsapp';
+        final Uri marketUri = Uri.parse(marketUrl);
+        
+        if (await canLaunchUrl(marketUri)) {
+          await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('WhatsApp sayfası açıldı. WhatsApp yüklüyse oradan açabilirsiniz.'),
+                duration: const Duration(seconds: 4),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        } else {
+          // Hiçbiri çalışmazsa Play Store'a yönlendir
+          await _redirectToAppStore();
+        }
+      }
+    } catch (e) {
+      debugPrint('Android alternatif WhatsApp açma hatası: $e');
+      await _redirectToAppStore();
+    }
+  }
+  
+  // App Store'a yönlendirme metodu
+  Future<void> _redirectToAppStore() async {
+    try {
+      String storeUrl;
+      
+      if (Platform.isIOS) {
+        // iOS App Store
+        storeUrl = 'https://apps.apple.com/app/whatsapp-messenger/id310633997';
+      } else if (Platform.isAndroid) {
+        // Google Play Store
+        storeUrl = 'https://play.google.com/store/apps/details?id=com.whatsapp';
+      } else {
+        // Diğer platformlar için genel WhatsApp indirme sayfası
+        storeUrl = 'https://www.whatsapp.com/download';
+      }
+      
+      final Uri storeUri = Uri.parse(storeUrl);
+      
+      if (await canLaunchUrl(storeUri)) {
+        await launchUrl(storeUri, mode: LaunchMode.externalApplication);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('WhatsApp indirme sayfası açıldı.'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: const Color(0xFF25D366),
+            ),
+          );
+        }
+      } else {
+        throw Exception('Store URL açılamadı');
+      }
+    } catch (e) {
+      debugPrint('App Store yönlendirme hatası: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WhatsApp yüklü değil. Lütfen mağazadan indirin.'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
   // Bilgi satırı oluşturma yardımcı metodu
   Widget _buildInfoRow(String label, String value) {
     return Padding(
