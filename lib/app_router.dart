@@ -1990,7 +1990,11 @@ class AppRouter {
           builder: (context, state) {
             final extra = state.extra as Map<String, dynamic>?;
             final showResults = extra?['showResults'] as bool? ?? false;
-            return MessageAnalysisView(showResults: showResults);
+            final sharedText = extra?['sharedText'] as String?;
+            return MessageAnalysisView(
+              showResults: showResults,
+              sharedText: sharedText,
+            );
           },
         ),
         // İlişki Raporu sayfası - Detay sayfası

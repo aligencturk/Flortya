@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as provider;
+import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -34,6 +35,7 @@ import 'services/campaign_service.dart';
 import 'controllers/remote_config_controller.dart';
 import 'controllers/message_coach_controller.dart';
 import 'services/permission_service.dart';
+import 'services/share_service.dart';
 
 // Global bayraklar servislerin durumunu takip etmek için
 bool _isFirebaseInitialized = false;
@@ -279,12 +281,158 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // MyApp'te versiyon kontrolü yapmayacağız, ana sayfada yapacağız
-
   @override
-  Widget build(BuildContext context) {
-    final LoggerService logger = LoggerService();
-    logger.d('MyApp inşa ediliyor');
+  void initState() {
+    super.initState();
+    _handleSharedData();
+    _checkPendingIntent();
+  }
+
+  Future<void> _handleSharedData() async {
+    // Uygulama açılırken paylaşılan verileri kontrol et
+    final sharedData = await ShareService.getSharedData();
+    if (sharedData != null && sharedData['type'] != 'none') {
+      _processSharedData(sharedData);
+    }
+
+    // Yeni intent geldiğinde dinle
+    ShareService.setNewIntentListener((data) {
+      if (data['type'] != 'none') {
+        _processSharedData(data);
+      }
+    });
+  }
+  
+  Future<void> _checkPendingIntent() async {
+    // Uygulama başlatılırken bekleyen intent varsa işle
+    await Future.delayed(const Duration(milliseconds: 1000)); // Router'ın tamamen hazır olmasını bekle
+    
+    final hasPending = await ShareService.hasPendingIntent();
+    if (hasPending) {
+      final pendingData = await ShareService.processPendingIntent();
+      if (pendingData != null && pendingData['type'] != 'none') {
+        _storePendingDataAndNavigate(pendingData);
+      }
+    }
+  }
+
+  void _processSharedData(Map<String, dynamic> data) {
+    final String type = data['type'] ?? '';
+    
+    // ShareService ile paylaşılan içeriği işle
+    final String? content = ShareService.processSharedContent(data);
+    
+    if (content != null && content.isNotEmpty) {
+      // WhatsApp sohbet verisini mesaj analizi sayfasına yönlendir
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && context.mounted) {
+          // Router'da message-analysis rotasına yönlendir ve içeriği parametre olarak gönder
+          context.go('/message-analysis', extra: {'sharedText': content});
+        }
+      });
+    }
+  }
+  
+  void _processSharedDataDirectly(Map<String, dynamic> data) {
+    final String type = data['type'] ?? '';
+    
+    // ShareService ile paylaşılan içeriği işle
+    final String? content = ShareService.processSharedContent(data);
+    
+    if (content != null && content.isNotEmpty) {
+      // Direkt routing yap (pending intent için)
+      if (mounted && context.mounted) {
+        // Router'da message-analysis rotasına yönlendir ve içeriği parametre olarak gönder
+        context.go('/message-analysis', extra: {'sharedText': content});
+      }
+    }
+  }
+  
+  void _storePendingDataAndNavigate(Map<String, dynamic> data) async {
+    try {
+      final String? content = ShareService.processSharedContent(data);
+      
+      if (content != null && content.isNotEmpty) {
+        // Veriyi SharedPreferences'e geçici olarak kaydet
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('pending_shared_content', content);
+        await prefs.setBool('has_pending_navigation', true);
+        
+                 // Widget tree build edildikten sonra navigation yap
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _attemptNavigation(content, prefs);
+        });
+      }
+         } catch (e) {
+       debugPrint('Pending data saklama hatası: $e');
+     }
+   }
+   
+   void _attemptNavigation(String content, SharedPreferences prefs) async {
+     if (!mounted) return;
+     
+     try {
+       // Router'ın hazır olup olmadığını kontrol et
+       if (context.mounted) {
+         // GoRouter.of(context) çağrısı yapmadan önce kontrol et
+         final router = GoRouter.of(context);
+         if (router.routerDelegate.currentConfiguration.isNotEmpty) {
+           // Router hazır, navigation yap
+           context.go('/message-analysis', extra: {'sharedText': content});
+           
+           // Başarılı navigation sonrası temizlik
+           await prefs.remove('pending_shared_content');
+           await prefs.setBool('has_pending_navigation', false);
+           debugPrint('Navigation başarıyla tamamlandı');
+           return;
+         }
+       }
+       
+       // Router henüz hazır değil, birkaç saniye daha bekle
+       debugPrint('Router henüz hazır değil, 2 saniye daha bekleniyor...');
+       await Future.delayed(const Duration(seconds: 2));
+       
+       if (mounted && context.mounted) {
+         try {
+           context.go('/message-analysis', extra: {'sharedText': content});
+           await prefs.remove('pending_shared_content');
+           await prefs.setBool('has_pending_navigation', false);
+           debugPrint('Gecikmeli navigation başarıyla tamamlandı');
+         } catch (e) {
+           debugPrint('Gecikmeli navigation hatası: $e');
+           // Son çare: Manuel temizlik
+           await prefs.remove('pending_shared_content');
+           await prefs.setBool('has_pending_navigation', false);
+         }
+       }
+     } catch (e) {
+       debugPrint('Navigation denemesi hatası: $e');
+       // Hata durumunda temizlik
+       await prefs.remove('pending_shared_content');
+       await prefs.setBool('has_pending_navigation', false);
+     }
+   }
+ 
+      @override
+   Widget build(BuildContext context) {
+     final LoggerService logger = LoggerService();
+     logger.d('MyApp inşa ediliyor');
+     
+     // Build tamamlandığında pending navigation kontrolü yap
+     WidgetsBinding.instance.addPostFrameCallback((_) async {
+       try {
+         final prefs = await SharedPreferences.getInstance();
+         final hasPendingNav = prefs.getBool('has_pending_navigation') ?? false;
+         final pendingContent = prefs.getString('pending_shared_content');
+         
+         if (hasPendingNav && pendingContent != null && pendingContent.isNotEmpty) {
+           debugPrint('Build sonrası pending navigation bulundu, tekrar deneniyor...');
+           _attemptNavigation(pendingContent, prefs);
+         }
+       } catch (e) {
+         debugPrint('Build sonrası pending navigation kontrolü hatası: $e');
+       }
+     });
     
     // AuthViewModel'i al
     final authViewModel = provider.Provider.of<AuthViewModel>(context, listen: false);

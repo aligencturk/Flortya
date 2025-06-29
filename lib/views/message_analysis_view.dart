@@ -44,10 +44,12 @@ extension MessageExtension on Message {
 
 class MessageAnalysisView extends StatefulWidget {
   final bool showResults;
+  final String? sharedText;
   
   const MessageAnalysisView({
     super.key,
     this.showResults = false,
+    this.sharedText,
   });
 
   @override
@@ -133,6 +135,12 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
     // Bir kez çağırma garantisi
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      
+      // Paylaşılan text varsa handle et
+      if (widget.sharedText != null && widget.sharedText!.isNotEmpty) {
+        _handleSharedText(widget.sharedText!);
+        return; // Paylaşılan text varsa mesaj yüklemeyi atla
+      }
       
       // Mesajları yükle
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
@@ -919,7 +927,7 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        "Görsel analizi için ekran görüntüsü yükleyin. WhatsApp analizi için sohbeti dışa aktarıp Flörtya'ya paylaşın.",
+                        "Görsel analizi için ekran görüntüsü yükleyin. WhatsApp analizi için sohbeti dışa aktarıp (.zip/.txt) Flörtya'ya paylaşın.",
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7),
                           fontSize: 12,
@@ -3445,25 +3453,25 @@ class _MessageAnalysisViewState extends State<MessageAnalysisView>
                 
                 const SizedBox(height: 16),
                 
-                // Uyarı kutusu
+                // Başarı kutusu
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.info_outline,
-                        color: Colors.blue,
+                        Icons.check_circle_outline,
+                        color: Colors.green,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Şimdilik dosya seçme sistemi aktif. WhatsApp paylaşımı yakında eklenecek.',
+                          'WhatsApp paylaşımı artık destekleniyor! Sohbet dışa aktarımlarını (.zip veya .txt) direkt Flörtya ile paylaşabilirsiniz.',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
